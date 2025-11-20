@@ -16,22 +16,47 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
   const [step, setStep] = useState<'upload' | 'details'>('upload');
   const [hook, setHook] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [durationError, setDurationError] = useState<string>('');
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
-      setStep('details');
+      // Create video element to check duration
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        const duration = Math.floor(video.duration);
+        setVideoDuration(duration);
+
+        if (duration < 30) {
+          setDurationError(`Video is too short (${duration}s). Minimum 30 seconds required.`);
+          setSelectedFile(null);
+        } else if (duration > 60) {
+          setDurationError(`Video is too long (${duration}s). Maximum 60 seconds allowed.`);
+          setSelectedFile(null);
+        } else {
+          setDurationError('');
+          setSelectedFile(file);
+          setStep('details');
+        }
+      };
+
+      video.src = URL.createObjectURL(file);
     }
   };
 
   const handleSubmit = () => {
-    console.log('Submitting pitch:', { hook, file: selectedFile });
+    console.log('Submitting pitch:', { hook, file: selectedFile, duration: videoDuration });
     // In production, this would upload to backend
     onClose();
     setStep('upload');
     setHook('');
     setSelectedFile(null);
+    setVideoDuration(0);
+    setDurationError('');
   };
 
   return (
@@ -65,7 +90,7 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
                     Post Your Pitch
                   </h2>
                   <p className="text-xs text-slate-400 font-body">
-                    60 seconds to shine
+                    30-60 seconds elevator pitch
                   </p>
                 </div>
               </div>
@@ -99,12 +124,25 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
                             Upload your pitch video
                           </p>
                           <p className="text-sm text-slate-400 font-body">
-                            MP4, MOV, or WEBM (max 60s)
+                            MP4, MOV, or WEBM (30-60s)
                           </p>
                         </div>
                       </div>
                     </div>
                   </label>
+
+                  {/* Duration Error */}
+                  {durationError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 bg-roast/10 border border-roast/30 rounded-lg"
+                    >
+                      <p className="text-sm text-roast font-body">
+                        ⚠️ {durationError}
+                      </p>
+                    </motion.div>
+                  )}
 
                   {/* Tips */}
                   <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 space-y-2">
@@ -113,7 +151,7 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
                       Pro Tips
                     </h3>
                     <ul className="text-sm text-slate-300 font-body space-y-1">
-                      <li>• Keep it under 60 seconds</li>
+                      <li>• <strong>30-60 seconds</strong> - perfect elevator pitch length</li>
                       <li>• Start with your hook (first 5 seconds!)</li>
                       <li>• Good lighting and audio matter</li>
                       <li>• Show enthusiasm!</li>
@@ -124,12 +162,20 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
                 <div className="space-y-6">
                   {/* Video Preview */}
                   {selectedFile && (
-                    <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden">
-                      <video
-                        src={URL.createObjectURL(selectedFile)}
-                        controls
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-body text-slate-300">Video Preview</span>
+                        <span className="text-xs text-neon-cyan font-heading font-bold">
+                          {videoDuration}s ✓
+                        </span>
+                      </div>
+                      <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden">
+                        <video
+                          src={URL.createObjectURL(selectedFile)}
+                          controls
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     </div>
                   )}
 
