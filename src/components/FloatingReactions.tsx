@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Sparkles, MessageCircle, Share2, BarChart3 } from 'lucide-react';
+import { Flame, Sparkles, Share2, BarChart3, MessageSquare } from 'lucide-react';
 import { Pitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
@@ -10,7 +10,7 @@ interface FloatingReactionsProps {
   pitch: Pitch;
   onRoast: () => void;
   onToast: () => void;
-  onOpenFeedback: () => void;
+  onOpenFeedback: (type: 'roast' | 'toast') => void;
   onShare: () => void;
 }
 
@@ -24,43 +24,63 @@ export function FloatingReactions({
   const [justRoasted, setJustRoasted] = useState(false);
   const [justToasted, setJustToasted] = useState(false);
 
-  const handleRoast = () => {
+  const handleRoastClick = () => {
     setJustRoasted(true);
     onRoast();
     setTimeout(() => setJustRoasted(false), 1000);
   };
 
-  const handleToast = () => {
+  const handleRoastLongPress = () => {
+    onOpenFeedback('roast');
+  };
+
+  const handleToastClick = () => {
     setJustToasted(true);
     onToast();
     setTimeout(() => setJustToasted(false), 1000);
   };
 
+  const handleToastLongPress = () => {
+    onOpenFeedback('toast');
+  };
+
   return (
     <div className="fixed right-4 bottom-24 z-50 flex flex-col gap-4">
-      {/* Roast Button */}
+      {/* Roast Button - Tap for quick roast, hold for detailed feedback */}
       <motion.button
-        onClick={handleRoast}
+        onClick={handleRoastClick}
+        onDoubleClick={handleRoastLongPress}
         whileTap={{ scale: 0.9 }}
-        className="relative flex flex-col items-center gap-1"
+        className="relative flex flex-col items-center gap-1 group"
       >
         <motion.div
           animate={justRoasted ? { scale: [1, 1.3, 1] } : {}}
-          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all relative ${
             justRoasted
               ? 'bg-roast shadow-[0_0_30px_rgba(255,59,48,0.6)]'
-              : 'bg-slate-900/80 backdrop-blur-md border-2 border-slate-700 hover:border-roast'
+              : 'bg-slate-900/80 backdrop-blur-md border-2 border-roast/50 hover:border-roast hover:bg-roast/10'
           }`}
         >
           <Flame
-            className={`w-7 h-7 transition-colors ${
+            className={`w-8 h-8 transition-colors ${
               justRoasted ? 'text-white' : 'text-roast'
             }`}
           />
+          {/* Comment count badge */}
+          {pitch.feedback && pitch.feedback.filter(f => f.type === 'roast').length > 0 && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-roast rounded-full flex items-center justify-center border-2 border-black">
+              <span className="text-[10px] font-bold text-white">
+                {pitch.feedback.filter(f => f.type === 'roast').length}
+              </span>
+            </div>
+          )}
         </motion.div>
-        <span className="text-xs font-bold text-white font-heading">
-          {formatNumber(pitch.roastCount + (justRoasted ? 1 : 0))}
-        </span>
+        <div className="text-center">
+          <span className="text-sm font-bold text-white font-heading block">
+            {formatNumber(pitch.roastCount + (justRoasted ? 1 : 0))}
+          </span>
+          <span className="text-[10px] text-slate-400 font-body">ROAST</span>
+        </div>
 
         <AnimatePresence>
           {justRoasted && (
@@ -76,29 +96,41 @@ export function FloatingReactions({
         </AnimatePresence>
       </motion.button>
 
-      {/* Toast Button */}
+      {/* Toast Button - Tap for quick toast, hold for detailed feedback */}
       <motion.button
-        onClick={handleToast}
+        onClick={handleToastClick}
+        onDoubleClick={handleToastLongPress}
         whileTap={{ scale: 0.9 }}
-        className="relative flex flex-col items-center gap-1"
+        className="relative flex flex-col items-center gap-1 group"
       >
         <motion.div
           animate={justToasted ? { scale: [1, 1.3, 1] } : {}}
-          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
+          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all relative ${
             justToasted
               ? 'bg-toast shadow-[0_0_30px_rgba(52,199,89,0.6)]'
-              : 'bg-slate-900/80 backdrop-blur-md border-2 border-slate-700 hover:border-toast'
+              : 'bg-slate-900/80 backdrop-blur-md border-2 border-toast/50 hover:border-toast hover:bg-toast/10'
           }`}
         >
           <Sparkles
-            className={`w-7 h-7 transition-colors ${
+            className={`w-8 h-8 transition-colors ${
               justToasted ? 'text-white' : 'text-toast'
             }`}
           />
+          {/* Comment count badge */}
+          {pitch.feedback && pitch.feedback.filter(f => f.type === 'toast').length > 0 && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-toast rounded-full flex items-center justify-center border-2 border-black">
+              <span className="text-[10px] font-bold text-white">
+                {pitch.feedback.filter(f => f.type === 'toast').length}
+              </span>
+            </div>
+          )}
         </motion.div>
-        <span className="text-xs font-bold text-white font-heading">
-          {formatNumber(pitch.toastCount + (justToasted ? 1 : 0))}
-        </span>
+        <div className="text-center">
+          <span className="text-sm font-bold text-white font-heading block">
+            {formatNumber(pitch.toastCount + (justToasted ? 1 : 0))}
+          </span>
+          <span className="text-[10px] text-slate-400 font-body">TOAST</span>
+        </div>
 
         <AnimatePresence>
           {justToasted && (
@@ -112,20 +144,6 @@ export function FloatingReactions({
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.button>
-
-      {/* Feedback Button */}
-      <motion.button
-        onClick={onOpenFeedback}
-        whileTap={{ scale: 0.9 }}
-        className="flex flex-col items-center gap-1"
-      >
-        <div className="w-14 h-14 rounded-full bg-slate-900/80 backdrop-blur-md border-2 border-slate-700 hover:border-neon-cyan flex items-center justify-center transition-all">
-          <MessageCircle className="w-7 h-7 text-slate-300" />
-        </div>
-        <span className="text-xs font-bold text-white font-heading">
-          {pitch.feedback?.length || 0}
-        </span>
       </motion.button>
 
       {/* Share Button */}

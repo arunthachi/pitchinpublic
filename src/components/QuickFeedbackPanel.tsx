@@ -12,10 +12,11 @@ interface QuickFeedbackPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (feedback: FeedbackFormData) => void;
+  initialType?: 'roast' | 'toast';
 }
 
-export function QuickFeedbackPanel({ isOpen, onClose, onSubmit }: QuickFeedbackPanelProps) {
-  const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
+export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 'toast' }: QuickFeedbackPanelProps) {
+  const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>(initialType);
   const [scores, setScores] = useState({
     clarity: 5,
     solution: 5,
@@ -23,6 +24,13 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit }: QuickFeedbackP
     presentation: 5,
   });
   const [notes, setNotes] = useState('');
+
+  // Update feedback type when initialType changes
+  React.useEffect(() => {
+    if (isOpen) {
+      setFeedbackType(initialType);
+    }
+  }, [initialType, isOpen]);
 
   const handleSubmit = () => {
     onSubmit({ type: feedbackType, scores, notes });

@@ -17,6 +17,7 @@ interface FullScreenVideoFeedProps {
 export function FullScreenVideoFeed({ pitches }: FullScreenVideoFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
   const [direction, setDirection] = useState<'up' | 'down'>('down');
 
   const currentPitch = pitches[currentIndex];
@@ -135,7 +136,10 @@ export function FullScreenVideoFeed({ pitches }: FullScreenVideoFeedProps) {
             pitch={currentPitch}
             onRoast={handleRoast}
             onToast={handleToast}
-            onOpenFeedback={() => setFeedbackPanelOpen(true)}
+            onOpenFeedback={(type) => {
+              setFeedbackType(type);
+              setFeedbackPanelOpen(true);
+            }}
             onShare={handleShare}
           />
 
@@ -166,6 +170,7 @@ export function FullScreenVideoFeed({ pitches }: FullScreenVideoFeedProps) {
         isOpen={feedbackPanelOpen}
         onClose={() => setFeedbackPanelOpen(false)}
         onSubmit={handleFeedbackSubmit}
+        initialType={feedbackType}
       />
 
       {/* Progress Indicator */}
