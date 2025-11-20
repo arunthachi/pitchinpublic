@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import { GridBackground } from "@/components/GridBackground";
@@ -15,15 +15,19 @@ const inter = Inter({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#00F0FF",
+};
+
 export const metadata: Metadata = {
   title: "Pitch in Public | Where Founders Get Real Feedback",
   description:
     "Share your startup pitch, get brutally honest feedback from founders and investors. Iterate in public, build better.",
   keywords: ["startup", "pitch", "feedback", "founders", "investors", "MVP"],
   authors: [{ name: "Pitch in Public" }],
-  themeColor: "#00F0FF",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
-  manifest: "/manifest.json",
   openGraph: {
     type: "website",
     title: "Pitch in Public",

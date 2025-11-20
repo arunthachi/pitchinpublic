@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Plus } from 'lucide-react';
+import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
 import { mockPitches } from '@/lib/data';
@@ -11,41 +11,17 @@ export default function Home() {
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
 
   return (
-    <>
-      {/* Minimal Floating Header */}
-      <motion.header
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        className="fixed top-0 left-0 right-0 z-50 p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none"
-      >
-        <div className="flex items-center justify-between max-w-7xl mx-auto pointer-events-auto">
-          {/* Logo */}
-          <motion.div
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2"
-          >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-lime flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-slate-900" />
-            </div>
-            <span className="text-lg font-heading font-bold text-white hidden sm:block">
-              Pitch in Public
-            </span>
-          </motion.div>
+    <div className="flex min-h-screen bg-black">
+      {/* Left Sidebar Navigation */}
+      <SidebarNav onPostClick={() => setRecordingStudioOpen(true)} />
 
-          {/* Post Button */}
-          <motion.button
-            onClick={() => setRecordingStudioOpen(true)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="w-12 h-12 rounded-full bg-gradient-to-br from-neon-cyan to-neon-lime flex items-center justify-center shadow-lg hover:shadow-neon-cyan/50 transition-shadow"
-          >
-            <Plus className="w-6 h-6 text-slate-900" />
-          </motion.button>
+      {/* Main Content Area - Video Feed */}
+      <main className="flex-1 ml-20 lg:ml-64">
+        {/* Video Feed Container */}
+        <div className="relative h-screen max-w-[600px] mx-auto bg-black">
+          <FullScreenVideoFeed pitches={mockPitches} />
         </div>
-      </motion.header>
-
-      {/* Full-Screen Video Feed */}
-      <FullScreenVideoFeed pitches={mockPitches} />
+      </main>
 
       {/* Recording Studio Modal */}
       <RecordingStudio
@@ -66,6 +42,6 @@ export default function Home() {
           </p>
         </div>
       </motion.div>
-    </>
+    </div>
   );
 }

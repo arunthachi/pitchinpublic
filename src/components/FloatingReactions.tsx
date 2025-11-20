@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Sparkles, Share2, BarChart3, MessageSquare } from 'lucide-react';
+import { Flame, Wine, Share2, BarChart3, MessageSquare } from 'lucide-react';
 import { Pitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
@@ -111,7 +111,7 @@ export function FloatingReactions({
               : 'bg-slate-900/80 backdrop-blur-md border-2 border-toast/50 hover:border-toast hover:bg-toast/10'
           }`}
         >
-          <Sparkles
+          <Wine
             className={`w-8 h-8 transition-colors ${
               justToasted ? 'text-white' : 'text-toast'
             }`}
@@ -140,7 +140,7 @@ export function FloatingReactions({
               exit={{ opacity: 0 }}
               className="absolute -top-4 left-1/2 -translate-x-1/2 pointer-events-none"
             >
-              <Sparkles className="w-8 h-8 text-toast" />
+              <Wine className="w-8 h-8 text-toast" />
             </motion.div>
           )}
         </AnimatePresence>

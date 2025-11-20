@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Flame, Sparkles } from 'lucide-react';
+import { X, Flame, Wine } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -98,7 +98,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                       : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                   }`}
                 >
-                  <Sparkles className="inline-block w-4 h-4 mr-2" />
+                  <Wine className="inline-block w-4 h-4 mr-2" />
                   TOAST
                 </button>
               </div>
