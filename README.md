@@ -1,59 +1,106 @@
-# Pitch in Public - MVP Frontend
+# Pitch in Public 2.0 - The TikTok for Startup Pitches
 
-A mobile-first responsive web application (PWA) for startup founders to share their pitches and receive real feedback from the community.
+A **full-screen, immersive, mobile-first** web application where founders post 60-second pitches and get real-time feedback from the community. Think **TikTok meets Product Hunt meets Loom**.
 
-## Features
+## 🎬 What's New in 2.0
 
-### 🎬 The Stage (Home Feed)
-- **Desktop:** Grid layout showcasing pitch cards
-- **Mobile:** TikTok-style vertical scroll feed
-- Real-time pitch cards with video thumbnails, hooks, and key metrics
-- Filter by industry, stage, and trending pitches
+### **The TikTok Experience**
+- ✅ Full-screen vertical video feed
+- ✅ Swipe up/down navigation (or arrow keys)
+- ✅ Auto-play videos with smooth transitions
+- ✅ Floating UI that doesn't compete with content
+- ✅ Gesture-based interactions
 
-### 💬 The Feedback Room (Detail View)
-- **Desktop:** Split-screen layout (Video Left, Feedback Right)
-- **Mobile:** Stacked layout (Video Top, Feedback Bottom)
-- Interactive feedback modal with "Roast 🔥" vs "Toast 🥂" modes
-- 4-category scoring system: Clarity, Solution, Market, Presentation
-- Real-time feedback submission
+### **Quick Interactions**
+- ✅ **Roast 🔥 / Toast 🥂** buttons floating over video (like TikTok likes)
+- ✅ Real-time reaction counts
+- ✅ Animated feedback bubbles
+- ✅ Tap to pause/play
+- ✅ Swipe left to open feedback panel
 
-### 📊 Pivot History
-- Visual timeline showing pitch evolution (V1 → V2 → V3)
-- See how founders iterated based on feedback
-- Track changes and improvements over time
+### **Recording Flow**
+- ✅ One-tap recording studio access
+- ✅ Upload video in 3 clicks
+- ✅ Add hook and tags inline
+- ✅ Post goes live instantly
 
-## Tech Stack
+## 🚀 Core Features
+
+### **1. The Feed (TikTok-Style)**
+```
+┌─────────────────────┐
+│   [Video Playing]   │ ← Full screen
+│                     │
+│   Sarah Chen        │ ← Floating overlay
+│   QuantumFlow       │
+│   "AI-powered..."   │
+│                     │
+│              [🔥 42]│ ← Roast button
+│              [🥂 89]│ ← Toast button
+│              [💬 12]│ ← Feedback
+│              [📊 8.7]│ ← Score
+│                     │
+│   ↓ Swipe for next  │
+└─────────────────────┘
+```
+
+### **2. Quick Feedback Panel**
+- Slides in from right
+- Toggle Roast/Toast mode
+- 4 quick sliders (Clarity, Solution, Market, Presentation)
+- Text area for detailed notes
+- Submit in seconds
+
+### **3. Recording Studio**
+- Upload or record video
+- Add compelling hook (120 chars)
+- Quick tag selection
+- Preview before posting
+
+### **4. Gesture Controls**
+- **Swipe up** = Next pitch
+- **Swipe down** = Previous pitch
+- **Tap anywhere** = Pause/play
+- **Swipe left** = Open feedback
+- **Double-tap** = Quick toast (coming soon)
+
+## 🎨 Design Philosophy
+
+### **Minimal Chrome, Maximum Content**
+- Pure black background (#000000)
+- Content fills 100% of screen
+- UI only appears when needed
+- No grid layouts, no distractions
+
+### **Floating UI**
+- All controls float over video
+- Semi-transparent with backdrop blur
+- Neon cyan/lime accents pop against dark background
+- Subtle animations for engagement
+
+### **Mobile-First**
+- Designed for thumb-friendly interactions
+- Portrait orientation default
+- Works great on desktop with keyboard nav
+
+## 🛠️ Tech Stack
 
 - **Framework:** Next.js 14 (App Router, TypeScript)
-- **Styling:** Tailwind CSS with custom dark theme
-- **Components:** Shadcn/UI + Radix UI primitives
+- **Video:** React Player
+- **Gestures:** @use-gesture/react
 - **Animation:** Framer Motion
+- **Styling:** Tailwind CSS
+- **Components:** Shadcn/UI + Radix UI
 - **Icons:** Lucide React
-- **Fonts:** Space Grotesk (headings) + Inter (body)
+- **Fonts:** Space Grotesk + Inter
 
-## Design System
-
-### Theme
-- **Colors:** Dark mode heavy (Slate 900/950)
-- **Accents:** Neon Cyan (#00F0FF) and Lime Green (#CCFF00)
-- **Texture:** Blueprint-style grid pattern overlay
-- **Typography:** Large bold headers with high contrast
-
-### Visual Identity
-- Glassmorphism cards with backdrop blur
-- Animated hover states and transitions
-- Glow effects on key elements
-- Mobile-optimized touch targets
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-
-### Installation
+## 📦 Installation
 
 ```bash
+# Clone the repo
+git clone <your-repo-url>
+cd pitchinpublic
+
 # Install dependencies
 npm install
 
@@ -61,85 +108,135 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000)
 
-### Build for Production
+## 🎮 How to Use
 
-```bash
-npm run build
-npm start
+### **Watching Pitches**
+1. Videos auto-play full-screen
+2. Swipe up/down or use arrow keys to navigate
+3. Tap video to pause/play
+4. Tap mute button (top-right) to toggle sound
+
+### **Giving Feedback**
+1. While watching, tap 🔥 (Roast) or 🥂 (Toast) for quick reaction
+2. Tap 💬 icon to open detailed feedback panel
+3. Adjust 4 sliders and write notes
+4. Submit instantly
+
+### **Posting Your Pitch**
+1. Tap the + button (top-right)
+2. Upload your 60-second video
+3. Write your hook (one killer sentence)
+4. Add tags and post!
+
+## 🎯 Key Interactions
+
+### **Navigation**
+- **Keyboard:** ↑ / ↓ arrows
+- **Mouse:** Scroll up/down
+- **Touch:** Swipe up/down
+
+### **Reactions**
+- **Roast 🔥** → Red glow animation
+- **Toast 🥂** → Green glow animation
+- **Feedback 💬** → Opens slide-in panel
+- **Share 📤** → Native share or copy link
+
+### **Video Controls**
+- **Tap anywhere** → Pause/play
+- **Tap mute icon** → Toggle sound
+- **Progress bar** → Shows at top
+
+## 📂 Project Structure
+
+```
+src/
+├── app/
+│   ├── layout.tsx              # Root layout
+│   ├── page.tsx                # Home (Full-screen feed)
+│   └── globals.css
+├── components/
+│   ├── FullScreenVideoFeed.tsx # Main container with gestures
+│   ├── VideoPlayer.tsx         # Full-screen video player
+│   ├── FloatingPitchInfo.tsx   # Overlay with pitch details
+│   ├── FloatingReactions.tsx   # Roast/Toast sidebar
+│   ├── QuickFeedbackPanel.tsx  # Slide-in feedback form
+│   ├── RecordingStudio.tsx     # Upload/record interface
+│   └── ui/                     # Shadcn components
+├── lib/
+│   ├── data.ts                 # Mock pitches
+│   └── utils.ts
+└── types/
+    └── index.ts
 ```
 
-## Project Structure
+## 🎨 Design Tokens
 
-```
-pitchinpublic/
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx          # Root layout with fonts & theme
-│   │   ├── page.tsx            # Home feed (The Stage)
-│   │   ├── pitch/[id]/page.tsx # Detail view (Feedback Room)
-│   │   └── globals.css         # Global styles
-│   ├── components/
-│   │   ├── ui/                 # Shadcn/UI components
-│   │   ├── PitchCard.tsx       # Pitch card component
-│   │   ├── FeedbackModal.tsx   # Roast/Toast modal
-│   │   ├── PivotHistory.tsx    # Timeline component
-│   │   └── GridBackground.tsx  # Blueprint texture
-│   ├── lib/
-│   │   ├── utils.ts            # Utility functions
-│   │   └── data.ts             # Mock pitch data
-│   └── types/
-│       └── index.ts            # TypeScript types
-├── public/                      # Static assets
-└── package.json
+```css
+--neon-cyan: #00F0FF
+--neon-lime: #CCFF00
+--roast: #FF3B30
+--toast: #34C759
+--dark-base: #000000
+--slate-950: #020617
 ```
 
-## Key Components
+## 🔥 What Makes This Addictive
 
-### PitchCard
-Responsive card component with:
-- Video thumbnail with play overlay
-- Founder info and company name
-- Stage and industry badges
-- View count and interest score
-- Smooth hover animations
+1. **Instant gratification** → Quick reactions in 1 tap
+2. **Endless scroll** → Always one more pitch
+3. **FOMO** → Miss out on trending pitches
+4. **Social proof** → See roast/toast counts live
+5. **Low friction** → Post in 3 taps
+6. **Gamification** → Coming soon (streaks, badges, leaderboards)
 
-### FeedbackModal
-Interactive feedback form featuring:
-- Roast 🔥 / Toast 🥂 toggle switch
-- 4 scoring sliders (1-10 scale)
-- Text area for detailed notes
-- Dynamic theme based on feedback type
+## 🚀 Roadmap
 
-### PivotHistory
-Timeline visualization showing:
-- Chronological pitch versions
-- Key changes and learnings
-- Current version highlight
-- Smooth animations
-
-## Mobile Responsiveness
-
-- Fully responsive grid → vertical stack layouts
-- Touch-optimized interactive elements
-- Optimized for screens 320px and up
-- Smooth scroll behavior
-
-## Future Enhancements
-
-- [ ] Video player integration
-- [ ] User authentication
-- [ ] Real-time notifications
-- [ ] Advanced filtering and search
+- [ ] Double-tap to quick toast
+- [ ] Duet/Stitch reactions
+- [ ] Live streaming pitches
 - [ ] Founder profiles
-- [ ] Analytics dashboard
-- [ ] PWA offline support
+- [ ] Following/followers
+- [ ] Notifications
+- [ ] Streak system
+- [ ] Leaderboards
+- [ ] Remix culture (iterate on feedback)
+- [ ] PWA with offline support
 
-## License
+## 🎯 Performance
+
+- Videos preload for smooth transitions
+- Optimized animations with Framer Motion
+- Lazy loading for components
+- Responsive images with Next.js Image
+
+## 📱 Browser Support
+
+- Chrome/Edge (recommended)
+- Safari
+- Firefox
+- Mobile browsers (iOS Safari, Chrome Mobile)
+
+## 🤝 Contributing
+
+This is an MVP. Feedback and PRs welcome!
+
+## 📄 License
 
 MIT
 
 ---
 
-**Built for founders who aren't afraid of feedback.**
+**Built for founders who aren't afraid of feedback.** 🔥🥂
+
+---
+
+## Quick Start Commands
+
+```bash
+npm run dev      # Start dev server
+npm run build    # Build for production
+npm run start    # Run production build
+npm run lint     # Run ESLint
+```

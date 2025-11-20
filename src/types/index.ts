@@ -1,6 +1,7 @@
 export type PitchStage = 'Pre-Seed' | 'Seed' | 'Series A' | 'Series B' | 'Growth';
 export type Industry = 'SaaS' | 'FinTech' | 'HealthTech' | 'AI/ML' | 'Consumer' | 'Enterprise' | 'Climate' | 'Web3';
 export type FeedbackType = 'roast' | 'toast';
+export type ReactionType = 'roast' | 'toast' | 'fire' | 'rocket' | 'eyes' | 'thinking';
 
 export interface PitchVersion {
   version: string;
@@ -37,9 +38,27 @@ export interface Pitch {
   stage: PitchStage;
   views: number;
   interestScore: number;
+  roastCount: number;
+  toastCount: number;
   createdAt: string;
   versions?: PitchVersion[];
   feedback?: Feedback[];
+  duration?: number; // in seconds
+}
+
+export interface QuickReaction {
+  id: string;
+  type: ReactionType;
+  x: number;
+  y: number;
+  timestamp: number;
+}
+
+export interface UserStreak {
+  currentStreak: number;
+  longestStreak: number;
+  totalFeedbacks: number;
+  lastFeedbackDate: string;
 }
 
 export interface FeedbackFormData {
