@@ -71,3 +71,15 @@ export interface FeedbackFormData {
   };
   notes: string;
 }
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  bio?: string;
+  followersCount: number;
+  followingCount: number;
+  pitchesCount: number;
+  createdAt: string;
+}

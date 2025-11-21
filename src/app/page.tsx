@@ -6,11 +6,13 @@ import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
 import { FloatingReactions } from '@/components/FloatingReactions';
-import { mockPitches } from '@/lib/data';
+import { UserProfile } from '@/components/UserProfile';
+import { mockPitches, mockUser } from '@/lib/data';
 import { Pitch } from '@/types';
 
 export default function Home() {
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [currentPitch, setCurrentPitch] = useState<Pitch>(mockPitches[0]);
   const [handlers, setHandlers] = useState<{
     onRoast: () => void;
@@ -18,6 +20,11 @@ export default function Home() {
     onOpenFeedback: (type: 'roast' | 'toast') => void;
     onShare: () => void;
   } | null>(null);
+
+  // Filter user's own pitches (in production, fetch from API)
+  const userPitches = mockPitches.filter((pitch) =>
+    pitch.founderName === 'Sarah Chen' // Mock: would match mockUser.id
+  );
 
   const handlePitchChange = useCallback((pitch: Pitch, newHandlers: typeof handlers) => {
     setCurrentPitch(pitch);
@@ -28,6 +35,18 @@ export default function Home() {
     <div className="flex min-h-screen bg-black">
       {/* Left Sidebar Navigation */}
       <SidebarNav onPostClick={() => setRecordingStudioOpen(true)} />
+
+      {/* Profile Button - Top Right */}
+      <button
+        onClick={() => setProfileOpen(true)}
+        className="fixed top-4 right-4 z-50 w-11 h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
+      >
+        <img
+          src={mockUser.avatar}
+          alt={mockUser.name}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+        />
+      </button>
 
       {/* Main Content Area - Video Feed */}
       <main className="flex-1 ml-20 lg:ml-64 flex items-center justify-center bg-black py-4">
@@ -59,6 +78,14 @@ export default function Home() {
       <RecordingStudio
         isOpen={recordingStudioOpen}
         onClose={() => setRecordingStudioOpen(false)}
+      />
+
+      {/* User Profile Panel */}
+      <UserProfile
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        user={mockUser}
+        userPitches={userPitches}
       />
 
       {/* Swipe Instruction (shows briefly on first load) */}

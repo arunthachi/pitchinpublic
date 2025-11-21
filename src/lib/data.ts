@@ -1,4 +1,17 @@
-import { Pitch } from '@/types';
+import { Pitch, User } from '@/types';
+
+// Mock current user
+export const mockUser: User = {
+  id: 'user-1',
+  name: 'Alex Johnson',
+  email: 'alex@pitchinpublic.com',
+  avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
+  bio: 'Serial founder, AI enthusiast, building in public',
+  followersCount: 1247,
+  followingCount: 89,
+  pitchesCount: 3,
+  createdAt: '2024-08-15T00:00:00Z',
+};
 
 export const mockPitches: Pitch[] = [
   {
