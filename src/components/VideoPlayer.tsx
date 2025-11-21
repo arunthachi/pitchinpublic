@@ -138,15 +138,11 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         onEnded={onEnded}
       />
 
-      {/* Progress Bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-slate-800/50 z-50">
-        <motion.div
-          className="h-full bg-neon-cyan"
-          initial={{ width: '0%' }}
-          animate={{ width: `${progress * 100}%` }}
-          transition={{ duration: 0.1 }}
-        />
-      </div>
+      {/* Progress Bar - thin cyan line at top, no background */}
+      <div
+        className="absolute top-0 left-0 h-0.5 bg-neon-cyan z-50 transition-all duration-100"
+        style={{ width: `${progress * 100}%` }}
+      />
 
       {/* Tap to Play/Pause Overlay */}
       <div

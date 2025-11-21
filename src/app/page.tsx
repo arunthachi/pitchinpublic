@@ -34,7 +34,7 @@ export default function Home() {
         {/* Video + Reactions Container - Like TikTok layout */}
         <div className="flex items-end gap-3 pb-8">
           {/* Video Feed Container - Phone aspect ratio like TikTok (9:16) */}
-          <div className="relative h-[calc(100vh-4rem)] w-auto aspect-[9/16] max-h-[calc(100vh-4rem)] bg-black rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-slate-800">
+          <div className="relative h-[calc(100vh-4rem)] w-auto aspect-[9/16] max-h-[calc(100vh-4rem)] bg-black rounded-xl overflow-hidden shadow-2xl shadow-black/50">
             <FullScreenVideoFeed
               pitches={mockPitches}
               hideReactions={true}
