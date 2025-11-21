@@ -1,11 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Video, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+import { X, Upload, Check, Loader2 } from 'lucide-react';
 
 interface RecordingStudioProps {
   isOpen: boolean;
@@ -13,50 +10,89 @@ interface RecordingStudioProps {
 }
 
 export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
-  const [step, setStep] = useState<'upload' | 'details'>('upload');
-  const [hook, setHook] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
-  const [durationError, setDurationError] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const validateAndSetFile = useCallback((file: File) => {
+    setError('');
+
+    // Create video element to check duration
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+
+    video.onloadedmetadata = () => {
+      window.URL.revokeObjectURL(video.src);
+      const duration = Math.floor(video.duration);
+      setVideoDuration(duration);
+
+      if (duration < 30) {
+        setError(`Too short (${duration}s). Need 30-60 seconds.`);
+        setSelectedFile(null);
+        setPreviewUrl(null);
+      } else if (duration > 60) {
+        setError(`Too long (${duration}s). Max 60 seconds.`);
+        setSelectedFile(null);
+        setPreviewUrl(null);
+      } else {
+        setSelectedFile(file);
+        setPreviewUrl(URL.createObjectURL(file));
+      }
+    };
+
+    video.onerror = () => {
+      setError('Could not read video file');
+    };
+
+    video.src = URL.createObjectURL(file);
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Create video element to check duration
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-
-      video.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(video.src);
-        const duration = Math.floor(video.duration);
-        setVideoDuration(duration);
-
-        if (duration < 30) {
-          setDurationError(`Video is too short (${duration}s). Minimum 30 seconds required.`);
-          setSelectedFile(null);
-        } else if (duration > 60) {
-          setDurationError(`Video is too long (${duration}s). Maximum 60 seconds allowed.`);
-          setSelectedFile(null);
-        } else {
-          setDurationError('');
-          setSelectedFile(file);
-          setStep('details');
-        }
-      };
-
-      video.src = URL.createObjectURL(file);
+      validateAndSetFile(file);
     }
   };
 
-  const handleSubmit = () => {
-    console.log('Submitting pitch:', { hook, file: selectedFile, duration: videoDuration });
-    // In production, this would upload to backend
-    onClose();
-    setStep('upload');
-    setHook('');
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('video/')) {
+      validateAndSetFile(file);
+    }
+  }, [validateAndSetFile]);
+
+  const handleSubmit = async () => {
+    if (!selectedFile) return;
+
+    setUploading(true);
+    // Simulate upload - in production, use the video provider
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log('Uploading pitch:', { file: selectedFile, duration: videoDuration });
+
+    // Reset and close
+    handleClose();
+  };
+
+  const handleClose = () => {
     setSelectedFile(null);
+    setPreviewUrl(null);
     setVideoDuration(0);
-    setDurationError('');
+    setError('');
+    setUploading(false);
+    onClose();
+  };
+
+  const removeFile = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setVideoDuration(0);
+    setError('');
   };
 
   return (
@@ -68,170 +104,139 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80]"
+            onClick={handleClose}
+            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100]"
           />
 
-          {/* Modal */}
+          {/* Modal - Always Centered */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed inset-4 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[500px] sm:max-h-[80vh] bg-slate-950 border border-slate-800 rounded-2xl z-[90] overflow-hidden flex flex-col"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-md z-[101]"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-lime flex items-center justify-center">
-                  <Video className="w-5 h-5 text-slate-900" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-heading font-bold text-white">
-                    Post Your Pitch
-                  </h2>
-                  <p className="text-xs text-slate-400 font-body">
-                    30-60 seconds elevator pitch
-                  </p>
-                </div>
-              </div>
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
+              {/* Close Button */}
               <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition-colors"
+                onClick={handleClose}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center transition-colors z-10"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-4 h-4 text-slate-400" />
               </button>
-            </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {step === 'upload' ? (
-                <div className="space-y-6">
-                  {/* Upload Area */}
-                  <label className="block">
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
-                    <div className="border-2 border-dashed border-slate-700 rounded-xl p-12 hover:border-neon-cyan transition-colors cursor-pointer group">
-                      <div className="text-center space-y-4">
-                        <div className="w-16 h-16 mx-auto rounded-full bg-slate-800 group-hover:bg-neon-cyan/10 flex items-center justify-center transition-colors">
-                          <Upload className="w-8 h-8 text-slate-400 group-hover:text-neon-cyan transition-colors" />
-                        </div>
-                        <div>
-                          <p className="font-heading font-bold text-white mb-1">
-                            Upload your pitch video
-                          </p>
-                          <p className="text-sm text-slate-400 font-body">
-                            MP4, MOV, or WEBM (30-60s)
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </label>
-
-                  {/* Duration Error */}
-                  {durationError && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-4 bg-roast/10 border border-roast/30 rounded-lg"
-                    >
-                      <p className="text-sm text-roast font-body">
-                        ⚠️ {durationError}
+              {/* Content */}
+              <div className="p-6">
+                {!selectedFile ? (
+                  // Upload State
+                  <>
+                    <div className="text-center mb-6">
+                      <h2 className="text-2xl font-bold text-white mb-1">
+                        Drop your pitch
+                      </h2>
+                      <p className="text-slate-400 text-sm">
+                        30-60 second video
                       </p>
-                    </motion.div>
-                  )}
-
-                  {/* Tips */}
-                  <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 space-y-2">
-                    <h3 className="font-heading font-bold text-sm text-neon-cyan flex items-center gap-2">
-                      <Sparkles className="w-4 h-4" />
-                      Pro Tips
-                    </h3>
-                    <ul className="text-sm text-slate-300 font-body space-y-1">
-                      <li>• <strong>30-60 seconds</strong> - perfect elevator pitch length</li>
-                      <li>• Start with your hook (first 5 seconds!)</li>
-                      <li>• Good lighting and audio matter</li>
-                      <li>• Show enthusiasm!</li>
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Video Preview */}
-                  {selectedFile && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-body text-slate-300">Video Preview</span>
-                        <span className="text-xs text-neon-cyan font-heading font-bold">
-                          {videoDuration}s ✓
-                        </span>
-                      </div>
-                      <div className="relative aspect-video bg-slate-900 rounded-lg overflow-hidden">
-                        <video
-                          src={URL.createObjectURL(selectedFile)}
-                          controls
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
                     </div>
-                  )}
 
-                  {/* Hook Input */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-body text-slate-300 flex items-center justify-between">
-                      <span>Your Hook</span>
-                      <span className="text-xs text-slate-500">
-                        {hook.length}/120
-                      </span>
+                    <label
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handleDrop}
+                      className="block cursor-pointer"
+                    >
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <div className="border-2 border-dashed border-slate-600 hover:border-neon-cyan rounded-xl p-10 transition-all hover:bg-slate-800/30 group">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-16 h-16 rounded-full bg-slate-800 group-hover:bg-neon-cyan/20 flex items-center justify-center transition-colors">
+                            <Upload className="w-7 h-7 text-slate-400 group-hover:text-neon-cyan transition-colors" />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-white font-medium mb-1">
+                              Click or drag video here
+                            </p>
+                            <p className="text-slate-500 text-xs">
+                              MP4, MOV, WEBM
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </label>
-                    <Textarea
-                      value={hook}
-                      onChange={(e) => setHook(e.target.value.slice(0, 120))}
-                      placeholder="One sentence that makes investors lean in..."
-                      rows={3}
-                      className="resize-none"
-                    />
-                  </div>
 
-                  {/* Quick Tags */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-body text-slate-300">
-                      Quick Add
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="cursor-pointer hover:bg-slate-800">
-                        Pre-Seed
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer hover:bg-slate-800">
-                        SaaS
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer hover:bg-slate-800">
-                        AI/ML
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer hover:bg-slate-800">
-                        B2B
-                      </Badge>
+                    {/* Error */}
+                    {error && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 text-center text-red-400 text-sm"
+                      >
+                        {error}
+                      </motion.p>
+                    )}
+                  </>
+                ) : (
+                  // Preview State
+                  <>
+                    <div className="text-center mb-4">
+                      <h2 className="text-xl font-bold text-white">
+                        Ready to post?
+                      </h2>
                     </div>
-                  </div>
-                </div>
-              )}
-            </div>
 
-            {/* Footer */}
-            {step === 'details' && (
-              <div className="p-6 border-t border-slate-800">
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!hook.trim()}
-                  className="w-full py-6 text-base font-heading font-bold"
-                >
-                  Post to The Stage 🚀
-                </Button>
+                    {/* Video Preview */}
+                    <div className="relative aspect-[9/16] max-h-[50vh] mx-auto bg-black rounded-xl overflow-hidden mb-4">
+                      <video
+                        src={previewUrl || undefined}
+                        controls
+                        className="w-full h-full object-contain"
+                      />
+                      {/* Duration Badge */}
+                      <div className="absolute top-3 left-3 px-2 py-1 bg-black/70 rounded-full">
+                        <span className="text-xs text-white font-medium">{videoDuration}s</span>
+                      </div>
+                      {/* Remove Button */}
+                      <button
+                        onClick={removeFile}
+                        className="absolute top-3 right-3 w-7 h-7 bg-black/70 hover:bg-red-500/80 rounded-full flex items-center justify-center transition-colors"
+                      >
+                        <X className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+
+                    {/* Post Button */}
+                    <button
+                      onClick={handleSubmit}
+                      disabled={uploading}
+                      className="w-full py-4 bg-gradient-to-r from-neon-cyan to-lime-green text-slate-900 font-bold text-lg rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Posting...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-5 h-5" />
+                          Post Pitch
+                        </>
+                      )}
+                    </button>
+
+                    {/* Change Video Link */}
+                    <button
+                      onClick={removeFile}
+                      className="w-full mt-3 text-slate-500 hover:text-slate-300 text-sm transition-colors"
+                    >
+                      Choose different video
+                    </button>
+                  </>
+                )}
               </div>
-            )}
+            </div>
           </motion.div>
         </>
       )}
