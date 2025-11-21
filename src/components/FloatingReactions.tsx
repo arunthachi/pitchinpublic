@@ -45,18 +45,19 @@ export function FloatingReactions({
   };
 
   return (
-    <div className="flex flex-col gap-3 items-center">
+    <div className="flex flex-col gap-4 items-center">
       {/* Founder Avatar - Like TikTok profile */}
       <div className="relative mb-2">
         <motion.img
           whileTap={{ scale: 0.95 }}
           src={pitch.founderAvatar}
           alt={pitch.founderName}
-          className="w-12 h-12 rounded-full border-2 border-white cursor-pointer"
+          className="w-12 h-12 rounded-full border border-white/80 cursor-pointer shadow-lg"
+          style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
         />
         {/* Follow Button */}
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-neon-cyan rounded-full flex items-center justify-center cursor-pointer">
-          <Plus className="w-3 h-3 text-slate-900" />
+        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-neon-cyan rounded-full flex items-center justify-center cursor-pointer shadow-md">
+          <Plus className="w-3 h-3 text-slate-900" strokeWidth={3} />
         </div>
       </div>
 
@@ -69,31 +70,28 @@ export function FloatingReactions({
       >
         <motion.div
           animate={justRoasted ? { scale: [1, 1.3, 1] } : {}}
-          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all relative ${
-            justRoasted
-              ? 'bg-roast shadow-[0_0_30px_rgba(255,59,48,0.6)]'
-              : 'bg-slate-900/80 backdrop-blur-md border-2 border-roast/50 hover:border-roast hover:bg-roast/10'
-          }`}
+          className="relative"
         >
           <Flame
-            className={`w-6 h-6 transition-colors ${
-              justRoasted ? 'text-white' : 'text-roast'
+            className={`w-8 h-8 transition-all ${
+              justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white'
             }`}
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+            strokeWidth={1.5}
           />
           {/* Comment count badge */}
           {pitch.feedback && pitch.feedback.filter(f => f.type === 'roast').length > 0 && (
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-roast rounded-full flex items-center justify-center border-2 border-black">
-              <span className="text-[10px] font-bold text-white">
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-roast rounded-full flex items-center justify-center shadow-md">
+              <span className="text-[9px] font-bold text-white">
                 {pitch.feedback.filter(f => f.type === 'roast').length}
               </span>
             </div>
           )}
         </motion.div>
         <div className="text-center">
-          <span className="text-sm font-bold text-white font-heading block">
+          <span className="text-xs font-bold text-white drop-shadow-md">
             {formatNumber(pitch.roastCount + (justRoasted ? 1 : 0))}
           </span>
-          <span className="text-[10px] text-slate-400 font-body">ROAST</span>
         </div>
 
         <AnimatePresence>
@@ -119,31 +117,28 @@ export function FloatingReactions({
       >
         <motion.div
           animate={justToasted ? { scale: [1, 1.3, 1] } : {}}
-          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all relative ${
-            justToasted
-              ? 'bg-toast shadow-[0_0_30px_rgba(52,199,89,0.6)]'
-              : 'bg-slate-900/80 backdrop-blur-md border-2 border-toast/50 hover:border-toast hover:bg-toast/10'
-          }`}
+          className="relative"
         >
           <Wine
-            className={`w-6 h-6 transition-colors ${
-              justToasted ? 'text-white' : 'text-toast'
+            className={`w-8 h-8 transition-all ${
+              justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white'
             }`}
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+            strokeWidth={1.5}
           />
           {/* Comment count badge */}
           {pitch.feedback && pitch.feedback.filter(f => f.type === 'toast').length > 0 && (
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-toast rounded-full flex items-center justify-center border-2 border-black">
-              <span className="text-[10px] font-bold text-white">
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-toast rounded-full flex items-center justify-center shadow-md">
+              <span className="text-[9px] font-bold text-white">
                 {pitch.feedback.filter(f => f.type === 'toast').length}
               </span>
             </div>
           )}
         </motion.div>
         <div className="text-center">
-          <span className="text-sm font-bold text-white font-heading block">
+          <span className="text-xs font-bold text-white drop-shadow-md">
             {formatNumber(pitch.toastCount + (justToasted ? 1 : 0))}
           </span>
-          <span className="text-[10px] text-slate-400 font-body">TOAST</span>
         </div>
 
         <AnimatePresence>
@@ -166,17 +161,23 @@ export function FloatingReactions({
         whileTap={{ scale: 0.9 }}
         className="flex flex-col items-center gap-1"
       >
-        <div className="w-12 h-12 rounded-full bg-slate-900/80 backdrop-blur-md border-2 border-slate-700 hover:border-neon-lime flex items-center justify-center transition-all">
-          <Share2 className="w-5 h-5 text-slate-300" />
-        </div>
+        <Share2
+          className="w-7 h-7 text-white"
+          style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+          strokeWidth={1.5}
+        />
       </motion.button>
 
       {/* Score Badge */}
       <div className="flex flex-col items-center gap-1 mt-2">
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-neon-cyan to-neon-lime flex items-center justify-center">
-          <BarChart3 className="w-6 h-6 text-slate-900" />
+        <div className="relative">
+          <BarChart3
+            className="w-8 h-8 text-white"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+            strokeWidth={1.5}
+          />
         </div>
-        <span className="text-sm font-bold text-neon-cyan font-heading">
+        <span className="text-xs font-bold text-white drop-shadow-md">
           {pitch.interestScore}
         </span>
       </div>
