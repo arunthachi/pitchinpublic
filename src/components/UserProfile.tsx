@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, LogOut, Users, Video, TrendingUp, Clock, Flame } from 'lucide-react';
 import { User, Pitch } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface UserProfileProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface UserProfileProps {
 type SortBy = 'latest' | 'oldest' | 'popular';
 
 export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileProps) {
+  const { signOut } = useAuth();
   const [sortBy, setSortBy] = useState<SortBy>('latest');
   const [displayCount, setDisplayCount] = useState(12); // Show 12 initially
 
@@ -44,10 +46,9 @@ export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileP
     setDisplayCount(prev => Math.min(prev + 12, sortedPitches.length));
   };
 
-  const handleLogout = () => {
-    // In production, clear auth tokens and redirect
-    console.log('Logging out...');
-    alert('Logout functionality - would redirect to login page');
+  const handleLogout = async () => {
+    await signOut();
+    onClose();
   };
 
   const formatNumber = (num: number) => {

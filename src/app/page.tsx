@@ -1,20 +1,24 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
 import { FloatingReactions } from '@/components/FloatingReactions';
 import { UserProfile } from '@/components/UserProfile';
+import { SignInModal } from '@/components/SignInModal';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
 import { mockPitches, mockUser } from '@/lib/data';
 import { Pitch } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
+  const { user, loading } = useAuth();
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [currentPitch, setCurrentPitch] = useState<Pitch>(mockPitches[0]);
   const [handlers, setHandlers] = useState<{
     onRoast: () => void;
@@ -22,6 +26,13 @@ export default function Home() {
     onOpenFeedback: (type: 'roast' | 'toast') => void;
     onShare: () => void;
   } | null>(null);
+
+  // Show sign-in modal if user is not authenticated (after loading)
+  useEffect(() => {
+    if (!loading && !user) {
+      setSignInModalOpen(true);
+    }
+  }, [user, loading]);
 
   // Filter user's own pitches (in production, fetch from API by user ID)
   const userPitches = mockPitches.filter((pitch) =>
@@ -112,6 +123,12 @@ export default function Home() {
         onClose={() => setProfileOpen(false)}
         user={mockUser}
         userPitches={userPitches}
+      />
+
+      {/* Sign In Modal */}
+      <SignInModal
+        isOpen={signInModalOpen}
+        onClose={() => setSignInModalOpen(false)}
       />
 
       {/* Swipe Instruction (shows briefly on first load) */}
