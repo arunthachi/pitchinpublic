@@ -29,21 +29,21 @@ export default function BottomNavBar({ onCreateClick, onProfileClick }: BottomNa
           </span>
         </button>
 
-        {/* Friends */}
+        {/* Founders */}
         <button
-          onClick={() => setActiveTab('friends')}
+          onClick={() => setActiveTab('founders')}
           className="flex flex-col items-center gap-1 px-4 py-1 relative"
         >
           <Users
             size={28}
-            className={activeTab === 'friends' ? 'text-white' : 'text-gray-400'}
+            className={activeTab === 'founders' ? 'text-white' : 'text-gray-400'}
           />
           {/* Notification badge */}
           <div className="absolute top-0 right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
             7
           </div>
-          <span className={`text-xs ${activeTab === 'friends' ? 'text-white' : 'text-gray-400'}`}>
-            Friends
+          <span className={`text-xs ${activeTab === 'founders' ? 'text-white' : 'text-gray-400'}`}>
+            Founders
           </span>
         </button>
 
@@ -52,7 +52,7 @@ export default function BottomNavBar({ onCreateClick, onProfileClick }: BottomNa
           onClick={onCreateClick}
           className="relative -mt-2"
         >
-          <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-[#25F4EE] to-[#FE2C55] flex items-center justify-center">
+          <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-neon-cyan to-neon-lime flex items-center justify-center">
             <div className="w-11 h-11 bg-black rounded-lg flex items-center justify-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="3" strokeLinecap="round"/>

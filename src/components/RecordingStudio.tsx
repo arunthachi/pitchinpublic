@@ -248,7 +248,7 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
                     {/* Record Option */}
                     <button
                       onClick={startCamera}
-                      className="w-full p-5 bg-gradient-to-r from-neon-cyan/20 to-lime-green/20 border border-neon-cyan/50 rounded-xl hover:border-neon-cyan transition-all group"
+                      className="w-full p-5 bg-gradient-to-r from-neon-cyan/20 to-neon-lime/20 border border-neon-cyan/50 rounded-xl hover:border-neon-cyan transition-all group"
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-neon-cyan/20 flex items-center justify-center">
@@ -390,7 +390,7 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
                   <button
                     onClick={handleSubmit}
                     disabled={uploading}
-                    className="w-full py-4 bg-gradient-to-r from-neon-cyan to-lime-green text-slate-900 font-bold text-lg rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-bold text-lg rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {uploading ? (
                       <>
