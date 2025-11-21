@@ -12,57 +12,41 @@ interface FloatingPitchInfoProps {
   onAvatarClick?: () => void;
 }
 
-export function FloatingPitchInfo({ pitch, onAvatarClick }: FloatingPitchInfoProps) {
+export function FloatingPitchInfo({ pitch }: FloatingPitchInfoProps) {
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-40 p-4 pb-24 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none">
+    <div className="absolute bottom-0 left-0 right-0 z-40 p-4 pb-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-[calc(100%-120px)]"
+        className="max-w-[calc(100%-20px)]"
       >
-        {/* Founder Avatar & Name */}
-        <div
-          className="flex items-center gap-3 mb-3 pointer-events-auto cursor-pointer"
-          onClick={onAvatarClick}
-        >
-          <motion.img
-            whileTap={{ scale: 0.95 }}
-            src={pitch.founderAvatar}
-            alt={pitch.founderName}
-            className="w-12 h-12 rounded-full border-2 border-white"
-          />
-          <div>
-            <h3 className="font-heading font-bold text-white text-base leading-tight">
-              {pitch.founderName}
-            </h3>
-            <p className="text-xs text-slate-300 font-body">
-              {pitch.companyName}
-            </p>
-          </div>
-        </div>
+        {/* Company Name */}
+        <h3 className="font-heading font-bold text-white text-lg leading-tight mb-1">
+          {pitch.companyName}
+        </h3>
 
         {/* Hook */}
-        <p className="text-white text-base font-medium leading-snug mb-3 font-body">
+        <p className="text-white/90 text-sm font-medium leading-snug mb-3 font-body">
           {pitch.hook}
         </p>
 
         {/* Tags */}
-        <div className="flex flex-wrap gap-2 mb-2">
+        <div className="flex flex-wrap gap-2">
           <Badge
             variant="secondary"
-            className="bg-slate-800/80 backdrop-blur-sm border-slate-600 text-white"
+            className="bg-slate-800/80 backdrop-blur-sm border-slate-600 text-white text-xs"
           >
             {pitch.stage}
           </Badge>
           <Badge
             variant="outline"
-            className="bg-slate-800/80 backdrop-blur-sm border-slate-600 text-white"
+            className="bg-slate-800/80 backdrop-blur-sm border-slate-600 text-white text-xs"
           >
             {pitch.industry}
           </Badge>
           <Badge
             variant="outline"
-            className="bg-slate-800/80 backdrop-blur-sm border-slate-600 text-white gap-1"
+            className="bg-slate-800/80 backdrop-blur-sm border-slate-600 text-white gap-1 text-xs"
           >
             <Eye className="w-3 h-3" />
             {formatNumber(pitch.views)}

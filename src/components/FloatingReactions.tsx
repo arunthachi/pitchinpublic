@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Wine, Share2, BarChart3, MessageSquare } from 'lucide-react';
+import { Flame, Wine, Share2, BarChart3, Plus } from 'lucide-react';
 import { Pitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
@@ -46,6 +46,20 @@ export function FloatingReactions({
 
   return (
     <div className="flex flex-col gap-3 items-center">
+      {/* Founder Avatar - Like TikTok profile */}
+      <div className="relative mb-2">
+        <motion.img
+          whileTap={{ scale: 0.95 }}
+          src={pitch.founderAvatar}
+          alt={pitch.founderName}
+          className="w-12 h-12 rounded-full border-2 border-white cursor-pointer"
+        />
+        {/* Follow Button */}
+        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-neon-cyan rounded-full flex items-center justify-center cursor-pointer">
+          <Plus className="w-3 h-3 text-slate-900" />
+        </div>
+      </div>
+
       {/* Roast Button - Tap for quick roast, hold for detailed feedback */}
       <motion.button
         onClick={handleRoastClick}
