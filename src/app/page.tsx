@@ -8,6 +8,7 @@ import { RecordingStudio } from '@/components/RecordingStudio';
 import { FloatingReactions } from '@/components/FloatingReactions';
 import { UserProfile } from '@/components/UserProfile';
 import { SignInModal } from '@/components/SignInModal';
+import { WelcomeHero } from '@/components/WelcomeHero';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
 import { mockPitches, mockUser } from '@/lib/data';
@@ -44,6 +45,29 @@ export default function Home() {
     setHandlers(newHandlers);
   }, []);
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-black">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show welcome hero for non-authenticated users
+  if (!user) {
+    return (
+      <>
+        <WelcomeHero />
+        <SignInModal
+          isOpen={signInModalOpen}
+          onClose={() => setSignInModalOpen(false)}
+        />
+      </>
+    );
+  }
+
+  // Show main app for authenticated users
   return (
     <div className="flex min-h-screen bg-black">
       {/* Left Sidebar Navigation - Hidden on mobile */}
@@ -123,12 +147,6 @@ export default function Home() {
         onClose={() => setProfileOpen(false)}
         user={mockUser}
         userPitches={userPitches}
-      />
-
-      {/* Sign In Modal */}
-      <SignInModal
-        isOpen={signInModalOpen}
-        onClose={() => setSignInModalOpen(false)}
       />
 
       {/* Swipe Instruction (shows briefly on first load) */}
