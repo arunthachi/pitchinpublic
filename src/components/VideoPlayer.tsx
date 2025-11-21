@@ -17,7 +17,8 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   const [isPlaying, setIsPlaying] = useState(playing);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
-  const playerRef = useRef<ReactPlayer>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playerRef = useRef<any>(null);
 
   useEffect(() => {
     setIsPlaying(playing);
