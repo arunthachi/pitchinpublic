@@ -29,21 +29,21 @@ export default function BottomNavBar({ onCreateClick, onProfileClick }: BottomNa
           </span>
         </button>
 
-        {/* Founders */}
+        {/* Network */}
         <button
-          onClick={() => setActiveTab('founders')}
+          onClick={() => setActiveTab('network')}
           className="flex flex-col items-center gap-1 px-4 py-1 relative"
         >
           <Users
             size={28}
-            className={activeTab === 'founders' ? 'text-white' : 'text-gray-400'}
+            className={activeTab === 'network' ? 'text-white' : 'text-gray-400'}
           />
           {/* Notification badge */}
           <div className="absolute top-0 right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
             7
           </div>
-          <span className={`text-xs ${activeTab === 'founders' ? 'text-white' : 'text-gray-400'}`}>
-            Founders
+          <span className={`text-xs ${activeTab === 'network' ? 'text-white' : 'text-gray-400'}`}>
+            Network
           </span>
         </button>
 
