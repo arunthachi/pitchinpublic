@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
@@ -25,7 +25,6 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   const [showControls, setShowControls] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const playerRef = useRef(null);
 
   useEffect(() => {
     setIsPlaying(playing);
@@ -61,7 +60,6 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
 
       {/* Video Player */}
       <ReactPlayer
-        ref={playerRef}
         url={url}
         playing={isPlaying}
         muted={muted}
