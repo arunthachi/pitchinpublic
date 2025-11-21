@@ -6,7 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ReactPlayer = dynamic(() => import('react-player').then((mod) => mod.default as any), { ssr: false }) as any;
+const ReactPlayer = dynamic(() => import('react-player').then((mod) => mod.default as any), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-slate-900 animate-pulse flex items-center justify-center"><span className="text-slate-500">Loading video...</span></div>
+}) as any;
 
 interface VideoPlayerProps {
   url: string;
@@ -20,11 +23,17 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   const [isPlaying, setIsPlaying] = useState(playing);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const playerRef = useRef(null);
 
   useEffect(() => {
     setIsPlaying(playing);
   }, [playing]);
+
+  useEffect(() => {
+    console.log('VideoPlayer url:', url);
+  }, [url]);
 
   const handleProgress = (state: { played: number; playedSeconds: number }) => {
     setProgress(state.played);
@@ -43,6 +52,13 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
+      {/* Error Display */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-10">
+          <p className="text-red-500 text-sm">{error}</p>
+        </div>
+      )}
+
       {/* Video Player */}
       <ReactPlayer
         ref={playerRef}
@@ -53,6 +69,8 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         width="100%"
         height="100%"
         onEnded={onEnded}
+        onReady={() => { console.log('Video ready'); setReady(true); }}
+        onError={(e: Error) => { console.error('Video error:', e); setError('Failed to load video'); }}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onProgress={handleProgress as any}
         playsinline
