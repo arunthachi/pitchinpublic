@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import ReactPlayer from 'react-player';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ReactPlayer = require('react-player').default as any;
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
 
