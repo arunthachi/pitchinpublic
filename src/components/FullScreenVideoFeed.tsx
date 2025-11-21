@@ -155,15 +155,17 @@ export function FullScreenVideoFeed({ pitches, onCurrentPitchChange, hideReactio
           {/* Floating Info */}
           <FloatingPitchInfo pitch={currentPitch} />
 
-          {/* Floating Reactions - only show if not hidden */}
+          {/* Floating Reactions - positioned on right side like TikTok */}
           {!hideReactions && (
-            <FloatingReactions
-              pitch={currentPitch}
-              onRoast={handleRoast}
-              onToast={handleToast}
-              onOpenFeedback={openFeedback}
-              onShare={handleShare}
-            />
+            <div className="absolute right-3 bottom-32 z-40">
+              <FloatingReactions
+                pitch={currentPitch}
+                onRoast={handleRoast}
+                onToast={handleToast}
+                onOpenFeedback={openFeedback}
+                onShare={handleShare}
+              />
+            </div>
           )}
 
           {/* Navigation Hints */}

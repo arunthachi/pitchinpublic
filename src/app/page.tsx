@@ -33,13 +33,25 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen bg-black">
-      {/* Left Sidebar Navigation */}
-      <SidebarNav onPostClick={() => setRecordingStudioOpen(true)} />
+      {/* Left Sidebar Navigation - Hidden on mobile */}
+      <div className="hidden lg:block">
+        <SidebarNav onPostClick={() => setRecordingStudioOpen(true)} />
+      </div>
+
+      {/* Mobile Bottom Nav (Post button) */}
+      <button
+        onClick={() => setRecordingStudioOpen(true)}
+        className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-neon-cyan to-lime-green flex items-center justify-center shadow-lg"
+      >
+        <svg className="w-7 h-7 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
 
       {/* Profile Button - Top Right */}
       <button
         onClick={() => setProfileOpen(true)}
-        className="fixed top-4 right-4 z-50 w-11 h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
+        className="fixed top-4 right-4 z-50 w-10 h-10 lg:w-11 lg:h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
       >
         <img
           src={mockUser.avatar}
@@ -49,10 +61,10 @@ export default function Home() {
       </button>
 
       {/* Main Content Area - Video Feed */}
-      <main className="flex-1 ml-20 lg:ml-64 flex items-center justify-center bg-black py-4">
-        {/* Video + Reactions Container - Like TikTok layout */}
-        <div className="flex items-end gap-3 pb-8">
-          {/* Video Feed Container - Phone aspect ratio like TikTok (9:16) */}
+      <main className="flex-1 lg:ml-64 flex items-center justify-center bg-black">
+        {/* Desktop: Centered with reactions on side */}
+        <div className="hidden lg:flex items-end gap-3 py-4">
+          {/* Video Feed Container - Phone aspect ratio */}
           <div className="relative h-[calc(100vh-4rem)] w-auto aspect-[9/16] max-h-[calc(100vh-4rem)] bg-black rounded-xl overflow-hidden shadow-2xl shadow-black/50">
             <FullScreenVideoFeed
               pitches={mockPitches}
@@ -61,7 +73,7 @@ export default function Home() {
             />
           </div>
 
-          {/* Reactions - Outside video like TikTok */}
+          {/* Reactions - Outside video (desktop only) */}
           {handlers && (
             <FloatingReactions
               pitch={currentPitch}
@@ -71,6 +83,15 @@ export default function Home() {
               onShare={handlers.onShare}
             />
           )}
+        </div>
+
+        {/* Mobile: Full screen like TikTok */}
+        <div className="lg:hidden w-full h-screen">
+          <FullScreenVideoFeed
+            pitches={mockPitches}
+            hideReactions={false}
+            onCurrentPitchChange={handlePitchChange}
+          />
         </div>
       </main>
 
