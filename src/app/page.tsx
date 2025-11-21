@@ -21,9 +21,9 @@ export default function Home() {
     onShare: () => void;
   } | null>(null);
 
-  // Filter user's own pitches (in production, fetch from API)
+  // Filter user's own pitches (in production, fetch from API by user ID)
   const userPitches = mockPitches.filter((pitch) =>
-    pitch.founderName === 'Sarah Chen' // Mock: would match mockUser.id
+    pitch.founderName === mockUser.name // Mock: would match mockUser.id in production
   );
 
   const handlePitchChange = useCallback((pitch: Pitch, newHandlers: typeof handlers) => {
