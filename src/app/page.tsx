@@ -16,9 +16,9 @@ export default function Home() {
       <SidebarNav onPostClick={() => setRecordingStudioOpen(true)} />
 
       {/* Main Content Area - Video Feed */}
-      <main className="flex-1 ml-20 lg:ml-64">
-        {/* Video Feed Container */}
-        <div className="relative h-screen max-w-[600px] mx-auto bg-black">
+      <main className="flex-1 ml-20 lg:ml-64 flex items-center justify-center bg-black py-4">
+        {/* Video Feed Container - Phone aspect ratio like TikTok (9:16) */}
+        <div className="relative h-[calc(100vh-2rem)] w-auto aspect-[9/16] max-h-[calc(100vh-2rem)] bg-black rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-slate-800">
           <FullScreenVideoFeed pitches={mockPitches} />
         </div>
       </main>

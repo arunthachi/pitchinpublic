@@ -106,7 +106,7 @@ export function FullScreenVideoFeed({ pitches }: FullScreenVideoFeedProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black overflow-hidden" {...bind()}>
+    <div className="relative w-full h-full bg-black overflow-hidden" {...bind()}>
       <AnimatePresence initial={false} custom={direction}>
         <motion.div
           key={currentPitch.id}
@@ -174,7 +174,7 @@ export function FullScreenVideoFeed({ pitches }: FullScreenVideoFeedProps) {
       />
 
       {/* Progress Indicator */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex gap-1">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex gap-1">
         {pitches.map((_, index) => (
           <div
             key={index}
