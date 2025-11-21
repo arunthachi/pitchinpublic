@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
+import Hls from 'hls.js';
 
 interface VideoPlayerProps {
   url: string;
@@ -11,13 +12,76 @@ interface VideoPlayerProps {
   onProgress?: (state: { played: number; playedSeconds: number }) => void;
 }
 
+/**
+ * Checks if URL is an HLS stream (Cloudflare Stream, etc.)
+ */
+function isHlsUrl(url: string): boolean {
+  return url.includes('.m3u8') || url.includes('/manifest/');
+}
+
 export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const [muted, setMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(playing);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
 
+  // Initialize HLS or native video
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !url) return;
+
+    // Clean up previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (isHlsUrl(url)) {
+      // HLS stream (Cloudflare Stream, etc.)
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+        });
+        hlsRef.current = hls;
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (playing) {
+            video.play().catch(console.error);
+          }
+        });
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            console.error('HLS fatal error:', data);
+          }
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        video.src = url;
+        if (playing) {
+          video.play().catch(console.error);
+        }
+      }
+    } else {
+      // Regular MP4 video
+      video.src = url;
+      if (playing) {
+        video.play().catch(console.error);
+      }
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [url]);
+
+  // Handle playing state changes
   useEffect(() => {
     setIsPlaying(playing);
     if (videoRef.current) {
@@ -29,6 +93,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
     }
   }, [playing]);
 
+  // Handle mute state changes
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.muted = muted;
@@ -36,9 +101,9 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   }, [muted]);
 
   const handleTimeUpdate = () => {
-    if (videoRef.current) {
+    if (videoRef.current && videoRef.current.duration) {
       const played = videoRef.current.currentTime / videoRef.current.duration;
-      setProgress(played);
+      setProgress(isNaN(played) ? 0 : played);
       onProgress?.({ played, playedSeconds: videoRef.current.currentTime });
     }
   };
@@ -65,7 +130,6 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
       {/* Video Player */}
       <video
         ref={videoRef}
-        src={url}
         className="w-full h-full object-cover"
         autoPlay={playing}
         muted={muted}
