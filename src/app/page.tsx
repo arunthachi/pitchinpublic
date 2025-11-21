@@ -7,6 +7,8 @@ import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
 import { FloatingReactions } from '@/components/FloatingReactions';
 import { UserProfile } from '@/components/UserProfile';
+import TopNavBar from '@/components/TopNavBar';
+import BottomNavBar from '@/components/BottomNavBar';
 import { mockPitches, mockUser } from '@/lib/data';
 import { Pitch } from '@/types';
 
@@ -38,20 +40,23 @@ export default function Home() {
         <SidebarNav onPostClick={() => setRecordingStudioOpen(true)} />
       </div>
 
-      {/* Mobile Bottom Nav (Post button) */}
-      <button
-        onClick={() => setRecordingStudioOpen(true)}
-        className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-neon-cyan to-lime-green flex items-center justify-center shadow-lg"
-      >
-        <svg className="w-7 h-7 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
+      {/* Top Navigation Bar - Mobile Only */}
+      <div className="lg:hidden">
+        <TopNavBar />
+      </div>
 
-      {/* Profile Button - Top Right */}
+      {/* Bottom Navigation Bar - Mobile Only */}
+      <div className="lg:hidden">
+        <BottomNavBar
+          onCreateClick={() => setRecordingStudioOpen(true)}
+          onProfileClick={() => setProfileOpen(true)}
+        />
+      </div>
+
+      {/* Profile Button - Desktop Only (Top Right) */}
       <button
         onClick={() => setProfileOpen(true)}
-        className="fixed top-4 right-4 z-50 w-10 h-10 lg:w-11 lg:h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
+        className="hidden lg:block fixed top-4 right-4 z-50 w-11 h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
       >
         <img
           src={mockUser.avatar}
