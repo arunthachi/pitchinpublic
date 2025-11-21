@@ -45,7 +45,7 @@ export function FloatingReactions({
   };
 
   return (
-    <div className="fixed right-4 bottom-24 z-50 flex flex-col gap-4">
+    <div className="absolute right-3 bottom-32 z-50 flex flex-col gap-4">
       {/* Roast Button - Tap for quick roast, hold for detailed feedback */}
       <motion.button
         onClick={handleRoastClick}
@@ -55,14 +55,14 @@ export function FloatingReactions({
       >
         <motion.div
           animate={justRoasted ? { scale: [1, 1.3, 1] } : {}}
-          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all relative ${
+          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all relative ${
             justRoasted
               ? 'bg-roast shadow-[0_0_30px_rgba(255,59,48,0.6)]'
               : 'bg-slate-900/80 backdrop-blur-md border-2 border-roast/50 hover:border-roast hover:bg-roast/10'
           }`}
         >
           <Flame
-            className={`w-8 h-8 transition-colors ${
+            className={`w-6 h-6 transition-colors ${
               justRoasted ? 'text-white' : 'text-roast'
             }`}
           />
@@ -105,14 +105,14 @@ export function FloatingReactions({
       >
         <motion.div
           animate={justToasted ? { scale: [1, 1.3, 1] } : {}}
-          className={`w-16 h-16 rounded-full flex items-center justify-center transition-all relative ${
+          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all relative ${
             justToasted
               ? 'bg-toast shadow-[0_0_30px_rgba(52,199,89,0.6)]'
               : 'bg-slate-900/80 backdrop-blur-md border-2 border-toast/50 hover:border-toast hover:bg-toast/10'
           }`}
         >
           <Wine
-            className={`w-8 h-8 transition-colors ${
+            className={`w-6 h-6 transition-colors ${
               justToasted ? 'text-white' : 'text-toast'
             }`}
           />
@@ -152,8 +152,8 @@ export function FloatingReactions({
         whileTap={{ scale: 0.9 }}
         className="flex flex-col items-center gap-1"
       >
-        <div className="w-14 h-14 rounded-full bg-slate-900/80 backdrop-blur-md border-2 border-slate-700 hover:border-neon-lime flex items-center justify-center transition-all">
-          <Share2 className="w-7 h-7 text-slate-300" />
+        <div className="w-12 h-12 rounded-full bg-slate-900/80 backdrop-blur-md border-2 border-slate-700 hover:border-neon-lime flex items-center justify-center transition-all">
+          <Share2 className="w-5 h-5 text-slate-300" />
         </div>
       </motion.button>
 
