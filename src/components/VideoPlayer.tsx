@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ReactPlayer = require('react-player').default as any;
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ReactPlayer = dynamic(() => import('react-player').then((mod) => mod.default as any), { ssr: false }) as any;
 
 interface VideoPlayerProps {
   url: string;
@@ -18,8 +20,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   const [isPlaying, setIsPlaying] = useState(playing);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef(null);
 
   useEffect(() => {
     setIsPlaying(playing);
@@ -52,19 +53,11 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         width="100%"
         height="100%"
         onEnded={onEnded}
-        onProgress={handleProgress}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onProgress={handleProgress as any}
         playsinline
-        config={{
-          file: {
-            attributes: {
-              style: {
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              },
-            },
-          },
-        }}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        config={{ file: { attributes: { style: { width: '100%', height: '100%', objectFit: 'cover' } } } } as any}
       />
 
       {/* Progress Bar */}
