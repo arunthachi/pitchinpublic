@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, Compass, Users, TrendingUp, Settings, Plus, Sparkles } from 'lucide-react';
+import { Home, Compass, Users, TrendingUp, Settings, Plus, Sparkles, Search } from 'lucide-react';
 import Link from 'next/link';
 
 interface SidebarNavProps {
@@ -26,6 +26,22 @@ export function SidebarNav({ onPostClick }: SidebarNavProps) {
           </div>
         </div>
       </Link>
+
+      {/* Search Box */}
+      <div className="px-2 lg:px-4 pb-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Search"
+            className="w-full bg-slate-800/50 border border-slate-700 rounded-full py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 font-body focus:outline-none focus:border-slate-600 focus:bg-slate-800 transition-colors hidden lg:block"
+          />
+          {/* Icon-only search button for mobile */}
+          <button className="lg:hidden w-10 h-10 rounded-full bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-colors">
+            <Search className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+      </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-2 lg:px-4 py-4">
