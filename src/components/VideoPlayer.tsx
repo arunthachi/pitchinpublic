@@ -138,11 +138,13 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         onEnded={onEnded}
       />
 
-      {/* Progress Bar - thin cyan line at top, no background */}
-      <div
-        className="absolute top-0 left-0 h-0.5 bg-neon-cyan z-50 transition-all duration-100"
-        style={{ width: `${progress * 100}%` }}
-      />
+      {/* Progress Bar - thin line at bottom like TikTok */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 z-50">
+        <div
+          className="h-full bg-white/90 transition-all duration-100"
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
 
       {/* Tap to Play/Pause Overlay */}
       <div

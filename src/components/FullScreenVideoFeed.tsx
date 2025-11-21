@@ -196,19 +196,6 @@ export function FullScreenVideoFeed({ pitches, onCurrentPitchChange, hideReactio
         initialType={feedbackType}
       />
 
-      {/* Progress Indicator */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex gap-1">
-        {pitches.map((_, index) => (
-          <div
-            key={index}
-            className={`h-1 rounded-full transition-all ${
-              index === currentIndex
-                ? 'w-8 bg-neon-cyan'
-                : 'w-1 bg-slate-600'
-            }`}
-          />
-        ))}
-      </div>
     </div>
   );
 }
