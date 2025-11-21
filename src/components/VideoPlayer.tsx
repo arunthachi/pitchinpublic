@@ -1,15 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ReactPlayer = dynamic(() => import('react-player').then((mod) => mod.default as any), {
-  ssr: false,
-  loading: () => <div className="w-full h-full bg-slate-900 animate-pulse flex items-center justify-center"><span className="text-slate-500">Loading video...</span></div>
-}) as any;
 
 interface VideoPlayerProps {
   url: string;
@@ -19,27 +12,45 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(playing);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     setIsPlaying(playing);
+    if (videoRef.current) {
+      if (playing) {
+        videoRef.current.play().catch(console.error);
+      } else {
+        videoRef.current.pause();
+      }
+    }
   }, [playing]);
 
   useEffect(() => {
-    console.log('VideoPlayer url:', url);
-  }, [url]);
+    if (videoRef.current) {
+      videoRef.current.muted = muted;
+    }
+  }, [muted]);
 
-  const handleProgress = (state: { played: number; playedSeconds: number }) => {
-    setProgress(state.played);
-    onProgress?.(state);
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      const played = videoRef.current.currentTime / videoRef.current.duration;
+      setProgress(played);
+      onProgress?.({ played, playedSeconds: videoRef.current.currentTime });
+    }
   };
 
   const togglePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(console.error);
+      }
+    }
     setIsPlaying(!isPlaying);
     setShowControls(true);
     setTimeout(() => setShowControls(false), 1500);
@@ -51,29 +62,16 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
-      {/* Error Display */}
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-10">
-          <p className="text-red-500 text-sm">{error}</p>
-        </div>
-      )}
-
       {/* Video Player */}
-      <ReactPlayer
-        url={url}
-        playing={isPlaying}
+      <video
+        ref={videoRef}
+        src={url}
+        className="w-full h-full object-cover"
+        autoPlay={playing}
         muted={muted}
-        loop={false}
-        width="100%"
-        height="100%"
+        playsInline
+        onTimeUpdate={handleTimeUpdate}
         onEnded={onEnded}
-        onReady={() => { console.log('Video ready'); setReady(true); }}
-        onError={(e: Error) => { console.error('Video error:', e); setError('Failed to load video'); }}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onProgress={handleProgress as any}
-        playsinline
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        config={{ file: { attributes: { style: { width: '100%', height: '100%', objectFit: 'cover' } } } } as any}
       />
 
       {/* Progress Bar */}
