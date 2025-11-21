@@ -16,6 +16,13 @@ type SortBy = 'latest' | 'oldest' | 'popular';
 
 export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileProps) {
   const [sortBy, setSortBy] = useState<SortBy>('latest');
+  const [displayCount, setDisplayCount] = useState(12); // Show 12 initially
+
+  // Reset display count when sort changes
+  const handleSortChange = (newSort: SortBy) => {
+    setSortBy(newSort);
+    setDisplayCount(12);
+  };
 
   const sortedPitches = [...userPitches].sort((a, b) => {
     switch (sortBy) {
@@ -29,6 +36,13 @@ export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileP
         return 0;
     }
   });
+
+  const displayedPitches = sortedPitches.slice(0, displayCount);
+  const hasMore = sortedPitches.length > displayCount;
+
+  const loadMore = () => {
+    setDisplayCount(prev => Math.min(prev + 12, sortedPitches.length));
+  };
 
   const handleLogout = () => {
     // In production, clear auth tokens and redirect
@@ -75,34 +89,34 @@ export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileP
             </div>
 
             {/* User Info */}
-            <div className="p-6 border-b border-slate-800">
-              <div className="flex items-start gap-4">
+            <div className="p-4 sm:p-6 border-b border-slate-800">
+              <div className="flex items-start gap-3 sm:gap-4">
                 <img
                   src={user.avatar}
                   alt={user.name}
-                  className="w-20 h-20 rounded-full border-2 border-neon-cyan"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-neon-cyan flex-shrink-0"
                 />
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white">{user.name}</h3>
-                  <p className="text-slate-400 text-sm">{user.email}</p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-white truncate">{user.name}</h3>
+                  <p className="text-slate-400 text-xs sm:text-sm truncate">{user.email}</p>
                   {user.bio && (
-                    <p className="text-slate-300 text-sm mt-2">{user.bio}</p>
+                    <p className="text-slate-300 text-xs sm:text-sm mt-2 line-clamp-2">{user.bio}</p>
                   )}
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="flex gap-6 mt-6">
+              <div className="flex gap-4 sm:gap-6 mt-4 sm:mt-6">
                 <div>
-                  <div className="text-white font-bold text-lg">{formatNumber(user.followersCount)}</div>
+                  <div className="text-white font-bold text-base sm:text-lg">{formatNumber(user.followersCount)}</div>
                   <div className="text-slate-400 text-xs">Followers</div>
                 </div>
                 <div>
-                  <div className="text-white font-bold text-lg">{formatNumber(user.followingCount)}</div>
+                  <div className="text-white font-bold text-base sm:text-lg">{formatNumber(user.followingCount)}</div>
                   <div className="text-slate-400 text-xs">Following</div>
                 </div>
                 <div>
-                  <div className="text-white font-bold text-lg">{user.pitchesCount}</div>
+                  <div className="text-white font-bold text-base sm:text-lg">{user.pitchesCount}</div>
                   <div className="text-slate-400 text-xs">Pitches</div>
                 </div>
               </div>
@@ -119,7 +133,7 @@ export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileP
                 {/* Sort Dropdown */}
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortBy)}
+                  onChange={(e) => handleSortChange(e.target.value as SortBy)}
                   className="bg-slate-800 border border-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:border-neon-cyan"
                 >
                   <option value="latest">Latest</option>
@@ -130,44 +144,56 @@ export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileP
 
               {/* Pitch Grid */}
               {sortedPitches.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {sortedPitches.map((pitch) => (
-                    <div
-                      key={pitch.id}
-                      className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group cursor-pointer hover:ring-2 hover:ring-neon-cyan transition-all"
-                    >
-                      <img
-                        src={pitch.thumbnailUrl}
-                        alt={pitch.companyName}
-                        className="w-full h-full object-cover"
-                      />
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+                    {displayedPitches.map((pitch) => (
+                      <div
+                        key={pitch.id}
+                        className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group cursor-pointer hover:ring-2 hover:ring-neon-cyan transition-all"
+                      >
+                        <img
+                          src={pitch.thumbnailUrl}
+                          alt={pitch.companyName}
+                          className="w-full h-full object-cover"
+                        />
 
-                      {/* Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="absolute bottom-2 left-2 right-2">
-                          <p className="text-white text-xs font-semibold line-clamp-2 mb-1">
-                            {pitch.companyName}
-                          </p>
-                          <div className="flex items-center gap-3 text-xs text-slate-300">
-                            <span className="flex items-center gap-1">
-                              <TrendingUp className="w-3 h-3" />
-                              {formatNumber(pitch.views)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Flame className="w-3 h-3 text-orange-400" />
-                              {pitch.interestScore}
-                            </span>
+                        {/* Overlay - Show on mobile tap, desktop hover */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity">
+                          <div className="absolute bottom-2 left-2 right-2">
+                            <p className="text-white text-xs font-semibold line-clamp-2 mb-1">
+                              {pitch.companyName}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs text-slate-300">
+                              <span className="flex items-center gap-1">
+                                <TrendingUp className="w-3 h-3" />
+                                {formatNumber(pitch.views)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Flame className="w-3 h-3 text-orange-400" />
+                                {pitch.interestScore}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Duration Badge */}
-                      <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-black/70 rounded text-xs text-white">
-                        {pitch.duration}s
+                        {/* Duration Badge */}
+                        <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-black/70 rounded text-xs text-white">
+                          {pitch.duration}s
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+
+                  {/* Load More Button */}
+                  {hasMore && (
+                    <button
+                      onClick={loadMore}
+                      className="w-full mt-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg font-medium transition-colors text-sm"
+                    >
+                      Load More ({sortedPitches.length - displayCount} remaining)
+                    </button>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-12">
                   <Video className="w-12 h-12 text-slate-700 mx-auto mb-3" />
