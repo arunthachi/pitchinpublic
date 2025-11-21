@@ -45,7 +45,7 @@ export function FloatingReactions({
   };
 
   return (
-    <div className="absolute right-3 bottom-32 z-50 flex flex-col gap-4">
+    <div className="flex flex-col gap-3 items-center">
       {/* Roast Button - Tap for quick roast, hold for detailed feedback */}
       <motion.button
         onClick={handleRoastClick}

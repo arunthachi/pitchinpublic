@@ -1,14 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
+import { FloatingReactions } from '@/components/FloatingReactions';
 import { mockPitches } from '@/lib/data';
+import { Pitch } from '@/types';
 
 export default function Home() {
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
+  const [currentPitch, setCurrentPitch] = useState<Pitch>(mockPitches[0]);
+  const [handlers, setHandlers] = useState<{
+    onRoast: () => void;
+    onToast: () => void;
+    onOpenFeedback: (type: 'roast' | 'toast') => void;
+    onShare: () => void;
+  } | null>(null);
+
+  const handlePitchChange = useCallback((pitch: Pitch, newHandlers: typeof handlers) => {
+    setCurrentPitch(pitch);
+    setHandlers(newHandlers);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-black">
@@ -17,9 +31,27 @@ export default function Home() {
 
       {/* Main Content Area - Video Feed */}
       <main className="flex-1 ml-20 lg:ml-64 flex items-center justify-center bg-black py-4">
-        {/* Video Feed Container - Phone aspect ratio like TikTok (9:16) */}
-        <div className="relative h-[calc(100vh-2rem)] w-auto aspect-[9/16] max-h-[calc(100vh-2rem)] bg-black rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-slate-800">
-          <FullScreenVideoFeed pitches={mockPitches} />
+        {/* Video + Reactions Container - Like TikTok layout */}
+        <div className="flex items-end gap-3 pb-8">
+          {/* Video Feed Container - Phone aspect ratio like TikTok (9:16) */}
+          <div className="relative h-[calc(100vh-4rem)] w-auto aspect-[9/16] max-h-[calc(100vh-4rem)] bg-black rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-slate-800">
+            <FullScreenVideoFeed
+              pitches={mockPitches}
+              hideReactions={true}
+              onCurrentPitchChange={handlePitchChange}
+            />
+          </div>
+
+          {/* Reactions - Outside video like TikTok */}
+          {handlers && (
+            <FloatingReactions
+              pitch={currentPitch}
+              onRoast={handlers.onRoast}
+              onToast={handlers.onToast}
+              onOpenFeedback={handlers.onOpenFeedback}
+              onShare={handlers.onShare}
+            />
+          )}
         </div>
       </main>
 

@@ -12,9 +12,16 @@ import { QuickFeedbackPanel } from './QuickFeedbackPanel';
 
 interface FullScreenVideoFeedProps {
   pitches: Pitch[];
+  onCurrentPitchChange?: (pitch: Pitch, handlers: {
+    onRoast: () => void;
+    onToast: () => void;
+    onOpenFeedback: (type: 'roast' | 'toast') => void;
+    onShare: () => void;
+  }) => void;
+  hideReactions?: boolean;
 }
 
-export function FullScreenVideoFeed({ pitches }: FullScreenVideoFeedProps) {
+export function FullScreenVideoFeed({ pitches, onCurrentPitchChange, hideReactions = false }: FullScreenVideoFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
@@ -93,6 +100,23 @@ export function FullScreenVideoFeed({ pitches }: FullScreenVideoFeedProps) {
     }
   };
 
+  const openFeedback = (type: 'roast' | 'toast') => {
+    setFeedbackType(type);
+    setFeedbackPanelOpen(true);
+  };
+
+  // Notify parent of current pitch changes
+  useEffect(() => {
+    if (onCurrentPitchChange) {
+      onCurrentPitchChange(currentPitch, {
+        onRoast: handleRoast,
+        onToast: handleToast,
+        onOpenFeedback: openFeedback,
+        onShare: handleShare,
+      });
+    }
+  }, [currentPitch, onCurrentPitchChange]);
+
   const slideVariants = {
     enter: (direction: 'up' | 'down') => ({
       y: direction === 'down' ? '100%' : '-100%',
@@ -131,17 +155,16 @@ export function FullScreenVideoFeed({ pitches }: FullScreenVideoFeedProps) {
           {/* Floating Info */}
           <FloatingPitchInfo pitch={currentPitch} />
 
-          {/* Floating Reactions */}
-          <FloatingReactions
-            pitch={currentPitch}
-            onRoast={handleRoast}
-            onToast={handleToast}
-            onOpenFeedback={(type) => {
-              setFeedbackType(type);
-              setFeedbackPanelOpen(true);
-            }}
-            onShare={handleShare}
-          />
+          {/* Floating Reactions - only show if not hidden */}
+          {!hideReactions && (
+            <FloatingReactions
+              pitch={currentPitch}
+              onRoast={handleRoast}
+              onToast={handleToast}
+              onOpenFeedback={openFeedback}
+              onShare={handleShare}
+            />
+          )}
 
           {/* Navigation Hints */}
           {hasPrev && (
