@@ -6,9 +6,10 @@ import { useState } from 'react';
 interface BottomNavBarProps {
   onCreateClick: () => void;
   onProfileClick: () => void;
+  isGuest?: boolean;
 }
 
-export default function BottomNavBar({ onCreateClick, onProfileClick }: BottomNavBarProps) {
+export default function BottomNavBar({ onCreateClick, onProfileClick, isGuest = false }: BottomNavBarProps) {
   const [activeTab, setActiveTab] = useState('home');
 
   return (

@@ -12,6 +12,8 @@ interface FloatingReactionsProps {
   onToast: () => void;
   onOpenFeedback: (type: 'roast' | 'toast') => void;
   onShare: () => void;
+  isGuest?: boolean;
+  onSignInClick?: () => void;
 }
 
 export function FloatingReactions({
@@ -20,6 +22,8 @@ export function FloatingReactions({
   onToast,
   onOpenFeedback,
   onShare,
+  isGuest = false,
+  onSignInClick,
 }: FloatingReactionsProps) {
   const [justRoasted, setJustRoasted] = useState(false);
   const [justToasted, setJustToasted] = useState(false);

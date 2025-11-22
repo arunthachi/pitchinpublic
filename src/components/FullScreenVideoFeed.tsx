@@ -19,9 +19,17 @@ interface FullScreenVideoFeedProps {
     onShare: () => void;
   }) => void;
   hideReactions?: boolean;
+  isGuest?: boolean;
+  onSignInClick?: () => void;
 }
 
-export function FullScreenVideoFeed({ pitches, onCurrentPitchChange, hideReactions = false }: FullScreenVideoFeedProps) {
+export function FullScreenVideoFeed({
+  pitches,
+  onCurrentPitchChange,
+  hideReactions = false,
+  isGuest = false,
+  onSignInClick
+}: FullScreenVideoFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
@@ -160,10 +168,12 @@ export function FullScreenVideoFeed({ pitches, onCurrentPitchChange, hideReactio
             <div className="absolute right-3 bottom-40 z-40">
               <FloatingReactions
                 pitch={currentPitch}
-                onRoast={handleRoast}
-                onToast={handleToast}
-                onOpenFeedback={openFeedback}
-                onShare={handleShare}
+                onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
+                onToast={isGuest && onSignInClick ? onSignInClick : handleToast}
+                onOpenFeedback={isGuest && onSignInClick ? () => onSignInClick() : openFeedback}
+                onShare={isGuest && onSignInClick ? onSignInClick : handleShare}
+                isGuest={isGuest}
+                onSignInClick={onSignInClick}
               />
             </div>
           )}

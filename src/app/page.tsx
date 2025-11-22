@@ -57,26 +57,18 @@ export default function Home() {
     );
   }
 
-  // Show welcome hero for non-authenticated users
-  if (!user) {
-    return (
-      <>
-        <WelcomeHero onSignInClick={() => setSignInModalOpen(true)} />
-        <SignInModal
-          isOpen={signInModalOpen}
-          onClose={() => setSignInModalOpen(false)}
-        />
-      </>
-    );
-  }
+  // Show main app for both authenticated and non-authenticated users
+  // Non-authenticated users see the feed but can't interact without signing in
+  const isGuest = !user;
 
-  // Show main app for authenticated users
   return (
     <div className="flex min-h-screen bg-black">
-      {/* Left Sidebar Navigation - Hidden on mobile */}
-      <div className="hidden lg:block">
-        <SidebarNav onPostClick={() => setRecordingStudioOpen(true)} />
-      </div>
+      {/* Left Sidebar Navigation - Hidden on mobile, only for authenticated users */}
+      {!isGuest && (
+        <div className="hidden lg:block">
+          <SidebarNav onPostClick={() => setRecordingStudioOpen(true)} />
+        </div>
+      )}
 
       {/* Top Navigation Bar - Mobile Only */}
       <div className="lg:hidden">
@@ -86,25 +78,38 @@ export default function Home() {
       {/* Bottom Navigation Bar - Mobile Only */}
       <div className="lg:hidden">
         <BottomNavBar
-          onCreateClick={() => setRecordingStudioOpen(true)}
-          onProfileClick={() => setProfileOpen(true)}
+          onCreateClick={() => isGuest ? setSignInModalOpen(true) : setRecordingStudioOpen(true)}
+          onProfileClick={() => isGuest ? setSignInModalOpen(true) : setProfileOpen(true)}
+          isGuest={isGuest}
         />
       </div>
 
-      {/* Profile Button - Desktop Only (Top Right) */}
-      <button
-        onClick={() => setProfileOpen(true)}
-        className="hidden lg:block fixed top-4 right-4 z-50 w-11 h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
-      >
-        <img
-          src={mockUser.avatar}
-          alt={mockUser.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-        />
-      </button>
+      {/* Sign In Button - Desktop Only (Top Right) for guests */}
+      {isGuest && (
+        <button
+          onClick={() => setSignInModalOpen(true)}
+          className="hidden lg:block fixed top-4 right-4 z-50 px-6 py-2.5 rounded-full bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-semibold text-sm hover:shadow-lg hover:shadow-neon-cyan/50 transition-all"
+        >
+          Sign In
+        </button>
+      )}
+
+      {/* Profile Button - Desktop Only (Top Right) for authenticated users */}
+      {!isGuest && (
+        <button
+          onClick={() => setProfileOpen(true)}
+          className="hidden lg:block fixed top-4 right-4 z-50 w-11 h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
+        >
+          <img
+            src={mockUser.avatar}
+            alt={mockUser.name}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+          />
+        </button>
+      )}
 
       {/* Main Content Area - Video Feed */}
-      <main className="flex-1 lg:ml-64 flex items-center justify-center bg-black">
+      <main className={`flex-1 ${!isGuest ? 'lg:ml-64' : ''} flex items-center justify-center bg-black`}>
         {/* Desktop: Centered with reactions on side */}
         <div className="hidden lg:flex items-end gap-3 py-4">
           {/* Video Feed Container - Phone aspect ratio */}
@@ -120,10 +125,12 @@ export default function Home() {
           {handlers && (
             <FloatingReactions
               pitch={currentPitch}
-              onRoast={handlers.onRoast}
-              onToast={handlers.onToast}
-              onOpenFeedback={handlers.onOpenFeedback}
-              onShare={handlers.onShare}
+              onRoast={isGuest ? () => setSignInModalOpen(true) : handlers.onRoast}
+              onToast={isGuest ? () => setSignInModalOpen(true) : handlers.onToast}
+              onOpenFeedback={isGuest ? () => setSignInModalOpen(true) : handlers.onOpenFeedback}
+              onShare={isGuest ? () => setSignInModalOpen(true) : handlers.onShare}
+              isGuest={isGuest}
+              onSignInClick={() => setSignInModalOpen(true)}
             />
           )}
         </div>
@@ -134,23 +141,52 @@ export default function Home() {
             pitches={legacyPitches}
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
+            isGuest={isGuest}
+            onSignInClick={() => setSignInModalOpen(true)}
           />
         </div>
       </main>
 
-      {/* Recording Studio Modal */}
-      <RecordingStudio
-        isOpen={recordingStudioOpen}
-        onClose={() => setRecordingStudioOpen(false)}
+      {/* Guest Sign-In Banner - Floating at bottom */}
+      {isGuest && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2, duration: 0.5 }}
+          className="fixed bottom-20 lg:bottom-8 left-1/2 -translate-x-1/2 z-40"
+        >
+          <button
+            onClick={() => setSignInModalOpen(true)}
+            className="bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 px-6 py-3 rounded-full font-semibold text-sm shadow-lg hover:shadow-neon-cyan/50 transition-all"
+          >
+            Sign in to roast, toast & share
+          </button>
+        </motion.div>
+      )}
+
+      {/* Sign In Modal */}
+      <SignInModal
+        isOpen={signInModalOpen}
+        onClose={() => setSignInModalOpen(false)}
       />
 
-      {/* User Profile Panel */}
-      <UserProfile
-        isOpen={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        user={mockUser}
-        userPitches={userPitches}
-      />
+      {/* Recording Studio Modal - Only for authenticated users */}
+      {!isGuest && (
+        <RecordingStudio
+          isOpen={recordingStudioOpen}
+          onClose={() => setRecordingStudioOpen(false)}
+        />
+      )}
+
+      {/* User Profile Panel - Only for authenticated users */}
+      {!isGuest && (
+        <UserProfile
+          isOpen={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          user={mockUser}
+          userPitches={userPitches}
+        />
+      )}
 
       {/* Swipe Instruction (shows briefly on first load) */}
       <motion.div
