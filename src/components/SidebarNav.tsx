@@ -108,15 +108,45 @@ export function SidebarNav({ onPostClick, isGuest = false, onSignInClick }: Side
       {/* Bottom section - Log in for guests, Settings for authenticated */}
       <div className="p-2 lg:p-4 border-t border-slate-800">
         {isGuest ? (
-          <motion.button
-            onClick={onSignInClick}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-pink-500 to-red-500 text-white font-heading font-bold"
-          >
-            <span className="hidden lg:block">Log in</span>
-            <span className="lg:hidden">Log in</span>
-          </motion.button>
+          <>
+            <motion.button
+              onClick={onSignInClick}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-pink-500 to-red-500 text-white font-heading font-bold mb-4"
+            >
+              <span className="hidden lg:block">Log in</span>
+              <span className="lg:hidden">Log in</span>
+            </motion.button>
+
+            {/* Footer Links - Desktop Only */}
+            <div className="hidden lg:block space-y-3 text-xs">
+              {/* Company Section */}
+              <div>
+                <h4 className="text-slate-500 font-semibold mb-1">Company</h4>
+                <div className="flex gap-3">
+                  <Link href="/about" className="text-slate-400 hover:text-slate-300 transition-colors">
+                    About
+                  </Link>
+                  <Link href="/contact" className="text-slate-400 hover:text-slate-300 transition-colors">
+                    Contact
+                  </Link>
+                </div>
+              </div>
+
+              {/* Terms & Policies */}
+              <div>
+                <Link href="/terms" className="text-slate-400 hover:text-slate-300 transition-colors">
+                  Terms & Policies
+                </Link>
+              </div>
+
+              {/* Copyright */}
+              <div className="text-slate-500 pt-2">
+                © 2025 Pitch in Public
+              </div>
+            </div>
+          </>
         ) : (
           <motion.button
             whileHover={{ scale: 1.02 }}
