@@ -6,11 +6,11 @@ import { motion } from 'framer-motion';
 import { Eye, TrendingUp, Play } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Pitch } from '@/types';
+import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
 interface PitchCardProps {
-  pitch: Pitch;
+  pitch: LegacyPitch;
   index?: number;
 }
 

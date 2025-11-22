@@ -20,6 +20,7 @@ CREATE TABLE profiles (
   followers_count INTEGER DEFAULT 0,
   following_count INTEGER DEFAULT 0,
   pitches_count INTEGER DEFAULT 0,
+  companies_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -45,19 +46,85 @@ CREATE POLICY "Users can update their own profile"
 
 
 -- =============================================
--- 2. PITCHES TABLE
--- Main table for pitch videos
+-- 2. COMPANIES TABLE
+-- Companies/Startups that founders pitch
+-- =============================================
+CREATE TABLE companies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  founder_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+
+  -- Company Info
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE, -- URL-friendly: pitchinpublic.com/c/techflow
+  tagline TEXT,
+  description TEXT,
+
+  -- Links & Media
+  website TEXT,
+  logo_url TEXT,
+  twitter_handle TEXT,
+  linkedin_url TEXT,
+
+  -- Classification
+  industry TEXT NOT NULL,
+  stage TEXT NOT NULL, -- 'Idea', 'Pre-Seed', 'Seed', 'Series A', etc.
+  founded_date DATE,
+
+  -- Aggregate Metrics (from all pitches)
+  pitches_count INTEGER DEFAULT 0,
+  total_views INTEGER DEFAULT 0,
+  total_roasts INTEGER DEFAULT 0,
+  total_toasts INTEGER DEFAULT 0,
+
+  -- Status
+  status TEXT DEFAULT 'active', -- 'active', 'archived'
+
+  -- Timestamps
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_companies_founder_id ON companies(founder_id);
+CREATE INDEX idx_companies_slug ON companies(slug);
+CREATE INDEX idx_companies_industry ON companies(industry);
+CREATE INDEX idx_companies_stage ON companies(stage);
+CREATE INDEX idx_companies_created_at ON companies(created_at DESC);
+
+-- Enable RLS
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for companies
+CREATE POLICY "Active companies are viewable by everyone"
+  ON companies FOR SELECT
+  USING (status = 'active' OR auth.uid() = founder_id);
+
+CREATE POLICY "Founders can create companies"
+  ON companies FOR INSERT
+  WITH CHECK (auth.uid() = founder_id);
+
+CREATE POLICY "Founders can update their own companies"
+  ON companies FOR UPDATE
+  USING (auth.uid() = founder_id);
+
+CREATE POLICY "Founders can delete their own companies"
+  ON companies FOR DELETE
+  USING (auth.uid() = founder_id);
+
+
+-- =============================================
+-- 3. PITCHES TABLE
+-- Pitch videos linked to companies
 -- =============================================
 CREATE TABLE pitches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
 
-  -- Company & Pitch Info
-  company_name TEXT NOT NULL,
+  -- Pitch-specific Info (can change between versions)
   hook TEXT NOT NULL,
   description TEXT,
-  stage TEXT NOT NULL, -- e.g., 'Pre-Seed', 'Seed', 'Series A'
-  industry TEXT NOT NULL,
+  version_number INTEGER DEFAULT 1, -- Track pitch iterations
 
   -- Video Info
   video_url TEXT NOT NULL,
@@ -85,11 +152,10 @@ CREATE TABLE pitches (
 
 -- Indexes for performance
 CREATE INDEX idx_pitches_user_id ON pitches(user_id);
+CREATE INDEX idx_pitches_company_id ON pitches(company_id);
 CREATE INDEX idx_pitches_created_at ON pitches(created_at DESC);
 CREATE INDEX idx_pitches_interest_score ON pitches(interest_score DESC);
 CREATE INDEX idx_pitches_status ON pitches(status);
-CREATE INDEX idx_pitches_industry ON pitches(industry);
-CREATE INDEX idx_pitches_stage ON pitches(stage);
 
 -- Enable RLS
 ALTER TABLE pitches ENABLE ROW LEVEL SECURITY;
@@ -113,7 +179,7 @@ CREATE POLICY "Users can delete their own pitches"
 
 
 -- =============================================
--- 3. REACTIONS TABLE
+-- 4. REACTIONS TABLE
 -- Roasts and Toasts (quick reactions)
 -- =============================================
 CREATE TABLE reactions (
@@ -150,7 +216,7 @@ CREATE POLICY "Users can delete their own reactions"
 
 
 -- =============================================
--- 4. FEEDBACK TABLE
+-- 5. FEEDBACK TABLE
 -- Detailed feedback on pitches
 -- =============================================
 CREATE TABLE feedback (
@@ -195,7 +261,7 @@ CREATE POLICY "Users can delete their own feedback"
 
 
 -- =============================================
--- 5. FOLLOWS TABLE
+-- 6. FOLLOWS TABLE
 -- User following relationships
 -- =============================================
 CREATE TABLE follows (
@@ -231,7 +297,7 @@ CREATE POLICY "Users can unfollow"
 
 
 -- =============================================
--- 6. VIEWS TABLE
+-- 7. VIEWS TABLE
 -- Track pitch views for analytics
 -- =============================================
 CREATE TABLE pitch_views (
@@ -265,7 +331,7 @@ CREATE POLICY "Pitch owners can view their analytics"
 
 
 -- =============================================
--- 7. NOTIFICATIONS TABLE
+-- 8. NOTIFICATIONS TABLE
 -- User notifications
 -- =============================================
 CREATE TABLE notifications (
@@ -316,6 +382,11 @@ CREATE TRIGGER update_profiles_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_companies_updated_at
+  BEFORE UPDATE ON companies
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_pitches_updated_at
   BEFORE UPDATE ON pitches
   FOR EACH ROW
@@ -347,6 +418,37 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
+
+
+-- Function to generate slug from company name
+CREATE OR REPLACE FUNCTION generate_slug(company_name TEXT)
+RETURNS TEXT AS $$
+BEGIN
+  RETURN lower(regexp_replace(company_name, '[^a-zA-Z0-9]+', '-', 'g'));
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Function to auto-generate slug for companies
+CREATE OR REPLACE FUNCTION auto_generate_company_slug()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.slug IS NULL OR NEW.slug = '' THEN
+    NEW.slug := generate_slug(NEW.name);
+
+    -- Handle duplicates by appending random string
+    WHILE EXISTS (SELECT 1 FROM companies WHERE slug = NEW.slug AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::UUID)) LOOP
+      NEW.slug := generate_slug(NEW.name) || '-' || substr(md5(random()::text), 1, 6);
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER company_slug_trigger
+  BEFORE INSERT OR UPDATE ON companies
+  FOR EACH ROW
+  EXECUTE FUNCTION auto_generate_company_slug();
 
 
 -- Function to update follower/following counts
@@ -382,17 +484,50 @@ CREATE TRIGGER follow_count_trigger
   EXECUTE FUNCTION update_follow_counts();
 
 
+-- Function to update company counts on profiles
+CREATE OR REPLACE FUNCTION update_profile_company_counts()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE profiles SET companies_count = companies_count + 1
+    WHERE id = NEW.founder_id;
+
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE profiles SET companies_count = GREATEST(0, companies_count - 1)
+    WHERE id = OLD.founder_id;
+  END IF;
+
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER profile_company_count_trigger
+  AFTER INSERT OR DELETE ON companies
+  FOR EACH ROW
+  EXECUTE FUNCTION update_profile_company_counts();
+
+
 -- Function to update pitch counts
 CREATE OR REPLACE FUNCTION update_pitch_counts()
 RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
+    -- Update profile pitch count
     UPDATE profiles SET pitches_count = pitches_count + 1
     WHERE id = NEW.user_id;
 
+    -- Update company pitch count
+    UPDATE companies SET pitches_count = pitches_count + 1
+    WHERE id = NEW.company_id;
+
   ELSIF TG_OP = 'DELETE' THEN
+    -- Update profile pitch count
     UPDATE profiles SET pitches_count = GREATEST(0, pitches_count - 1)
     WHERE id = OLD.user_id;
+
+    -- Update company pitch count
+    UPDATE companies SET pitches_count = GREATEST(0, pitches_count - 1)
+    WHERE id = OLD.company_id;
   END IF;
 
   RETURN NULL;
@@ -405,26 +540,51 @@ CREATE TRIGGER pitch_count_trigger
   EXECUTE FUNCTION update_pitch_counts();
 
 
--- Function to update reaction counts on pitches
+-- Function to update reaction counts on pitches and companies
 CREATE OR REPLACE FUNCTION update_reaction_counts()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_company_id UUID;
 BEGIN
+  -- Get company_id from pitch
+  SELECT company_id INTO v_company_id FROM pitches WHERE id = COALESCE(NEW.pitch_id, OLD.pitch_id);
+
   IF TG_OP = 'INSERT' THEN
     IF NEW.type = 'roast' THEN
+      -- Update pitch
       UPDATE pitches SET roast_count = roast_count + 1
       WHERE id = NEW.pitch_id;
+
+      -- Update company
+      UPDATE companies SET total_roasts = total_roasts + 1
+      WHERE id = v_company_id;
     ELSE
+      -- Update pitch
       UPDATE pitches SET toast_count = toast_count + 1
       WHERE id = NEW.pitch_id;
+
+      -- Update company
+      UPDATE companies SET total_toasts = total_toasts + 1
+      WHERE id = v_company_id;
     END IF;
 
   ELSIF TG_OP = 'DELETE' THEN
     IF OLD.type = 'roast' THEN
+      -- Update pitch
       UPDATE pitches SET roast_count = GREATEST(0, roast_count - 1)
       WHERE id = OLD.pitch_id;
+
+      -- Update company
+      UPDATE companies SET total_roasts = GREATEST(0, total_roasts - 1)
+      WHERE id = v_company_id;
     ELSE
+      -- Update pitch
       UPDATE pitches SET toast_count = GREATEST(0, toast_count - 1)
       WHERE id = OLD.pitch_id;
+
+      -- Update company
+      UPDATE companies SET total_toasts = GREATEST(0, total_toasts - 1)
+      WHERE id = v_company_id;
     END IF;
   END IF;
 
@@ -443,13 +603,45 @@ CREATE TRIGGER reaction_count_trigger
   EXECUTE FUNCTION update_reaction_counts();
 
 
+-- Function to update view counts on pitches and companies
+CREATE OR REPLACE FUNCTION update_view_counts()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_company_id UUID;
+BEGIN
+  -- Get company_id from pitch
+  SELECT company_id INTO v_company_id FROM pitches WHERE id = NEW.pitch_id;
+
+  -- Update pitch view count
+  UPDATE pitches SET views_count = views_count + 1
+  WHERE id = NEW.pitch_id;
+
+  -- Update company total views
+  UPDATE companies SET total_views = total_views + 1
+  WHERE id = v_company_id;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER view_count_trigger
+  AFTER INSERT ON pitch_views
+  FOR EACH ROW
+  EXECUTE FUNCTION update_view_counts();
+
+
 -- =============================================
 -- SAMPLE DATA (Optional - for testing)
 -- =============================================
 -- You can uncomment this after setting up auth and replace UUIDs with real user IDs
 
 /*
-INSERT INTO pitches (user_id, company_name, hook, stage, industry, video_url) VALUES
-  ('your-user-id-here', 'TechFlow', 'AI-powered workflow automation for startups', 'Seed', 'SaaS', 'https://example.com/video1.mp4'),
-  ('your-user-id-here', 'GreenBox', 'Sustainable packaging for e-commerce', 'Pre-Seed', 'Climate Tech', 'https://example.com/video2.mp4');
+-- Insert a sample company
+INSERT INTO companies (founder_id, name, tagline, industry, stage) VALUES
+  ('your-user-id-here', 'TechFlow', 'AI-powered workflow automation for startups', 'SaaS', 'Seed');
+
+-- Insert pitches for that company
+INSERT INTO pitches (user_id, company_id, hook, version_number, video_url) VALUES
+  ('your-user-id-here', 'company-id-here', 'Automate your entire workflow in 60 seconds', 1, 'https://example.com/video1.mp4'),
+  ('your-user-id-here', 'company-id-here', 'After pivot: Now focusing on AI agents', 2, 'https://example.com/video2.mp4');
 */

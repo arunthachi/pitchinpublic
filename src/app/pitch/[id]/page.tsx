@@ -12,7 +12,7 @@ import {
   Sparkles,
   User,
 } from 'lucide-react';
-import { getPitchById } from '@/lib/data';
+import { getLegacyPitchById } from '@/lib/data';
 import { FeedbackModal } from '@/components/FeedbackModal';
 import { PivotHistory } from '@/components/PivotHistory';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +25,7 @@ export default function PitchDetailPage() {
   const params = useParams();
   const router = useRouter();
   const pitchId = params.id as string;
-  const pitch = getPitchById(pitchId);
+  const pitch = getLegacyPitchById(pitchId);
   const [localFeedback, setLocalFeedback] = useState(pitch?.feedback || []);
 
   if (!pitch) {

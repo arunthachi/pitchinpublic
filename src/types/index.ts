@@ -2,6 +2,75 @@ export type PitchStage = 'Pre-Seed' | 'Seed' | 'Series A' | 'Series B' | 'Growth
 export type Industry = 'SaaS' | 'FinTech' | 'HealthTech' | 'AI/ML' | 'Consumer' | 'Enterprise' | 'Climate' | 'Web3';
 export type FeedbackType = 'roast' | 'toast';
 export type ReactionType = 'roast' | 'toast' | 'fire' | 'rocket' | 'eyes' | 'thinking';
+export type CompanyStatus = 'active' | 'paused' | 'archived';
+export type PitchStatus = 'draft' | 'published' | 'archived';
+
+// Database-aligned types
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  username: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  website: string | null;
+  twitter_handle: string | null;
+  linkedin_url: string | null;
+  followers_count: number;
+  following_count: number;
+  pitches_count: number;
+  companies_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Company {
+  id: string;
+  founder_id: string;
+  name: string;
+  slug: string;
+  tagline: string | null;
+  description: string | null;
+  industry: Industry;
+  stage: PitchStage;
+  website: string | null;
+  twitter_handle: string | null;
+  linkedin_url: string | null;
+  pitches_count: number;
+  total_views: number;
+  total_roasts: number;
+  total_toasts: number;
+  status: CompanyStatus;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  founder?: Profile;
+}
+
+export interface Pitch {
+  id: string;
+  user_id: string;
+  company_id: string;
+  hook: string;
+  description: string | null;
+  video_url: string;
+  video_provider: 'cloudflare' | 'mux' | 'bunny';
+  video_id: string | null;
+  thumbnail_url: string | null;
+  duration: number | null;
+  version_number: number;
+  views_count: number;
+  roast_count: number;
+  toast_count: number;
+  interest_score: number;
+  status: PitchStatus;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  company?: Company;
+  founder?: Profile;
+  feedback?: Feedback[];
+}
 
 export interface PitchVersion {
   version: string;
@@ -10,7 +79,37 @@ export interface PitchVersion {
   changes: string[];
 }
 
+export interface Reaction {
+  id: string;
+  pitch_id: string;
+  user_id: string;
+  type: 'roast' | 'toast';
+  created_at: string;
+}
+
 export interface Feedback {
+  id: string;
+  pitch_id: string;
+  user_id: string;
+  type: FeedbackType;
+  content: string;
+  is_public: boolean;
+  scores?: {
+    clarity: number;
+    solution: number;
+    market: number;
+    presentation: number;
+  };
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  author?: Profile;
+  authorName?: string;
+  authorRole?: string;
+}
+
+// Legacy feedback type for backwards compatibility
+export interface LegacyFeedback {
   id: string;
   authorName: string;
   authorRole: string;
@@ -25,7 +124,8 @@ export interface Feedback {
   createdAt: string;
 }
 
-export interface Pitch {
+// Legacy interface for backwards compatibility with existing components
+export interface LegacyPitch {
   id: string;
   founderName: string;
   founderAvatar: string;
@@ -42,8 +142,8 @@ export interface Pitch {
   toastCount: number;
   createdAt: string;
   versions?: PitchVersion[];
-  feedback?: Feedback[];
-  duration?: number; // in seconds
+  feedback?: LegacyFeedback[];
+  duration?: number;
 }
 
 export interface QuickReaction {
@@ -72,6 +172,34 @@ export interface FeedbackFormData {
   notes: string;
 }
 
+export interface Follow {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  created_at: string;
+}
+
+export interface PitchView {
+  id: string;
+  pitch_id: string;
+  user_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'roast' | 'toast' | 'follow' | 'feedback' | 'mention' | 'pitch_milestone';
+  title: string;
+  message: string;
+  link: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+// Legacy User type for backwards compatibility
 export interface User {
   id: string;
   name: string;

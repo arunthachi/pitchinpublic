@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, Wine, Share2, BarChart3, Plus } from 'lucide-react';
-import { Pitch } from '@/types';
+import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
 interface FloatingReactionsProps {
-  pitch: Pitch;
+  pitch: LegacyPitch;
   onRoast: () => void;
   onToast: () => void;
   onOpenFeedback: (type: 'roast' | 'toast') => void;

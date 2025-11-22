@@ -4,15 +4,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { Pitch, FeedbackFormData } from '@/types';
+import { LegacyPitch, FeedbackFormData } from '@/types';
 import { VideoPlayer } from './VideoPlayer';
 import { FloatingPitchInfo } from './FloatingPitchInfo';
 import { FloatingReactions } from './FloatingReactions';
 import { QuickFeedbackPanel } from './QuickFeedbackPanel';
 
 interface FullScreenVideoFeedProps {
-  pitches: Pitch[];
-  onCurrentPitchChange?: (pitch: Pitch, handlers: {
+  pitches: LegacyPitch[];
+  onCurrentPitchChange?: (pitch: LegacyPitch, handlers: {
     onRoast: () => void;
     onToast: () => void;
     onOpenFeedback: (type: 'roast' | 'toast') => void;

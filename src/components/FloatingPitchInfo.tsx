@@ -2,11 +2,11 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Pitch } from '@/types';
+import { LegacyPitch } from '@/types';
 import { Music } from 'lucide-react';
 
 interface FloatingPitchInfoProps {
-  pitch: Pitch;
+  pitch: LegacyPitch;
   onAvatarClick?: () => void;
 }
 

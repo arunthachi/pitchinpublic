@@ -11,8 +11,8 @@ import { SignInModal } from '@/components/SignInModal';
 import { WelcomeHero } from '@/components/WelcomeHero';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
-import { mockPitches, mockUser } from '@/lib/data';
-import { Pitch } from '@/types';
+import { getLegacyPitches, mockUser } from '@/lib/data';
+import { LegacyPitch } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
@@ -20,7 +20,10 @@ export default function Home() {
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
-  const [currentPitch, setCurrentPitch] = useState<Pitch>(mockPitches[0]);
+
+  // Use legacy pitches for backwards compatibility
+  const legacyPitches = getLegacyPitches();
+  const [currentPitch, setCurrentPitch] = useState<LegacyPitch>(legacyPitches[0]);
   const [handlers, setHandlers] = useState<{
     onRoast: () => void;
     onToast: () => void;
@@ -36,11 +39,11 @@ export default function Home() {
   }, [user, loading]);
 
   // Filter user's own pitches (in production, fetch from API by user ID)
-  const userPitches = mockPitches.filter((pitch) =>
+  const userPitches = legacyPitches.filter((pitch) =>
     pitch.founderName === mockUser.name // Mock: would match mockUser.id in production
   );
 
-  const handlePitchChange = useCallback((pitch: Pitch, newHandlers: typeof handlers) => {
+  const handlePitchChange = useCallback((pitch: LegacyPitch, newHandlers: typeof handlers) => {
     setCurrentPitch(pitch);
     setHandlers(newHandlers);
   }, []);
@@ -107,7 +110,7 @@ export default function Home() {
           {/* Video Feed Container - Phone aspect ratio */}
           <div className="relative h-[calc(100vh-4rem)] w-auto aspect-[9/16] max-h-[calc(100vh-4rem)] bg-black rounded-xl overflow-hidden shadow-2xl shadow-black/50">
             <FullScreenVideoFeed
-              pitches={mockPitches}
+              pitches={legacyPitches}
               hideReactions={true}
               onCurrentPitchChange={handlePitchChange}
             />
@@ -128,7 +131,7 @@ export default function Home() {
         {/* Mobile: Full screen like TikTok */}
         <div className="lg:hidden w-full h-screen">
           <FullScreenVideoFeed
-            pitches={mockPitches}
+            pitches={legacyPitches}
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
           />

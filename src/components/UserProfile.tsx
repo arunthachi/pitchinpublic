@@ -3,14 +3,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, LogOut, Users, Video, TrendingUp, Clock, Flame } from 'lucide-react';
-import { User, Pitch } from '@/types';
+import { User, LegacyPitch } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface UserProfileProps {
   isOpen: boolean;
   onClose: () => void;
   user: User;
-  userPitches: Pitch[];
+  userPitches: LegacyPitch[];
 }
 
 type SortBy = 'latest' | 'oldest' | 'popular';
