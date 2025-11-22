@@ -106,22 +106,22 @@ export function WelcomeHero({ onSignInClick }: WelcomeHeroProps) {
           className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mb-16"
         >
           <div className="flex flex-col items-center gap-3 p-6 rounded-2xl bg-slate-900/50 backdrop-blur-sm border border-slate-700/50">
+            <div className="w-12 h-12 rounded-xl bg-neon-lime/10 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-neon-lime" />
+            </div>
+            <h3 className="text-white font-semibold">Pitch in Public</h3>
+            <p className="text-slate-400 text-sm">
+              Iterate openly, grow your audience
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center gap-3 p-6 rounded-2xl bg-slate-900/50 backdrop-blur-sm border border-slate-700/50">
             <div className="w-12 h-12 rounded-xl bg-neon-cyan/10 flex items-center justify-center">
               <Zap className="w-6 h-6 text-neon-cyan" />
             </div>
             <h3 className="text-white font-semibold">Instant Feedback</h3>
             <p className="text-slate-400 text-sm">
               Get roasted or toasted by the community
-            </p>
-          </div>
-
-          <div className="flex flex-col items-center gap-3 p-6 rounded-2xl bg-slate-900/50 backdrop-blur-sm border border-slate-700/50">
-            <div className="w-12 h-12 rounded-xl bg-neon-lime/10 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-neon-lime" />
-            </div>
-            <h3 className="text-white font-semibold">Build in Public</h3>
-            <p className="text-slate-400 text-sm">
-              Iterate openly, grow your audience
             </p>
           </div>
 
