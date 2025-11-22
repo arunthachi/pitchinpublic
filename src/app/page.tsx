@@ -83,7 +83,7 @@ export default function Home() {
       {isGuest ? (
         <button
           onClick={() => setSignInModalOpen(true)}
-          className="hidden lg:block fixed top-4 right-4 z-50 px-6 py-2.5 rounded-lg bg-gradient-to-r from-pink-500 to-red-500 text-white font-semibold text-sm hover:shadow-lg hover:shadow-pink-500/50 transition-all"
+          className="hidden lg:block fixed top-4 right-4 z-50 px-6 py-2.5 rounded-lg bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-semibold text-sm hover:shadow-lg hover:shadow-neon-cyan/50 transition-all"
         >
           Log in
         </button>

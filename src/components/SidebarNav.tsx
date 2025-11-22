@@ -113,7 +113,7 @@ export function SidebarNav({ onPostClick, isGuest = false, onSignInClick }: Side
               onClick={onSignInClick}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-pink-500 to-red-500 text-white font-heading font-bold mb-4"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-heading font-bold mb-4"
             >
               <span className="hidden lg:block">Log in</span>
               <span className="lg:hidden">Log in</span>
