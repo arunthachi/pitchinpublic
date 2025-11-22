@@ -7,9 +7,11 @@ import Link from 'next/link';
 
 interface SidebarNavProps {
   onPostClick: () => void;
+  isGuest?: boolean;
+  onSignInClick?: () => void;
 }
 
-export function SidebarNav({ onPostClick }: SidebarNavProps) {
+export function SidebarNav({ onPostClick, isGuest = false, onSignInClick }: SidebarNavProps) {
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-20 lg:w-64 bg-black border-r border-slate-800 z-50 flex flex-col">
       {/* Logo */}
@@ -48,6 +50,7 @@ export function SidebarNav({ onPostClick }: SidebarNavProps) {
         <div className="space-y-2">
           {/* For You */}
           <motion.button
+            onClick={isGuest && onSignInClick ? onSignInClick : undefined}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg bg-slate-900/50 border border-neon-cyan/30 text-neon-cyan"
@@ -58,6 +61,7 @@ export function SidebarNav({ onPostClick }: SidebarNavProps) {
 
           {/* Following */}
           <motion.button
+            onClick={isGuest && onSignInClick ? onSignInClick : undefined}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg hover:bg-slate-900/50 text-slate-400 hover:text-slate-200 transition-colors"
@@ -68,6 +72,7 @@ export function SidebarNav({ onPostClick }: SidebarNavProps) {
 
           {/* Explore */}
           <motion.button
+            onClick={isGuest && onSignInClick ? onSignInClick : undefined}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg hover:bg-slate-900/50 text-slate-400 hover:text-slate-200 transition-colors"
@@ -78,6 +83,7 @@ export function SidebarNav({ onPostClick }: SidebarNavProps) {
 
           {/* Trending */}
           <motion.button
+            onClick={isGuest && onSignInClick ? onSignInClick : undefined}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg hover:bg-slate-900/50 text-slate-400 hover:text-slate-200 transition-colors"
@@ -99,16 +105,28 @@ export function SidebarNav({ onPostClick }: SidebarNavProps) {
         </motion.button>
       </nav>
 
-      {/* Settings (bottom) */}
+      {/* Bottom section - Log in for guests, Settings for authenticated */}
       <div className="p-2 lg:p-4 border-t border-slate-800">
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg hover:bg-slate-900/50 text-slate-400 hover:text-slate-200 transition-colors"
-        >
-          <Settings className="w-6 h-6 flex-shrink-0" />
-          <span className="hidden lg:block font-body">Settings</span>
-        </motion.button>
+        {isGuest ? (
+          <motion.button
+            onClick={onSignInClick}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-pink-500 to-red-500 text-white font-heading font-bold"
+          >
+            <span className="hidden lg:block">Log in</span>
+            <span className="lg:hidden">Log in</span>
+          </motion.button>
+        ) : (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg hover:bg-slate-900/50 text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            <Settings className="w-6 h-6 flex-shrink-0" />
+            <span className="hidden lg:block font-body">Settings</span>
+          </motion.button>
+        )}
       </div>
     </aside>
   );
