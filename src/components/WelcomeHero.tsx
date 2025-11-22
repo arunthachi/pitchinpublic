@@ -3,7 +3,11 @@
 import { motion } from 'framer-motion';
 import { Sparkles, Zap, TrendingUp } from 'lucide-react';
 
-export function WelcomeHero() {
+interface WelcomeHeroProps {
+  onSignInClick?: () => void;
+}
+
+export function WelcomeHero({ onSignInClick }: WelcomeHeroProps) {
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Animated gradient orbs */}
@@ -133,14 +137,17 @@ export function WelcomeHero() {
         </motion.div>
 
         {/* CTA hint */}
-        <motion.div
+        <motion.button
+          onClick={onSignInClick}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
-          className="text-slate-500 text-sm"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="text-slate-400 hover:text-slate-300 text-lg font-medium cursor-pointer transition-colors"
         >
           Sign in above to get started →
-        </motion.div>
+        </motion.button>
       </div>
 
       {/* Bottom decorative element */}

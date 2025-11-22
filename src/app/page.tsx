@@ -61,7 +61,7 @@ export default function Home() {
   if (!user) {
     return (
       <>
-        <WelcomeHero />
+        <WelcomeHero onSignInClick={() => setSignInModalOpen(true)} />
         <SignInModal
           isOpen={signInModalOpen}
           onClose={() => setSignInModalOpen(false)}
