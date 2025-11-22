@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
@@ -30,13 +30,6 @@ export default function Home() {
     onOpenFeedback: (type: 'roast' | 'toast') => void;
     onShare: () => void;
   } | null>(null);
-
-  // Show sign-in modal if user is not authenticated (after loading)
-  useEffect(() => {
-    if (!loading && !user) {
-      setSignInModalOpen(true);
-    }
-  }, [user, loading]);
 
   // Filter user's own pitches (in production, fetch from API by user ID)
   const userPitches = legacyPitches.filter((pitch) =>
