@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
@@ -24,7 +24,9 @@ export default function Home() {
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
-  const [profileSetupCompleted, setProfileSetupCompleted] = useState(false);
+  // Use ref to track whether we've already shown the profile setup modal this session
+  // This prevents the modal from showing multiple times
+  const hasShownProfileSetupRef = useRef(false);
 
   // Fetch user profile from Supabase when user logs in
   useEffect(() => {
@@ -60,8 +62,10 @@ export default function Home() {
           setUserProfile(dbUser);
 
           // Check if user needs to set up their profile (no full_name or username)
-          if (!data.full_name || !data.username) {
+          // Only show modal if we haven't already shown it this session
+          if ((!data.full_name || !data.username) && !hasShownProfileSetupRef.current) {
             console.log('User needs to complete profile setup');
+            hasShownProfileSetupRef.current = true;
             setShowProfileSetup(true);
           }
         } else {
@@ -70,8 +74,10 @@ export default function Home() {
           setUserProfile(authBasedUser);
 
           // Check if auth user has full_name set (from OAuth)
-          if (!user.user_metadata?.full_name && !profileSetupCompleted) {
+          // Only show modal if we haven't already shown it this session
+          if (!user.user_metadata?.full_name && !hasShownProfileSetupRef.current) {
             console.log('Auth user needs to complete profile setup');
+            hasShownProfileSetupRef.current = true;
             setShowProfileSetup(true);
           }
         }
@@ -80,8 +86,9 @@ export default function Home() {
         // Fall back to auth user data on any error
         setUserProfile(authBasedUser);
 
-        // Show profile setup if not completed
-        if (!profileSetupCompleted) {
+        // Show profile setup if not already shown this session
+        if (!hasShownProfileSetupRef.current) {
+          hasShownProfileSetupRef.current = true;
           setShowProfileSetup(true);
         }
       }
@@ -239,9 +246,10 @@ export default function Home() {
           isOpen={showProfileSetup}
           user={user}
           onComplete={() => {
+            // Close the modal - it won't show again this session due to ref
             setShowProfileSetup(false);
-            setProfileSetupCompleted(true);
-            // Refresh profile data after setup
+
+            // Refresh profile data after setup (optional - for UI updates)
             const fetchUpdatedProfile = async () => {
               const supabase = createClient();
               const { data } = await supabase
@@ -254,7 +262,9 @@ export default function Home() {
                 setUserProfile(profileToUser(data));
               }
             };
-            fetchUpdatedProfile();
+            fetchUpdatedProfile().catch((err) => {
+              console.error('Error refreshing profile after setup:', err);
+            });
           }}
         />
       )}
