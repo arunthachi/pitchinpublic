@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Mail, Phone, ArrowRight, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { signInSchema, phoneSchema, emailSchema, getFirstError } from '@/lib/validation';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -113,20 +114,20 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   };
 
   const handlePhoneSignIn = async () => {
-    const cleanedPhone = input.replace(/\D/g, '');
-
-    if (!cleanedPhone || cleanedPhone.length < 10) {
-      setError('Please enter a valid phone number (at least 10 digits)');
-      return;
-    }
-
     try {
       setLoading('phone');
       setError(null);
 
-      const phoneWithCountry = cleanedPhone.startsWith('1')
-        ? `+${cleanedPhone}`
-        : `+1${cleanedPhone}`;
+      // Validate phone with Zod schema
+      const validation = phoneSchema.safeParse(input);
+      if (!validation.success) {
+        const errorMsg = validation.error.errors[0]?.message || 'Invalid phone number';
+        setError(errorMsg);
+        setLoading(null);
+        return;
+      }
+
+      const phoneWithCountry = validation.data; // Already in E.164 format from schema
 
       const { error } = await supabase.auth.signInWithOtp({
         phone: phoneWithCountry,
@@ -152,17 +153,23 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   };
 
   const handleEmailSignIn = async () => {
-    if (!input || !input.includes('@')) {
-      setError('Please enter a valid email address');
-      return;
-    }
-
     try {
       setLoading('email');
       setError(null);
 
+      // Validate email with Zod schema
+      const validation = emailSchema.safeParse(input);
+      if (!validation.success) {
+        const errorMsg = validation.error.errors[0]?.message || 'Invalid email address';
+        setError(errorMsg);
+        setLoading(null);
+        return;
+      }
+
+      const email = validation.data; // Already normalized by schema
+
       const { error } = await supabase.auth.signInWithOtp({
-        email: input,
+        email,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
@@ -175,7 +182,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
         throw error;
       }
 
-      setSentTo(input);
+      setSentTo(email);
       setCodeSent(true);
       setTimeRemaining(3600); // 60 minutes for email magic link
       setLoading(null);
