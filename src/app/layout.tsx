@@ -3,6 +3,7 @@ import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import { GridBackground } from "@/components/GridBackground";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -48,9 +49,11 @@ export default function RootLayout({
         className={`${spaceGrotesk.variable} ${inter.variable} font-body antialiased bg-slate-950 text-slate-100 min-h-screen`}
       >
         <GridBackground />
-        <AuthProvider>
-          <main className="relative z-10">{children}</main>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <main className="relative z-10">{children}</main>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
