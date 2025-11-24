@@ -15,6 +15,7 @@ import { getLegacyPitches, mockUser, profileToUser, authUserToUser } from '@/lib
 import { LegacyPitch, User } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -22,6 +23,8 @@ export default function Home() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [profileSetupCompleted, setProfileSetupCompleted] = useState(false);
 
   // Fetch user profile from Supabase when user logs in
   useEffect(() => {
@@ -55,15 +58,32 @@ export default function Home() {
           const dbUser = profileToUser(data);
           console.log('Converted database user:', dbUser);
           setUserProfile(dbUser);
+
+          // Check if user needs to set up their profile (no full_name or username)
+          if (!data.full_name || !data.username) {
+            console.log('User needs to complete profile setup');
+            setShowProfileSetup(true);
+          }
         } else {
           // If profiles table fetch fails or returns nothing, use auth user data
           console.log('Profiles table fetch failed or returned no data, using auth-based user');
           setUserProfile(authBasedUser);
+
+          // Check if auth user has full_name set (from OAuth)
+          if (!user.user_metadata?.full_name && !profileSetupCompleted) {
+            console.log('Auth user needs to complete profile setup');
+            setShowProfileSetup(true);
+          }
         }
       } catch (err) {
         console.error('Error fetching user profile, falling back to auth data:', err);
         // Fall back to auth user data on any error
         setUserProfile(authBasedUser);
+
+        // Show profile setup if not completed
+        if (!profileSetupCompleted) {
+          setShowProfileSetup(true);
+        }
       }
     };
 
@@ -210,6 +230,32 @@ export default function Home() {
           onClose={() => setProfileOpen(false)}
           user={userProfile}
           userPitches={userPitches}
+        />
+      )}
+
+      {/* Profile Setup Modal - Shown after first login for email/phone users */}
+      {!isGuest && user && (
+        <ProfileSetupModal
+          isOpen={showProfileSetup}
+          user={user}
+          onComplete={() => {
+            setShowProfileSetup(false);
+            setProfileSetupCompleted(true);
+            // Refresh profile data after setup
+            const fetchUpdatedProfile = async () => {
+              const supabase = createClient();
+              const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+              if (data) {
+                setUserProfile(profileToUser(data));
+              }
+            };
+            fetchUpdatedProfile();
+          }}
         />
       )}
 
