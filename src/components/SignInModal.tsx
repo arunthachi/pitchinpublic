@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Mail, Phone, ArrowRight, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -13,13 +13,84 @@ interface SignInModalProps {
 type AuthMethod = 'phone' | 'email';
 
 export function SignInModal({ isOpen, onClose }: SignInModalProps) {
-  const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
+  const [input, setInput] = useState('');
+  const [detectedMethod, setDetectedMethod] = useState<AuthMethod | null>(null);
+  const [forceMethod, setForceMethod] = useState<AuthMethod | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [codeSent, setCodeSent] = useState(false);
+  const [sentTo, setSentTo] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(3600); // 60 minutes for email, will adjust
   const supabase = createClient();
+
+  // Countdown timer for verification expiration
+  useEffect(() => {
+    if (!codeSent) return;
+
+    const interval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [codeSent]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  // Smart detection: email vs phone
+  const detectAuthMethod = (value: string): AuthMethod | null => {
+    const cleanValue = value.trim();
+
+    // Check if email
+    if (cleanValue.includes('@') && cleanValue.includes('.')) {
+      return 'email';
+    }
+
+    // Check if phone (has digits and length >= 10)
+    const digitsOnly = cleanValue.replace(/\D/g, '');
+    if (digitsOnly.length >= 10) {
+      return 'phone';
+    }
+
+    return null;
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInput(value);
+
+    // Auto-detect method
+    const detected = detectAuthMethod(value);
+    setDetectedMethod(detected);
+
+    // Clear error when user starts typing
+    if (error) setError(null);
+  };
+
+  const formatPhoneNumber = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
+    if (match) {
+      const parts = [match[1], match[2], match[3]].filter(Boolean);
+      return parts.join('-');
+    }
+    return value;
+  };
 
   const handleSocialSignIn = async (provider: 'google' | 'apple') => {
     try {
@@ -41,11 +112,11 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     }
   };
 
-  const handlePhoneSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePhoneSignIn = async () => {
+    const cleanedPhone = input.replace(/\D/g, '');
 
-    if (!phone || phone.length < 10) {
-      setError('Please enter a valid phone number');
+    if (!cleanedPhone || cleanedPhone.length < 10) {
+      setError('Please enter a valid phone number (at least 10 digits)');
       return;
     }
 
@@ -53,29 +124,35 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setLoading('phone');
       setError(null);
 
-      // Format phone number (basic US format for now)
-      const formattedPhone = phone.replace(/\D/g, '');
-      const phoneWithCountry = formattedPhone.startsWith('1') ? `+${formattedPhone}` : `+1${formattedPhone}`;
+      const phoneWithCountry = cleanedPhone.startsWith('1')
+        ? `+${cleanedPhone}`
+        : `+1${cleanedPhone}`;
 
       const { error } = await supabase.auth.signInWithOtp({
         phone: phoneWithCountry,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('over_sms_limit')) {
+          throw new Error('Too many SMS attempts. Please try again later.');
+        }
+        throw error;
+      }
 
+      setSentTo(phoneWithCountry);
       setCodeSent(true);
+      setTimeRemaining(600); // 10 minutes for phone OTP
       setLoading(null);
     } catch (err) {
       console.error('Phone sign in error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send code');
+      const message = err instanceof Error ? err.message : 'Failed to send code';
+      setError(message);
       setLoading(null);
     }
   };
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!email || !email.includes('@')) {
+  const handleEmailSignIn = async () => {
+    if (!input || !input.includes('@')) {
       setError('Please enter a valid email address');
       return;
     }
@@ -85,40 +162,64 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setError(null);
 
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: input,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('over_email_send_limit')) {
+          throw new Error('Too many email attempts. Please try again later.');
+        }
+        throw error;
+      }
 
+      setSentTo(input);
       setCodeSent(true);
+      setTimeRemaining(3600); // 60 minutes for email magic link
       setLoading(null);
     } catch (err) {
       console.error('Email sign in error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send code');
+      const message = err instanceof Error ? err.message : 'Failed to send magic link';
+      setError(message);
       setLoading(null);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    if (authMethod === 'phone') {
-      handlePhoneSignIn(e);
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+
+    const method = forceMethod || detectedMethod;
+    if (method === 'phone') {
+      await handlePhoneSignIn();
     } else {
-      handleEmailSignIn(e);
+      await handleEmailSignIn();
+    }
+    setResendCooldown(30); // 30 second cooldown
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const method = forceMethod || detectedMethod;
+
+    if (!method) {
+      setError('Please enter a valid email address or phone number');
+      return;
+    }
+
+    if (method === 'phone') {
+      handlePhoneSignIn();
+    } else {
+      handleEmailSignIn();
     }
   };
 
-  const formatPhoneNumber = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{0,3})(\d{0,3})(\d{0,4})$/);
-    if (match) {
-      const parts = [match[1], match[2], match[3]].filter(Boolean);
-      return parts.join('-');
-    }
-    return value;
-  };
+  const method = forceMethod || detectedMethod;
+  const formattedTime = `${String(Math.floor(timeRemaining / 60)).padStart(2, '0')}:${String(
+    timeRemaining % 60
+  ).padStart(2, '0')}`;
 
   return (
     <AnimatePresence>
@@ -130,6 +231,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100]"
+            onClick={onClose}
           />
 
           {/* Modal */}
@@ -166,8 +268,18 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                           transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
                           className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-cyan to-neon-lime mb-6 shadow-lg shadow-neon-cyan/25"
                         >
-                          <svg className="w-9 h-9 text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                          <svg
+                            className="w-9 h-9 text-slate-900"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                            />
                           </svg>
                         </motion.div>
                         <h2 className="text-3xl font-bold text-white font-heading mb-3">
@@ -192,127 +304,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                         )}
                       </AnimatePresence>
 
-                      {/* Phone/Email Toggle - TikTok Style */}
-                      <div className="mb-6">
-                        <div className="flex gap-3 p-1.5 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                          <button
-                            type="button"
-                            onClick={() => setAuthMethod('phone')}
-                            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                              authMethod === 'phone'
-                                ? 'bg-white text-slate-900 shadow-lg'
-                                : 'text-slate-400 hover:text-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center justify-center gap-2">
-                              <Phone className="w-4 h-4" />
-                              <span>Phone</span>
-                            </div>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setAuthMethod('email')}
-                            className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                              authMethod === 'email'
-                                ? 'bg-white text-slate-900 shadow-lg'
-                                : 'text-slate-400 hover:text-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center justify-center gap-2">
-                              <Mail className="w-4 h-4" />
-                              <span>Email</span>
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Input Form */}
-                      <form onSubmit={handleSubmit} className="space-y-4 mb-6">
-                        <div className="relative">
-                          {authMethod === 'phone' ? (
-                            <>
-                              <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                              <input
-                                type="tel"
-                                value={phone}
-                                onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
-                                placeholder="Phone number"
-                                className="w-full pl-14 pr-6 py-5 bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-500 rounded-2xl focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20 transition-all text-base"
-                                disabled={loading !== null}
-                                maxLength={12}
-                              />
-                            </>
-                          ) : (
-                            <>
-                              <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                              <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="Email address"
-                                className="w-full pl-14 pr-6 py-5 bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-500 rounded-2xl focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20 transition-all text-base"
-                                disabled={loading !== null}
-                              />
-                            </>
-                          )}
-                        </div>
-
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          type="submit"
-                          disabled={loading !== null}
-                          className="w-full group relative overflow-hidden px-6 py-5 bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-bold rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-neon-cyan/25 hover:shadow-xl hover:shadow-neon-cyan/40"
-                        >
-                          <div className="flex items-center justify-center gap-3">
-                            {loading === authMethod ? (
-                              <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                <span className="text-lg">Sending...</span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-lg">Continue</span>
-                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                              </>
-                            )}
-                          </div>
-                        </motion.button>
-                      </form>
-
-                      {/* Divider */}
-                      <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-slate-700"></div>
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-                          <span className="px-4 bg-slate-900/90 text-slate-500 font-medium">or</span>
-                        </div>
-                      </div>
-
-                      {/* Social Sign In Buttons */}
-                      <div className="space-y-3">
-                        {/* Apple Sign In */}
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => handleSocialSignIn('apple')}
-                          disabled={loading !== null}
-                          className="w-full group relative overflow-hidden px-6 py-4 bg-white hover:bg-gray-50 text-gray-900 font-semibold rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-                        >
-                          <div className="flex items-center justify-center gap-3">
-                            {loading === 'apple' ? (
-                              <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                              </svg>
-                            )}
-                            <span>Continue with Apple</span>
-                          </div>
-                        </motion.button>
-
-                        {/* Google Sign In */}
+                      {/* Social Sign In - PROMINENT (FIRST) */}
+                      <div className="space-y-3 mb-6">
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
@@ -334,14 +327,119 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                             <span>Continue with Google</span>
                           </div>
                         </motion.button>
+
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => handleSocialSignIn('apple')}
+                          disabled={loading !== null}
+                          className="w-full group relative overflow-hidden px-6 py-4 bg-white hover:bg-gray-50 text-gray-900 font-semibold rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                        >
+                          <div className="flex items-center justify-center gap-3">
+                            {loading === 'apple' ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                              </svg>
+                            )}
+                            <span>Continue with Apple</span>
+                          </div>
+                        </motion.button>
                       </div>
 
+                      {/* Divider */}
+                      <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-slate-700"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-4 bg-slate-900/90 text-slate-500 font-medium">
+                            or continue with email or phone
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Smart Input Form - Single Field */}
+                      <form onSubmit={handleSubmit} className="space-y-4 mb-6">
+                        <div className="relative">
+                          {method === 'phone' ? (
+                            <Phone className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                          ) : method === 'email' ? (
+                            <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                          ) : (
+                            <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          )}
+
+                          <input
+                            type="text"
+                            value={input}
+                            onChange={handleInputChange}
+                            placeholder="Email or phone number"
+                            className="w-full pl-14 pr-6 py-5 bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-500 rounded-2xl focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20 transition-all text-base"
+                            disabled={loading !== null}
+                            autoFocus
+                          />
+                        </div>
+
+                        {/* Prefer phone? Toggle - Optional */}
+                        {detectedMethod === 'email' && !forceMethod && (
+                          <motion.button
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            type="button"
+                            onClick={() => setForceMethod('phone')}
+                            className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
+                          >
+                            Prefer to use phone? →
+                          </motion.button>
+                        )}
+
+                        {forceMethod === 'phone' && (
+                          <motion.button
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            type="button"
+                            onClick={() => setForceMethod(null)}
+                            className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
+                          >
+                            ← Back to email
+                          </motion.button>
+                        )}
+
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          type="submit"
+                          disabled={loading !== null || !method}
+                          className="w-full group relative overflow-hidden px-6 py-5 bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-bold rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-neon-cyan/25 hover:shadow-xl hover:shadow-neon-cyan/40"
+                        >
+                          <div className="flex items-center justify-center gap-3">
+                            {loading ? (
+                              <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span className="text-lg">Sending...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-lg">Continue</span>
+                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                              </>
+                            )}
+                          </div>
+                        </motion.button>
+                      </form>
+
                       {/* Terms */}
-                      <p className="mt-8 text-xs text-slate-500 text-center leading-relaxed">
+                      <p className="text-xs text-slate-500 text-center leading-relaxed">
                         By continuing, you agree to our{' '}
-                        <a href="#" className="text-neon-cyan hover:underline">Terms of Service</a>
+                        <a href="#" className="text-neon-cyan hover:underline">
+                          Terms of Service
+                        </a>
                         {' '}and{' '}
-                        <a href="#" className="text-neon-cyan hover:underline">Privacy Policy</a>
+                        <a href="#" className="text-neon-cyan hover:underline">
+                          Privacy Policy
+                        </a>
                       </p>
                     </>
                   ) : (
@@ -357,7 +455,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                         transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
                         className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-neon-cyan to-neon-lime mb-6 shadow-lg shadow-neon-cyan/25"
                       >
-                        {authMethod === 'phone' ? (
+                        {method === 'phone' ? (
                           <Phone className="w-10 h-10 text-slate-900" />
                         ) : (
                           <Mail className="w-10 h-10 text-slate-900" />
@@ -365,36 +463,64 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                       </motion.div>
 
                       <h3 className="text-2xl font-bold text-white font-heading mb-4">
-                        {authMethod === 'phone' ? 'Check your phone!' : 'Check your email!'}
+                        {method === 'phone' ? 'Check your phone!' : 'Check your email!'}
                       </h3>
 
                       <p className="text-slate-400 text-base mb-3">
-                        {authMethod === 'phone'
-                          ? "We've sent a verification code to"
-                          : "We've sent a magic link to"
+                        {method === 'phone'
+                          ? 'We sent a verification code to'
+                          : 'We sent a magic link to'
                         }
                       </p>
-                      <p className="text-white font-semibold text-lg mb-6">
-                        {authMethod === 'phone' ? phone : email}
-                      </p>
+                      <p className="text-white font-semibold text-lg mb-6 break-all">{sentTo}</p>
+
+                      {/* Timer - Prominent Display */}
+                      <div className="mb-8 p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50">
+                        <p className="text-slate-400 text-sm mb-2">
+                          {method === 'phone'
+                            ? 'Code expires in'
+                            : 'Link expires in'}
+                        </p>
+                        <div className="text-3xl font-bold text-neon-cyan font-mono">
+                          {formattedTime} ⏱️
+                        </div>
+                      </div>
 
                       <p className="text-slate-500 text-sm mb-8">
-                        {authMethod === 'phone'
+                        {method === 'phone'
                           ? 'Enter the code to sign in. It expires in 10 minutes.'
                           : 'Click the link in the email to sign in. It expires in 1 hour.'
                         }
                       </p>
 
+                      {/* Resend Button with Cooldown */}
                       <button
-                        onClick={() => {
-                          setCodeSent(false);
-                          setEmail('');
-                          setPhone('');
-                        }}
-                        className="text-neon-cyan hover:text-neon-lime transition-colors font-medium"
+                        onClick={handleResend}
+                        disabled={resendCooldown > 0 || loading !== null}
+                        className={`text-neon-cyan hover:text-neon-lime transition-colors font-medium mb-6 ${
+                          resendCooldown > 0 ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                       >
-                        ← Back to sign in
+                        {resendCooldown > 0
+                          ? `Resend in ${resendCooldown}s`
+                          : 'Resend'}
                       </button>
+
+                      {/* Back Button */}
+                      <div className="pt-4 border-t border-slate-700">
+                        <button
+                          onClick={() => {
+                            setCodeSent(false);
+                            setInput('');
+                            setForceMethod(null);
+                            setError(null);
+                            setTimeRemaining(3600);
+                          }}
+                          className="text-slate-400 hover:text-slate-300 transition-colors font-medium text-sm"
+                        >
+                          ← Try a different method
+                        </button>
+                      </div>
                     </motion.div>
                   )}
                 </div>
