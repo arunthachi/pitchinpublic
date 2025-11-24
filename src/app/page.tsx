@@ -26,18 +26,25 @@ export default function Home() {
   // Fetch user profile from Supabase when user logs in
   useEffect(() => {
     const fetchUserProfile = async () => {
+      console.log('fetchUserProfile called, user:', user);
+
       if (!user) {
+        console.log('No user, clearing profile');
         setUserProfile(null);
         return;
       }
 
       try {
         const supabase = createClient();
+        console.log('Fetching profile for user ID:', user.id);
+
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
+
+        console.log('Profile fetch result - data:', data, 'error:', error);
 
         if (error) {
           console.error('Error fetching profile:', error);
@@ -45,7 +52,10 @@ export default function Home() {
         }
 
         if (data) {
-          setUserProfile(profileToUser(data));
+          console.log('Converting profile to user format:', data);
+          const convertedUser = profileToUser(data);
+          console.log('Converted user:', convertedUser);
+          setUserProfile(convertedUser);
         }
       } catch (err) {
         console.error('Error fetching user profile:', err);
@@ -189,11 +199,11 @@ export default function Home() {
       )}
 
       {/* User Profile Panel - Only for authenticated users */}
-      {!isGuest && userProfile && (
+      {!isGuest && (
         <UserProfile
           isOpen={profileOpen}
           onClose={() => setProfileOpen(false)}
-          user={userProfile}
+          user={userProfile || mockUser}
           userPitches={userPitches}
         />
       )}
