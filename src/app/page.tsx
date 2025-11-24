@@ -11,7 +11,7 @@ import { SignInModal } from '@/components/SignInModal';
 import { WelcomeHero } from '@/components/WelcomeHero';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
-import { getLegacyPitches, mockUser, profileToUser } from '@/lib/data';
+import { getLegacyPitches, mockUser, profileToUser, authUserToUser } from '@/lib/data';
 import { LegacyPitch, User } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
@@ -34,6 +34,10 @@ export default function Home() {
         return;
       }
 
+      // Always create a user object from auth data first
+      const authBasedUser = authUserToUser(user);
+      console.log('Created user from auth data:', authBasedUser);
+
       try {
         const supabase = createClient();
         console.log('Fetching profile for user ID:', user.id);
@@ -46,19 +50,20 @@ export default function Home() {
 
         console.log('Profile fetch result - data:', data, 'error:', error);
 
-        if (error) {
-          console.error('Error fetching profile:', error);
-          return;
-        }
-
-        if (data) {
-          console.log('Converting profile to user format:', data);
-          const convertedUser = profileToUser(data);
-          console.log('Converted user:', convertedUser);
-          setUserProfile(convertedUser);
+        if (!error && data) {
+          console.log('Converting database profile to user format:', data);
+          const dbUser = profileToUser(data);
+          console.log('Converted database user:', dbUser);
+          setUserProfile(dbUser);
+        } else {
+          // If profiles table fetch fails or returns nothing, use auth user data
+          console.log('Profiles table fetch failed or returned no data, using auth-based user');
+          setUserProfile(authBasedUser);
         }
       } catch (err) {
-        console.error('Error fetching user profile:', err);
+        console.error('Error fetching user profile, falling back to auth data:', err);
+        // Fall back to auth user data on any error
+        setUserProfile(authBasedUser);
       }
     };
 
@@ -76,10 +81,10 @@ export default function Home() {
   } | null>(null);
 
   // Filter user's own pitches using the fetched profile
-  const currentUserName = userProfile?.name || mockUser.name;
-  const userPitches = legacyPitches.filter((pitch) =>
-    pitch.founderName === currentUserName
-  );
+  // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
+  const userPitches = userProfile
+    ? legacyPitches.filter((pitch) => pitch.founderName === userProfile.name)
+    : [];
 
   const handlePitchChange = useCallback((pitch: LegacyPitch, newHandlers: typeof handlers) => {
     setCurrentPitch(pitch);
@@ -199,11 +204,11 @@ export default function Home() {
       )}
 
       {/* User Profile Panel - Only for authenticated users */}
-      {!isGuest && (
+      {!isGuest && userProfile && (
         <UserProfile
           isOpen={profileOpen}
           onClose={() => setProfileOpen(false)}
-          user={userProfile || mockUser}
+          user={userProfile}
           userPitches={userPitches}
         />
       )}

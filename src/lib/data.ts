@@ -536,11 +536,27 @@ export function profileToUser(profile: Profile): User {
     id: profile.id,
     name: profile.full_name,
     email: profile.email,
-    avatar: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+    avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(profile.full_name)}`,
     bio: profile.bio || undefined,
     followersCount: profile.followers_count,
     followingCount: profile.following_count,
     pitchesCount: profile.pitches_count,
     createdAt: profile.created_at,
+  };
+}
+
+// Helper to create a User from Supabase auth User object
+export function authUserToUser(authUser: any): User {
+  const name = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
+  return {
+    id: authUser.id,
+    name: name,
+    email: authUser.email || 'unknown@example.com',
+    avatar: authUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
+    bio: authUser.user_metadata?.bio || undefined,
+    followersCount: 0,
+    followingCount: 0,
+    pitchesCount: 0,
+    createdAt: authUser.created_at || new Date().toISOString(),
   };
 }
