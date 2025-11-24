@@ -40,3 +40,6 @@ next-env.d.ts
 *.swo
 *~
 .env.local
+
+# Next.js cache
+/cache/
