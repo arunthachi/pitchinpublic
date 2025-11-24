@@ -12,8 +12,11 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
+     * - All static assets (fonts, images, documents, etc)
+     *
+     * This reduces middleware overhead by skipping static file requests
+     * which don't need auth validation.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|eot|ico|css|js|map)$).*)',
   ],
 };
