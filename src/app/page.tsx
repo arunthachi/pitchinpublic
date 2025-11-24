@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
@@ -11,15 +11,49 @@ import { SignInModal } from '@/components/SignInModal';
 import { WelcomeHero } from '@/components/WelcomeHero';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
-import { getLegacyPitches, mockUser } from '@/lib/data';
-import { LegacyPitch } from '@/types';
+import { getLegacyPitches, mockUser, profileToUser } from '@/lib/data';
+import { LegacyPitch, User } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 
 export default function Home() {
   const { user, loading } = useAuth();
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
+
+  // Fetch user profile from Supabase when user logs in
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) {
+        setUserProfile(null);
+        return;
+      }
+
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          return;
+        }
+
+        if (data) {
+          setUserProfile(profileToUser(data));
+        }
+      } catch (err) {
+        console.error('Error fetching user profile:', err);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
 
   // Use legacy pitches for backwards compatibility
   const legacyPitches = getLegacyPitches();
@@ -31,9 +65,10 @@ export default function Home() {
     onShare: () => void;
   } | null>(null);
 
-  // Filter user's own pitches (in production, fetch from API by user ID)
+  // Filter user's own pitches using the fetched profile
+  const currentUserName = userProfile?.name || mockUser.name;
   const userPitches = legacyPitches.filter((pitch) =>
-    pitch.founderName === mockUser.name // Mock: would match mockUser.id in production
+    pitch.founderName === currentUserName
   );
 
   const handlePitchChange = useCallback((pitch: LegacyPitch, newHandlers: typeof handlers) => {
@@ -93,8 +128,8 @@ export default function Home() {
           className="hidden lg:block fixed top-4 right-4 z-50 w-11 h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
         >
           <img
-            src={mockUser.avatar}
-            alt={mockUser.name}
+            src={userProfile?.avatar || mockUser.avatar}
+            alt={userProfile?.name || mockUser.name}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform"
           />
         </button>
@@ -154,11 +189,11 @@ export default function Home() {
       )}
 
       {/* User Profile Panel - Only for authenticated users */}
-      {!isGuest && (
+      {!isGuest && userProfile && (
         <UserProfile
           isOpen={profileOpen}
           onClose={() => setProfileOpen(false)}
-          user={mockUser}
+          user={userProfile}
           userPitches={userPitches}
         />
       )}

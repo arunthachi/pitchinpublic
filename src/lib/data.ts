@@ -529,3 +529,18 @@ export function getCompanyPitches(companyId: string): Pitch[] {
 export function getProfileByUsername(username: string): Profile | undefined {
   return mockProfiles.find(profile => profile.username === username);
 }
+
+// Helper to convert Profile (database type) to User (legacy type)
+export function profileToUser(profile: Profile): User {
+  return {
+    id: profile.id,
+    name: profile.full_name,
+    email: profile.email,
+    avatar: profile.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+    bio: profile.bio || undefined,
+    followersCount: profile.followers_count,
+    followingCount: profile.following_count,
+    pitchesCount: profile.pitches_count,
+    createdAt: profile.created_at,
+  };
+}
