@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Wine, Share2, BarChart3, Plus } from 'lucide-react';
+import { Flame, Wine, Share2, BarChart3, Plus, Bookmark } from 'lucide-react';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
@@ -12,8 +12,11 @@ interface FloatingReactionsProps {
   onToast: () => void;
   onOpenFeedback: (type: 'roast' | 'toast') => void;
   onShare: () => void;
+  onBookmark?: (isBookmarked: boolean) => void;
   isGuest?: boolean;
   onSignInClick?: () => void;
+  isBookmarked?: boolean;
+  bookmarkCount?: number;
 }
 
 export function FloatingReactions({
@@ -22,11 +25,15 @@ export function FloatingReactions({
   onToast,
   onOpenFeedback,
   onShare,
+  onBookmark,
   isGuest = false,
   onSignInClick,
+  isBookmarked = false,
+  bookmarkCount = 0,
 }: FloatingReactionsProps) {
   const [justRoasted, setJustRoasted] = useState(false);
   const [justToasted, setJustToasted] = useState(false);
+  const [bookmarkState, setBookmarkState] = useState(isBookmarked);
 
   const handleRoastClick = () => {
     setJustRoasted(true);
@@ -46,6 +53,17 @@ export function FloatingReactions({
 
   const handleToastLongPress = () => {
     onOpenFeedback('toast');
+  };
+
+  const handleBookmarkClick = () => {
+    if (isGuest && onSignInClick) {
+      onSignInClick();
+      return;
+    }
+
+    const newBookmarkState = !bookmarkState;
+    setBookmarkState(newBookmarkState);
+    onBookmark?.(newBookmarkState);
   };
 
   return (
@@ -179,6 +197,43 @@ export function FloatingReactions({
             </motion.div>
           )}
         </AnimatePresence>
+      </motion.button>
+
+      {/* Bookmark Button - Save pitch for later */}
+      <motion.button
+        onClick={handleBookmarkClick}
+        whileTap={{ scale: 0.85 }}
+        whileHover={{ scale: 1.05 }}
+        className="relative flex flex-col items-center gap-2 group"
+      >
+        <motion.div
+          animate={bookmarkState ? { scale: [1, 1.2, 1] } : {}}
+          className="relative"
+        >
+          {/* Circular background */}
+          <motion.div
+            className="absolute inset-0 w-16 h-16 bg-neon-cyan/10 rounded-full blur-sm"
+            animate={bookmarkState ? { scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] } : {}}
+          />
+
+          {/* Main circular button background */}
+          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan/20 to-neon-cyan/10 border border-neon-cyan/30 hover:border-neon-cyan/50 transition-all duration-200 group-hover:from-neon-cyan/30 group-hover:to-neon-cyan/15 shadow-lg hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+            <Bookmark
+              className={`w-8 h-8 transition-all duration-300 ${
+                bookmarkState
+                  ? 'text-neon-cyan fill-neon-cyan drop-shadow-[0_0_12px_rgba(0,240,255,0.8)]'
+                  : 'text-white group-hover:text-neon-cyan'
+              }`}
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+              strokeWidth={1.5}
+            />
+          </div>
+        </motion.div>
+        <div className="text-center">
+          <span className="text-xs font-bold text-white drop-shadow-md">
+            {formatNumber(bookmarkCount)}
+          </span>
+        </div>
       </motion.button>
 
       {/* Share Button */}

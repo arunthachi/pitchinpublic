@@ -138,6 +138,7 @@ CREATE TABLE pitches (
   roast_count INTEGER DEFAULT 0,
   toast_count INTEGER DEFAULT 0,
   share_count INTEGER DEFAULT 0,
+  bookmark_count INTEGER DEFAULT 0,
   interest_score INTEGER DEFAULT 0, -- Calculated score for ranking
 
   -- Status
@@ -361,6 +362,49 @@ CREATE POLICY "Users can view their own notifications"
 CREATE POLICY "Users can update their own notifications"
   ON notifications FOR UPDATE
   USING (auth.uid() = user_id);
+
+
+-- =============================================
+-- 9. BOOKMARKS TABLE
+-- User bookmarks/saved pitches
+-- =============================================
+CREATE TABLE bookmarks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pitch_id UUID NOT NULL REFERENCES pitches(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  -- Ensure one bookmark per user per pitch
+  UNIQUE(pitch_id, user_id)
+);
+
+-- Indexes for performance
+CREATE INDEX idx_bookmarks_pitch_id ON bookmarks(pitch_id);
+CREATE INDEX idx_bookmarks_user_id ON bookmarks(user_id);
+CREATE INDEX idx_bookmarks_created_at ON bookmarks(created_at DESC);
+
+-- Enable RLS
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "Bookmarks are viewable by everyone"
+  ON bookmarks FOR SELECT
+  USING (true);
+
+CREATE POLICY "Authenticated users can create bookmarks"
+  ON bookmarks FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own bookmarks"
+  ON bookmarks FOR DELETE
+  USING (auth.uid() = user_id);
+
+
+-- =============================================
+-- MIGRATION: Add bookmark_count to pitches table
+-- Run this if adding bookmarks to existing schema
+-- =============================================
+-- ALTER TABLE pitches ADD COLUMN bookmark_count INTEGER DEFAULT 0;
 
 
 -- =============================================
@@ -628,6 +672,31 @@ CREATE TRIGGER view_count_trigger
   AFTER INSERT ON pitch_views
   FOR EACH ROW
   EXECUTE FUNCTION update_view_counts();
+
+
+-- Function to update bookmark counts on pitches
+CREATE OR REPLACE FUNCTION update_bookmark_counts()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- Update pitch bookmark count
+    UPDATE pitches SET bookmark_count = bookmark_count + 1
+    WHERE id = NEW.pitch_id;
+
+  ELSIF TG_OP = 'DELETE' THEN
+    -- Update pitch bookmark count
+    UPDATE pitches SET bookmark_count = GREATEST(0, bookmark_count - 1)
+    WHERE id = OLD.pitch_id;
+  END IF;
+
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER bookmark_count_trigger
+  AFTER INSERT OR DELETE ON bookmarks
+  FOR EACH ROW
+  EXECUTE FUNCTION update_bookmark_counts();
 
 
 -- =============================================
