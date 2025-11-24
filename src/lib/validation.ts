@@ -6,11 +6,11 @@ import { z } from 'zod';
  */
 
 // Email validation - RFC 5322 simplified
-const emailSchema = z.string().email('Invalid email address').toLowerCase().trim();
+export const emailSchema = z.string().email('Invalid email address').toLowerCase().trim();
 
 // Phone validation - E.164 format support
 // Accepts: +1234567890, 1234567890, +1 (123) 456-7890, etc.
-const phoneSchema = z
+export const phoneSchema = z
   .string()
   .refine(
     (val) => {

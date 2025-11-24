@@ -39,17 +39,24 @@ export async function GET() {
     );
 
     // Quick health check - verify we can reach Supabase
-    const { data, error } = await Promise.race([
-      supabase.from('profiles').select('count', { count: 'exact', head: true }).then(result => ({ data: result.data, error: result.error })),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 3000)
-      ),
-    ]).catch(() => ({ data: null, error: new Error('Connection failed') }));
+    try {
+      const result = await Promise.race([
+        supabase.from('profiles').select('count', { count: 'exact', head: true }).then(result => ({ data: result.data, error: result.error })),
+        new Promise<{ data: null; error: Error }>((_resolve, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 3000)
+        ),
+      ]);
 
-    if (!error) {
-      checks.supabase_connection = true;
-      databaseStatus = 'healthy';
-    } else {
+      // Type guard for the result
+      const { error } = result as { data: unknown; error: unknown };
+
+      if (!error) {
+        checks.supabase_connection = true;
+        databaseStatus = 'healthy';
+      } else {
+        checks.supabase_connection = false;
+      }
+    } catch (err) {
       checks.supabase_connection = false;
     }
 
