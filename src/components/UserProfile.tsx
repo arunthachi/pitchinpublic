@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, LogOut, Users, Video, TrendingUp, Clock, Flame } from 'lucide-react';
+import { X, LogOut, Users, Video, TrendingUp, Clock, Flame, Edit } from 'lucide-react';
 import { User, LegacyPitch } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -11,11 +11,22 @@ interface UserProfileProps {
   onClose: () => void;
   user: User;
   userPitches: LegacyPitch[];
+  currentBio?: string;
+  currentWebsite?: string;
+  currentTwitter?: string;
+  currentLinkedin?: string;
+  onEditProfile?: () => void;
 }
 
 type SortBy = 'latest' | 'oldest' | 'popular';
 
-export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileProps) {
+export function UserProfile({
+  isOpen,
+  onClose,
+  user,
+  userPitches,
+  onEditProfile,
+}: UserProfileProps) {
   const { signOut } = useAuth();
   const [sortBy, setSortBy] = useState<SortBy>('latest');
   const [displayCount, setDisplayCount] = useState(12); // Show 12 initially
@@ -91,7 +102,7 @@ export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileP
 
             {/* User Info */}
             <div className="p-4 sm:p-6 border-b border-slate-800">
-              <div className="flex items-start gap-3 sm:gap-4">
+              <div className="flex items-start gap-3 sm:gap-4 mb-4">
                 <img
                   src={user.avatar}
                   alt={user.name}
@@ -105,6 +116,19 @@ export function UserProfile({ isOpen, onClose, user, userPitches }: UserProfileP
                   )}
                 </div>
               </div>
+
+              {/* Edit Profile Button */}
+              {onEditProfile && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onEditProfile}
+                  className="w-full mb-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors text-sm"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit Profile
+                </motion.button>
+              )}
 
               {/* Stats */}
               <div className="flex gap-4 sm:gap-6 mt-4 sm:mt-6">

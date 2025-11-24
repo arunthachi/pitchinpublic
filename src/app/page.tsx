@@ -12,10 +12,11 @@ import { WelcomeHero } from '@/components/WelcomeHero';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
 import { getLegacyPitches, mockUser, profileToUser, authUserToUser } from '@/lib/data';
-import { LegacyPitch, User } from '@/types';
+import { LegacyPitch, User, Profile } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
+import { ProfileEditModal } from '@/components/ProfileEditModal';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -23,7 +24,9 @@ export default function Home() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
+  const [fullProfile, setFullProfile] = useState<Profile | null>(null);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
   // Use ref to track whether we've already shown the profile setup modal this session
   // This prevents the modal from showing multiple times
   const hasShownProfileSetupRef = useRef(false);
@@ -60,6 +63,7 @@ export default function Home() {
           const dbUser = profileToUser(data);
           console.log('Converted database user:', dbUser);
           setUserProfile(dbUser);
+          setFullProfile(data);
 
           // Check if user needs to set up their profile (no full_name or username)
           // Only show modal if we haven't already shown it this session
@@ -237,6 +241,11 @@ export default function Home() {
           onClose={() => setProfileOpen(false)}
           user={userProfile}
           userPitches={userPitches}
+          currentBio={fullProfile?.bio || undefined}
+          currentWebsite={fullProfile?.website || undefined}
+          currentTwitter={fullProfile?.twitter_handle || undefined}
+          currentLinkedin={fullProfile?.linkedin_url || undefined}
+          onEditProfile={() => setShowProfileEdit(true)}
         />
       )}
 
@@ -260,10 +269,45 @@ export default function Home() {
 
               if (data) {
                 setUserProfile(profileToUser(data));
+                setFullProfile(data);
               }
             };
             fetchUpdatedProfile().catch((err) => {
               console.error('Error refreshing profile after setup:', err);
+            });
+          }}
+        />
+      )}
+
+      {/* Profile Edit Modal - Shown when user clicks Edit Profile */}
+      {!isGuest && user && (
+        <ProfileEditModal
+          isOpen={showProfileEdit}
+          user={user}
+          currentBio={fullProfile?.bio || undefined}
+          currentWebsite={fullProfile?.website || undefined}
+          currentTwitter={fullProfile?.twitter_handle || undefined}
+          currentLinkedin={fullProfile?.linkedin_url || undefined}
+          onComplete={() => {
+            // Close the modal
+            setShowProfileEdit(false);
+
+            // Refresh profile data after edit (for UI updates)
+            const fetchUpdatedProfile = async () => {
+              const supabase = createClient();
+              const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+              if (data) {
+                setUserProfile(profileToUser(data));
+                setFullProfile(data);
+              }
+            };
+            fetchUpdatedProfile().catch((err) => {
+              console.error('Error refreshing profile after edit:', err);
             });
           }}
         />
