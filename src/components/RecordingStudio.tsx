@@ -267,13 +267,21 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       const videoMetadata = metadataData.metadata;
       console.log('Video metadata fetched:', videoMetadata);
 
+      // Validate duration is within range
+      const actualDuration = Math.round(videoMetadata.duration || videoDuration);
+      console.log('Using duration:', actualDuration, '(Cloudflare:', videoMetadata.duration, 'Recorded:', videoDuration, ')');
+
+      if (actualDuration < 30 || actualDuration > 60) {
+        throw new Error(`Video duration must be 30-60 seconds (got ${actualDuration}s)`);
+      }
+
       // Step 2: Create the pitch in the database with real Cloudflare URLs
       console.log('Creating pitch with hook:', pitchHook);
       const pitchPayload: any = {
         hook: pitchHook,
         videoId,
         playbackUrl: videoMetadata.playbackUrl,
-        duration: videoDuration,
+        duration: actualDuration,
       };
 
       // Only include optional fields if they have values
@@ -296,7 +304,23 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Pitch creation failed:', response.status, errorData);
-        throw new Error(errorData.error || errorData.message || `Failed to create pitch: ${response.status}`);
+
+        // Format detailed error message
+        let errorMsg = 'Failed to create pitch';
+        if (errorData.errors) {
+          // Show validation errors
+          const errorsList = Object.entries(errorData.errors)
+            .map(([field, msgs]: any) => `${field}: ${msgs.join(', ')}`)
+            .join(' | ');
+          errorMsg = `Validation error: ${errorsList}`;
+        } else if (errorData.error) {
+          errorMsg = errorData.error;
+        } else if (errorData.message) {
+          errorMsg = errorData.message;
+        }
+
+        console.error('Final error message:', errorMsg);
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
