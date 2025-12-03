@@ -39,6 +39,18 @@ export function FullScreenVideoFeed({
   const hasNext = currentIndex < pitches.length - 1;
   const hasPrev = currentIndex > 0;
 
+  // Handle empty pitches array
+  if (!pitches.length || !currentPitch) {
+    return (
+      <div className="relative w-full h-full bg-black flex items-center justify-center">
+        <div className="text-white/60 text-center">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p>Loading pitches...</p>
+        </div>
+      </div>
+    );
+  }
+
   const goToNext = useCallback(() => {
     if (hasNext) {
       setDirection('down');
