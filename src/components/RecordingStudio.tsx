@@ -255,15 +255,20 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
 
     try {
       // Step 1: Fetch actual video metadata from Cloudflare via our API
+      console.log('Fetching metadata for video:', videoId);
       const metadataResponse = await fetch(`/api/videos/metadata?videoId=${videoId}`);
       if (!metadataResponse.ok) {
-        throw new Error('Failed to fetch video metadata');
+        const errorText = await metadataResponse.text();
+        console.error('Metadata fetch failed:', metadataResponse.status, errorText);
+        throw new Error(`Failed to fetch video metadata: ${metadataResponse.status}`);
       }
 
       const metadataData = await metadataResponse.json();
       const videoMetadata = metadataData.metadata;
+      console.log('Video metadata fetched:', videoMetadata);
 
       // Step 2: Create the pitch in the database with real Cloudflare URLs
+      console.log('Creating pitch with hook:', pitchHook);
       const response = await fetch('/api/pitches', {
         method: 'POST',
         headers: {
@@ -281,15 +286,19 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create pitch');
+        console.error('Pitch creation failed:', response.status, errorData);
+        throw new Error(errorData.error || errorData.message || `Failed to create pitch: ${response.status}`);
       }
 
-      const { pitch } = await response.json();
+      const data = await response.json();
+      console.log('Pitch created successfully:', data);
+      const { pitch } = data;
       onPitchCreated?.(pitch);
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create pitch');
-      console.error('Pitch creation error:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create pitch';
+      console.error('Pitch creation error:', errorMsg, err);
+      setError(errorMsg);
     } finally {
       setUploading(false);
     }
