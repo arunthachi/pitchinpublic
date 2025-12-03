@@ -74,11 +74,11 @@ export function FloatingReactions({
           whileTap={{ scale: 0.95 }}
           src={pitch.founderAvatar}
           alt={pitch.founderName}
-          className="w-12 h-12 rounded-full border border-white/80 cursor-pointer shadow-lg"
-          style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}
+          className="w-12 h-12 rounded-full border-2 border-white cursor-pointer shadow-lg"
+          style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))' }}
         />
         {/* Follow Button */}
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-neon-cyan rounded-full flex items-center justify-center cursor-pointer shadow-md">
+        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-neon-cyan rounded-full flex items-center justify-center cursor-pointer shadow-lg border border-white">
           <Plus className="w-3 h-3 text-slate-900" strokeWidth={3} />
         </div>
       </div>
@@ -102,7 +102,7 @@ export function FloatingReactions({
           />
 
           {/* Main circular button background */}
-          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-roast/20 to-roast/10 border border-roast/30 hover:border-roast/50 transition-all duration-200 group-hover:from-roast/30 group-hover:to-roast/15 shadow-lg hover:shadow-[0_0_20px_rgba(255,59,48,0.3)]">
+          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-roast/40 hover:border-roast/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(255,59,48,0.4)]">
             <Flame
               className={`w-8 h-8 transition-all duration-300 ${
                 justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white group-hover:text-roast'
@@ -160,7 +160,7 @@ export function FloatingReactions({
           />
 
           {/* Main circular button background */}
-          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-toast/20 to-toast/10 border border-toast/30 hover:border-toast/50 transition-all duration-200 group-hover:from-toast/30 group-hover:to-toast/15 shadow-lg hover:shadow-[0_0_20px_rgba(52,199,89,0.3)]">
+          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-toast/40 hover:border-toast/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(52,199,89,0.4)]">
             <Wine
               className={`w-8 h-8 transition-all duration-300 ${
                 justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white group-hover:text-toast'
@@ -217,7 +217,7 @@ export function FloatingReactions({
           />
 
           {/* Main circular button background */}
-          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan/20 to-neon-cyan/10 border border-neon-cyan/30 hover:border-neon-cyan/50 transition-all duration-200 group-hover:from-neon-cyan/30 group-hover:to-neon-cyan/15 shadow-lg hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-neon-cyan/40 hover:border-neon-cyan/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(0,240,255,0.4)]">
             <Bookmark
               className={`w-8 h-8 transition-all duration-300 ${
                 bookmarkState
@@ -243,7 +243,7 @@ export function FloatingReactions({
         whileHover={{ scale: 1.05 }}
         className="relative flex flex-col items-center gap-2 group"
       >
-        <div className="relative w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-br from-slate-300/10 to-slate-400/5 border border-slate-300/20 hover:border-slate-300/40 transition-all duration-200 group-hover:from-slate-300/15 group-hover:to-slate-400/10 shadow-lg hover:shadow-[0_0_20px_rgba(203,213,225,0.2)]">
+        <div className="relative w-14 h-14 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-slate-400/40 hover:border-slate-400/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(203,213,225,0.3)]">
           <Share2
             className="w-7 h-7 text-white group-hover:text-slate-200 transition-all duration-300"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
@@ -256,7 +256,7 @@ export function FloatingReactions({
       <div className="flex flex-col items-center gap-2 mt-2">
         <motion.div
           whileHover={{ scale: 1.05 }}
-          className="relative w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan/10 to-neon-cyan/5 border border-neon-cyan/20 hover:border-neon-cyan/40 transition-all duration-200 hover:from-neon-cyan/15 hover:to-neon-cyan/10 shadow-lg hover:shadow-[0_0_20px_rgba(0,240,255,0.2)]"
+          className="relative w-14 h-14 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-neon-cyan/40 hover:border-neon-cyan/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
         >
           <BarChart3
             className="w-7 h-7 text-white hover:text-neon-cyan transition-all duration-300"
