@@ -2,14 +2,59 @@
 
 ## Overview
 
-Phase 1 Release requires **two SQL migration files** to be run in Supabase:
-
-1. **Main Schema** (`supabase-schema.sql`) - Core tables for Weeks 1-2
-2. **Gamification Schema** (`supabase-schema-phase1-gamification.sql`) - Tables for Weeks 3-4
+Phase 1 Release requires setting up Supabase tables. This guide covers two approaches:
+- **Safe Migration System** (Recommended for existing projects)
+- **Full Schema Setup** (Recommended for fresh projects)
 
 ---
 
-## Table Breakdown
+## ⚡ Quick Start: Safe Migration System
+
+For projects with existing tables, use the **idempotent migration files** in `supabase/migrations/`:
+
+### In 3 Steps:
+
+1. **Run Migration 001**
+   - Copy: `supabase/migrations/001_create_core_schema.sql`
+   - Paste into Supabase SQL Editor
+   - Click Run
+
+2. **Run Migration 002**
+   - Copy: `supabase/migrations/002_add_gamification_tables.sql`
+   - Paste into Supabase SQL Editor
+   - Click Run
+
+3. **Run Migration 003**
+   - Copy: `supabase/migrations/003_add_triggers_and_functions.sql`
+   - Paste into Supabase SQL Editor
+   - Click Run
+
+✅ Done! All tables, indexes, RLS policies, and triggers are created.
+
+### Why Use Migrations?
+
+✅ **Idempotent**: Safe to run multiple times
+✅ **Non-destructive**: Won't delete existing data
+✅ **Ordered**: Ensures correct table dependencies
+✅ **Traceable**: Clear history of schema changes
+✅ **Reversible**: Can apply migrations selectively
+
+See `supabase/MIGRATION_QUICK_START.md` for detailed steps.
+
+---
+
+## Detailed Migration Guide
+
+See `supabase/MIGRATIONS.md` for:
+- How to apply migrations
+- Understanding each migration
+- Troubleshooting guide
+- Testing your setup
+- Adding new migrations
+
+---
+
+## Full Schema Reference
 
 ### ✅ Main Schema (Already Defined in `supabase-schema.sql`)
 
@@ -45,7 +90,7 @@ These tables support **Week 1-2 features**:
 
 ---
 
-### ✨ Gamification Schema (Defined in `supabase-schema-phase1-gamification.sql`)
+### ✨ Gamification Schema (Added by Migration 002)
 
 These tables support **Week 3-4 features**:
 
@@ -168,28 +213,34 @@ UNIQUE(user_id, challenge_id)  -- One response per user per challenge
 
 ## Setup Instructions
 
-### Step 1: Run Main Schema
+### Method 1: Use Migration Files (Recommended)
+
+1. See `supabase/MIGRATION_QUICK_START.md` for step-by-step instructions
+2. Run 3 migrations in order (001, 002, 003)
+3. Done!
+
+### Method 2: Manual SQL Entry
+
+**For fresh setup only:**
+
 1. Go to **Supabase Dashboard** → **SQL Editor**
-2. Open `supabase-schema.sql`
-3. Copy all content and paste into SQL Editor
+2. Copy entire content of `supabase-schema.sql`
+3. Paste into SQL Editor
 4. Click **Run**
 5. Verify all tables created successfully
 
-### Step 2: Run Gamification Schema
-1. Same as above, but with `supabase-schema-phase1-gamification.sql`
-2. This adds the 4 new tables for Weeks 3-4
+---
 
-### Step 3: Verify Setup
-Check in Supabase Dashboard:
-- **Table Editor** should show all 13 tables:
-  - Core: profiles, companies, pitches, reactions, feedback, bookmarks, follows, pitch_views, notifications
-  - Gamification: user_streaks, achievements, daily_challenges, challenge_responses
+## Environment Variables
 
-### Step 4: Environment Variables
 Ensure you have these in `.env.local`:
+
 ```
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=your_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
+
+# Cloudflare Stream
 CLOUDFLARE_STREAM_API_TOKEN=your_token
 CLOUDFLARE_ACCOUNT_ID=your_account_id
 ```
@@ -263,8 +314,7 @@ This ensures queries on the leaderboard, feed, and achievement lists are fast.
 
 ## Testing Checklist
 
-- [ ] Run main schema in Supabase SQL Editor
-- [ ] Run gamification schema in Supabase SQL Editor
+- [ ] Run migrations in order (001, 002, 003)
 - [ ] Verify 13 tables in Table Editor
 - [ ] Test streak creation: POST `/api/user/streak`
 - [ ] Test achievement unlock: POST `/api/user/achievements`
@@ -276,11 +326,39 @@ This ensures queries on the leaderboard, feed, and achievement lists are fast.
 
 ---
 
-## Migration Path
+## Troubleshooting
 
-If you already have the main schema:
-1. Simply run `supabase-schema-phase1-gamification.sql`
-2. No modifications to existing tables needed
-3. All Phase 1 features will work immediately
+### "Migration file not found"
+- Ensure you're using files from `supabase/migrations/` directory
+- Check file names are correct (001, 002, 003)
 
-No data loss, no breaking changes to existing schema.
+### "Permission denied for schema public"
+- Use admin key or service_role key
+- Use Supabase dashboard SQL Editor instead
+
+### "Relation already exists"
+- This should not happen with migration files (they use IF NOT EXISTS)
+- Check you're using the correct migration files from this repo
+
+### "Foreign key constraint fails"
+- Ensure migrations are run in order: 001 → 002 → 003
+- Don't skip migrations
+
+---
+
+## Next Steps
+
+1. **Apply migrations** using `supabase/MIGRATION_QUICK_START.md`
+2. **Verify tables** appear in Supabase Table Editor
+3. **Set environment variables** with your API keys
+4. **Test API endpoints** with curl or Postman
+5. **Start using** the application!
+
+---
+
+## Additional Resources
+
+- **Migrations Guide**: `supabase/MIGRATIONS.md`
+- **Quick Start**: `supabase/MIGRATION_QUICK_START.md`
+- **Full Schema**: `supabase-schema.sql`
+- **Supabase Docs**: https://supabase.com/docs/guides/database/migrations
