@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Trophy, Zap } from 'lucide-react';
 import { formatStreak } from '@/lib/gamification';
@@ -24,6 +24,32 @@ interface Achievement {
 interface GamificationStatsProps {
   onOpenChallenge?: () => void;
 }
+
+// Memoized badge item component
+interface BadgeItemProps {
+  achievement: Achievement;
+  index: number;
+}
+
+const BadgeItem = memo(function BadgeItem({ achievement, index }: BadgeItemProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: index * 0.1 }}
+      className="flex flex-col items-center gap-2"
+    >
+      <div className="w-12 h-12 rounded-lg bg-slate-700/50 flex items-center justify-center border border-slate-600 hover:border-neon-lime/50 transition-all cursor-help group relative">
+        <span className="text-lg">{achievement.badgeIcon}</span>
+
+        {/* Tooltip */}
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-slate-300 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+          {achievement.badgeName}
+        </div>
+      </div>
+    </motion.div>
+  );
+});
 
 export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
   const [streak, setStreak] = useState<Streak | null>(null);
@@ -112,22 +138,7 @@ export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
 
           <div className="grid grid-cols-4 gap-3">
             {achievements.slice(0, 8).map((achievement, index) => (
-              <motion.div
-                key={achievement.id}
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex flex-col items-center gap-2"
-              >
-                <div className="w-12 h-12 rounded-lg bg-slate-700/50 flex items-center justify-center border border-slate-600 hover:border-neon-lime/50 transition-all cursor-help group relative">
-                  <span className="text-lg">{achievement.badgeIcon}</span>
-
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-slate-300 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
-                    {achievement.badgeName}
-                  </div>
-                </div>
-              </motion.div>
+              <BadgeItem key={achievement.id} achievement={achievement} index={index} />
             ))}
           </div>
 

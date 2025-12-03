@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Flame, Zap, Target, Medal } from 'lucide-react';
 
@@ -18,6 +18,77 @@ interface LeaderboardEntry {
 }
 
 type LeaderboardType = 'streaks' | 'pitches' | 'feedback' | 'badges';
+
+// Memoized entry row component
+interface LeaderboardEntryRowProps {
+  entry: LeaderboardEntry;
+  index: number;
+  leaderboardType: LeaderboardType;
+  getMetricDisplay: (entry: LeaderboardEntry) => React.ReactNode;
+  getMedalIcon: (rank: number) => string | null;
+}
+
+const LeaderboardEntryRow = memo(function LeaderboardEntryRow({
+  entry,
+  index,
+  getMetricDisplay,
+  getMedalIcon,
+}: LeaderboardEntryRowProps) {
+  return (
+    <motion.div
+      key={`${entry.userId}-${entry.rank}`}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ delay: index * 0.05 }}
+      className={`p-4 sm:p-6 flex items-center justify-between gap-4 hover:bg-slate-800/50 transition-colors ${
+        entry.isCurrentUser ? 'bg-neon-cyan/10 border-l-4 border-neon-cyan' : ''
+      }`}
+    >
+      {/* Rank */}
+      <div className="flex items-center gap-4 flex-shrink-0">
+        <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-lg font-bold">
+          {getMedalIcon(entry.rank) || (
+            <span className="text-slate-300">{entry.rank}</span>
+          )}
+        </div>
+
+        {/* Avatar */}
+        <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 border-2 border-slate-600">
+          {entry.avatar ? (
+            <img
+              src={entry.avatar}
+              alt={entry.userName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-neon-cyan to-neon-lime flex items-center justify-center text-slate-900 font-bold">
+              {entry.userName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* User Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-white truncate">{entry.userName}</h3>
+          {entry.isCurrentUser && (
+            <span className="px-2 py-1 bg-neon-cyan/20 text-neon-cyan text-xs font-bold rounded-full flex-shrink-0">
+              YOU
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-slate-400 mt-1">
+          {entry.badgeCount} badges • {entry.pitchesCount} pitches
+        </p>
+      </div>
+
+      {/* Metric */}
+      <div className="flex-shrink-0 text-right">{getMetricDisplay(entry)}</div>
+    </motion.div>
+  );
+});
 
 export function Leaderboard() {
   const [leaderboardType, setLeaderboardType] = useState<LeaderboardType>('streaks');
@@ -47,7 +118,7 @@ export function Leaderboard() {
     fetchLeaderboard();
   }, [leaderboardType, page]);
 
-  const getMetricDisplay = (entry: LeaderboardEntry) => {
+  const getMetricDisplay = useCallback((entry: LeaderboardEntry) => {
     switch (leaderboardType) {
       case 'streaks':
         return (
@@ -82,9 +153,9 @@ export function Leaderboard() {
           </div>
         );
     }
-  };
+  }, [leaderboardType]);
 
-  const getMedalIcon = (rank: number) => {
+  const getMedalIcon = useCallback((rank: number) => {
     switch (rank) {
       case 1:
         return '🥇';
@@ -95,7 +166,7 @@ export function Leaderboard() {
       default:
         return null;
     }
-  };
+  }, []);
 
   return (
     <div className="w-full space-y-6">
@@ -145,58 +216,14 @@ export function Leaderboard() {
           <div className="divide-y divide-slate-700">
             <AnimatePresence>
               {entries.map((entry, index) => (
-                <motion.div
+                <LeaderboardEntryRow
                   key={`${entry.userId}-${entry.rank}`}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`p-4 sm:p-6 flex items-center justify-between gap-4 hover:bg-slate-800/50 transition-colors ${
-                    entry.isCurrentUser ? 'bg-neon-cyan/10 border-l-4 border-neon-cyan' : ''
-                  }`}
-                >
-                  {/* Rank */}
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-lg font-bold">
-                      {getMedalIcon(entry.rank) || (
-                        <span className="text-slate-300">{entry.rank}</span>
-                      )}
-                    </div>
-
-                    {/* Avatar */}
-                    <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 border-2 border-slate-600">
-                      {entry.avatar ? (
-                        <img
-                          src={entry.avatar}
-                          alt={entry.userName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-neon-cyan to-neon-lime flex items-center justify-center text-slate-900 font-bold">
-                          {entry.userName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* User Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-white truncate">{entry.userName}</h3>
-                      {entry.isCurrentUser && (
-                        <span className="px-2 py-1 bg-neon-cyan/20 text-neon-cyan text-xs font-bold rounded-full flex-shrink-0">
-                          YOU
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {entry.badgeCount} badges • {entry.pitchesCount} pitches
-                    </p>
-                  </div>
-
-                  {/* Metric */}
-                  <div className="flex-shrink-0 text-right">{getMetricDisplay(entry)}</div>
-                </motion.div>
+                  entry={entry}
+                  index={index}
+                  leaderboardType={leaderboardType}
+                  getMetricDisplay={getMetricDisplay}
+                  getMedalIcon={getMedalIcon}
+                />
               ))}
             </AnimatePresence>
           </div>
