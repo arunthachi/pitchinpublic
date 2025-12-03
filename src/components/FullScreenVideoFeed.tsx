@@ -35,8 +35,8 @@ export function FullScreenVideoFeed({
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
   const [direction, setDirection] = useState<'up' | 'down'>('down');
 
-  const currentPitch = pitches[currentIndex];
-  const hasNext = currentIndex < pitches.length - 1;
+  const currentPitch = localPitches[currentIndex];
+  const hasNext = currentIndex < localPitches.length - 1;
   const hasPrev = currentIndex > 0;
 
   // Handle empty pitches array
@@ -52,18 +52,24 @@ export function FullScreenVideoFeed({
   }
 
   const goToNext = useCallback(() => {
-    if (hasNext) {
-      setDirection('down');
-      setCurrentIndex((prev) => prev + 1);
-    }
-  }, [hasNext]);
+    setCurrentIndex((prev) => {
+      if (prev < localPitches.length - 1) {
+        setDirection('down');
+        return prev + 1;
+      }
+      return prev;
+    });
+  }, [localPitches.length]);
 
   const goToPrev = useCallback(() => {
-    if (hasPrev) {
-      setDirection('up');
-      setCurrentIndex((prev) => prev - 1);
-    }
-  }, [hasPrev]);
+    setCurrentIndex((prev) => {
+      if (prev > 0) {
+        setDirection('up');
+        return prev - 1;
+      }
+      return prev;
+    });
+  }, []);
 
   // Gesture handling
   const bind = useGesture({
@@ -91,19 +97,141 @@ export function FullScreenVideoFeed({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [goToNext, goToPrev]);
 
-  const handleRoast = () => {
-    console.log('Roasted!');
-    // In production, this would update the backend
+  // Create mutable reference to pitches array so we can update it
+  const [localPitches, setLocalPitches] = useState<LegacyPitch[]>(pitches);
+
+  // Sync local pitches when props change
+  React.useEffect(() => {
+    setLocalPitches(pitches);
+  }, [pitches]);
+
+  const handleRoast = async () => {
+    if (!currentPitch) return;
+
+    try {
+      // Optimistic update - update UI immediately
+      const updatedPitch = {
+        ...currentPitch,
+        roastCount: currentPitch.roastCount + 1,
+      };
+
+      // Update local state
+      setLocalPitches((prevPitches) =>
+        prevPitches.map((p) => (p.id === currentPitch.id ? updatedPitch : p))
+      );
+
+      // API call in background
+      const response = await fetch(`/api/pitches/${currentPitch.id}/reaction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: 'roast' }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Failed to create roast:', error);
+        // Revert optimistic update on error
+        setLocalPitches((prevPitches) =>
+          prevPitches.map((p) => (p.id === currentPitch.id ? currentPitch : p))
+        );
+      } else {
+        const data = await response.json();
+        // Update with actual counts from server
+        if (data.counts) {
+          const finalPitch = {
+            ...updatedPitch,
+            roastCount: data.counts.roastCount,
+            toastCount: data.counts.toastCount,
+          };
+          setLocalPitches((prevPitches) =>
+            prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error roasting pitch:', error);
+    }
   };
 
-  const handleToast = () => {
-    console.log('Toasted!');
-    // In production, this would update the backend
+  const handleToast = async () => {
+    if (!currentPitch) return;
+
+    try {
+      // Optimistic update - update UI immediately
+      const updatedPitch = {
+        ...currentPitch,
+        toastCount: currentPitch.toastCount + 1,
+      };
+
+      // Update local state
+      setLocalPitches((prevPitches) =>
+        prevPitches.map((p) => (p.id === currentPitch.id ? updatedPitch : p))
+      );
+
+      // API call in background
+      const response = await fetch(`/api/pitches/${currentPitch.id}/reaction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: 'toast' }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Failed to create toast:', error);
+        // Revert optimistic update on error
+        setLocalPitches((prevPitches) =>
+          prevPitches.map((p) => (p.id === currentPitch.id ? currentPitch : p))
+        );
+      } else {
+        const data = await response.json();
+        // Update with actual counts from server
+        if (data.counts) {
+          const finalPitch = {
+            ...updatedPitch,
+            roastCount: data.counts.roastCount,
+            toastCount: data.counts.toastCount,
+          };
+          setLocalPitches((prevPitches) =>
+            prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error toasting pitch:', error);
+    }
   };
 
-  const handleFeedbackSubmit = (feedback: FeedbackFormData) => {
-    console.log('Feedback submitted:', feedback);
-    // In production, this would send to backend
+  const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
+    if (!currentPitch) return;
+
+    try {
+      const response = await fetch(`/api/pitches/${currentPitch.id}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: feedback.type,
+          scores: feedback.scores,
+          notes: feedback.notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Failed to submit feedback:', error);
+      } else {
+        console.log('Feedback submitted successfully');
+        // Close feedback panel after successful submission
+        setFeedbackPanelOpen(false);
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+    }
   };
 
   const handleShare = () => {
