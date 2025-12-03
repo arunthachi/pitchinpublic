@@ -1,6 +1,6 @@
 -- Migration 002: Add Gamification Tables (Idempotent)
 -- Adds streak tracking, achievements, and daily challenges
--- Safe to run multiple times - will skip existing tables
+-- Safe to run multiple times - policies use DROP IF EXISTS + CREATE
 
 -- =============================================
 -- 10. USER_STREAKS TABLE (Phase 1 Week 3)
@@ -23,15 +23,18 @@ CREATE INDEX IF NOT EXISTS idx_user_streaks_best_streak ON user_streaks(best_str
 
 ALTER TABLE user_streaks ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "User streaks are viewable by everyone"
+DROP POLICY IF EXISTS "User streaks are viewable by everyone" ON user_streaks;
+CREATE POLICY "User streaks are viewable by everyone"
   ON user_streaks FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "Users can update their own streaks"
+DROP POLICY IF EXISTS "Users can update their own streaks" ON user_streaks;
+CREATE POLICY "Users can update their own streaks"
   ON user_streaks FOR UPDATE
   USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can insert their own streak record"
+DROP POLICY IF EXISTS "Users can insert their own streak record" ON user_streaks;
+CREATE POLICY "Users can insert their own streak record"
   ON user_streaks FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
@@ -56,11 +59,13 @@ CREATE INDEX IF NOT EXISTS idx_achievements_unlocked_at ON achievements(unlocked
 
 ALTER TABLE achievements ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Achievements are viewable by everyone"
+DROP POLICY IF EXISTS "Achievements are viewable by everyone" ON achievements;
+CREATE POLICY "Achievements are viewable by everyone"
   ON achievements FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can create achievements"
+DROP POLICY IF EXISTS "Authenticated users can create achievements" ON achievements;
+CREATE POLICY "Authenticated users can create achievements"
   ON achievements FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
@@ -85,7 +90,8 @@ CREATE INDEX IF NOT EXISTS idx_daily_challenges_created_at ON daily_challenges(c
 
 ALTER TABLE daily_challenges ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Daily challenges are viewable by everyone"
+DROP POLICY IF EXISTS "Daily challenges are viewable by everyone" ON daily_challenges;
+CREATE POLICY "Daily challenges are viewable by everyone"
   ON daily_challenges FOR SELECT
   USING (true);
 
@@ -109,14 +115,17 @@ CREATE INDEX IF NOT EXISTS idx_challenge_responses_created_at ON challenge_respo
 
 ALTER TABLE challenge_responses ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Responses are viewable by everyone"
+DROP POLICY IF EXISTS "Responses are viewable by everyone" ON challenge_responses;
+CREATE POLICY "Responses are viewable by everyone"
   ON challenge_responses FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can create responses"
+DROP POLICY IF EXISTS "Authenticated users can create responses" ON challenge_responses;
+CREATE POLICY "Authenticated users can create responses"
   ON challenge_responses FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can delete their own responses"
+DROP POLICY IF EXISTS "Users can delete their own responses" ON challenge_responses;
+CREATE POLICY "Users can delete their own responses"
   ON challenge_responses FOR DELETE
   USING (auth.uid() = user_id);

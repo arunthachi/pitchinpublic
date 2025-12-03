@@ -1,6 +1,6 @@
 -- Migration 003: Add Triggers and Functions (Idempotent)
 -- Creates all database triggers and RPC functions
--- Safe to run multiple times - will replace existing functions/triggers
+-- Safe to run multiple times - uses DROP IF EXISTS before CREATE
 
 -- =============================================
 -- UTILITY FUNCTIONS & TRIGGERS
@@ -16,22 +16,26 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply to tables with updated_at
-CREATE TRIGGER IF NOT EXISTS update_profiles_updated_at
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER IF NOT EXISTS update_companies_updated_at
+DROP TRIGGER IF EXISTS update_companies_updated_at ON companies;
+CREATE TRIGGER update_companies_updated_at
   BEFORE UPDATE ON companies
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER IF NOT EXISTS update_pitches_updated_at
+DROP TRIGGER IF EXISTS update_pitches_updated_at ON pitches;
+CREATE TRIGGER update_pitches_updated_at
   BEFORE UPDATE ON pitches
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER IF NOT EXISTS update_feedback_updated_at
+DROP TRIGGER IF EXISTS update_feedback_updated_at ON feedback;
+CREATE TRIGGER update_feedback_updated_at
   BEFORE UPDATE ON feedback
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
@@ -92,7 +96,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS company_slug_trigger
+DROP TRIGGER IF EXISTS company_slug_trigger ON companies;
+CREATE TRIGGER company_slug_trigger
   BEFORE INSERT OR UPDATE ON companies
   FOR EACH ROW
   EXECUTE FUNCTION auto_generate_company_slug();
@@ -125,7 +130,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS follow_count_trigger
+DROP TRIGGER IF EXISTS follow_count_trigger ON follows;
+CREATE TRIGGER follow_count_trigger
   AFTER INSERT OR DELETE ON follows
   FOR EACH ROW
   EXECUTE FUNCTION update_follow_counts();
@@ -152,7 +158,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS profile_company_count_trigger
+DROP TRIGGER IF EXISTS profile_company_count_trigger ON companies;
+CREATE TRIGGER profile_company_count_trigger
   AFTER INSERT OR DELETE ON companies
   FOR EACH ROW
   EXECUTE FUNCTION update_profile_company_counts();
@@ -185,7 +192,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS pitch_count_trigger
+DROP TRIGGER IF EXISTS pitch_count_trigger ON pitches;
+CREATE TRIGGER pitch_count_trigger
   AFTER INSERT OR DELETE ON pitches
   FOR EACH ROW
   EXECUTE FUNCTION update_pitch_counts();
@@ -243,7 +251,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS reaction_count_trigger
+DROP TRIGGER IF EXISTS reaction_count_trigger ON reactions;
+CREATE TRIGGER reaction_count_trigger
   AFTER INSERT OR DELETE ON reactions
   FOR EACH ROW
   EXECUTE FUNCTION update_reaction_counts();
@@ -271,7 +280,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS view_count_trigger
+DROP TRIGGER IF EXISTS view_count_trigger ON pitch_views;
+CREATE TRIGGER view_count_trigger
   AFTER INSERT ON pitch_views
   FOR EACH ROW
   EXECUTE FUNCTION update_view_counts();
@@ -298,7 +308,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS bookmark_count_trigger
+DROP TRIGGER IF EXISTS bookmark_count_trigger ON bookmarks;
+CREATE TRIGGER bookmark_count_trigger
   AFTER INSERT OR DELETE ON bookmarks
   FOR EACH ROW
   EXECUTE FUNCTION update_bookmark_counts();
@@ -317,7 +328,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS user_streaks_updated_at
+DROP TRIGGER IF EXISTS user_streaks_updated_at ON user_streaks;
+CREATE TRIGGER user_streaks_updated_at
   BEFORE UPDATE ON user_streaks
   FOR EACH ROW
   EXECUTE FUNCTION update_user_streaks_updated_at();
@@ -332,7 +344,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS daily_challenges_updated_at
+DROP TRIGGER IF EXISTS daily_challenges_updated_at ON daily_challenges;
+CREATE TRIGGER daily_challenges_updated_at
   BEFORE UPDATE ON daily_challenges
   FOR EACH ROW
   EXECUTE FUNCTION update_daily_challenges_updated_at();
@@ -354,7 +367,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS challenge_response_count_trigger
+DROP TRIGGER IF EXISTS challenge_response_count_trigger ON challenge_responses;
+CREATE TRIGGER challenge_response_count_trigger
   AFTER INSERT OR DELETE ON challenge_responses
   FOR EACH ROW
   EXECUTE FUNCTION update_challenge_response_count();

@@ -1,6 +1,6 @@
 -- Migration 001: Create Core Schema (Idempotent)
 -- This migration creates the base tables if they don't exist
--- Safe to run multiple times - will skip existing tables
+-- Safe to run multiple times - policies use DROP IF EXISTS + CREATE
 
 -- =============================================
 -- 1. PROFILES TABLE
@@ -26,15 +26,18 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Public profiles are viewable by everyone"
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
+CREATE POLICY "Public profiles are viewable by everyone"
   ON profiles FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "Users can insert their own profile"
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+CREATE POLICY "Users can insert their own profile"
   ON profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
-CREATE POLICY IF NOT EXISTS "Users can update their own profile"
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+CREATE POLICY "Users can update their own profile"
   ON profiles FOR UPDATE
   USING (auth.uid() = id);
 
@@ -73,19 +76,23 @@ CREATE INDEX IF NOT EXISTS idx_companies_created_at ON companies(created_at DESC
 
 ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Active companies are viewable by everyone"
+DROP POLICY IF EXISTS "Active companies are viewable by everyone" ON companies;
+CREATE POLICY "Active companies are viewable by everyone"
   ON companies FOR SELECT
   USING (status = 'active' OR auth.uid() = founder_id);
 
-CREATE POLICY IF NOT EXISTS "Founders can create companies"
+DROP POLICY IF EXISTS "Founders can create companies" ON companies;
+CREATE POLICY "Founders can create companies"
   ON companies FOR INSERT
   WITH CHECK (auth.uid() = founder_id);
 
-CREATE POLICY IF NOT EXISTS "Founders can update their own companies"
+DROP POLICY IF EXISTS "Founders can update their own companies" ON companies;
+CREATE POLICY "Founders can update their own companies"
   ON companies FOR UPDATE
   USING (auth.uid() = founder_id);
 
-CREATE POLICY IF NOT EXISTS "Founders can delete their own companies"
+DROP POLICY IF EXISTS "Founders can delete their own companies" ON companies;
+CREATE POLICY "Founders can delete their own companies"
   ON companies FOR DELETE
   USING (auth.uid() = founder_id);
 
@@ -126,19 +133,23 @@ CREATE INDEX IF NOT EXISTS idx_pitches_status ON pitches(status);
 
 ALTER TABLE pitches ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Published pitches are viewable by everyone"
+DROP POLICY IF EXISTS "Published pitches are viewable by everyone" ON pitches;
+CREATE POLICY "Published pitches are viewable by everyone"
   ON pitches FOR SELECT
   USING (status = 'published' OR auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can insert their own pitches"
+DROP POLICY IF EXISTS "Users can insert their own pitches" ON pitches;
+CREATE POLICY "Users can insert their own pitches"
   ON pitches FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can update their own pitches"
+DROP POLICY IF EXISTS "Users can update their own pitches" ON pitches;
+CREATE POLICY "Users can update their own pitches"
   ON pitches FOR UPDATE
   USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can delete their own pitches"
+DROP POLICY IF EXISTS "Users can delete their own pitches" ON pitches;
+CREATE POLICY "Users can delete their own pitches"
   ON pitches FOR DELETE
   USING (auth.uid() = user_id);
 
@@ -161,15 +172,18 @@ CREATE INDEX IF NOT EXISTS idx_reactions_type ON reactions(type);
 
 ALTER TABLE reactions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Reactions are viewable by everyone"
+DROP POLICY IF EXISTS "Reactions are viewable by everyone" ON reactions;
+CREATE POLICY "Reactions are viewable by everyone"
   ON reactions FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can create reactions"
+DROP POLICY IF EXISTS "Authenticated users can create reactions" ON reactions;
+CREATE POLICY "Authenticated users can create reactions"
   ON reactions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can delete their own reactions"
+DROP POLICY IF EXISTS "Users can delete their own reactions" ON reactions;
+CREATE POLICY "Users can delete their own reactions"
   ON reactions FOR DELETE
   USING (auth.uid() = user_id);
 
@@ -194,19 +208,23 @@ CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at DESC);
 
 ALTER TABLE feedback ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Public feedback is viewable by everyone"
+DROP POLICY IF EXISTS "Public feedback is viewable by everyone" ON feedback;
+CREATE POLICY "Public feedback is viewable by everyone"
   ON feedback FOR SELECT
   USING (is_public = true OR auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can create feedback"
+DROP POLICY IF EXISTS "Authenticated users can create feedback" ON feedback;
+CREATE POLICY "Authenticated users can create feedback"
   ON feedback FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can update their own feedback"
+DROP POLICY IF EXISTS "Users can update their own feedback" ON feedback;
+CREATE POLICY "Users can update their own feedback"
   ON feedback FOR UPDATE
   USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can delete their own feedback"
+DROP POLICY IF EXISTS "Users can delete their own feedback" ON feedback;
+CREATE POLICY "Users can delete their own feedback"
   ON feedback FOR DELETE
   USING (auth.uid() = user_id);
 
@@ -228,15 +246,18 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at DESC
 
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Bookmarks are viewable by everyone"
+DROP POLICY IF EXISTS "Bookmarks are viewable by everyone" ON bookmarks;
+CREATE POLICY "Bookmarks are viewable by everyone"
   ON bookmarks FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can create bookmarks"
+DROP POLICY IF EXISTS "Authenticated users can create bookmarks" ON bookmarks;
+CREATE POLICY "Authenticated users can create bookmarks"
   ON bookmarks FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can delete their own bookmarks"
+DROP POLICY IF EXISTS "Users can delete their own bookmarks" ON bookmarks;
+CREATE POLICY "Users can delete their own bookmarks"
   ON bookmarks FOR DELETE
   USING (auth.uid() = user_id);
 
@@ -258,15 +279,18 @@ CREATE INDEX IF NOT EXISTS idx_follows_following_id ON follows(following_id);
 
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Follows are viewable by everyone"
+DROP POLICY IF EXISTS "Follows are viewable by everyone" ON follows;
+CREATE POLICY "Follows are viewable by everyone"
   ON follows FOR SELECT
   USING (true);
 
-CREATE POLICY IF NOT EXISTS "Authenticated users can follow others"
+DROP POLICY IF EXISTS "Authenticated users can follow others" ON follows;
+CREATE POLICY "Authenticated users can follow others"
   ON follows FOR INSERT
   WITH CHECK (auth.uid() = follower_id);
 
-CREATE POLICY IF NOT EXISTS "Users can unfollow"
+DROP POLICY IF EXISTS "Users can unfollow" ON follows;
+CREATE POLICY "Users can unfollow"
   ON follows FOR DELETE
   USING (auth.uid() = follower_id);
 
@@ -288,11 +312,13 @@ CREATE INDEX IF NOT EXISTS idx_pitch_views_created_at ON pitch_views(created_at 
 
 ALTER TABLE pitch_views ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Anyone can create a view"
+DROP POLICY IF EXISTS "Anyone can create a view" ON pitch_views;
+CREATE POLICY "Anyone can create a view"
   ON pitch_views FOR INSERT
   WITH CHECK (true);
 
-CREATE POLICY IF NOT EXISTS "Pitch owners can view their analytics"
+DROP POLICY IF EXISTS "Pitch owners can view their analytics" ON pitch_views;
+CREATE POLICY "Pitch owners can view their analytics"
   ON pitch_views FOR SELECT
   USING (
     auth.uid() IN (
@@ -321,10 +347,12 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Users can view their own notifications"
+DROP POLICY IF EXISTS "Users can view their own notifications" ON notifications;
+CREATE POLICY "Users can view their own notifications"
   ON notifications FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can update their own notifications"
+DROP POLICY IF EXISTS "Users can update their own notifications" ON notifications;
+CREATE POLICY "Users can update their own notifications"
   ON notifications FOR UPDATE
   USING (auth.uid() = user_id);
