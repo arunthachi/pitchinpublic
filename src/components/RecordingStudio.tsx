@@ -3,21 +3,30 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Check, Loader2, Video, Circle, Square } from 'lucide-react';
+import { Step2_AddDetails } from './Step2_AddDetails';
+import { Step3_Publish } from './Step3_Publish';
 
 interface RecordingStudioProps {
   isOpen: boolean;
   onClose: () => void;
+  onPitchCreated?: (pitch: any) => void;
 }
 
-type Mode = 'choose' | 'record' | 'upload' | 'preview';
+type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
 
-export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
+export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingStudioProps) {
   const [mode, setMode] = useState<Mode>('choose');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [error, setError] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Pitch details from Step 2
+  const [pitchHook, setPitchHook] = useState<string>('');
+  const [pitchDescription, setPitchDescription] = useState<string>('');
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -171,9 +180,106 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
   const handleSubmit = async () => {
     if (!selectedFile) return;
     setUploading(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    console.log('Uploading pitch:', { file: selectedFile, duration: videoDuration });
-    handleClose();
+    setError('');
+
+    try {
+      // Step 1: Get upload URL and video ID from backend
+      const uploadUrlResponse = await fetch('/api/pitches/upload-url');
+      if (!uploadUrlResponse.ok) {
+        const errorData = await uploadUrlResponse.json();
+        throw new Error(errorData.error || 'Failed to get upload URL');
+      }
+
+      const { uploadUrl: directUploadUrl, videoId: cfVideoId } = await uploadUrlResponse.json();
+      setVideoId(cfVideoId);
+      setUploadUrl(directUploadUrl);
+
+      // Step 2: Upload video to Cloudflare directly
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const uploadResponse = await fetch(directUploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload video to Cloudflare');
+      }
+
+      // Step 3: Move to details form
+      setMode('details');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload video');
+      console.error('Upload error:', err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDetailsNext = async (data: { hook: string; description: string }) => {
+    if (!videoId) {
+      setError('Video ID missing');
+      return;
+    }
+
+    setUploading(true);
+    setPitchHook(data.hook);
+    setPitchDescription(data.description);
+
+    try {
+      // For now, move to publish - actual pitch creation happens next
+      // The publish screen will have the final "View Feed" button
+      setMode('publish');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to proceed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePublishViewFeed = async () => {
+    // The pitch creation happens here when user views the feed
+    if (!videoId || !pitchHook) {
+      setError('Missing pitch data');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      // Create the pitch in the database
+      const response = await fetch('/api/pitches', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          hook: pitchHook,
+          description: pitchDescription || null,
+          videoId,
+          // These would be obtained from video processing
+          // For now, we'll use placeholder values
+          playbackUrl: `https://customer-${videoId}.cloudflarestream.com/manifest/video.m3u8`,
+          thumbnailUrl: `https://customer-${videoId}.cloudflarestream.com/thumbnails/thumbnail.jpg`,
+          duration: videoDuration,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create pitch');
+      }
+
+      const { pitch } = await response.json();
+      onPitchCreated?.(pitch);
+      handleClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create pitch');
+      console.error('Pitch creation error:', err);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleClose = () => {
@@ -188,6 +294,10 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
     setIsRecording(false);
     setRecordingTime(0);
     setCountdown(null);
+    setPitchHook('');
+    setPitchDescription('');
+    setVideoId(null);
+    setUploadUrl(null);
     onClose();
   };
 
@@ -236,6 +346,28 @@ export function RecordingStudio({ isOpen, onClose }: RecordingStudioProps) {
             </button>
 
             <div className="p-6">
+              {/* Details Mode */}
+              {mode === 'details' && previewUrl && (
+                <Step2_AddDetails
+                  videoDuration={videoDuration}
+                  previewUrl={previewUrl}
+                  onNext={handleDetailsNext}
+                  onBack={() => setMode('preview')}
+                  isLoading={uploading}
+                />
+              )}
+
+              {/* Publish Mode */}
+              {mode === 'publish' && previewUrl && (
+                <Step3_Publish
+                  pitchTitle={pitchHook}
+                  previewUrl={previewUrl}
+                  videoDuration={videoDuration}
+                  onViewFeed={handlePublishViewFeed}
+                  isLoading={uploading}
+                />
+              )}
+
               {/* Choose Mode */}
               {mode === 'choose' && (
                 <>

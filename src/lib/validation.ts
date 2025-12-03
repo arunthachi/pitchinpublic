@@ -114,6 +114,29 @@ export const videoUploadSchema = z.object({
 export type VideoUploadInput = z.infer<typeof videoUploadSchema>;
 
 /**
+ * Pitch creation validation
+ */
+export const pitchSchema = z.object({
+  hook: z
+    .string()
+    .min(10, 'Hook must be at least 10 characters')
+    .max(280, 'Hook must be at most 280 characters')
+    .trim(),
+  description: z
+    .string()
+    .max(2000, 'Description must be at most 2000 characters')
+    .trim()
+    .optional()
+    .or(z.literal('')),
+  videoId: z.string().min(1, 'Video ID is required').trim(),
+  playbackUrl: z.string().url('Invalid playback URL'),
+  thumbnailUrl: z.string().url('Invalid thumbnail URL').optional().or(z.literal('')),
+  duration: z.number().min(30, 'Video must be at least 30 seconds').max(60, 'Video must be at most 60 seconds'),
+});
+
+export type PitchInput = z.infer<typeof pitchSchema>;
+
+/**
  * Helper function to safely validate and parse user input
  * Returns { success, data, errors }
  */

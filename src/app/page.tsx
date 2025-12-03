@@ -101,15 +101,67 @@ export default function Home() {
     fetchUserProfile();
   }, [user]);
 
-  // Use legacy pitches for backwards compatibility
-  const legacyPitches = getLegacyPitches();
-  const [currentPitch, setCurrentPitch] = useState<LegacyPitch>(legacyPitches[0]);
+  // Fetch real pitches from API
+  const [legacyPitches, setLegacyPitches] = useState<LegacyPitch[]>([]);
+  const [pitchesLoading, setPitchesLoading] = useState(true);
+  const [currentPitch, setCurrentPitch] = useState<LegacyPitch | null>(null);
   const [handlers, setHandlers] = useState<{
     onRoast: () => void;
     onToast: () => void;
     onOpenFeedback: (type: 'roast' | 'toast') => void;
     onShare: () => void;
   } | null>(null);
+
+  // Fetch pitches from API
+  const fetchPitches = useCallback(async () => {
+    try {
+      setPitchesLoading(true);
+      const response = await fetch('/api/pitches?limit=100');
+      if (!response.ok) throw new Error('Failed to fetch pitches');
+
+      const data = await response.json();
+
+      // Convert API format to legacy format for backwards compatibility
+      const converted = data.pitches.map((pitch: any) => ({
+        id: pitch.id,
+        founderName: pitch.profiles?.full_name || 'Anonymous',
+        founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
+        companyName: 'Company', // Will be populated in next phase
+        hook: pitch.hook,
+        description: pitch.description || '',
+        videoUrl: pitch.video_url,
+        thumbnailUrl: pitch.thumbnail_url || '',
+        industry: 'SaaS', // Default, will be added in next phase
+        stage: 'Seed', // Default, will be added in next phase
+        views: pitch.views_count,
+        interestScore: pitch.interest_score,
+        roastCount: pitch.roast_count,
+        toastCount: pitch.toast_count,
+        createdAt: pitch.created_at,
+        duration: pitch.duration,
+      }));
+
+      setLegacyPitches(converted);
+      if (converted.length > 0 && !currentPitch) {
+        setCurrentPitch(converted[0]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch pitches:', error);
+      // Fall back to mock data on error
+      const mockPitches = getLegacyPitches();
+      setLegacyPitches(mockPitches);
+      if (mockPitches.length > 0 && !currentPitch) {
+        setCurrentPitch(mockPitches[0]);
+      }
+    } finally {
+      setPitchesLoading(false);
+    }
+  }, [currentPitch]);
+
+  // Fetch pitches on mount
+  useEffect(() => {
+    fetchPitches();
+  }, [fetchPitches]);
 
   // Filter user's own pitches using the fetched profile
   // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
@@ -195,7 +247,7 @@ export default function Home() {
           </div>
 
           {/* Reactions - Outside video (desktop only) */}
-          {handlers && (
+          {handlers && currentPitch && (
             <FloatingReactions
               pitch={currentPitch}
               onRoast={isGuest ? () => setSignInModalOpen(true) : handlers.onRoast}
@@ -231,6 +283,12 @@ export default function Home() {
         <RecordingStudio
           isOpen={recordingStudioOpen}
           onClose={() => setRecordingStudioOpen(false)}
+          onPitchCreated={async (pitch) => {
+            // Refresh feed after new pitch is created
+            setTimeout(() => {
+              fetchPitches();
+            }, 1000); // Brief delay to allow database to settle
+          }}
         />
       )}
 
