@@ -173,7 +173,7 @@ export default function Home() {
     } finally {
       setPitchesLoading(false);
     }
-  }, [currentPitch]);
+  }, []);
 
   // Fetch pitches on mount
   useEffect(() => {
