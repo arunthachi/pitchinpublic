@@ -269,19 +269,28 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
 
       // Step 2: Create the pitch in the database with real Cloudflare URLs
       console.log('Creating pitch with hook:', pitchHook);
+      const pitchPayload: any = {
+        hook: pitchHook,
+        videoId,
+        playbackUrl: videoMetadata.playbackUrl,
+        duration: videoDuration,
+      };
+
+      // Only include optional fields if they have values
+      if (pitchDescription && pitchDescription.trim()) {
+        pitchPayload.description = pitchDescription.trim();
+      }
+      if (videoMetadata.thumbnailUrl) {
+        pitchPayload.thumbnailUrl = videoMetadata.thumbnailUrl;
+      }
+
+      console.log('Pitch payload:', pitchPayload);
       const response = await fetch('/api/pitches', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          hook: pitchHook,
-          description: pitchDescription || null,
-          videoId,
-          playbackUrl: videoMetadata.playbackUrl,
-          thumbnailUrl: videoMetadata.thumbnailUrl,
-          duration: videoDuration,
-        }),
+        body: JSON.stringify(pitchPayload),
       });
 
       if (!response.ok) {
