@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'You have already responded to today's challenge',
+          error: 'You have already responded to todays challenge',
         },
         {
           status: 400,

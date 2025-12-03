@@ -17,6 +17,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
+import { DailyChallengeBanner } from '@/components/DailyChallengeBanner';
+import { GamificationStats } from '@/components/GamificationStats';
+import { AchievementUnlock } from '@/components/AchievementUnlock';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -27,6 +30,13 @@ export default function Home() {
   const [fullProfile, setFullProfile] = useState<Profile | null>(null);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [showDailyChallenge, setShowDailyChallenge] = useState(false);
+  const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
+  const [achievement, setAchievement] = useState<{
+    badgeIcon: string;
+    badgeName: string;
+    badgeDescription: string;
+  } | null>(null);
   // Use ref to track whether we've already shown the profile setup modal this session
   // This prevents the modal from showing multiple times
   const hasShownProfileSetupRef = useRef(false);
@@ -258,6 +268,13 @@ export default function Home() {
               onSignInClick={() => setSignInModalOpen(true)}
             />
           )}
+
+          {/* Gamification Stats - Desktop Only */}
+          {!isGuest && (
+            <div className="hidden lg:flex flex-col gap-4 w-80 max-h-[calc(100vh-2rem)] overflow-y-auto pr-2">
+              <GamificationStats onOpenChallenge={() => setShowDailyChallenge(true)} />
+            </div>
+          )}
         </div>
 
         {/* Mobile: Full screen like TikTok */}
@@ -368,6 +385,25 @@ export default function Home() {
               console.error('Error refreshing profile after edit:', err);
             });
           }}
+        />
+      )}
+
+      {/* Daily Challenge Banner */}
+      {!isGuest && (
+        <DailyChallengeBanner
+          isOpen={showDailyChallenge}
+          onClose={() => setShowDailyChallenge(false)}
+        />
+      )}
+
+      {/* Achievement Unlock Celebration */}
+      {achievement && (
+        <AchievementUnlock
+          badgeIcon={achievement.badgeIcon}
+          badgeName={achievement.badgeName}
+          badgeDescription={achievement.badgeDescription}
+          isOpen={showAchievementUnlock}
+          onClose={() => setShowAchievementUnlock(false)}
         />
       )}
 
