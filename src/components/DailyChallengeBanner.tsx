@@ -134,7 +134,7 @@ export function DailyChallengeBanner({ isOpen, onClose }: DailyChallengeBannerPr
 
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors flex-shrink-0"
+                  className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors flex-shrink-0"
                 >
                   <X className="w-4 h-4 text-slate-400" />
                 </button>

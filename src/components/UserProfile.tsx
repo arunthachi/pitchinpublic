@@ -126,7 +126,7 @@ export function UserProfile({
               <h2 className="text-lg font-bold text-white">Profile</h2>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"
+                className="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"
               >
                 <X className="w-4 h-4 text-slate-400" />
               </button>
@@ -155,7 +155,7 @@ export function UserProfile({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={onEditProfile}
-                  className="w-full mb-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors text-sm"
+                  className="w-full mb-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors text-sm"
                 >
                   <Edit className="w-4 h-4" />
                   Edit Profile
@@ -185,7 +185,7 @@ export function UserProfile({
                     <Trophy className="w-4 h-4 text-neon-lime" />
                     <h3 className="text-white font-semibold text-sm">Badges ({achievements.length})</h3>
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
                     {achievements.slice(0, 8).map((achievement) => (
                       <motion.div
                         key={achievement.id}
@@ -193,7 +193,7 @@ export function UserProfile({
                         animate={{ opacity: 1, scale: 1 }}
                         className="flex flex-col items-center"
                       >
-                        <div className="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center border border-slate-600 hover:border-neon-lime/50 transition-all cursor-help group relative">
+                        <div className="w-11 h-11 rounded-lg bg-slate-700/50 flex items-center justify-center border border-slate-600 hover:border-neon-lime/50 transition-all cursor-help group relative">
                           <span className="text-base">{achievement.badgeIcon}</span>
 
                           {/* Tooltip */}

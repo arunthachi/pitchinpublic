@@ -303,7 +303,7 @@ export function FullScreenVideoFeed({
 
           {/* Floating Reactions - positioned on right side like TikTok */}
           {!hideReactions && (
-            <div className="absolute right-3 bottom-40 z-40">
+            <div className="absolute right-2 sm:right-3 bottom-20 sm:bottom-40 z-40">
               <FloatingReactions
                 pitch={currentPitch}
                 onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
