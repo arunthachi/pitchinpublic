@@ -30,6 +30,18 @@ export function FullScreenVideoFeed({
   isGuest = false,
   onSignInClick
 }: FullScreenVideoFeedProps) {
+  // Handle empty pitches array - BEFORE any hooks
+  if (!pitches.length) {
+    return (
+      <div className="relative w-full h-full bg-black flex items-center justify-center">
+        <div className="text-white/60 text-center">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p>Loading pitches...</p>
+        </div>
+      </div>
+    );
+  }
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
@@ -44,18 +56,6 @@ export function FullScreenVideoFeed({
   const currentPitch = localPitches[currentIndex];
   const hasNext = currentIndex < localPitches.length - 1;
   const hasPrev = currentIndex > 0;
-
-  // Handle empty pitches array
-  if (!pitches.length || !currentPitch) {
-    return (
-      <div className="relative w-full h-full bg-black flex items-center justify-center">
-        <div className="text-white/60 text-center">
-          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p>Loading pitches...</p>
-        </div>
-      </div>
-    );
-  }
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prev) => {
