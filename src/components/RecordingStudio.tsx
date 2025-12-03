@@ -42,12 +42,18 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 } },
+        video: {
+          facingMode: 'user',
+          width: { ideal: 720 },
+          height: { ideal: 1280 }
+        },
         audio: true,
       });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Ensure video is playing
+        videoRef.current.play().catch(console.error);
       }
       setMode('record');
       setError('');
@@ -441,7 +447,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                       autoPlay
                       muted
                       playsInline
-                      className="w-full h-full object-cover mirror"
+                      className="w-full h-full object-contain"
                       style={{ transform: 'scaleX(-1)' }}
                     />
 
