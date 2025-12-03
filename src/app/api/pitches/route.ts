@@ -145,13 +145,15 @@ export async function POST(request: NextRequest) {
       throw insertError;
     }
 
-    // Update user's pitches count
-    await supabase.rpc('increment_user_pitches_count', {
-      user_id: user.id,
-    }).catch((error) => {
+    // Update user's pitches count (non-fatal, fire and forget)
+    try {
+      await supabase.rpc('increment_user_pitches_count', {
+        user_id: user.id,
+      });
+    } catch (error) {
       console.error('Error updating pitches count:', error);
       // Non-fatal error, don't throw
-    });
+    }
 
     return NextResponse.json(
       {
