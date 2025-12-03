@@ -248,7 +248,16 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     setUploading(true);
 
     try {
-      // Create the pitch in the database
+      // Step 1: Fetch actual video metadata from Cloudflare via our API
+      const metadataResponse = await fetch(`/api/videos/metadata?videoId=${videoId}`);
+      if (!metadataResponse.ok) {
+        throw new Error('Failed to fetch video metadata');
+      }
+
+      const metadataData = await metadataResponse.json();
+      const videoMetadata = metadataData.metadata;
+
+      // Step 2: Create the pitch in the database with real Cloudflare URLs
       const response = await fetch('/api/pitches', {
         method: 'POST',
         headers: {
@@ -258,10 +267,8 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
           hook: pitchHook,
           description: pitchDescription || null,
           videoId,
-          // These would be obtained from video processing
-          // For now, we'll use placeholder values
-          playbackUrl: `https://customer-${videoId}.cloudflarestream.com/manifest/video.m3u8`,
-          thumbnailUrl: `https://customer-${videoId}.cloudflarestream.com/thumbnails/thumbnail.jpg`,
+          playbackUrl: videoMetadata.playbackUrl,
+          thumbnailUrl: videoMetadata.thumbnailUrl,
           duration: videoDuration,
         }),
       });
