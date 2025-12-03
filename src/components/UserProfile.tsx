@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, LogOut, Users, Video, TrendingUp, Clock, Flame, Edit } from 'lucide-react';
+import { X, LogOut, Users, Video, TrendingUp, Clock, Flame, Edit, Trophy } from 'lucide-react';
 import { User, LegacyPitch } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -18,6 +18,14 @@ interface UserProfileProps {
   onEditProfile?: () => void;
 }
 
+interface Achievement {
+  id: string;
+  badgeId: string;
+  badgeName: string;
+  badgeIcon: string;
+  unlockedAt: string;
+}
+
 type SortBy = 'latest' | 'oldest' | 'popular';
 
 export function UserProfile({
@@ -30,6 +38,30 @@ export function UserProfile({
   const { signOut } = useAuth();
   const [sortBy, setSortBy] = useState<SortBy>('latest');
   const [displayCount, setDisplayCount] = useState(12); // Show 12 initially
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [loadingAchievements, setLoadingAchievements] = useState(false);
+
+  // Fetch user achievements
+  useEffect(() => {
+    const fetchAchievements = async () => {
+      try {
+        setLoadingAchievements(true);
+        const res = await fetch('/api/user/achievements');
+        if (res.ok) {
+          const data = await res.json();
+          setAchievements(data.achievements);
+        }
+      } catch (error) {
+        console.error('Error fetching achievements:', error);
+      } finally {
+        setLoadingAchievements(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchAchievements();
+    }
+  }, [isOpen]);
 
   // Reset display count when sort changes
   const handleSortChange = (newSort: SortBy) => {
@@ -145,6 +177,40 @@ export function UserProfile({
                   <div className="text-slate-400 text-xs">Pitches</div>
                 </div>
               </div>
+
+              {/* Achievements/Badges Section */}
+              {achievements.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-slate-800">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Trophy className="w-4 h-4 text-neon-lime" />
+                    <h3 className="text-white font-semibold text-sm">Badges ({achievements.length})</h3>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {achievements.slice(0, 8).map((achievement) => (
+                      <motion.div
+                        key={achievement.id}
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex flex-col items-center"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center border border-slate-600 hover:border-neon-lime/50 transition-all cursor-help group relative">
+                          <span className="text-base">{achievement.badgeIcon}</span>
+
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-slate-300 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                            {achievement.badgeName}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                  {achievements.length > 8 && (
+                    <p className="text-xs text-slate-400 mt-3 text-center">
+                      +{achievements.length - 8} more badges
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* My Pitches Section */}
