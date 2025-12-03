@@ -34,6 +34,12 @@ export function FullScreenVideoFeed({
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
   const [direction, setDirection] = useState<'up' | 'down'>('down');
+  const [localPitches, setLocalPitches] = useState<LegacyPitch[]>(pitches);
+
+  // Sync local pitches when props change
+  React.useEffect(() => {
+    setLocalPitches(pitches);
+  }, [pitches]);
 
   const currentPitch = localPitches[currentIndex];
   const hasNext = currentIndex < localPitches.length - 1;
@@ -96,14 +102,6 @@ export function FullScreenVideoFeed({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [goToNext, goToPrev]);
-
-  // Create mutable reference to pitches array so we can update it
-  const [localPitches, setLocalPitches] = useState<LegacyPitch[]>(pitches);
-
-  // Sync local pitches when props change
-  React.useEffect(() => {
-    setLocalPitches(pitches);
-  }, [pitches]);
 
   const handleRoast = async () => {
     if (!currentPitch) return;
