@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, LogOut, Users, Video, TrendingUp, Clock, Flame, Edit, Trophy } from 'lucide-react';
+import { X, LogOut, Users, Video, TrendingUp, Clock, Flame, Edit, Trophy, Trash2 } from 'lucide-react';
 import { User, LegacyPitch } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePitchActions } from '@/lib/hooks/usePitchActions';
 
 interface UserProfileProps {
   isOpen: boolean;
@@ -36,10 +37,19 @@ export function UserProfile({
   onEditProfile,
 }: UserProfileProps) {
   const { signOut } = useAuth();
+  const { deletePitch } = usePitchActions();
   const [sortBy, setSortBy] = useState<SortBy>('latest');
   const [displayCount, setDisplayCount] = useState(12); // Show 12 initially
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loadingAchievements, setLoadingAchievements] = useState(false);
+  const [deletedPitchIds, setDeletedPitchIds] = useState<Set<string>>(new Set());
+
+  const handleDeletePitch = async (pitchId: string) => {
+    const success = await deletePitch(pitchId);
+    if (success) {
+      setDeletedPitchIds(prev => new Set([...prev, pitchId]));
+    }
+  };
 
   // Fetch user achievements
   useEffect(() => {
@@ -234,10 +244,10 @@ export function UserProfile({
               </div>
 
               {/* Pitch Grid */}
-              {sortedPitches.length > 0 ? (
+              {sortedPitches.filter(p => !deletedPitchIds.has(p.id)).length > 0 ? (
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                    {displayedPitches.map((pitch) => (
+                    {displayedPitches.filter(p => !deletedPitchIds.has(p.id)).map((pitch) => (
                       <div
                         key={pitch.id}
                         className="relative aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden group cursor-pointer hover:ring-2 hover:ring-neon-cyan transition-all"
@@ -250,6 +260,22 @@ export function UserProfile({
 
                         {/* Overlay - Show on mobile tap, desktop hover */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity">
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            {/* Delete Button */}
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePitch(pitch.id);
+                              }}
+                              className="p-2 bg-red-500/80 hover:bg-red-600 rounded-lg transition-colors mb-4"
+                              title="Delete pitch"
+                            >
+                              <Trash2 className="w-4 h-4 text-white" />
+                            </motion.button>
+                          </div>
+
                           <div className="absolute bottom-2 left-2 right-2">
                             <p className="text-white text-xs font-semibold line-clamp-2 mb-1">
                               {pitch.companyName}

@@ -229,13 +229,14 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-    // Get total count
+    // Get total count (exclude deleted pitches)
     const { count } = await supabase
       .from('pitches')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'published');
+      .eq('status', 'published')
+      .is('deleted_at', null);
 
-    // Get paginated pitches
+    // Get paginated pitches (exclude deleted pitches)
     const { data: pitches, error } = await supabase
       .from('pitches')
       .select(`
@@ -259,6 +260,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('status', 'published')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
