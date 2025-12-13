@@ -204,14 +204,14 @@ export function ActionDrawer({
               </motion.button>
             </motion.div>
 
-            {/* Pitch Title */}
+            {/* Pitch Hook */}
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.15 }}
               className="p-6 border-b border-white/10"
             >
-              <p className="text-white text-sm font-medium leading-relaxed">{pitch.title}</p>
+              <p className="text-white text-sm font-medium leading-relaxed">{pitch.hook}</p>
             </motion.div>
 
             {/* Engagement Metrics */}

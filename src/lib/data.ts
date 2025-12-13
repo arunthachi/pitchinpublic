@@ -467,6 +467,7 @@ export const mockPitches: Pitch[] = [
 export function toLegacyPitch(pitch: Pitch): LegacyPitch {
   return {
     id: pitch.id,
+    userId: pitch.user_id,
     founderName: pitch.founder?.full_name || 'Unknown',
     founderAvatar: pitch.founder?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Unknown',
     companyName: pitch.company?.name || 'Unknown Company',
