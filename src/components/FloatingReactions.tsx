@@ -43,11 +43,18 @@ export function FloatingReactions({
   React.useEffect(() => {
     const fetchFollowStatus = async () => {
       try {
+        console.log(`Fetching follow status for user: ${pitch.userId}`);
         const response = await fetch(`/api/users/${pitch.userId}/follow`);
-        if (response.ok) {
-          const data = await response.json();
-          setIsFollowing(data.isFollowing);
+        console.log('Follow status response:', response.status);
+
+        if (!response.ok) {
+          console.error('Failed to fetch follow status:', response.status);
+          return;
         }
+
+        const data = await response.json();
+        console.log('Follow status data:', data);
+        setIsFollowing(data.isFollowing);
       } catch (error) {
         console.error('Error checking follow status:', error);
       }
@@ -71,10 +78,18 @@ export function FloatingReactions({
         method,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setIsFollowing(data.isFollowing);
+      console.log(`Follow ${method} response status:`, response.status);
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error(`Failed to ${method} follow. Status:`, response.status, 'Error:', error);
+        setIsLoadingFollow(false);
+        return;
       }
+
+      const data = await response.json();
+      console.log(`Follow ${method} success response:`, data);
+      setIsFollowing(data.isFollowing);
     } catch (error) {
       console.error('Error updating follow status:', error);
     } finally {
