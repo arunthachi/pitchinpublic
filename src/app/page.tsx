@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
-import { ActionDrawer } from '@/components/ActionDrawer';
+import { FloatingReactions } from '@/components/FloatingReactions';
 import { UserProfile } from '@/components/UserProfile';
 import { SignInModal } from '@/components/SignInModal';
 import { WelcomeHero } from '@/components/WelcomeHero';
@@ -264,9 +264,9 @@ export default function Home() {
             />
           </div>
 
-          {/* Action Drawer - Modern side drawer UX (desktop) */}
+          {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
-            <ActionDrawer
+            <FloatingReactions
               pitch={currentPitch}
               onRoast={isGuest ? () => setSignInModalOpen(true) : handlers.onRoast}
               onToast={isGuest ? () => setSignInModalOpen(true) : handlers.onToast}

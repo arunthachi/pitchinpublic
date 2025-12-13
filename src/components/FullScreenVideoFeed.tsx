@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { LegacyPitch, FeedbackFormData } from '@/types';
 import { VideoPlayer } from './VideoPlayer';
 import { FloatingPitchInfo } from './FloatingPitchInfo';
-import { ActionDrawer } from './ActionDrawer';
+import { FloatingReactions } from './FloatingReactions';
 import { QuickFeedbackPanel } from './QuickFeedbackPanel';
 
 interface FullScreenVideoFeedProps {
@@ -476,18 +476,20 @@ export function FullScreenVideoFeed({
           {/* Floating Info */}
           <FloatingPitchInfo pitch={currentPitch} />
 
-          {/* Action Drawer - Modern side drawer UX */}
+          {/* Floating Reactions - positioned on right side like TikTok */}
           {!hideReactions && (
-            <ActionDrawer
-              pitch={currentPitch}
-              onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
-              onToast={isGuest && onSignInClick ? onSignInClick : handleToast}
-              onOpenFeedback={isGuest && onSignInClick ? () => onSignInClick() : openFeedback}
-              onShare={isGuest && onSignInClick ? onSignInClick : handleShare}
-              isGuest={isGuest}
-              onSignInClick={onSignInClick}
-              userReaction={userReaction}
-            />
+            <div className="absolute right-2 sm:right-3 bottom-20 sm:bottom-40 z-40">
+              <FloatingReactions
+                pitch={currentPitch}
+                onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
+                onToast={isGuest && onSignInClick ? onSignInClick : handleToast}
+                onOpenFeedback={isGuest && onSignInClick ? () => onSignInClick() : openFeedback}
+                onShare={isGuest && onSignInClick ? onSignInClick : handleShare}
+                isGuest={isGuest}
+                onSignInClick={onSignInClick}
+                userReaction={userReaction}
+              />
+            </div>
           )}
 
           {/* Navigation Hints */}
