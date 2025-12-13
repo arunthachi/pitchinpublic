@@ -26,6 +26,8 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   const [isPlaying, setIsPlaying] = useState(playing);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   // Initialize HLS or native video
   useEffect(() => {
@@ -104,8 +106,23 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
     if (videoRef.current && videoRef.current.duration) {
       const played = videoRef.current.currentTime / videoRef.current.duration;
       setProgress(isNaN(played) ? 0 : played);
+      setDuration(videoRef.current.duration);
+      setCurrentTime(videoRef.current.currentTime);
       onProgress?.({ played, playedSeconds: videoRef.current.currentTime });
     }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const togglePlayPause = () => {
@@ -135,15 +152,27 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         muted={muted}
         playsInline
         onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
         onEnded={onEnded}
       />
 
-      {/* Progress Bar - thin line at bottom like TikTok */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 z-50">
-        <div
-          className="h-full bg-white/90 transition-all duration-100"
-          style={{ width: `${progress * 100}%` }}
-        />
+      {/* Enhanced Progress Bar with Time Display */}
+      <div className="absolute bottom-0 left-0 right-0 z-50">
+        {/* Thicker, more visible progress bar */}
+        <div className="relative h-1.5 bg-black/40 hover:h-2 transition-all duration-100">
+          {/* Animated gradient progress */}
+          <motion.div
+            className="absolute top-0 left-0 h-full bg-gradient-to-r from-neon-cyan to-neon-lime"
+            style={{ width: `${progress * 100}%` }}
+            layoutId="progress"
+          />
+        </div>
+
+        {/* Time Display - shows current / total */}
+        <div className="px-3 py-2 bg-gradient-to-t from-black/80 to-black/40 text-white text-xs font-semibold flex justify-between items-center">
+          <span>{formatTime(currentTime)}</span>
+          <span className="text-slate-400">{formatTime(duration)}</span>
+        </div>
       </div>
 
       {/* Tap to Play/Pause Overlay */}

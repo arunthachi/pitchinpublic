@@ -20,6 +20,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [error, setError] = useState<string>('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Pitch details from Step 2
@@ -186,6 +187,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const handleSubmit = async () => {
     if (!selectedFile) return;
     setUploading(true);
+    setUploadProgress(0);
     setError('');
 
     try {
@@ -200,18 +202,44 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       setVideoId(cfVideoId);
       setUploadUrl(directUploadUrl);
 
-      // Step 2: Upload video to Cloudflare directly
-      const formData = new FormData();
-      formData.append('file', selectedFile);
+      // Step 2: Upload video to Cloudflare with progress tracking
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
 
-      const uploadResponse = await fetch(directUploadUrl, {
-        method: 'POST',
-        body: formData,
+        // Track upload progress
+        if (xhr.upload) {
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              const percentComplete = (e.loaded / e.total) * 100;
+              setUploadProgress(Math.round(percentComplete));
+              console.log(`Upload progress: ${percentComplete.toFixed(1)}%`);
+            }
+          });
+        }
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setUploadProgress(100);
+            resolve();
+          } else {
+            reject(new Error('Failed to upload video to Cloudflare'));
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error during upload'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload cancelled'));
+        });
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        xhr.open('POST', directUploadUrl);
+        xhr.send(formData);
       });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload video to Cloudflare');
-      }
 
       // Step 3: Move to details form
       setMode('details');
@@ -345,6 +373,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     setVideoDuration(0);
     setError('');
     setUploading(false);
+    setUploadProgress(0);
     setMode('choose');
     setIsRecording(false);
     setRecordingTime(0);
@@ -508,20 +537,36 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                       </div>
                     )}
 
-                    {/* Recording Timer */}
+                    {/* Recording Timer - Prominent Display */}
                     {isRecording && (
-                      <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 bg-red-500 rounded-full">
-                        <Circle className="w-3 h-3 fill-white text-white animate-pulse" />
-                        <span className="text-white text-sm font-medium">{formatTime(recordingTime)}</span>
-                      </div>
-                    )}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        {/* Large Timer */}
+                        <motion.div
+                          key={recordingTime}
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          className="flex flex-col items-center"
+                        >
+                          <div className="mb-4 px-6 py-3 bg-red-500/90 backdrop-blur-sm rounded-full">
+                            <Circle className="w-3 h-3 fill-white text-white animate-pulse inline mr-2" />
+                            <span className="text-white text-4xl font-bold font-mono">{formatTime(recordingTime)}</span>
+                          </div>
+                        </motion.div>
 
-                    {/* Min/Max indicator */}
-                    {isRecording && (
-                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/70 rounded-full">
-                        <span className={`text-xs ${recordingTime >= 30 ? 'text-green-400' : 'text-yellow-400'}`}>
-                          {recordingTime < 30 ? `${30 - recordingTime}s until minimum` : 'Ready to stop!'}
-                        </span>
+                        {/* Progress Bar - Show 30-60 second range */}
+                        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64">
+                          <div className="relative h-2 bg-black/50 rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full bg-gradient-to-r from-red-500 to-orange-400"
+                              style={{ width: `${Math.min(100, (recordingTime / 60) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-300 mt-2 px-2">
+                            <span>0s</span>
+                            <span className="font-semibold">{recordingTime < 30 ? `${30 - recordingTime}s min` : 'Ready ✓'}</span>
+                            <span>60s</span>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -574,6 +619,23 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                     </div>
                   </div>
 
+                  {/* Upload Progress Bar */}
+                  {uploading && (
+                    <div className="mb-4 space-y-2">
+                      <div className="relative h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-gradient-to-r from-neon-cyan to-neon-lime"
+                          style={{ width: `${uploadProgress}%` }}
+                          transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-slate-400">
+                        <span className="text-white font-semibold">Uploading to Cloudflare...</span>
+                        <span className="font-mono text-neon-cyan">{uploadProgress}%</span>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleSubmit}
                     disabled={uploading}
@@ -582,7 +644,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                     {uploading ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        Posting...
+                        Uploading ({uploadProgress}%)...
                       </>
                     ) : (
                       <>
@@ -594,7 +656,8 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
 
                   <button
                     onClick={goBack}
-                    className="w-full mt-3 text-slate-500 hover:text-slate-300 text-sm transition-colors"
+                    className="w-full mt-3 text-slate-500 hover:text-slate-300 text-sm transition-colors disabled:opacity-50"
+                    disabled={uploading}
                   >
                     Start over
                   </button>
