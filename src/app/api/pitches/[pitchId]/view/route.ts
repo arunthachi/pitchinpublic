@@ -78,12 +78,10 @@ export async function POST(
     // Increment views count by 1
     const newViewsCount = (pitch.views_count || 0) + 1;
 
-    const { data: updatedPitch, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from('pitches')
       .update({ views_count: newViewsCount })
-      .eq('id', params.pitchId)
-      .select('views_count')
-      .single();
+      .eq('id', params.pitchId);
 
     if (updateError) {
       throw updateError;
@@ -92,7 +90,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: true,
-        viewsCount: updatedPitch?.views_count || newViewsCount,
+        viewsCount: newViewsCount,
       },
       { headers: formatRateLimitHeaders(result) }
     );
