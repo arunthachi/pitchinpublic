@@ -232,30 +232,35 @@ export function FullScreenVideoFeed({
         body: JSON.stringify({ type: 'roast' }),
       });
 
+      console.log('Roast API response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const error = await response.json();
-        console.error('Failed to create roast:', error);
+        console.error('Failed to create roast. Status:', response.status, 'Error:', error);
         // Revert optimistic update on error
         setLocalPitches((prevPitches) =>
           prevPitches.map((p) => (p.id === currentPitch.id ? currentPitch : p))
         );
       } else {
         const data = await response.json();
-        console.log('Roast API response:', data);
+        console.log('Roast API success response:', data);
+        console.log('Response has counts:', !!data.counts, 'Counts value:', data.counts);
         // Update with actual counts from server
         if (data.counts) {
-          console.log('Updating pitch with counts:', data.counts);
+          console.log('Updating pitch with server counts:', data.counts);
           const finalPitch = {
             ...updatedPitch,
             roastCount: data.counts.roastCount,
             toastCount: data.counts.toastCount,
           };
+          console.log('Final pitch after roast:', finalPitch);
           setLocalPitches((prevPitches) =>
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
           setUserReaction('roast');
         } else {
-          console.warn('No counts in response:', data);
+          console.error('CRITICAL: No counts in response. Response data:', data);
+          console.error('Response.ok was true but counts missing. This indicates API response format issue.');
         }
       }
     } catch (error) {
@@ -337,30 +342,35 @@ export function FullScreenVideoFeed({
         body: JSON.stringify({ type: 'toast' }),
       });
 
+      console.log('Toast API response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const error = await response.json();
-        console.error('Failed to create toast:', error);
+        console.error('Failed to create toast. Status:', response.status, 'Error:', error);
         // Revert optimistic update on error
         setLocalPitches((prevPitches) =>
           prevPitches.map((p) => (p.id === currentPitch.id ? currentPitch : p))
         );
       } else {
         const data = await response.json();
-        console.log('Toast API response:', data);
+        console.log('Toast API success response:', data);
+        console.log('Response has counts:', !!data.counts, 'Counts value:', data.counts);
         // Update with actual counts from server
         if (data.counts) {
-          console.log('Updating pitch with counts:', data.counts);
+          console.log('Updating pitch with server counts:', data.counts);
           const finalPitch = {
             ...updatedPitch,
             roastCount: data.counts.roastCount,
             toastCount: data.counts.toastCount,
           };
+          console.log('Final pitch after toast:', finalPitch);
           setLocalPitches((prevPitches) =>
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
           setUserReaction('toast');
         } else {
-          console.warn('No counts in response:', data);
+          console.error('CRITICAL: No counts in response. Response data:', data);
+          console.error('Response.ok was true but counts missing. This indicates API response format issue.');
         }
       }
     } catch (error) {

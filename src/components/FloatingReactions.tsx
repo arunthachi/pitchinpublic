@@ -185,7 +185,7 @@ export function FloatingReactions({
         </motion.div>
         <div className="text-center">
           <span className="text-xs font-bold text-white drop-shadow-md">
-            {formatNumber(pitch.roastCount + (justRoasted ? 1 : 0))}
+            {formatNumber(pitch.roastCount)}
           </span>
         </div>
 
@@ -249,7 +249,7 @@ export function FloatingReactions({
         </motion.div>
         <div className="text-center">
           <span className="text-xs font-bold text-white drop-shadow-md">
-            {formatNumber(pitch.toastCount + (justToasted ? 1 : 0))}
+            {formatNumber(pitch.toastCount)}
           </span>
         </div>
 
