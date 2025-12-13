@@ -186,11 +186,33 @@ export function FullScreenVideoFeed({
         return;
       }
 
+      // If user has toast, delete it first before adding roast
+      let counts = { roastCount: currentPitch.roastCount, toastCount: currentPitch.toastCount };
+
+      if (userReaction === 'toast') {
+        const deleteResponse = await fetch(
+          `/api/pitches/${currentPitch.id}/reaction/delete`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (deleteResponse.ok) {
+          const data = await deleteResponse.json();
+          counts = data.counts;
+        } else {
+          throw new Error('Failed to remove previous reaction');
+        }
+      }
+
       // Optimistic update - update UI immediately
       const updatedPitch = {
         ...currentPitch,
-        roastCount: currentPitch.roastCount + (userReaction === 'toast' ? 0 : 1),
-        toastCount: userReaction === 'toast' ? currentPitch.toastCount - 1 : currentPitch.toastCount,
+        roastCount: counts.roastCount + 1,
+        toastCount: counts.toastCount,
       };
 
       // Update local state
@@ -265,11 +287,33 @@ export function FullScreenVideoFeed({
         return;
       }
 
+      // If user has roast, delete it first before adding toast
+      let counts = { roastCount: currentPitch.roastCount, toastCount: currentPitch.toastCount };
+
+      if (userReaction === 'roast') {
+        const deleteResponse = await fetch(
+          `/api/pitches/${currentPitch.id}/reaction/delete`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (deleteResponse.ok) {
+          const data = await deleteResponse.json();
+          counts = data.counts;
+        } else {
+          throw new Error('Failed to remove previous reaction');
+        }
+      }
+
       // Optimistic update - update UI immediately
       const updatedPitch = {
         ...currentPitch,
-        toastCount: currentPitch.toastCount + (userReaction === 'roast' ? 0 : 1),
-        roastCount: userReaction === 'roast' ? currentPitch.roastCount - 1 : currentPitch.roastCount,
+        toastCount: counts.toastCount + 1,
+        roastCount: counts.roastCount,
       };
 
       // Update local state

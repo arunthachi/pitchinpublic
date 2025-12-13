@@ -197,25 +197,64 @@ export async function POST(
     }
 
     // Update streak (any activity counts toward streak)
-    // Non-blocking - fire and forget
-    setTimeout(async () => {
-      try {
-        // Call the streak update endpoint via fetch
-        // This will increment total_activities and handle streak logic
-        const baseUrl = request.headers.get('origin') || 'http://localhost:3000';
-        await fetch(`${baseUrl}/api/user/streak`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cookie': request.headers.get('cookie') || '',
-          },
-          body: JSON.stringify({ activityType: type }),
-        });
-      } catch (error) {
-        console.error('Error updating streak:', error);
-        // Non-fatal, don't throw
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get current streak
+      const { data: currentStreak } = await supabase
+        .from('user_streaks')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      const streakData = currentStreak || {
+        current_streak: 0,
+        best_streak: 0,
+        last_activity_date: null,
+        total_activities: 0,
+      };
+
+      // Always increment total_activities
+      const newTotalActivities = (streakData.total_activities || 0) + 1;
+
+      // Check if user already has activity today
+      const hasActivityToday = streakData.last_activity_date === today;
+      let newCurrentStreak = streakData.current_streak || 0;
+
+      if (!hasActivityToday) {
+        // Check if yesterday had activity (continue streak)
+        const yesterday = new Date(new Date().setDate(new Date().getDate() - 1))
+          .toISOString()
+          .split('T')[0];
+        const yesterdayWasActive = streakData.last_activity_date === yesterday;
+
+        if (yesterdayWasActive) {
+          // Continue streak
+          newCurrentStreak = (streakData.current_streak || 0) + 1;
+        } else {
+          // Start new streak
+          newCurrentStreak = 1;
+        }
       }
-    }, 0);
+
+      const newBestStreak = Math.max(streakData.best_streak || 0, newCurrentStreak);
+
+      // Update streak in database
+      await supabase.from('user_streaks').upsert({
+        user_id: user.id,
+        current_streak: newCurrentStreak,
+        best_streak: newBestStreak,
+        last_activity_date: hasActivityToday ? streakData.last_activity_date : today,
+        last_activity_type: type,
+        total_activities: newTotalActivities,
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', user.id);
+
+      console.log('Streak updated for reaction:', { newTotalActivities, newCurrentStreak });
+    } catch (error) {
+      console.error('Error updating streak:', error);
+      // Non-fatal, don't throw
+    }
 
     return NextResponse.json(
       {
