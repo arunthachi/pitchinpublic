@@ -203,11 +203,13 @@ export function FullScreenVideoFeed({
         if (deleteResponse.ok) {
           const data = await deleteResponse.json();
           counts = data.counts;
+          console.log('Switched from toast to roast, counts after delete:', counts);
         } else {
           throw new Error('Failed to remove previous reaction');
         }
       }
 
+      console.log('Creating optimistic update with counts:', counts);
       // Optimistic update - update UI immediately
       const updatedPitch = {
         ...currentPitch,
@@ -215,6 +217,7 @@ export function FullScreenVideoFeed({
         toastCount: counts.toastCount,
       };
 
+      console.log('Optimistic pitch:', updatedPitch);
       // Update local state
       setLocalPitches((prevPitches) =>
         prevPitches.map((p) => (p.id === currentPitch.id ? updatedPitch : p))
@@ -238,8 +241,10 @@ export function FullScreenVideoFeed({
         );
       } else {
         const data = await response.json();
+        console.log('Roast API response:', data);
         // Update with actual counts from server
         if (data.counts) {
+          console.log('Updating pitch with counts:', data.counts);
           const finalPitch = {
             ...updatedPitch,
             roastCount: data.counts.roastCount,
@@ -249,6 +254,8 @@ export function FullScreenVideoFeed({
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
           setUserReaction('roast');
+        } else {
+          console.warn('No counts in response:', data);
         }
       }
     } catch (error) {
@@ -339,8 +346,10 @@ export function FullScreenVideoFeed({
         );
       } else {
         const data = await response.json();
+        console.log('Toast API response:', data);
         // Update with actual counts from server
         if (data.counts) {
+          console.log('Updating pitch with counts:', data.counts);
           const finalPitch = {
             ...updatedPitch,
             roastCount: data.counts.roastCount,
@@ -350,6 +359,8 @@ export function FullScreenVideoFeed({
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
           setUserReaction('toast');
+        } else {
+          console.warn('No counts in response:', data);
         }
       }
     } catch (error) {
