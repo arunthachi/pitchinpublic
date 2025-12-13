@@ -234,6 +234,9 @@ export async function POST(request: NextRequest) {
     let isNewStreak = false;
     let streakMilestone = false;
 
+    // Always increment total activities (for every reaction/pitch)
+    const newTotalActivities = (streakData.total_activities || 0) + 1;
+
     if (!hasActivityToday) {
       // Check if yesterday had activity (continue streak)
       const yesterday = new Date(new Date().setDate(new Date().getDate() - 1))
@@ -255,26 +258,26 @@ export async function POST(request: NextRequest) {
       if (milestones.includes(newCurrentStreak)) {
         streakMilestone = true;
       }
-
-      // Update best streak if needed
-      const newBestStreak = Math.max(streakData.best_streak || 0, newCurrentStreak);
-
-      // Update streak in database
-      const { error: updateError } = await supabase
-        .from('user_streaks')
-        .upsert({
-          user_id: user.id,
-          current_streak: newCurrentStreak,
-          best_streak: newBestStreak,
-          last_activity_date: today,
-          last_activity_type: activityType,
-          total_activities: (streakData.total_activities || 0) + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', user.id);
-
-      if (updateError) throw updateError;
     }
+
+    // Update best streak if needed
+    const newBestStreak = Math.max(streakData.best_streak || 0, newCurrentStreak);
+
+    // Update streak in database (always update to increment total_activities)
+    const { error: updateError } = await supabase
+      .from('user_streaks')
+      .upsert({
+        user_id: user.id,
+        current_streak: newCurrentStreak,
+        best_streak: newBestStreak,
+        last_activity_date: hasActivityToday ? streakData.last_activity_date : today,
+        last_activity_type: activityType,
+        total_activities: newTotalActivities,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id);
+
+    if (updateError) throw updateError;
 
     return NextResponse.json(
       {

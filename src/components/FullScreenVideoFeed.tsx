@@ -47,6 +47,8 @@ export function FullScreenVideoFeed({
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
   const [direction, setDirection] = useState<'up' | 'down'>('down');
   const [localPitches, setLocalPitches] = useState<LegacyPitch[]>(pitches);
+  const [userReaction, setUserReaction] = useState<'roast' | 'toast' | null>(null);
+  const [hasTrackedView, setHasTrackedView] = useState(false);
 
   // Sync local pitches when props change
   React.useEffect(() => {
@@ -54,6 +56,56 @@ export function FullScreenVideoFeed({
   }, [pitches]);
 
   const currentPitch = localPitches[currentIndex];
+
+  // Reset view tracking when pitch changes
+  useEffect(() => {
+    setHasTrackedView(false);
+    setUserReaction(null);
+  }, [currentPitch?.id]);
+
+  // Fetch user's reaction and increment views when pitch changes
+  useEffect(() => {
+    const fetchReactionAndTrackView = async () => {
+      if (!currentPitch) return;
+
+      try {
+        // Fetch user's current reaction
+        const reactionResponse = await fetch(
+          `/api/pitches/${currentPitch.id}/user-reaction`
+        );
+        if (reactionResponse.ok) {
+          const reactionData = await reactionResponse.json();
+          setUserReaction(reactionData.reaction);
+        }
+
+        // Track view
+        const viewResponse = await fetch(
+          `/api/pitches/${currentPitch.id}/view`,
+          {
+            method: 'POST',
+          }
+        );
+        if (viewResponse.ok) {
+          const viewData = await viewResponse.json();
+          // Update pitch with new views count
+          setLocalPitches((prevPitches) =>
+            prevPitches.map((p) =>
+              p.id === currentPitch.id
+                ? { ...p, views: viewData.viewsCount }
+                : p
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Error fetching reaction or tracking view:', error);
+      }
+    };
+
+    if (!hasTrackedView && currentPitch) {
+      fetchReactionAndTrackView();
+      setHasTrackedView(true);
+    }
+  }, [currentPitch?.id, hasTrackedView]);
   const hasNext = currentIndex < localPitches.length - 1;
   const hasPrev = currentIndex > 0;
 
@@ -107,10 +159,38 @@ export function FullScreenVideoFeed({
     if (!currentPitch) return;
 
     try {
+      // If user already roasted, toggle off (delete)
+      if (userReaction === 'roast') {
+        const deleteResponse = await fetch(
+          `/api/pitches/${currentPitch.id}/reaction/delete`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (deleteResponse.ok) {
+          const data = await deleteResponse.json();
+          const finalPitch = {
+            ...currentPitch,
+            roastCount: data.counts.roastCount,
+            toastCount: data.counts.toastCount,
+          };
+          setLocalPitches((prevPitches) =>
+            prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
+          );
+          setUserReaction(null);
+        }
+        return;
+      }
+
       // Optimistic update - update UI immediately
       const updatedPitch = {
         ...currentPitch,
-        roastCount: currentPitch.roastCount + 1,
+        roastCount: currentPitch.roastCount + (userReaction === 'toast' ? 0 : 1),
+        toastCount: userReaction === 'toast' ? currentPitch.toastCount - 1 : currentPitch.toastCount,
       };
 
       // Update local state
@@ -146,6 +226,7 @@ export function FullScreenVideoFeed({
           setLocalPitches((prevPitches) =>
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
+          setUserReaction('roast');
         }
       }
     } catch (error) {
@@ -157,10 +238,38 @@ export function FullScreenVideoFeed({
     if (!currentPitch) return;
 
     try {
+      // If user already toasted, toggle off (delete)
+      if (userReaction === 'toast') {
+        const deleteResponse = await fetch(
+          `/api/pitches/${currentPitch.id}/reaction/delete`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (deleteResponse.ok) {
+          const data = await deleteResponse.json();
+          const finalPitch = {
+            ...currentPitch,
+            roastCount: data.counts.roastCount,
+            toastCount: data.counts.toastCount,
+          };
+          setLocalPitches((prevPitches) =>
+            prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
+          );
+          setUserReaction(null);
+        }
+        return;
+      }
+
       // Optimistic update - update UI immediately
       const updatedPitch = {
         ...currentPitch,
-        toastCount: currentPitch.toastCount + 1,
+        toastCount: currentPitch.toastCount + (userReaction === 'roast' ? 0 : 1),
+        roastCount: userReaction === 'roast' ? currentPitch.roastCount - 1 : currentPitch.roastCount,
       };
 
       // Update local state
@@ -196,6 +305,7 @@ export function FullScreenVideoFeed({
           setLocalPitches((prevPitches) =>
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
+          setUserReaction('toast');
         }
       }
     } catch (error) {
@@ -312,6 +422,7 @@ export function FullScreenVideoFeed({
                 onShare={isGuest && onSignInClick ? onSignInClick : handleShare}
                 isGuest={isGuest}
                 onSignInClick={onSignInClick}
+                userReaction={userReaction}
               />
             </div>
           )}

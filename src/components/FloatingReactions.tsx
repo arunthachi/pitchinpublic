@@ -17,6 +17,7 @@ interface FloatingReactionsProps {
   onSignInClick?: () => void;
   isBookmarked?: boolean;
   bookmarkCount?: number;
+  userReaction?: 'roast' | 'toast' | null;
 }
 
 export function FloatingReactions({
@@ -30,6 +31,7 @@ export function FloatingReactions({
   onSignInClick,
   isBookmarked = false,
   bookmarkCount = 0,
+  userReaction = null,
 }: FloatingReactionsProps) {
   const [justRoasted, setJustRoasted] = useState(false);
   const [justToasted, setJustToasted] = useState(false);
@@ -102,10 +104,16 @@ export function FloatingReactions({
           />
 
           {/* Main circular button background */}
-          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-roast/40 hover:border-roast/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(255,59,48,0.4)]">
+          <div className={`relative w-16 h-16 flex items-center justify-center rounded-full backdrop-blur-md border transition-all duration-200 shadow-xl ${
+            userReaction === 'roast'
+              ? 'bg-roast/20 border-roast/80 shadow-[0_0_20px_rgba(255,59,48,0.6)]'
+              : 'bg-black/60 border-roast/40 hover:border-roast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(255,59,48,0.4)]'
+          }`}>
             <Flame
               className={`w-8 h-8 transition-all duration-300 ${
-                justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white group-hover:text-roast'
+                userReaction === 'roast'
+                  ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]'
+                  : justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white group-hover:text-roast'
               }`}
               style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
               strokeWidth={1.5}
@@ -160,10 +168,16 @@ export function FloatingReactions({
           />
 
           {/* Main circular button background */}
-          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-toast/40 hover:border-toast/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(52,199,89,0.4)]">
+          <div className={`relative w-16 h-16 flex items-center justify-center rounded-full backdrop-blur-md border transition-all duration-200 shadow-xl ${
+            userReaction === 'toast'
+              ? 'bg-toast/20 border-toast/80 shadow-[0_0_20px_rgba(52,199,89,0.6)]'
+              : 'bg-black/60 border-toast/40 hover:border-toast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(52,199,89,0.4)]'
+          }`}>
             <Wine
               className={`w-8 h-8 transition-all duration-300 ${
-                justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white group-hover:text-toast'
+                userReaction === 'toast'
+                  ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
+                  : justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white group-hover:text-toast'
               }`}
               style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
               strokeWidth={1.5}

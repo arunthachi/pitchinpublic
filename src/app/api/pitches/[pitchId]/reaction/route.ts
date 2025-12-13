@@ -197,15 +197,25 @@ export async function POST(
     }
 
     // Update streak (any activity counts toward streak)
-    try {
-      await supabase.rpc('update_user_streak', {
-        user_id: user.id,
-        activity_type: type,
-      });
-    } catch (error) {
-      console.error('Error updating streak:', error);
-      // Non-fatal, don't throw
-    }
+    // Non-blocking - fire and forget
+    setTimeout(async () => {
+      try {
+        // Call the streak update endpoint via fetch
+        // This will increment total_activities and handle streak logic
+        const baseUrl = request.headers.get('origin') || 'http://localhost:3000';
+        await fetch(`${baseUrl}/api/user/streak`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': request.headers.get('cookie') || '',
+          },
+          body: JSON.stringify({ activityType: type }),
+        });
+      } catch (error) {
+        console.error('Error updating streak:', error);
+        // Non-fatal, don't throw
+      }
+    }, 0);
 
     return NextResponse.json(
       {
