@@ -141,6 +141,7 @@ export default function Home() {
       // Convert API format to legacy format for backwards compatibility
       const converted = data.pitches.map((pitch: any) => ({
         id: pitch.id,
+        userId: pitch.user_id,
         founderName: pitch.profiles?.full_name || 'Anonymous',
         founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
         companyName: 'Company', // Will be populated in next phase

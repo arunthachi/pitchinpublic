@@ -127,6 +127,7 @@ export interface LegacyFeedback {
 // Legacy interface for backwards compatibility with existing components
 export interface LegacyPitch {
   id: string;
+  userId: string;
   founderName: string;
   founderAvatar: string;
   companyName: string;

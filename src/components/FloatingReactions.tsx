@@ -36,6 +36,51 @@ export function FloatingReactions({
   const [justRoasted, setJustRoasted] = useState(false);
   const [justToasted, setJustToasted] = useState(false);
   const [bookmarkState, setBookmarkState] = useState(isBookmarked);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isLoadingFollow, setIsLoadingFollow] = useState(false);
+
+  // Fetch follow status on mount
+  React.useEffect(() => {
+    const fetchFollowStatus = async () => {
+      try {
+        const response = await fetch(`/api/users/${pitch.userId}/follow`);
+        if (response.ok) {
+          const data = await response.json();
+          setIsFollowing(data.isFollowing);
+        }
+      } catch (error) {
+        console.error('Error checking follow status:', error);
+      }
+    };
+
+    if (!isGuest) {
+      fetchFollowStatus();
+    }
+  }, [pitch.userId, isGuest]);
+
+  const handleFollowClick = async () => {
+    if (isGuest && onSignInClick) {
+      onSignInClick();
+      return;
+    }
+
+    setIsLoadingFollow(true);
+    try {
+      const method = isFollowing ? 'DELETE' : 'POST';
+      const response = await fetch(`/api/users/${pitch.userId}/follow`, {
+        method,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsFollowing(data.isFollowing);
+      }
+    } catch (error) {
+      console.error('Error updating follow status:', error);
+    } finally {
+      setIsLoadingFollow(false);
+    }
+  };
 
   const handleRoastClick = () => {
     setJustRoasted(true);
@@ -80,9 +125,18 @@ export function FloatingReactions({
           style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))' }}
         />
         {/* Follow Button */}
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-neon-cyan rounded-full flex items-center justify-center cursor-pointer shadow-lg border border-white">
-          <Plus className="w-3 h-3 text-slate-900" strokeWidth={3} />
-        </div>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={handleFollowClick}
+          disabled={isLoadingFollow}
+          className={`absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center cursor-pointer shadow-lg border transition-all ${
+            isFollowing
+              ? 'bg-neon-lime border-neon-lime'
+              : 'bg-neon-cyan border-white hover:bg-neon-cyan/90'
+          } ${isLoadingFollow ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <Plus className={`w-3 h-3 ${isFollowing ? 'text-slate-900' : 'text-slate-900'}`} strokeWidth={3} />
+        </motion.button>
       </div>
 
       {/* Roast Button - Tap for quick roast, hold for detailed feedback */}
