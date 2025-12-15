@@ -226,18 +226,18 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
+    const userId = searchParams.get('userId');
 
     const offset = (page - 1) * limit;
 
-    // Get total count (exclude deleted pitches)
-    const { count } = await supabase
+    // Build query
+    let countQuery = supabase
       .from('pitches')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'published')
       .is('deleted_at', null);
 
-    // Get paginated pitches (exclude deleted pitches)
-    const { data: pitches, error } = await supabase
+    let dataQuery = supabase
       .from('pitches')
       .select(`
         id,
@@ -260,7 +260,19 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('status', 'published')
-      .is('deleted_at', null)
+      .is('deleted_at', null);
+
+    // Filter by userId if provided
+    if (userId) {
+      countQuery = countQuery.eq('user_id', userId);
+      dataQuery = dataQuery.eq('user_id', userId);
+    }
+
+    // Get total count (exclude deleted pitches)
+    const { count } = await countQuery;
+
+    // Get paginated pitches (exclude deleted pitches)
+    const { data: pitches, error } = await dataQuery
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

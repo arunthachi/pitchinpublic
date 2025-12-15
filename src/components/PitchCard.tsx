@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Eye, TrendingUp, Play } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +16,13 @@ interface PitchCardProps {
 }
 
 export function PitchCard({ pitch, index = 0 }: PitchCardProps) {
+  const router = useRouter();
+
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/profile/${pitch.userId}`);
+  };
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -69,17 +77,20 @@ export function PitchCard({ pitch, index = 0 }: PitchCardProps) {
 
           <CardContent className="p-4 space-y-3">
             {/* Founder info */}
-            <div className="flex items-center gap-3">
+            <div
+              className="flex items-center gap-3 cursor-pointer group"
+              onClick={handleAvatarClick}
+            >
               <img
                 src={pitch.founderAvatar}
                 alt={pitch.founderName}
-                className="w-10 h-10 rounded-full border-2 border-slate-700"
+                className="w-10 h-10 rounded-full border-2 border-slate-700 group-hover:border-neon-cyan transition-colors"
               />
               <div>
-                <h3 className="font-heading font-bold text-lg text-slate-100 leading-tight">
+                <h3 className="font-heading font-bold text-lg text-slate-100 leading-tight group-hover:text-neon-cyan transition-colors">
                   {pitch.companyName}
                 </h3>
-                <p className="text-sm text-slate-400 font-body">
+                <p className="text-sm text-slate-400 font-body group-hover:text-slate-300 transition-colors">
                   {pitch.founderName}
                 </p>
               </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, Wine, Share2, BarChart3, Plus, Bookmark } from 'lucide-react';
 import { LegacyPitch } from '@/types';
@@ -33,6 +34,7 @@ export function FloatingReactions({
   bookmarkCount = 0,
   userReaction = null,
 }: FloatingReactionsProps) {
+  const router = useRouter();
   const [justRoasted, setJustRoasted] = useState(false);
   const [justToasted, setJustToasted] = useState(false);
   const [bookmarkState, setBookmarkState] = useState(isBookmarked);
@@ -128,15 +130,20 @@ export function FloatingReactions({
     onBookmark?.(newBookmarkState);
   };
 
+  const handleAvatarClick = () => {
+    router.push(`/profile/${pitch.userId}`);
+  };
+
   return (
     <div className="flex flex-col gap-4 items-center">
       {/* Founder Avatar - Like TikTok profile */}
       <div className="relative mb-2">
         <motion.img
           whileTap={{ scale: 0.95 }}
+          onClick={handleAvatarClick}
           src={pitch.founderAvatar}
           alt={pitch.founderName}
-          className="w-12 h-12 rounded-full border-2 border-white cursor-pointer shadow-lg"
+          className="w-12 h-12 rounded-full border-2 border-white cursor-pointer shadow-lg hover:border-neon-cyan transition-colors"
           style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))' }}
         />
         {/* Follow Button */}
