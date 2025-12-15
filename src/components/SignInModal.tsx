@@ -20,17 +20,31 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setLoading(provider);
       setError(null);
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      console.log('Starting OAuth flow for provider:', provider);
+      console.log('Origin:', window.location.origin);
+      console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
-      if (error) throw error;
+      console.log('OAuth response - data:', data, 'error:', error);
+
+      if (error) {
+        console.error('OAuth error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name,
+        });
+        throw error;
+      }
     } catch (err) {
       console.error('Sign in error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to sign in';
+      setError(errorMessage);
       setLoading(null);
     }
   };
