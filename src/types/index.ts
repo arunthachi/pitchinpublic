@@ -207,6 +207,9 @@ export interface User {
   email: string;
   avatar: string;
   bio?: string;
+  website?: string | null;
+  twitter?: string | null;
+  linkedin?: string | null;
   followersCount: number;
   followingCount: number;
   pitchesCount: number;

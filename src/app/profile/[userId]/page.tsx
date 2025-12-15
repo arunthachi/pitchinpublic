@@ -291,12 +291,11 @@ export default function UserProfilePage() {
             </div>
           ) : pitches.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {pitches.map((pitch) => (
+              {pitches.map((pitch, index) => (
                 <PitchCard
                   key={pitch.id}
                   pitch={pitch}
-                  onSortChange={() => {}}
-                  currentSort="latest"
+                  index={index}
                 />
               ))}
             </div>

@@ -43,6 +43,8 @@ export async function GET(
   );
 
   try {
+    console.log(`Fetching profile for userId: ${params.userId}`);
+
     // Fetch user profile from profiles table
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -62,7 +64,21 @@ export async function GET(
       .eq('id', params.userId)
       .single();
 
-    if (error || !profile) {
+    console.log(`Profile fetch result - data:`, profile, 'error:', error);
+
+    // Handle errors - PGRST116 means no rows found (user doesn't exist)
+    if (error) {
+      console.error(`Error fetching profile for userId ${params.userId}:`, error);
+      if (error.code === 'PGRST116') {
+        return NextResponse.json(
+          { success: false, error: 'User profile not found. Please complete your profile setup.' },
+          { status: 404 }
+        );
+      }
+      throw error;
+    }
+
+    if (!profile) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
         { status: 404 }
