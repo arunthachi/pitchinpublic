@@ -185,16 +185,20 @@ export async function POST(
       updateData.toast_count = pitch.toast_count + 1;
     }
 
-    const { data: updatedPitch, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from('pitches')
       .update(updateData)
-      .eq('id', params.pitchId)
-      .select('roast_count, toast_count')
-      .single();
+      .eq('id', params.pitchId);
 
     if (updateError) {
       throw updateError;
     }
+
+    // Calculate updated counts
+    const updatedCounts = {
+      roastCount: type === 'roast' ? pitch.roast_count + 1 : pitch.roast_count,
+      toastCount: type === 'toast' ? pitch.toast_count + 1 : pitch.toast_count,
+    };
 
     // Update streak (any activity counts toward streak)
     try {
@@ -264,10 +268,7 @@ export async function POST(
           type: reaction.type,
           createdAt: reaction.created_at,
         },
-        counts: {
-          roastCount: updatedPitch?.roast_count || pitch.roast_count,
-          toastCount: updatedPitch?.toast_count || pitch.toast_count,
-        },
+        counts: updatedCounts,
       },
       { headers: formatRateLimitHeaders(result) }
     );
