@@ -235,7 +235,7 @@ MIT
 ## Quick Start Commands
 
 ```bash
-npm run dev      # Start dev server
+npm run dev -- -p 3002   # Start dev server
 npm run build    # Build for production
 npm run start    # Run production build
 npm run lint     # Run ESLint

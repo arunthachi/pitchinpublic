@@ -630,7 +630,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                         />
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-400">
-                        <span className="text-white font-semibold">Uploading to Cloudflare...</span>
+                        <span className="text-white font-semibold">Uploading your pitch, stay tuned...</span>
                         <span className="font-mono text-neon-cyan">{uploadProgress}%</span>
                       </div>
                     </div>
