@@ -7,6 +7,11 @@ import { Flame, Wine, Share2, BarChart3, Plus, Bookmark } from 'lucide-react';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
+// Roast emoji for filled state
+const RoastEmoji = ({ className }: any) => (
+  <span className={className} style={{ lineHeight: 1 }}>🔥</span>
+);
+
 // Toast emoji for filled state
 const ToastEmoji = ({ className }: any) => (
   <span className={className} style={{ lineHeight: 1 }}>🥂</span>
@@ -190,16 +195,26 @@ export function FloatingReactions({
               ? 'bg-roast/20 border-roast/80 shadow-[0_0_20px_rgba(255,59,48,0.6)]'
               : 'bg-black/60 border-roast/40 hover:border-roast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(255,59,48,0.4)]'
           }`}>
-            <Flame
-              className={`w-8 h-8 transition-all duration-300 ${
-                userReaction === 'roast'
-                  ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]'
-                  : justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white group-hover:text-roast'
-              }`}
-              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-              strokeWidth={pitch.roastCount > 0 ? 0 : 1.5}
-              fill={pitch.roastCount > 0 ? 'currentColor' : 'none'}
-            />
+            {pitch.roastCount > 0 ? (
+              <RoastEmoji
+                className={`text-2xl transition-all duration-300 ${
+                  userReaction === 'roast'
+                    ? 'drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]'
+                    : justRoasted ? 'drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : ''
+                }`}
+                style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+              />
+            ) : (
+              <Flame
+                className={`w-8 h-8 transition-all duration-300 ${
+                  userReaction === 'roast'
+                    ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]'
+                    : justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white group-hover:text-roast'
+                }`}
+                style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+                strokeWidth={1.5}
+              />
+            )}
 
             {/* Comment count badge */}
             {pitch.feedback && pitch.feedback.filter(f => f.type === 'roast').length > 0 && (
@@ -225,7 +240,7 @@ export function FloatingReactions({
               exit={{ opacity: 0 }}
               className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none"
             >
-              <Flame className="w-8 h-8 text-roast" />
+              <RoastEmoji className="text-2xl" />
             </motion.div>
           )}
         </AnimatePresence>
