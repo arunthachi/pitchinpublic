@@ -8,6 +8,30 @@ import { User, LegacyPitch } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { PitchCard } from '@/components/PitchCard';
 
+// Convert API pitch response to LegacyPitch format
+function convertApiPitchToLegacy(pitch: any): LegacyPitch {
+  return {
+    id: pitch.id,
+    userId: pitch.user_id,
+    founderName: pitch.profiles?.full_name || 'Unknown',
+    founderAvatar: pitch.profiles?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Unknown',
+    companyName: 'Unknown Company', // Not available from API response
+    hook: pitch.hook,
+    description: pitch.description || '',
+    videoUrl: pitch.video_url,
+    thumbnailUrl: pitch.thumbnail_url || '',
+    industry: 'SaaS', // Default - not available from API
+    stage: 'Pre-Seed', // Default - not available from API
+    views: pitch.views_count || 0,
+    interestScore: (pitch.interest_score || 0) / 10,
+    roastCount: pitch.roast_count || 0,
+    toastCount: pitch.toast_count || 0,
+    createdAt: pitch.created_at,
+    duration: pitch.duration || undefined,
+    feedback: undefined,
+  };
+}
+
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -55,7 +79,9 @@ export default function UserProfilePage() {
           throw new Error('Failed to fetch pitches');
         }
         const data = await response.json();
-        setPitches(data.pitches || []);
+        // Convert raw API pitches to LegacyPitch format
+        const legacyPitches = (data.pitches || []).map(convertApiPitchToLegacy);
+        setPitches(legacyPitches);
       } catch (err) {
         console.error('Failed to fetch pitches:', err);
         setPitches([]);
