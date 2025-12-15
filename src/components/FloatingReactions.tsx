@@ -7,32 +7,9 @@ import { Flame, Wine, Share2, BarChart3, Plus, Bookmark } from 'lucide-react';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
-// Two glasses toasting icon - custom SVG
-const TwoGlasses = ({ className, fill = 'none', ...props }: any) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill={fill}
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    {/* Left glass bowl */}
-    <path d="M3 5 L2 9 C2 11 3 12 5 12 L5 12 C7 12 8 11 8 9 L7 5 Z" />
-    {/* Left glass stem */}
-    <line x1="5" y1="12" x2="5" y2="16" strokeWidth="1" />
-    {/* Left glass base */}
-    <circle cx="5" cy="17" r="1.5" fill="none" />
-
-    {/* Right glass bowl */}
-    <path d="M16 5 L17 9 C17 11 16 12 14 12 L14 12 C12 12 11 11 11 9 L12 5 Z" />
-    {/* Right glass stem */}
-    <line x1="14" y1="12" x2="14" y2="16" strokeWidth="1" />
-    {/* Right glass base */}
-    <circle cx="14" cy="17" r="1.5" fill="none" />
-  </svg>
+// Toast emoji for filled state
+const ToastEmoji = ({ className }: any) => (
+  <span className={className} style={{ lineHeight: 1 }}>🥂</span>
 );
 
 interface FloatingReactionsProps {
@@ -278,15 +255,26 @@ export function FloatingReactions({
               ? 'bg-toast/20 border-toast/80 shadow-[0_0_20px_rgba(52,199,89,0.6)]'
               : 'bg-black/60 border-toast/40 hover:border-toast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(52,199,89,0.4)]'
           }`}>
-            <TwoGlasses
-              className={`w-8 h-8 transition-all duration-300 ${
-                userReaction === 'toast'
-                  ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
-                  : justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white group-hover:text-toast'
-              }`}
-              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-              fill={pitch.toastCount > 0 ? 'currentColor' : 'none'}
-            />
+            {pitch.toastCount > 0 ? (
+              <ToastEmoji
+                className={`text-2xl transition-all duration-300 ${
+                  userReaction === 'toast'
+                    ? 'drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
+                    : justToasted ? 'drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : ''
+                }`}
+                style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+              />
+            ) : (
+              <Wine
+                className={`w-8 h-8 transition-all duration-300 ${
+                  userReaction === 'toast'
+                    ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
+                    : justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white group-hover:text-toast'
+                }`}
+                style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+                strokeWidth={1.5}
+              />
+            )}
 
             {/* Comment count badge */}
             {pitch.feedback && pitch.feedback.filter(f => f.type === 'toast').length > 0 && (
@@ -312,7 +300,7 @@ export function FloatingReactions({
               exit={{ opacity: 0 }}
               className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none"
             >
-              <TwoGlasses className="w-8 h-8 text-toast" fill="currentColor" />
+              <ToastEmoji className="text-2xl" />
             </motion.div>
           )}
         </AnimatePresence>
