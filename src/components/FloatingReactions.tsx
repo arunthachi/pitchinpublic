@@ -7,6 +7,27 @@ import { Flame, Wine, Share2, BarChart3, Plus, Bookmark } from 'lucide-react';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
+// Two glasses toasting icon - custom SVG (simplified)
+const TwoGlasses = ({ className, fill = 'none', ...props }: any) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill={fill}
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    {/* Left glass */}
+    <path d="M5 10h3l-1 6a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2l1-6z" />
+    {/* Right glass */}
+    <path d="M16 10h3l-1 6a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2l1-6z" />
+    {/* Cheers gesture - line connecting them */}
+    <path d="M8 10l8 0" />
+  </svg>
+);
+
 interface FloatingReactionsProps {
   pitch: LegacyPitch;
   onRoast: () => void;
@@ -192,7 +213,8 @@ export function FloatingReactions({
                   : justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white group-hover:text-roast'
               }`}
               style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-              strokeWidth={1.5}
+              strokeWidth={pitch.roastCount > 0 ? 0 : 1.5}
+              fill={pitch.roastCount > 0 ? 'currentColor' : 'none'}
             />
 
             {/* Comment count badge */}
@@ -249,14 +271,14 @@ export function FloatingReactions({
               ? 'bg-toast/20 border-toast/80 shadow-[0_0_20px_rgba(52,199,89,0.6)]'
               : 'bg-black/60 border-toast/40 hover:border-toast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(52,199,89,0.4)]'
           }`}>
-            <Wine
+            <TwoGlasses
               className={`w-8 h-8 transition-all duration-300 ${
                 userReaction === 'toast'
                   ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
                   : justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white group-hover:text-toast'
               }`}
               style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-              strokeWidth={1.5}
+              fill={pitch.toastCount > 0 ? 'currentColor' : 'none'}
             />
 
             {/* Comment count badge */}
@@ -283,7 +305,7 @@ export function FloatingReactions({
               exit={{ opacity: 0 }}
               className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none"
             >
-              <Wine className="w-8 h-8 text-toast" />
+              <TwoGlasses className="w-8 h-8 text-toast" fill="currentColor" />
             </motion.div>
           )}
         </AnimatePresence>
