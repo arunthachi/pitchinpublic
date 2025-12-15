@@ -7,7 +7,7 @@ import { Flame, Wine, Share2, BarChart3, Plus, Bookmark } from 'lucide-react';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
-// Two glasses toasting icon - custom SVG (simplified)
+// Two glasses toasting icon - custom SVG
 const TwoGlasses = ({ className, fill = 'none', ...props }: any) => (
   <svg
     viewBox="0 0 24 24"
@@ -19,12 +19,19 @@ const TwoGlasses = ({ className, fill = 'none', ...props }: any) => (
     className={className}
     {...props}
   >
-    {/* Left glass */}
-    <path d="M5 10h3l-1 6a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2l1-6z" />
-    {/* Right glass */}
-    <path d="M16 10h3l-1 6a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2l1-6z" />
-    {/* Cheers gesture - line connecting them */}
-    <path d="M8 10l8 0" />
+    {/* Left glass bowl */}
+    <path d="M3 5 L2 9 C2 11 3 12 5 12 L5 12 C7 12 8 11 8 9 L7 5 Z" />
+    {/* Left glass stem */}
+    <line x1="5" y1="12" x2="5" y2="16" strokeWidth="1" />
+    {/* Left glass base */}
+    <circle cx="5" cy="17" r="1.5" fill="none" />
+
+    {/* Right glass bowl */}
+    <path d="M16 5 L17 9 C17 11 16 12 14 12 L14 12 C12 12 11 11 11 9 L12 5 Z" />
+    {/* Right glass stem */}
+    <line x1="14" y1="12" x2="14" y2="16" strokeWidth="1" />
+    {/* Right glass base */}
+    <circle cx="14" cy="17" r="1.5" fill="none" />
   </svg>
 );
 
