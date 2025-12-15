@@ -200,8 +200,8 @@ export function ProfileSetupModal({ isOpen, user, onComplete }: ProfileSetupModa
                           <p className="text-xs text-slate-500 mt-1">This is how you'll appear to other founders</p>
                         </div>
 
-                        {/* Username (Optional) */}
-                        <div>
+                        {/* Username (Optional) - COMMENTED OUT: Username concept is risky to introduce right now */}
+                        {/* <div>
                           <label className="text-sm font-medium text-slate-300 mb-2 block">
                             Username{' '}
                             <span className="text-xs text-slate-500 font-normal">(optional)</span>
@@ -219,7 +219,7 @@ export function ProfileSetupModal({ isOpen, user, onComplete }: ProfileSetupModa
                               ? `Your unique handle: ${username}`
                               : `We'll auto-generate: ${generateUsername(fullName)}`}
                           </p>
-                        </div>
+                        </div> */}
                       </div>
 
                       {/* Buttons */}

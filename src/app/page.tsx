@@ -44,9 +44,6 @@ export default function Home() {
     badgeName: string;
     badgeDescription: string;
   } | null>(null);
-  // Use ref to track whether we've already shown the profile setup modal this session
-  // This prevents the modal from showing multiple times
-  const hasShownProfileSetupRef = useRef(false);
 
   // Fetch user profile from Supabase when user logs in
   useEffect(() => {
@@ -81,37 +78,18 @@ export default function Home() {
           console.log('Converted database user:', dbUser);
           setUserProfile(dbUser);
           setFullProfile(data);
-
-          // Check if user needs to set up their profile (no full_name or username)
-          // Only show modal if we haven't already shown it this session
-          if ((!data.full_name || !data.username) && !hasShownProfileSetupRef.current) {
-            console.log('User needs to complete profile setup');
-            hasShownProfileSetupRef.current = true;
-            setShowProfileSetup(true);
-          }
+          // Profile setup is now on-demand only, triggered by user action, not automatically
         } else {
           // If profiles table fetch fails or returns nothing, use auth user data
           console.log('Profiles table fetch failed or returned no data, using auth-based user');
           setUserProfile(authBasedUser);
-
-          // Check if auth user has full_name set (from OAuth)
-          // Only show modal if we haven't already shown it this session
-          if (!user.user_metadata?.full_name && !hasShownProfileSetupRef.current) {
-            console.log('Auth user needs to complete profile setup');
-            hasShownProfileSetupRef.current = true;
-            setShowProfileSetup(true);
-          }
+          // Profile setup is now on-demand only, triggered by user action, not automatically
         }
       } catch (err) {
         console.error('Error fetching user profile, falling back to auth data:', err);
         // Fall back to auth user data on any error
         setUserProfile(authBasedUser);
-
-        // Show profile setup if not already shown this session
-        if (!hasShownProfileSetupRef.current) {
-          hasShownProfileSetupRef.current = true;
-          setShowProfileSetup(true);
-        }
+        // Profile setup is now on-demand only, triggered by user action, not automatically
       }
     };
 
