@@ -87,7 +87,7 @@ export async function POST(
     }
 
     // Check if already following
-    const { data: existingFollow } = await supabase
+    const { data: existingFollow, error: followError } = await supabase
       .from('follows')
       .select('id')
       .eq('follower_id', user.id)
@@ -103,6 +103,11 @@ export async function POST(
         },
         { headers: formatRateLimitHeaders(result) }
       );
+    }
+
+    // If there's an error other than "no rows found", throw it
+    if (followError && followError.code !== 'PGRST116') {
+      throw followError;
     }
 
     // Create follow relationship
@@ -292,12 +297,18 @@ export async function GET(
     }
 
     // Check if following
-    const { data: follow } = await supabase
+    const { data: follow, error: followError } = await supabase
       .from('follows')
       .select('id')
       .eq('follower_id', user.id)
       .eq('following_id', params.userId)
       .single();
+
+    // If error is "no rows found" (PGRST116), that's expected and means not following
+    // Any other error should be thrown
+    if (followError && followError.code !== 'PGRST116') {
+      throw followError;
+    }
 
     return NextResponse.json({
       isFollowing: !!follow,
