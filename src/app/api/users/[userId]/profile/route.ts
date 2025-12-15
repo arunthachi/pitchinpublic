@@ -55,8 +55,8 @@ export async function GET(
         avatar_url,
         bio,
         website,
-        twitter,
-        linkedin,
+        twitter_handle,
+        linkedin_url,
         created_at,
         email
       `
@@ -119,8 +119,8 @@ export async function GET(
         avatar: profile.avatar_url || '',
         bio: profile.bio || null,
         website: profile.website || null,
-        twitter: profile.twitter || null,
-        linkedin: profile.linkedin || null,
+        twitter: profile.twitter_handle || null,
+        linkedin: profile.linkedin_url || null,
         followersCount,
         followingCount,
         pitchesCount,
