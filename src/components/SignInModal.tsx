@@ -20,10 +20,6 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setLoading(provider);
       setError(null);
 
-      console.log('Starting OAuth flow for provider:', provider);
-      console.log('Origin:', window.location.origin);
-      console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -31,15 +27,14 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
         },
       });
 
-      console.log('OAuth response - data:', data, 'error:', error);
-
       if (error) {
-        console.error('OAuth error details:', {
-          message: error.message,
-          status: error.status,
-          name: error.name,
-        });
         throw error;
+      }
+
+      // Manually handle the redirect since Supabase library sometimes fails
+      if (data?.url) {
+        console.log('Redirecting to OAuth URL:', data.url);
+        window.location.href = data.url;
       }
     } catch (err) {
       console.error('Sign in error:', err);
