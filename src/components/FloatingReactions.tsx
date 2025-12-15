@@ -195,18 +195,24 @@ export function FloatingReactions({
               ? 'bg-roast/20 border-roast/80 shadow-[0_0_20px_rgba(255,59,48,0.6)]'
               : 'bg-black/60 border-roast/40 hover:border-roast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(255,59,48,0.4)]'
           }`}>
-            {pitch.roastCount > 0 ? (
+            {/* Icon container - both icons always in DOM for stable click handling */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {/* Emoji - shows when roastCount > 0 */}
               <RoastEmoji
-                className={`text-2xl transition-all duration-300 ${
+                className={`text-2xl transition-all duration-300 absolute ${
+                  pitch.roastCount > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                } ${
                   userReaction === 'roast'
                     ? 'drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]'
                     : justRoasted ? 'drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : ''
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
               />
-            ) : (
+              {/* Icon - shows when roastCount = 0 */}
               <Flame
-                className={`w-8 h-8 transition-all duration-300 ${
+                className={`w-8 h-8 transition-all duration-300 absolute ${
+                  pitch.roastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                } ${
                   userReaction === 'roast'
                     ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]'
                     : justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white group-hover:text-roast'
@@ -214,7 +220,7 @@ export function FloatingReactions({
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
                 strokeWidth={1.5}
               />
-            )}
+            </div>
 
             {/* Comment count badge */}
             {pitch.feedback && pitch.feedback.filter(f => f.type === 'roast').length > 0 && (
@@ -270,18 +276,24 @@ export function FloatingReactions({
               ? 'bg-toast/20 border-toast/80 shadow-[0_0_20px_rgba(52,199,89,0.6)]'
               : 'bg-black/60 border-toast/40 hover:border-toast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(52,199,89,0.4)]'
           }`}>
-            {pitch.toastCount > 0 ? (
+            {/* Icon container - both icons always in DOM for stable click handling */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {/* Emoji - shows when toastCount > 0 */}
               <ToastEmoji
-                className={`text-2xl transition-all duration-300 ${
+                className={`text-2xl transition-all duration-300 absolute ${
+                  pitch.toastCount > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                } ${
                   userReaction === 'toast'
                     ? 'drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
                     : justToasted ? 'drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : ''
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
               />
-            ) : (
+              {/* Icon - shows when toastCount = 0 */}
               <Wine
-                className={`w-8 h-8 transition-all duration-300 ${
+                className={`w-8 h-8 transition-all duration-300 absolute ${
+                  pitch.toastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                } ${
                   userReaction === 'toast'
                     ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
                     : justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white group-hover:text-toast'
@@ -289,7 +301,7 @@ export function FloatingReactions({
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
                 strokeWidth={1.5}
               />
-            )}
+            </div>
 
             {/* Comment count badge */}
             {pitch.feedback && pitch.feedback.filter(f => f.type === 'toast').length > 0 && (
