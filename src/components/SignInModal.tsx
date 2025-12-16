@@ -15,7 +15,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
-  const handleSocialSignIn = async (provider: 'google' | 'x') => {
+  const handleSocialSignIn = async (provider: 'google' | 'twitter') => {
     try {
       setLoading(provider);
       setError(null);
@@ -154,12 +154,12 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => handleSocialSignIn('x')}
+                      onClick={() => handleSocialSignIn('twitter')}
                       disabled={loading !== null}
                       className="w-full group relative overflow-hidden px-6 py-4 bg-black hover:bg-slate-900 text-white font-semibold rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl border border-slate-700"
                     >
                       <div className="flex items-center justify-center gap-3">
-                        {loading === 'x' ? (
+                        {loading === 'twitter' ? (
                           <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
                           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
