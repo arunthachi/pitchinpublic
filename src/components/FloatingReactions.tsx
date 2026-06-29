@@ -185,37 +185,37 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 w-16 h-16 bg-roast/10 rounded-full blur-sm"
-            animate={justRoasted ? { scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] } : {}}
+            className="absolute inset-0 h-14 w-14 rounded-full bg-roast/10 blur-md"
+            animate={justRoasted ? { scale: [1, 1.22, 1], opacity: [0.35, 0.65, 0.25] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className={`relative w-16 h-16 flex items-center justify-center rounded-full backdrop-blur-md border transition-all duration-200 shadow-xl ${
+          <div className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-4 before:rounded-full before:bg-white/18 before:blur-sm ${
             userReaction === 'roast'
-              ? 'bg-roast/20 border-roast/80 shadow-[0_0_20px_rgba(255,59,48,0.6)]'
-              : 'bg-black/60 border-roast/40 hover:border-roast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(255,59,48,0.4)]'
+              ? 'bg-white/18 border-roast/45 ring-1 ring-roast/25'
+              : 'bg-white/12 border-white/20 hover:border-roast/35 hover:bg-white/18'
           }`}>
             {/* Icon container - both icons always in DOM for stable click handling */}
             <div className="absolute inset-0 flex items-center justify-center">
               {/* Emoji - shows when roastCount > 0 */}
               <RoastEmoji
                 className={`text-2xl transition-all duration-300 absolute ${
-                  pitch.roastCount > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  pitch.roastCount > 0 ? 'opacity-90' : 'opacity-0 pointer-events-none'
                 } ${
                   userReaction === 'roast'
-                    ? 'drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]'
-                    : justRoasted ? 'drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : ''
+                    ? 'drop-shadow-[0_0_8px_rgba(255,59,48,0.55)]'
+                    : justRoasted ? 'drop-shadow-[0_0_8px_rgba(255,59,48,0.5)]' : ''
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
               />
               {/* Icon - shows when roastCount = 0 */}
               <Flame
-                className={`w-8 h-8 transition-all duration-300 absolute ${
+                className={`w-7 h-7 transition-all duration-300 absolute ${
                   pitch.roastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 } ${
                   userReaction === 'roast'
-                    ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]'
-                    : justRoasted ? 'text-roast drop-shadow-[0_0_12px_rgba(255,59,48,0.8)]' : 'text-white group-hover:text-roast'
+                    ? 'text-roast drop-shadow-[0_0_8px_rgba(255,59,48,0.55)]'
+                    : justRoasted ? 'text-roast drop-shadow-[0_0_8px_rgba(255,59,48,0.5)]' : 'text-white/90 group-hover:text-roast'
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
                 strokeWidth={1.5}
@@ -224,8 +224,8 @@ export function FloatingReactions({
 
             {/* Comment count badge */}
             {pitch.feedback && pitch.feedback.filter(f => f.type === 'roast').length > 0 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-roast rounded-full flex items-center justify-center shadow-lg border border-white/50">
-                <span className="text-[10px] font-bold text-white">
+              <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/25 bg-black/55 shadow-lg backdrop-blur-md">
+                <span className="text-[10px] font-bold text-roast">
                   {pitch.feedback.filter(f => f.type === 'roast').length}
                 </span>
               </div>
@@ -266,37 +266,37 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 w-16 h-16 bg-toast/10 rounded-full blur-sm"
-            animate={justToasted ? { scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] } : {}}
+            className="absolute inset-0 h-14 w-14 rounded-full bg-toast/10 blur-md"
+            animate={justToasted ? { scale: [1, 1.22, 1], opacity: [0.35, 0.65, 0.25] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className={`relative w-16 h-16 flex items-center justify-center rounded-full backdrop-blur-md border transition-all duration-200 shadow-xl ${
+          <div className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-4 before:rounded-full before:bg-white/18 before:blur-sm ${
             userReaction === 'toast'
-              ? 'bg-toast/20 border-toast/80 shadow-[0_0_20px_rgba(52,199,89,0.6)]'
-              : 'bg-black/60 border-toast/40 hover:border-toast/70 hover:bg-black/70 hover:shadow-[0_0_20px_rgba(52,199,89,0.4)]'
+              ? 'bg-white/18 border-toast/45 ring-1 ring-toast/25'
+              : 'bg-white/12 border-white/20 hover:border-toast/35 hover:bg-white/18'
           }`}>
             {/* Icon container - both icons always in DOM for stable click handling */}
             <div className="absolute inset-0 flex items-center justify-center">
               {/* Emoji - shows when toastCount > 0 */}
               <ToastEmoji
                 className={`text-2xl transition-all duration-300 absolute ${
-                  pitch.toastCount > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  pitch.toastCount > 0 ? 'opacity-90' : 'opacity-0 pointer-events-none'
                 } ${
                   userReaction === 'toast'
-                    ? 'drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
-                    : justToasted ? 'drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : ''
+                    ? 'drop-shadow-[0_0_8px_rgba(52,199,89,0.55)]'
+                    : justToasted ? 'drop-shadow-[0_0_8px_rgba(52,199,89,0.5)]' : ''
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
               />
               {/* Icon - shows when toastCount = 0 */}
               <Wine
-                className={`w-8 h-8 transition-all duration-300 absolute ${
+                className={`w-7 h-7 transition-all duration-300 absolute ${
                   pitch.toastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 } ${
                   userReaction === 'toast'
-                    ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]'
-                    : justToasted ? 'text-toast drop-shadow-[0_0_12px_rgba(52,199,89,0.8)]' : 'text-white group-hover:text-toast'
+                    ? 'text-toast drop-shadow-[0_0_8px_rgba(52,199,89,0.55)]'
+                    : justToasted ? 'text-toast drop-shadow-[0_0_8px_rgba(52,199,89,0.5)]' : 'text-white/90 group-hover:text-toast'
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
                 strokeWidth={1.5}
@@ -305,8 +305,8 @@ export function FloatingReactions({
 
             {/* Comment count badge */}
             {pitch.feedback && pitch.feedback.filter(f => f.type === 'toast').length > 0 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-toast rounded-full flex items-center justify-center shadow-lg border border-white/50">
-                <span className="text-[10px] font-bold text-white">
+              <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/25 bg-black/55 shadow-lg backdrop-blur-md">
+                <span className="text-[10px] font-bold text-toast">
                   {pitch.feedback.filter(f => f.type === 'toast').length}
                 </span>
               </div>

@@ -33,6 +33,7 @@ export default function Home() {
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
+  const [showGuestFeedPreview, setShowGuestFeedPreview] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [fullProfile, setFullProfile] = useState<Profile | null>(null);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
@@ -44,6 +45,7 @@ export default function Home() {
     badgeName: string;
     badgeDescription: string;
   } | null>(null);
+  const isGuest = !user;
 
   // Fetch user profile from Supabase when user logs in
   useEffect(() => {
@@ -154,10 +156,15 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch pitches on mount
+  // Fetch pitches once the feed is visible. The marketing landing should stay lightweight.
   useEffect(() => {
+    if (isGuest && !showGuestFeedPreview) {
+      setPitchesLoading(false);
+      return;
+    }
+
     fetchPitches();
-  }, [fetchPitches]);
+  }, [fetchPitches, isGuest, showGuestFeedPreview]);
 
   // Filter user's own pitches using the fetched profile
   // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
@@ -181,7 +188,20 @@ export default function Home() {
 
   // Show main app for both authenticated and non-authenticated users
   // Non-authenticated users see the feed but can't interact without signing in
-  const isGuest = !user;
+  if (isGuest && !showGuestFeedPreview) {
+    return (
+      <>
+        <WelcomeHero
+          onSignInClick={() => setSignInModalOpen(true)}
+          onPreviewFeed={() => setShowGuestFeedPreview(true)}
+        />
+        <SignInModal
+          isOpen={signInModalOpen}
+          onClose={() => setSignInModalOpen(false)}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-black">
