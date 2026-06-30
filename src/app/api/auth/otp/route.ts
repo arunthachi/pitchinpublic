@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               success: false,
-              error: 'Phone sign in is not configured yet. Enable Supabase Phone Auth and connect an SMS provider such as Twilio.',
+              error: 'Text message login is not available right now. Please try Google or LinkedIn, or try again later.',
               code: 'sms_provider_not_configured',
             },
             {
