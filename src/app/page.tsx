@@ -192,7 +192,6 @@ export default function Home() {
     return (
       <>
         <WelcomeHero
-          onSignInClick={() => setSignInModalOpen(true)}
           onPreviewFeed={() => setShowGuestFeedPreview(true)}
         />
         <SignInModal
@@ -231,10 +230,10 @@ export default function Home() {
       {/* Top Right Button - Desktop Only */}
       {isGuest ? (
         <button
-          onClick={() => setSignInModalOpen(true)}
-          className="hidden lg:block fixed top-4 right-4 z-50 px-6 py-2.5 rounded-lg bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-semibold text-sm hover:shadow-lg hover:shadow-neon-cyan/50 transition-all"
+          onClick={() => setShowGuestFeedPreview(false)}
+          className="hidden lg:block fixed top-4 right-4 z-50 px-6 py-2.5 rounded-lg border border-white/15 bg-black/70 text-white font-semibold text-sm hover:border-neon-cyan hover:text-neon-cyan transition-all"
         >
-          Log in
+          Back to waitlist
         </button>
       ) : (
         <button

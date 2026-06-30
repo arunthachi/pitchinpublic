@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 
 interface WelcomeHeroProps {
-  onSignInClick?: () => void;
   onPreviewFeed?: () => void;
 }
 
@@ -118,7 +117,7 @@ const practiceSignals = [
   },
 ];
 
-export function WelcomeHero({ onSignInClick, onPreviewFeed }: WelcomeHeroProps) {
+export function WelcomeHero({ onPreviewFeed }: WelcomeHeroProps) {
   const [activeSignal, setActiveSignal] = useState(practiceSignals[0]);
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -167,12 +166,9 @@ export function WelcomeHero({ onSignInClick, onPreviewFeed }: WelcomeHeroProps) 
             </div>
           </div>
 
-          <button
-            onClick={onSignInClick}
-            className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-          >
-            Log In
-          </button>
+          <span className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+            Waitlist
+          </span>
         </div>
       </header>
 
