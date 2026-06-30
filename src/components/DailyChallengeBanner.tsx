@@ -123,7 +123,7 @@ export function DailyChallengeBanner({ isOpen, onClose }: DailyChallengeBannerPr
                   <div className="flex items-center gap-2 mb-2">
                     <Zap className="w-5 h-5 text-neon-cyan" />
                     <h3 className="text-lg sm:text-xl font-bold text-white">
-                      Today's Challenge
+                      Today&apos;s Challenge
                     </h3>
                     <div className={`px-3 py-1 rounded-full text-xs font-semibold border ${getDifficultyColor(challenge.difficulty)}`}>
                       {challenge.difficulty.toUpperCase()}

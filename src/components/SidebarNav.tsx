@@ -9,9 +9,15 @@ interface SidebarNavProps {
   onPostClick: () => void;
   isGuest?: boolean;
   onSignInClick?: () => void;
+  guestActionLabel?: string;
 }
 
-export function SidebarNav({ onPostClick, isGuest = false, onSignInClick }: SidebarNavProps) {
+export function SidebarNav({
+  onPostClick,
+  isGuest = false,
+  onSignInClick,
+  guestActionLabel = 'Log in',
+}: SidebarNavProps) {
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-20 lg:w-64 bg-black border-r border-slate-800 z-50 flex flex-col">
       {/* Logo */}
@@ -115,8 +121,8 @@ export function SidebarNav({ onPostClick, isGuest = false, onSignInClick }: Side
               whileTap={{ scale: 0.98 }}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-heading font-bold mb-4"
             >
-              <span className="hidden lg:block">Log in</span>
-              <span className="lg:hidden">Log in</span>
+              <span className="hidden lg:block">{guestActionLabel}</span>
+              <span className="lg:hidden">{guestActionLabel}</span>
             </motion.button>
 
             {/* Footer Links - Desktop Only */}

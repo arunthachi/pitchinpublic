@@ -160,7 +160,7 @@ export function ProfileSetupModal({ isOpen, user, onComplete }: ProfileSetupModa
                           Complete Your Profile
                         </h2>
                         <p className="text-slate-400 text-sm">
-                          Just a couple more details and you're all set!
+                          Just a couple more details and you&apos;re all set!
                         </p>
                       </div>
 
@@ -197,7 +197,7 @@ export function ProfileSetupModal({ isOpen, user, onComplete }: ProfileSetupModa
                             disabled={loading}
                             autoFocus
                           />
-                          <p className="text-xs text-slate-500 mt-1">This is how you'll appear to other founders</p>
+                          <p className="text-xs text-slate-500 mt-1">This is how you&apos;ll appear to other founders</p>
                         </div>
 
                         {/* Username (Optional) - COMMENTED OUT: Username concept is risky to introduce right now */}
@@ -276,7 +276,7 @@ export function ProfileSetupModal({ isOpen, user, onComplete }: ProfileSetupModa
                       </h3>
 
                       <p className="text-slate-400 text-sm">
-                        You're all set. Let's start pitching! 🎬
+                        You&apos;re all set. Let&apos;s start pitching! 🎬
                       </p>
                     </motion.div>
                   )}

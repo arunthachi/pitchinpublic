@@ -184,6 +184,11 @@ export default function Home() {
     setHandlers(newHandlers);
   }, []);
 
+  const returnToWaitlist = useCallback(() => {
+    setShowGuestFeedPreview(false);
+    setSignInModalOpen(false);
+  }, []);
+
   // Show loading state
   if (loading) {
     return (
@@ -214,9 +219,10 @@ export default function Home() {
       {/* Left Sidebar Navigation - Hidden on mobile, shown for everyone on desktop */}
       <div className="hidden lg:block">
         <SidebarNav
-          onPostClick={() => isGuest ? setSignInModalOpen(true) : setRecordingStudioOpen(true)}
+          onPostClick={() => isGuest ? returnToWaitlist() : setRecordingStudioOpen(true)}
           isGuest={isGuest}
-          onSignInClick={() => setSignInModalOpen(true)}
+          onSignInClick={returnToWaitlist}
+          guestActionLabel="Join waitlist"
         />
       </div>
 
@@ -228,8 +234,8 @@ export default function Home() {
       {/* Bottom Navigation Bar - Mobile Only */}
       <div className="lg:hidden">
         <BottomNavBar
-          onCreateClick={() => isGuest ? setSignInModalOpen(true) : setRecordingStudioOpen(true)}
-          onProfileClick={() => isGuest ? setSignInModalOpen(true) : setProfileOpen(true)}
+          onCreateClick={() => isGuest ? returnToWaitlist() : setRecordingStudioOpen(true)}
+          onProfileClick={() => isGuest ? returnToWaitlist() : setProfileOpen(true)}
           isGuest={isGuest}
         />
       </div>
@@ -272,12 +278,12 @@ export default function Home() {
           {handlers && currentPitch && (
             <FloatingReactions
               pitch={currentPitch}
-              onRoast={isGuest ? () => setSignInModalOpen(true) : handlers.onRoast}
-              onToast={isGuest ? () => setSignInModalOpen(true) : handlers.onToast}
-              onOpenFeedback={isGuest ? () => setSignInModalOpen(true) : handlers.onOpenFeedback}
-              onShare={isGuest ? () => setSignInModalOpen(true) : handlers.onShare}
+              onRoast={isGuest ? returnToWaitlist : handlers.onRoast}
+              onToast={isGuest ? returnToWaitlist : handlers.onToast}
+              onOpenFeedback={isGuest ? returnToWaitlist : handlers.onOpenFeedback}
+              onShare={isGuest ? returnToWaitlist : handlers.onShare}
               isGuest={isGuest}
-              onSignInClick={() => setSignInModalOpen(true)}
+              onSignInClick={returnToWaitlist}
             />
           )}
 
@@ -296,7 +302,7 @@ export default function Home() {
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
             isGuest={isGuest}
-            onSignInClick={() => setSignInModalOpen(true)}
+            onSignInClick={returnToWaitlist}
           />
         </div>
       </main>

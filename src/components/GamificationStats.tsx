@@ -158,7 +158,7 @@ export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
           onClick={onOpenChallenge}
           className="w-full px-4 py-3 bg-gradient-to-r from-neon-cyan/20 to-neon-lime/20 border border-neon-cyan/50 rounded-xl hover:border-neon-cyan transition-all text-white text-sm font-semibold text-center"
         >
-          ⚡ Complete today's challenge
+          ⚡ Complete today&apos;s challenge
         </motion.button>
       )}
     </motion.div>

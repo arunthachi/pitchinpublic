@@ -36,7 +36,7 @@ export default function PitchDetailPage() {
             Pitch Not Found
           </h1>
           <p className="text-slate-400 mb-4 font-body">
-            The pitch you're looking for doesn't exist.
+            The pitch you&apos;re looking for doesn&apos;t exist.
           </p>
           <Button onClick={() => router.push('/')}>Back to Stage</Button>
         </div>
