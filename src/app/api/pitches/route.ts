@@ -227,6 +227,7 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
     const userId = searchParams.get('userId');
+    const videoId = searchParams.get('videoId');
 
     const offset = (page - 1) * limit;
 
@@ -266,6 +267,11 @@ export async function GET(request: NextRequest) {
     if (userId) {
       countQuery = countQuery.eq('user_id', userId);
       dataQuery = dataQuery.eq('user_id', userId);
+    }
+
+    if (videoId) {
+      countQuery = countQuery.eq('video_id', videoId);
+      dataQuery = dataQuery.eq('video_id', videoId);
     }
 
     // Get total count (exclude deleted pitches)

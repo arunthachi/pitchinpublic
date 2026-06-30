@@ -28,6 +28,8 @@ const AchievementUnlock = dynamic(() => import('@/components/AchievementUnlock')
   ssr: false,
 });
 
+const PRELAUNCH_PREVIEW_VIDEO_ID = '095d0785cea145007372cff7878fb46f';
+
 export default function Home() {
   const { user, loading } = useAuth();
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
@@ -113,7 +115,12 @@ export default function Home() {
   const fetchPitches = useCallback(async () => {
     try {
       setPitchesLoading(true);
-      const response = await fetch('/api/pitches?limit=100');
+      const params = new URLSearchParams({ limit: '100' });
+      if (isGuest && showGuestFeedPreview) {
+        params.set('videoId', PRELAUNCH_PREVIEW_VIDEO_ID);
+      }
+
+      const response = await fetch(`/api/pitches?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch pitches');
 
       const data = await response.json();
@@ -154,7 +161,7 @@ export default function Home() {
     } finally {
       setPitchesLoading(false);
     }
-  }, []);
+  }, [isGuest, showGuestFeedPreview]);
 
   // Fetch pitches once the feed is visible. The marketing landing should stay lightweight.
   useEffect(() => {
