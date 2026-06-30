@@ -17,6 +17,7 @@ This guide explains how to set up your Supabase database for Pitch in Public.
 3. **Enable Authentication Providers**
    - Go to Authentication > Providers
    - Enable Phone provider for SMS OTP sign in
+   - In the Phone provider settings, connect your SMS provider. For Twilio, add the Account SID, Auth Token, and Twilio phone number or Messaging Service SID in Supabase.
    - Enable Google OAuth for desktop sign in
    - Enable LinkedIn OIDC for professional founder identity
    - Keep X/Twitter as an optional profile field or later account-linking provider, not the primary signup path
@@ -24,6 +25,8 @@ This guide explains how to set up your Supabase database for Pitch in Public.
 4. **Add Environment Variables**
    - Copy `.env.example` to `.env.local`
    - Add your Supabase URL and Anon Key from Project Settings > API
+
+> Phone OTP is handled by Supabase Auth. Twilio credentials should be configured in the Supabase dashboard, not exposed to the Next.js app.
 
 ---
 

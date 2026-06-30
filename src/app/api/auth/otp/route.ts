@@ -181,6 +181,20 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        if (error.message.toLowerCase().includes('unsupported phone provider')) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Phone sign in is not configured yet. Enable Supabase Phone Auth and connect an SMS provider such as Twilio.',
+              code: 'sms_provider_not_configured',
+            },
+            {
+              status: 503,
+              headers: formatRateLimitHeaders(result),
+            }
+          );
+        }
+
         throw error;
       }
 
