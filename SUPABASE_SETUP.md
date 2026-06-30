@@ -16,9 +16,10 @@ This guide explains how to set up your Supabase database for Pitch in Public.
 
 3. **Enable Authentication Providers**
    - Go to Authentication > Providers
-   - Enable Google OAuth (add Client ID & Secret from Google Console)
-   - Enable GitHub OAuth (add Client ID & Secret from GitHub)
-   - Enable Email provider (for magic links)
+   - Enable Phone provider for SMS OTP sign in
+   - Enable Google OAuth for desktop sign in
+   - Enable LinkedIn OIDC for professional founder identity
+   - Keep X/Twitter as an optional profile field or later account-linking provider, not the primary signup path
 
 4. **Add Environment Variables**
    - Copy `.env.example` to `.env.local`
@@ -155,7 +156,8 @@ All tables have RLS enabled with policies:
 
 1. **Auto-create profile on signup**
    - When user signs up, profile is auto-created
-   - Pulls name and avatar from OAuth provider
+   - Pulls name and avatar from OAuth providers when available
+   - Phone OTP users can complete profile details after first login
 
 2. **Update timestamps**
    - `updated_at` auto-updates on any record change

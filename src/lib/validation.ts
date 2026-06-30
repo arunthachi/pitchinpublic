@@ -9,7 +9,7 @@ import { z } from 'zod';
 export const emailSchema = z.string().email('Invalid email address').toLowerCase().trim();
 
 // Phone validation - E.164 format support
-// Accepts: +1234567890, 1234567890, +1 (123) 456-7890, etc.
+// Accepts: +14155551212, 4155551212, +1 (415) 555-1212, etc.
 export const phoneSchema = z
   .string()
   .refine(
@@ -22,8 +22,11 @@ export const phoneSchema = z
     }
   )
   .transform((val) => {
-    // Normalize to E.164 format: remove all non-digits and add + prefix
+    // Normalize US early-access numbers to E.164 when users enter 10 digits.
     const digitsOnly = val.replace(/\D/g, '');
+    if (digitsOnly.length === 10) {
+      return `+1${digitsOnly}`;
+    }
     return `+${digitsOnly}`;
   });
 
