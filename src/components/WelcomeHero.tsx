@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
   CalendarCheck,
+  CheckCircle2,
   Flame,
+  Loader2,
+  Mail,
   MessageSquareText,
   Mic,
   Play,
@@ -117,6 +120,38 @@ const practiceSignals = [
 
 export function WelcomeHero({ onSignInClick, onPreviewFeed }: WelcomeHeroProps) {
   const [activeSignal, setActiveSignal] = useState(practiceSignals[0]);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [waitlistMessage, setWaitlistMessage] = useState('');
+
+  const handleWaitlistSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setWaitlistStatus('loading');
+    setWaitlistMessage('');
+
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: waitlistEmail,
+          source: 'landing-hero',
+          referrer: typeof document !== 'undefined' ? document.referrer : null,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Could not join the waitlist right now.');
+      }
+
+      setWaitlistStatus('success');
+      setWaitlistMessage(data.message || 'You are on the waitlist.');
+    } catch (error) {
+      setWaitlistStatus('error');
+      setWaitlistMessage(error instanceof Error ? error.message : 'Could not join the waitlist right now.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -153,7 +188,7 @@ export function WelcomeHero({ onSignInClick, onPreviewFeed }: WelcomeHeroProps) 
                 className="mb-6 inline-flex w-fit items-center gap-2 rounded-lg border border-neon-lime/30 bg-neon-lime/10 px-3 py-2 text-sm font-semibold text-neon-lime"
               >
                 <Zap className="h-4 w-4" aria-hidden="true" />
-                Stop rambling. Start pitching clearly.
+                Early access opens soon at pitchinpublic.io
               </motion.div>
 
               <motion.h1
@@ -172,30 +207,71 @@ export function WelcomeHero({ onSignInClick, onPreviewFeed }: WelcomeHeroProps) 
                 className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl"
               >
                 Record your elevator pitch, get constructive Toast/Roast feedback from
-                other builders, and improve your clarity, confidence, and momentum over
-                time.
+                other builders, and improve your clarity, confidence, and momentum before
+                the room checks out.
               </motion.p>
 
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.24, duration: 0.4 }}
-                className="mt-8 flex flex-col gap-3 sm:flex-row"
+                className="mt-8 max-w-xl"
               >
-                <button
-                  onClick={onSignInClick}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                >
-                  Start Today&apos;s Pitch
-                  <ArrowRight className="h-5 w-5" aria-hidden="true" />
-                </button>
-                <button
-                  onClick={onPreviewFeed}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/5 px-6 py-3 font-heading font-bold text-white transition-colors hover:border-white/30 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                >
-                  Preview Founder Feed
-                  <Play className="h-5 w-5" aria-hidden="true" />
-                </button>
+                <form onSubmit={handleWaitlistSubmit} className="rounded-xl border border-white/10 bg-black/45 p-2 shadow-2xl shadow-black/25 backdrop-blur">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <label htmlFor="waitlist-email" className="sr-only">
+                      Email address
+                    </label>
+                    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 focus-within:border-neon-cyan/70 focus-within:ring-2 focus-within:ring-neon-cyan/20">
+                      <Mail className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
+                      <input
+                        id="waitlist-email"
+                        type="email"
+                        value={waitlistEmail}
+                        onChange={(event) => {
+                          setWaitlistEmail(event.target.value);
+                          if (waitlistStatus !== 'idle') {
+                            setWaitlistStatus('idle');
+                            setWaitlistMessage('');
+                          }
+                        }}
+                        placeholder="you@company.com"
+                        autoComplete="email"
+                        className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-500"
+                        required
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={waitlistStatus === 'loading'}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                    >
+                      {waitlistStatus === 'loading' ? (
+                        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                      ) : waitlistStatus === 'success' ? (
+                        <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                      ) : (
+                        <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                      )}
+                      Join waitlist
+                    </button>
+                  </div>
+                </form>
+
+                <div className="mt-3 flex flex-col gap-3 text-sm text-slate-400 sm:flex-row sm:items-center">
+                  <p>
+                    {waitlistMessage ||
+                      'Get early access when the MVP opens for founders and event hosts.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onPreviewFeed}
+                    className="inline-flex w-fit items-center gap-2 font-semibold text-white transition-colors hover:text-neon-cyan"
+                  >
+                    Preview founder feed
+                    <Play className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
               </motion.div>
 
               <div className="mt-8 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
@@ -404,6 +480,30 @@ export function WelcomeHero({ onSignInClick, onPreviewFeed }: WelcomeHeroProps) 
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 bg-black px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-6 rounded-xl border border-neon-cyan/20 bg-neon-cyan/10 p-6 sm:p-8 lg:flex-row lg:items-center">
+            <div>
+              <p className="font-heading text-sm font-bold uppercase tracking-[0.18em] text-neon-cyan">
+                pitchinpublic.io
+              </p>
+              <h2 className="mt-3 font-heading text-3xl font-bold text-white">
+                Join the first founder practice rooms.
+              </h2>
+              <p className="mt-3 max-w-2xl leading-7 text-slate-300">
+                Early members will help shape the pitch loop, event rooms, and Toast/Roast feedback quality before public launch.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => document.getElementById('waitlist-email')?.focus()}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            >
+              Join waitlist
+              <ArrowRight className="h-5 w-5" aria-hidden="true" />
+            </button>
           </div>
         </section>
       </main>

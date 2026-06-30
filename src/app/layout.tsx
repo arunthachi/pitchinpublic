@@ -14,13 +14,15 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Pitch in Public | Where Founders Get Real Feedback",
   description:
-    "Share your startup pitch, get brutally honest feedback from founders and investors. Iterate in public, build better.",
+    "Daily 60-second pitch practice for founders. Join the early access waitlist at pitchinpublic.io.",
   keywords: ["startup", "pitch", "feedback", "founders", "investors", "MVP"],
   authors: [{ name: "Pitch in Public" }],
+  metadataBase: new URL("https://pitchinpublic.io"),
   openGraph: {
     type: "website",
+    url: "https://pitchinpublic.io",
     title: "Pitch in Public",
-    description: "Where Founders Get Real Feedback",
+    description: "Daily pitch practice for founders.",
     siteName: "Pitch in Public",
   },
 };

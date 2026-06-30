@@ -95,6 +95,18 @@ Who follows whom.
 
 ---
 
+### 6. **waitlist_signups** - Pre-launch Waitlist
+Stores early access requests from `pitchinpublic.io`.
+
+**Fields:**
+- `email` - Unique waitlist email
+- `source`, `referrer`, `user_agent`
+- `status` - `pending`, `invited`, or `joined`
+
+**Privacy:** Public inserts only. Waitlist rows are not publicly readable.
+
+---
+
 ### 6. **pitch_views** - Analytics
 Track video views for analytics.
 

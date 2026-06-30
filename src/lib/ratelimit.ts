@@ -192,6 +192,11 @@ export const RATE_LIMITS = {
     limit: 100, // 100 requests
     window: 3600, // per hour
   },
+  // Public waitlist form
+  WAITLIST: {
+    limit: 10, // 10 requests
+    window: 3600, // per hour
+  },
 } as const;
 
 /**

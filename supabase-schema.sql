@@ -918,6 +918,30 @@ CREATE TRIGGER challenge_response_count_trigger
 
 
 -- =============================================
+-- WAITLIST
+-- =============================================
+
+CREATE TABLE waitlist_signups (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  source TEXT DEFAULT 'landing',
+  referrer TEXT,
+  user_agent TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'invited', 'joined')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_waitlist_signups_email ON waitlist_signups(email);
+CREATE INDEX idx_waitlist_signups_created_at ON waitlist_signups(created_at DESC);
+
+ALTER TABLE waitlist_signups ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can join waitlist"
+  ON waitlist_signups FOR INSERT
+  WITH CHECK (true);
+
+
+-- =============================================
 -- SAMPLE DATA (Optional - for testing)
 -- =============================================
 -- You can uncomment this after setting up auth and replace UUIDs with real user IDs
