@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { CloudflareStreamProvider } from '@/lib/video-providers/cloudflare-stream';
+import { getVideoProvider } from '@/lib/video-providers';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 
 /**
@@ -73,8 +73,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get direct upload URL from Cloudflare
-    const provider = new CloudflareStreamProvider();
+    const provider = getVideoProvider();
     const uploadUrlResult = await provider.getDirectUploadUrl({
       maxDurationSeconds: 60,
     });
@@ -84,6 +83,7 @@ export async function GET(request: NextRequest) {
         success: true,
         uploadUrl: uploadUrlResult.uploadUrl,
         videoId: uploadUrlResult.videoId,
+        provider: provider.name,
       },
       {
         headers: formatRateLimitHeaders(result),

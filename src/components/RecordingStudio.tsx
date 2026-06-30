@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Check, Loader2, Video, Circle, Square } from 'lucide-react';
+import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw } from 'lucide-react';
 import { Step2_AddDetails } from './Step2_AddDetails';
 import { Step3_Publish } from './Step3_Publish';
 
@@ -13,6 +13,14 @@ interface RecordingStudioProps {
 }
 
 type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
+type UploadPhase = 'idle' | 'uploading' | 'processing' | 'ready';
+
+interface UploadedVideoMetadata {
+  playbackUrl: string;
+  thumbnailUrl?: string;
+  duration?: number;
+  status: 'processing' | 'ready' | 'error';
+}
 
 export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingStudioProps) {
   const [mode, setMode] = useState<Mode>('choose');
@@ -21,13 +29,15 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const [error, setError] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>('idle');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Pitch details from Step 2
   const [pitchHook, setPitchHook] = useState<string>('');
   const [pitchDescription, setPitchDescription] = useState<string>('');
   const [videoId, setVideoId] = useState<string | null>(null);
-  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
+  const [videoProvider, setVideoProvider] = useState<string | null>(null);
+  const [uploadedVideo, setUploadedVideo] = useState<UploadedVideoMetadata | null>(null);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -38,6 +48,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimeRef = useRef(0);
 
   // Start camera preview
   const startCamera = useCallback(async () => {
@@ -80,6 +91,18 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     setCountdown(3);
   }, []);
 
+  // Stop recording
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  }, []);
+
   // Actual recording start after countdown
   useEffect(() => {
     if (countdown === null) return;
@@ -110,7 +133,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
         const file = new File([blob], 'pitch-recording.webm', { type: 'video/webm' });
         setSelectedFile(file);
         setPreviewUrl(URL.createObjectURL(blob));
-        setVideoDuration(recordingTime);
+        setVideoDuration(recordingTimeRef.current);
         stopCamera();
         setMode('preview');
       };
@@ -119,6 +142,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       mediaRecorder.start(1000);
       setIsRecording(true);
       setRecordingTime(0);
+      recordingTimeRef.current = 0;
 
       // Start timer
       timerRef.current = setInterval(() => {
@@ -127,23 +151,13 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
             stopRecording();
             return prev;
           }
-          return prev + 1;
+          const next = prev + 1;
+          recordingTimeRef.current = next;
+          return next;
         });
       }, 1000);
     }
-  }, [countdown, stopCamera]);
-
-  // Stop recording
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-  }, [isRecording]);
+  }, [countdown, stopCamera, stopRecording]);
 
   // Validate and set uploaded file
   const validateAndSetFile = useCallback((file: File) => {
@@ -184,143 +198,150 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     }
   }, [validateAndSetFile]);
 
-  const handleSubmit = async () => {
-    if (!selectedFile) return;
-    setUploading(true);
-    setUploadProgress(0);
-    setError('');
+  const uploadFileToProvider = useCallback(
+    async (file: File) => {
+      setUploadPhase('uploading');
+      setUploadProgress(0);
 
-    try {
-      // Step 1: Get upload URL and video ID from backend
-      const uploadUrlResponse = await fetch('/api/pitches/upload-url');
-      if (!uploadUrlResponse.ok) {
-        const errorData = await uploadUrlResponse.json();
-        throw new Error(errorData.error || 'Failed to get upload URL');
+      const uploadUrlResponse = await fetch('/api/videos/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maxDurationSeconds: 60 }),
+      });
+
+      const uploadUrlData = await uploadUrlResponse.json();
+      if (!uploadUrlResponse.ok || !uploadUrlData.success) {
+        throw new Error(uploadUrlData.error || 'Failed to get upload URL');
       }
 
-      const { uploadUrl: directUploadUrl, videoId: cfVideoId } = await uploadUrlResponse.json();
-      setVideoId(cfVideoId);
-      setUploadUrl(directUploadUrl);
+      const { uploadUrl: directUploadUrl, videoId: providerVideoId, provider } = uploadUrlData.data;
+      setVideoId(providerVideoId);
+      setVideoProvider(provider);
 
-      // Step 2: Upload video to Cloudflare with progress tracking
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
-        // Track upload progress
-        if (xhr.upload) {
-          xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-              const percentComplete = (e.loaded / e.total) * 100;
-              setUploadProgress(Math.round(percentComplete));
-              console.log(`Upload progress: ${percentComplete.toFixed(1)}%`);
-            }
-          });
-        }
+        xhr.upload?.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            setUploadProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        });
 
         xhr.addEventListener('load', () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             setUploadProgress(100);
             resolve();
           } else {
-            reject(new Error('Failed to upload video to Cloudflare'));
+            reject(new Error('Failed to upload video'));
           }
         });
 
-        xhr.addEventListener('error', () => {
-          reject(new Error('Network error during upload'));
-        });
-
-        xhr.addEventListener('abort', () => {
-          reject(new Error('Upload cancelled'));
-        });
+        xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
 
         const formData = new FormData();
-        formData.append('file', selectedFile);
+        formData.append('file', file);
 
         xhr.open('POST', directUploadUrl);
         xhr.send(formData);
       });
 
-      // Step 3: Move to details form
+      return providerVideoId;
+    },
+    []
+  );
+
+  const waitForVideoReady = useCallback(
+    async (providerVideoId: string) => {
+      setUploadPhase('processing');
+
+      let lastMetadata: UploadedVideoMetadata | null = null;
+      const maxAttempts = 30;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const response = await fetch(`/api/videos/${providerVideoId}`);
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Failed to fetch video processing status');
+        }
+
+        lastMetadata = data.data;
+
+        if (lastMetadata?.status === 'error') {
+          throw new Error('Video processing failed. Please try another file or record again.');
+        }
+
+        if (lastMetadata?.status === 'ready' && lastMetadata.playbackUrl) {
+          setUploadedVideo(lastMetadata);
+          setVideoDuration(Math.round(lastMetadata.duration || videoDuration));
+          setUploadPhase('ready');
+          return lastMetadata;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+
+      throw new Error('Video is still processing. Please try again in a moment.');
+    },
+    [videoDuration]
+  );
+
+  const handleSubmit = async () => {
+    if (!selectedFile) return;
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadPhase('uploading');
+    setError('');
+
+    try {
+      const providerVideoId = await uploadFileToProvider(selectedFile);
+      await waitForVideoReady(providerVideoId);
       setMode('details');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload video');
       console.error('Upload error:', err);
+      setUploadPhase('idle');
     } finally {
       setUploading(false);
     }
   };
 
   const handleDetailsNext = async (data: { hook: string; description: string }) => {
-    if (!videoId) {
-      setError('Video ID missing');
+    if (!videoId || !uploadedVideo) {
+      setError('Video is not ready yet');
       return;
     }
 
     setUploading(true);
+    setError('');
     setPitchHook(data.hook);
     setPitchDescription(data.description);
 
     try {
-      // For now, move to publish - actual pitch creation happens next
-      // The publish screen will have the final "View Feed" button
-      setMode('publish');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to proceed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handlePublishViewFeed = async () => {
-    // The pitch creation happens here when user views the feed
-    if (!videoId || !pitchHook) {
-      setError('Missing pitch data');
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      // Step 1: Fetch actual video metadata from Cloudflare via our API
-      console.log('Fetching metadata for video:', videoId);
-      const metadataResponse = await fetch(`/api/videos/metadata?videoId=${videoId}`);
-      if (!metadataResponse.ok) {
-        const errorText = await metadataResponse.text();
-        console.error('Metadata fetch failed:', metadataResponse.status, errorText);
-        throw new Error(`Failed to fetch video metadata: ${metadataResponse.status}`);
-      }
-
-      const metadataData = await metadataResponse.json();
-      const videoMetadata = metadataData.metadata;
-      console.log('Video metadata fetched:', videoMetadata);
-
-      // Validate duration is within range
-      const actualDuration = Math.round(videoMetadata.duration || videoDuration);
-      console.log('Using duration:', actualDuration, '(Cloudflare:', videoMetadata.duration, 'Recorded:', videoDuration, ')');
+      const actualDuration = Math.round(uploadedVideo.duration || videoDuration);
 
       if (actualDuration < 30 || actualDuration > 60) {
         throw new Error(`Video duration must be 30-60 seconds (got ${actualDuration}s)`);
       }
 
-      // Step 2: Create the pitch in the database with real Cloudflare URLs
-      console.log('Creating pitch with hook:', pitchHook);
       const pitchPayload: any = {
-        hook: pitchHook,
+        hook: data.hook,
         videoId,
-        playbackUrl: videoMetadata.playbackUrl,
+        playbackUrl: uploadedVideo.playbackUrl,
         duration: actualDuration,
       };
 
-      // Only include optional fields if they have values
-      if (pitchDescription && pitchDescription.trim()) {
-        pitchPayload.description = pitchDescription.trim();
+      if (data.description && data.description.trim()) {
+        pitchPayload.description = data.description.trim();
       }
-      if (videoMetadata.thumbnailUrl) {
-        pitchPayload.thumbnailUrl = videoMetadata.thumbnailUrl;
+      if (uploadedVideo.thumbnailUrl) {
+        pitchPayload.thumbnailUrl = uploadedVideo.thumbnailUrl;
+      }
+      if (videoProvider) {
+        pitchPayload.videoProvider = videoProvider;
       }
 
-      console.log('Pitch payload:', pitchPayload);
       const response = await fetch('/api/pitches', {
         method: 'POST',
         headers: {
@@ -338,7 +359,10 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
         if (errorData.errors) {
           // Show validation errors
           const errorsList = Object.entries(errorData.errors)
-            .map(([field, msgs]: any) => `${field}: ${msgs.join(', ')}`)
+            .map(([field, messages]: any) => {
+              const message = Array.isArray(messages) ? messages.join(', ') : String(messages);
+              return `${field}: ${message}`;
+            })
             .join(' | ');
           errorMsg = `Validation error: ${errorsList}`;
         } else if (errorData.error) {
@@ -347,15 +371,13 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
           errorMsg = errorData.message;
         }
 
-        console.error('Final error message:', errorMsg);
         throw new Error(errorMsg);
       }
 
-      const data = await response.json();
-      console.log('Pitch created successfully:', data);
-      const { pitch } = data;
+      const responseData = await response.json();
+      const { pitch } = responseData;
       onPitchCreated?.(pitch);
-      handleClose();
+      setMode('publish');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create pitch';
       console.error('Pitch creation error:', errorMsg, err);
@@ -374,14 +396,17 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     setError('');
     setUploading(false);
     setUploadProgress(0);
+    setUploadPhase('idle');
     setMode('choose');
     setIsRecording(false);
     setRecordingTime(0);
+    recordingTimeRef.current = 0;
     setCountdown(null);
     setPitchHook('');
     setPitchDescription('');
     setVideoId(null);
-    setUploadUrl(null);
+    setVideoProvider(null);
+    setUploadedVideo(null);
     onClose();
   };
 
@@ -390,6 +415,11 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(null);
     setPreviewUrl(null);
+    setUploadProgress(0);
+    setUploadPhase('idle');
+    setVideoId(null);
+    setVideoProvider(null);
+    setUploadedVideo(null);
     setError('');
     setMode('choose');
   };
@@ -447,7 +477,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                   pitchTitle={pitchHook}
                   previewUrl={previewUrl}
                   videoDuration={videoDuration}
-                  onViewFeed={handlePublishViewFeed}
+                  onViewFeed={handleClose}
                   isLoading={uploading}
                 />
               )}
@@ -605,7 +635,8 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
               {mode === 'preview' && (
                 <>
                   <div className="text-center mb-4">
-                    <h2 className="text-xl font-bold text-white">Ready to post?</h2>
+                    <h2 className="text-xl font-bold text-white">Preview your pitch</h2>
+                    <p className="text-sm text-slate-400 mt-1">Upload first, then add the hook and publish.</p>
                   </div>
 
                   <div className="relative aspect-[9/16] max-h-[50vh] mx-auto bg-black rounded-xl overflow-hidden mb-4">
@@ -630,8 +661,12 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                         />
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-400">
-                        <span className="text-white font-semibold">Uploading your pitch, stay tuned...</span>
-                        <span className="font-mono text-neon-cyan">{uploadProgress}%</span>
+                        <span className="text-white font-semibold">
+                          {uploadPhase === 'processing' ? 'Processing video for playback...' : 'Uploading video...'}
+                        </span>
+                        <span className="font-mono text-neon-cyan">
+                          {uploadPhase === 'processing' ? 'Almost ready' : `${uploadProgress}%`}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -644,22 +679,23 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                     {uploading ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        Uploading ({uploadProgress}%)...
+                        {uploadPhase === 'processing' ? 'Processing...' : `Uploading (${uploadProgress}%)...`}
                       </>
                     ) : (
                       <>
                         <Check className="w-5 h-5" />
-                        Post Pitch
+                        Upload and continue
                       </>
                     )}
                   </button>
 
                   <button
                     onClick={goBack}
-                    className="w-full mt-3 text-slate-500 hover:text-slate-300 text-sm transition-colors disabled:opacity-50"
+                    className="w-full mt-3 text-slate-500 hover:text-slate-300 text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                     disabled={uploading}
                   >
-                    Start over
+                    <RotateCcw className="w-4 h-4" />
+                    Retake or choose another video
                   </button>
                 </>
               )}

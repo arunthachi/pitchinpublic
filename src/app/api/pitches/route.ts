@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         description: pitchData.description || null,
         video_id: pitchData.videoId,
         video_url: pitchData.playbackUrl,
-        video_provider: 'cloudflare',
+        video_provider: pitchData.videoProvider || process.env.VIDEO_PROVIDER || 'cloudflare',
         thumbnail_url: pitchData.thumbnailUrl || null,
         duration: pitchData.duration,
         status: 'published',

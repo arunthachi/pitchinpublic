@@ -133,6 +133,7 @@ export const pitchSchema = z.object({
     .or(z.literal('')),
   videoId: z.string().min(1, 'Video ID is required').trim(),
   playbackUrl: z.string().url('Invalid playback URL'),
+  videoProvider: z.string().min(1, 'Video provider is required').trim().optional(),
   thumbnailUrl: z.string().url('Invalid thumbnail URL').optional().or(z.literal('')),
   duration: z.number().min(30, 'Video must be at least 30 seconds').max(60, 'Video must be at most 60 seconds'),
 });

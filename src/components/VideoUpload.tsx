@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, Check, AlertCircle, Video, Loader2 } from 'lucide-react';
 
@@ -40,8 +40,8 @@ export function VideoUpload({
           if (duration > maxDurationSeconds) {
             setError(`Video must be ${maxDurationSeconds} seconds or less. Your video is ${Math.round(duration)} seconds.`);
             resolve(false);
-          } else if (duration < 10) {
-            setError('Video must be at least 10 seconds long.');
+          } else if (duration < 30) {
+            setError('Pitch videos must be at least 30 seconds long.');
             resolve(false);
           } else {
             resolve(true);
@@ -223,6 +223,17 @@ export function VideoUpload({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  }, [previewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
   }, [previewUrl]);
 
   return (

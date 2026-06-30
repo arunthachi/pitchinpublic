@@ -70,8 +70,8 @@ export function Step2_AddDetails({
     >
       {/* Header */}
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-white mb-1">Add Details</h2>
-        <p className="text-slate-400 text-sm">Tell us about your pitch</p>
+        <h2 className="text-2xl font-bold text-white mb-1">Add your hook</h2>
+        <p className="text-slate-400 text-sm">Make the pitch easy to understand before it goes live.</p>
       </div>
 
       {/* Video Preview */}
@@ -91,7 +91,7 @@ export function Step2_AddDetails({
         {/* Hook/Title Input */}
         <div>
           <label htmlFor="hook" className="block text-sm font-semibold text-white mb-2">
-            Pitch Title <span className="text-red-400">*</span>
+            Pitch hook <span className="text-red-400">*</span>
           </label>
           <textarea
             id="hook"
@@ -102,7 +102,7 @@ export function Step2_AddDetails({
                 setErrors({ ...errors, hook: '' });
               }
             }}
-            placeholder="Summarize your pitch in one compelling sentence..."
+            placeholder="Who is it for, what hurts, and why should anyone care?"
             className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-neon-cyan focus:border-transparent resize-none"
             rows={3}
             maxLength={280}
@@ -120,7 +120,7 @@ export function Step2_AddDetails({
         {/* Description Input */}
         <div>
           <label htmlFor="description" className="block text-sm font-semibold text-white mb-2">
-            Description <span className="text-slate-400 text-xs">(optional)</span>
+            Extra context <span className="text-slate-400 text-xs">(optional)</span>
           </label>
           <textarea
             id="description"
@@ -131,7 +131,7 @@ export function Step2_AddDetails({
                 setErrors({ ...errors, description: '' });
               }
             }}
-            placeholder="Add more details about your company, product, or ask..."
+            placeholder="Add your company, target customer, current stage, or the feedback you want..."
             className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-neon-cyan focus:border-transparent resize-none"
             rows={4}
             maxLength={2000}
@@ -166,7 +166,7 @@ export function Step2_AddDetails({
               </>
             ) : (
               <>
-                Next
+                Publish pitch
                 <ChevronRight className="w-4 h-4" />
               </>
             )}

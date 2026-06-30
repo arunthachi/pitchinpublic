@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CloudflareStreamProvider } from '@/lib/video-providers/cloudflare-stream';
+import { getVideoProvider } from '@/lib/video-providers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,8 +13,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch video metadata from Cloudflare
-    const provider = new CloudflareStreamProvider();
+    const provider = getVideoProvider();
     const metadata = await provider.getVideo(videoId);
 
     if (!metadata) {

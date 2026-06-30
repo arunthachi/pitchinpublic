@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Share2, X } from 'lucide-react';
+import { Check, Loader2, Share2 } from 'lucide-react';
 
 interface Step3_PublishProps {
   pitchTitle: string;
@@ -48,7 +48,7 @@ export function Step3_Publish({
           transition={{ delay: 0.2 }}
           className="text-2xl font-bold text-white mb-2"
         >
-          Pitch Posted! 🎉
+          Pitch published
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 10 }}
@@ -56,7 +56,7 @@ export function Step3_Publish({
           transition={{ delay: 0.3 }}
           className="text-slate-400"
         >
-          Your pitch is now live and visible to the community
+          Your pitch is live and ready for Toast/Roast feedback.
         </motion.p>
       </div>
 
@@ -109,7 +109,14 @@ export function Step3_Publish({
           disabled={isLoading}
           className="w-full py-4 bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          View Feed
+          {isLoading ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Opening feed...
+            </span>
+          ) : (
+            'View Feed'
+          )}
         </button>
       </motion.div>
 
@@ -142,7 +149,7 @@ export function Step3_Publish({
         className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mt-6"
       >
         <p className="text-sm text-slate-300">
-          💡 <span className="font-semibold">Pro tip:</span> Share your pitch to get more views and feedback from the community!
+          <span className="font-semibold">Pro tip:</span> Give feedback on another founder&apos;s pitch to increase the odds of getting thoughtful feedback back.
         </p>
       </motion.div>
     </motion.div>
