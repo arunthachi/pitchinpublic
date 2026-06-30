@@ -100,10 +100,13 @@ Stores early access requests from `pitchinpublic.io`.
 
 **Fields:**
 - `email` - Unique waitlist email
+- `full_name`, `company_name`, `website_or_linkedin` - Optional early founder access details
+- `wants_founder_access` - Whether the user completed the optional follow-up
 - `source`, `referrer`, `user_agent`
 - `status` - `pending`, `invited`, or `joined`
 
 **Privacy:** Public inserts only. Waitlist rows are not publicly readable.
+**Server env:** Set `SUPABASE_SERVICE_ROLE_KEY` on the server so the optional follow-up can enrich an existing email row.
 
 ---
 

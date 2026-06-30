@@ -924,6 +924,10 @@ CREATE TRIGGER challenge_response_count_trigger
 CREATE TABLE waitlist_signups (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
+  full_name TEXT,
+  company_name TEXT,
+  website_or_linkedin TEXT,
+  wants_founder_access BOOLEAN DEFAULT FALSE,
   source TEXT DEFAULT 'landing',
   referrer TEXT,
   user_agent TEXT,

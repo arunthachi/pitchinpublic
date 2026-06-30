@@ -122,6 +122,13 @@ export function WelcomeHero({ onPreviewFeed }: WelcomeHeroProps) {
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [waitlistMessage, setWaitlistMessage] = useState('');
+  const [founderAccessStatus, setFounderAccessStatus] = useState<'idle' | 'loading' | 'saved' | 'skipped' | 'error'>('idle');
+  const [founderAccessMessage, setFounderAccessMessage] = useState('');
+  const [founderDetails, setFounderDetails] = useState({
+    fullName: '',
+    companyName: '',
+    websiteOrLinkedIn: '',
+  });
 
   const handleWaitlistSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -146,9 +153,41 @@ export function WelcomeHero({ onPreviewFeed }: WelcomeHeroProps) {
 
       setWaitlistStatus('success');
       setWaitlistMessage(data.message || 'You are on the waitlist.');
+      setFounderAccessStatus('idle');
+      setFounderAccessMessage('');
     } catch (error) {
       setWaitlistStatus('error');
       setWaitlistMessage(error instanceof Error ? error.message : 'Could not join the waitlist right now.');
+    }
+  };
+
+  const handleFounderAccessSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFounderAccessStatus('loading');
+    setFounderAccessMessage('');
+
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: waitlistEmail,
+          intent: 'founder_access',
+          source: 'landing-founder-access',
+          ...founderDetails,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Could not save founder details right now.');
+      }
+
+      setFounderAccessStatus('saved');
+      setFounderAccessMessage(data.message || 'Founder access details saved.');
+    } catch (error) {
+      setFounderAccessStatus('error');
+      setFounderAccessMessage(error instanceof Error ? error.message : 'Could not save founder details right now.');
     }
   };
 
@@ -213,50 +252,130 @@ export function WelcomeHero({ onPreviewFeed }: WelcomeHeroProps) {
                 transition={{ delay: 0.24, duration: 0.4 }}
                 className="mt-8 max-w-xl"
               >
-                <form onSubmit={handleWaitlistSubmit} className="rounded-xl border border-white/10 bg-black/45 p-2 shadow-2xl shadow-black/25 backdrop-blur">
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <label htmlFor="waitlist-email" className="sr-only">
-                      Email address
-                    </label>
-                    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 focus-within:border-neon-cyan/70 focus-within:ring-2 focus-within:ring-neon-cyan/20">
-                      <Mail className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
-                      <input
-                        id="waitlist-email"
-                        type="email"
-                        value={waitlistEmail}
-                        onChange={(event) => {
-                          setWaitlistEmail(event.target.value);
-                          if (waitlistStatus !== 'idle') {
-                            setWaitlistStatus('idle');
-                            setWaitlistMessage('');
-                          }
-                        }}
-                        placeholder="you@company.com"
-                        autoComplete="email"
-                        className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-500"
-                        required
-                      />
+                {waitlistStatus === 'success' ? (
+                  <div className="rounded-xl border border-neon-cyan/20 bg-black/55 p-4 shadow-2xl shadow-black/25 backdrop-blur">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-neon-lime" aria-hidden="true" />
+                      <div>
+                        <p className="font-heading text-lg font-bold text-white">You are on the waitlist.</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-300">
+                          Want early founder access?
+                        </p>
+                      </div>
                     </div>
-                    <button
-                      type="submit"
-                      disabled={waitlistStatus === 'loading'}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                    >
-                      {waitlistStatus === 'loading' ? (
-                        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-                      ) : waitlistStatus === 'success' ? (
-                        <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
-                      ) : (
-                        <ArrowRight className="h-5 w-5" aria-hidden="true" />
-                      )}
-                      Join waitlist
-                    </button>
+
+                    {founderAccessStatus === 'saved' || founderAccessStatus === 'skipped' ? (
+                      <p className="mt-4 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
+                        {founderAccessMessage || 'Thanks. We will keep you posted.'}
+                      </p>
+                    ) : (
+                      <form onSubmit={handleFounderAccessSubmit} className="mt-4 space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <input
+                            type="text"
+                            value={founderDetails.fullName}
+                            onChange={(event) => setFounderDetails((details) => ({ ...details, fullName: event.target.value }))}
+                            placeholder="Name"
+                            autoComplete="name"
+                            className="rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:border-neon-cyan/70 focus:ring-2 focus:ring-neon-cyan/20"
+                          />
+                          <input
+                            type="text"
+                            value={founderDetails.companyName}
+                            onChange={(event) => setFounderDetails((details) => ({ ...details, companyName: event.target.value }))}
+                            placeholder="Startup / company"
+                            autoComplete="organization"
+                            className="rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:border-neon-cyan/70 focus:ring-2 focus:ring-neon-cyan/20"
+                          />
+                        </div>
+                        <input
+                          type="url"
+                          value={founderDetails.websiteOrLinkedIn}
+                          onChange={(event) => setFounderDetails((details) => ({ ...details, websiteOrLinkedIn: event.target.value }))}
+                          placeholder="Website or LinkedIn URL"
+                          autoComplete="url"
+                          className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:border-neon-cyan/70 focus:ring-2 focus:ring-neon-cyan/20"
+                        />
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <button
+                            type="submit"
+                            disabled={founderAccessStatus === 'loading'}
+                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-neon-lime px-5 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+                          >
+                            {founderAccessStatus === 'loading' ? (
+                              <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                            ) : (
+                              <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                            )}
+                            Request early access
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFounderAccessStatus('skipped');
+                              setFounderAccessMessage('No problem. You are on the waitlist.');
+                            }}
+                            className="inline-flex items-center justify-center rounded-lg border border-white/10 px-5 py-3 font-heading font-bold text-white transition-colors hover:border-white/30 hover:bg-white/10"
+                          >
+                            Skip
+                          </button>
+                        </div>
+                        {founderAccessMessage && (
+                          <p className={`text-sm ${founderAccessStatus === 'error' ? 'text-red-300' : 'text-slate-300'}`}>
+                            {founderAccessMessage}
+                          </p>
+                        )}
+                      </form>
+                    )}
                   </div>
-                </form>
+                ) : (
+                  <form onSubmit={handleWaitlistSubmit} className="rounded-xl border border-white/10 bg-black/45 p-2 shadow-2xl shadow-black/25 backdrop-blur">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <label htmlFor="waitlist-email" className="sr-only">
+                        Email address
+                      </label>
+                      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 focus-within:border-neon-cyan/70 focus-within:ring-2 focus-within:ring-neon-cyan/20">
+                        <Mail className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
+                        <input
+                          id="waitlist-email"
+                          type="email"
+                          value={waitlistEmail}
+                          onChange={(event) => {
+                            setWaitlistEmail(event.target.value);
+                            if (waitlistStatus !== 'idle') {
+                              setWaitlistStatus('idle');
+                              setWaitlistMessage('');
+                            }
+                          }}
+                          placeholder="you@company.com"
+                          autoComplete="email"
+                          className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-500"
+                          required
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={waitlistStatus === 'loading'}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                      >
+                        {waitlistStatus === 'loading' ? (
+                          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                        ) : (
+                        <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                        )}
+                        Join waitlist
+                      </button>
+                    </div>
+                  </form>
+                )}
 
                 <div className="mt-3 flex flex-col gap-3 text-sm text-slate-400 sm:flex-row sm:items-center">
                   <p>
-                    {waitlistMessage ||
+                    {waitlistStatus === 'success'
+                      ? founderAccessStatus === 'saved' || founderAccessStatus === 'skipped'
+                        ? 'Thanks. We will keep you posted as early access opens.'
+                        : 'Add optional founder details for early access, or skip.'
+                      : waitlistMessage ||
                       'Get early access when the MVP opens for founders and event hosts.'}
                   </p>
                   <button
