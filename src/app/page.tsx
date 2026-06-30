@@ -189,7 +189,14 @@ export default function Home() {
     setSignInModalOpen(false);
   }, []);
 
-  // Show loading state
+  // The public prelaunch landing should not wait on Supabase auth initialization.
+  // Authenticated users may see the landing briefly while their session resolves,
+  // which is better than blocking first paint for every anonymous visitor.
+  if (loading && isGuest && !showGuestFeedPreview) {
+    return <WelcomeHero />;
+  }
+
+  // Show loading state for authenticated app surfaces while auth is resolving.
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
@@ -201,15 +208,7 @@ export default function Home() {
   // Show main app for both authenticated and non-authenticated users
   // Non-authenticated users see the feed but can't interact without signing in
   if (isGuest && !showGuestFeedPreview) {
-    return (
-      <>
-        <WelcomeHero />
-        <SignInModal
-          isOpen={signInModalOpen}
-          onClose={() => setSignInModalOpen(false)}
-        />
-      </>
-    );
+    return <WelcomeHero />;
   }
 
   return (

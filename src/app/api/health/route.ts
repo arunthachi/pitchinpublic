@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Health check endpoint for monitoring and load balancers
  * Returns status of app and dependencies
