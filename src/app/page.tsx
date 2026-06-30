@@ -203,9 +203,7 @@ export default function Home() {
   if (isGuest && !showGuestFeedPreview) {
     return (
       <>
-        <WelcomeHero
-          onPreviewFeed={() => setShowGuestFeedPreview(true)}
-        />
+        <WelcomeHero />
         <SignInModal
           isOpen={signInModalOpen}
           onClose={() => setSignInModalOpen(false)}

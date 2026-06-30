@@ -9,7 +9,6 @@ import {
   Mail,
   MessageSquareText,
   Mic,
-  Play,
   Repeat2,
   Sparkles,
   Target,
@@ -17,10 +16,6 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
-
-interface WelcomeHeroProps {
-  onPreviewFeed?: () => void;
-}
 
 const pitchLoop = [
   {
@@ -119,7 +114,7 @@ const WAITLIST_FORM_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLScScUpcsCAG9bcWsOC6yPJGc-FkXeShcKCo8mdN-oPTOKBP8Q/viewform';
 const WAITLIST_EMAIL_ENTRY_ID = 'entry.533178309';
 
-export function WelcomeHero({ onPreviewFeed }: WelcomeHeroProps) {
+export function WelcomeHero() {
   const [activeSignal, setActiveSignal] = useState(practiceSignals[0]);
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistError, setWaitlistError] = useState('');
@@ -238,19 +233,11 @@ export function WelcomeHero({ onPreviewFeed }: WelcomeHeroProps) {
                     </div>
                   </form>
 
-                <div className="mt-3 flex flex-col gap-3 text-sm text-slate-400 sm:flex-row sm:items-center">
+                <div className="mt-3 text-sm text-slate-400">
                   <p>
                     {waitlistError ||
                       'Email first. Optional founder details open in the waitlist form.'}
                   </p>
-                  <button
-                    type="button"
-                    onClick={onPreviewFeed}
-                    className="inline-flex w-fit items-center gap-2 font-semibold text-white transition-colors hover:text-neon-cyan"
-                  >
-                    Preview founder feed
-                    <Play className="h-4 w-4" aria-hidden="true" />
-                  </button>
                 </div>
               </motion.div>
 
