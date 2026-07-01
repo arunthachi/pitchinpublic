@@ -107,6 +107,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Sign in is not available in this environment yet. Please try Google or LinkedIn, or try again later.',
+          code: 'auth_not_configured',
+        },
+        {
+          status: 503,
+          headers: formatRateLimitHeaders(result),
+        }
+      );
+    }
+
     // Create Supabase client
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

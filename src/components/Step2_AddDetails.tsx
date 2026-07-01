@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 interface Step2_AddDetailsProps {
   videoDuration: number;
   previewUrl: string;
-  onNext: (data: { hook: string; description: string }) => void;
+  onNext: (data: { hook: string; description: string }) => void | Promise<void>;
   onBack: () => void;
   isLoading?: boolean;
 }
@@ -52,7 +52,7 @@ export function Step2_AddDetails({
 
     setIsSubmitting(true);
     try {
-      onNext({
+      await onNext({
         hook: hook.trim(),
         description: description.trim(),
       });

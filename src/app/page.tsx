@@ -35,6 +35,7 @@ export default function Home() {
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
+  const [alphaAccessEnabled, setAlphaAccessEnabled] = useState(false);
   const [showGuestFeedPreview, setShowGuestFeedPreview] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [fullProfile, setFullProfile] = useState<Profile | null>(null);
@@ -48,6 +49,11 @@ export default function Home() {
     badgeDescription: string;
   } | null>(null);
   const isGuest = !user;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setAlphaAccessEnabled(new URLSearchParams(window.location.search).get('alpha') === '1');
+  }, []);
 
   // Fetch user profile from Supabase when user logs in
   useEffect(() => {
@@ -193,7 +199,20 @@ export default function Home() {
   // Authenticated users may see the landing briefly while their session resolves,
   // which is better than blocking first paint for every anonymous visitor.
   if (loading && isGuest && !showGuestFeedPreview) {
-    return <WelcomeHero />;
+    return (
+      <>
+        <WelcomeHero
+          showAlphaSignIn={alphaAccessEnabled}
+          onAlphaSignIn={() => setSignInModalOpen(true)}
+        />
+        {alphaAccessEnabled && (
+          <SignInModal
+            isOpen={signInModalOpen}
+            onClose={() => setSignInModalOpen(false)}
+          />
+        )}
+      </>
+    );
   }
 
   // Show loading state for authenticated app surfaces while auth is resolving.
@@ -208,7 +227,20 @@ export default function Home() {
   // Show main app for both authenticated and non-authenticated users
   // Non-authenticated users see the feed but can't interact without signing in
   if (isGuest && !showGuestFeedPreview) {
-    return <WelcomeHero />;
+    return (
+      <>
+        <WelcomeHero
+          showAlphaSignIn={alphaAccessEnabled}
+          onAlphaSignIn={() => setSignInModalOpen(true)}
+        />
+        {alphaAccessEnabled && (
+          <SignInModal
+            isOpen={signInModalOpen}
+            onClose={() => setSignInModalOpen(false)}
+          />
+        )}
+      </>
+    );
   }
 
   return (

@@ -30,6 +30,14 @@ const toE164USPhone = (value: string) => {
   return digits.length === 10 ? `+1${digits}` : null;
 };
 
+const getFriendlyAuthError = (error: unknown) => {
+  if (error instanceof Error && error.message.includes('Supabase client is not configured')) {
+    return 'Sign in is not available in this environment yet.';
+  }
+
+  return error instanceof Error ? error.message : 'Something went wrong. Try again.';
+};
+
 export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +45,6 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const [phone, setPhone] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [maskedDestination, setMaskedDestination] = useState<string | null>(null);
-  const supabase = createClient();
 
   const normalizedPhone = useMemo(() => toE164USPhone(phone), [phone]);
   const canSendCode = Boolean(normalizedPhone) && loading === null;
@@ -62,6 +69,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setLoading(provider);
       setError(null);
 
+      const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -73,7 +81,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       if (data?.url) window.location.href = data.url;
     } catch (err) {
       console.error('Sign in error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
+      setError(getFriendlyAuthError(err));
       setLoading(null);
     }
   };
@@ -124,6 +132,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setLoading('verify');
       setError(null);
 
+      const supabase = createClient();
       const { error } = await supabase.auth.verifyOtp({
         phone: normalizedPhone,
         token: otpCode,
@@ -134,7 +143,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       handleClose();
     } catch (err) {
       console.error('OTP verify error:', err);
-      setError(err instanceof Error ? err.message : 'That code did not work. Try again.');
+      setError(getFriendlyAuthError(err));
       setLoading(null);
     }
   };

@@ -15,6 +15,14 @@ interface RecordingStudioProps {
 type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
 type UploadPhase = 'idle' | 'uploading' | 'processing' | 'ready';
 
+const MAX_VIDEO_FILE_SIZE_BYTES = 200 * 1024 * 1024;
+const RECORDING_MIME_TYPES = [
+  'video/webm;codecs=vp9,opus',
+  'video/webm;codecs=vp8,opus',
+  'video/webm',
+  'video/mp4',
+];
+
 interface UploadedVideoMetadata {
   playbackUrl: string;
   thumbnailUrl?: string;
@@ -50,9 +58,25 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingTimeRef = useRef(0);
 
+  const getSupportedRecordingMimeType = () => {
+    if (typeof MediaRecorder === 'undefined') return '';
+    return RECORDING_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+  };
+
   // Start camera preview
   const startCamera = useCallback(async () => {
     try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        setError('Recording is not supported in this browser. Upload a video instead.');
+        return;
+      }
+
+      const mimeType = getSupportedRecordingMimeType();
+      if (!mimeType) {
+        setError('Recording is not supported in this browser. Upload an MP4, MOV, or WEBM file instead.');
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user',
@@ -118,9 +142,13 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       if (!streamRef.current) return;
 
       chunksRef.current = [];
-      const mediaRecorder = new MediaRecorder(streamRef.current, {
-        mimeType: 'video/webm;codecs=vp9',
-      });
+      const mimeType = getSupportedRecordingMimeType();
+      if (!mimeType) {
+        setError('Recording is not supported in this browser. Upload a video instead.');
+        return;
+      }
+
+      const mediaRecorder = new MediaRecorder(streamRef.current, { mimeType });
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -129,10 +157,14 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        const file = new File([blob], 'pitch-recording.webm', { type: 'video/webm' });
+        const fileExtension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        const file = new File([blob], `pitch-recording.${fileExtension}`, { type: mimeType });
         setSelectedFile(file);
-        setPreviewUrl(URL.createObjectURL(blob));
+        setPreviewUrl((currentUrl) => {
+          if (currentUrl) URL.revokeObjectURL(currentUrl);
+          return URL.createObjectURL(blob);
+        });
         setVideoDuration(recordingTimeRef.current);
         stopCamera();
         setMode('preview');
@@ -162,6 +194,17 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   // Validate and set uploaded file
   const validateAndSetFile = useCallback((file: File) => {
     setError('');
+
+    if (!file.type.startsWith('video/')) {
+      setError('Please select a video file.');
+      return;
+    }
+
+    if (file.size > MAX_VIDEO_FILE_SIZE_BYTES) {
+      setError('Video must be under 200MB.');
+      return;
+    }
+
     const video = document.createElement('video');
     video.preload = 'metadata';
 
@@ -176,7 +219,10 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
         setError(`Too long (${duration}s). Max 60 seconds.`);
       } else {
         setSelectedFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
+        setPreviewUrl((currentUrl) => {
+          if (currentUrl) URL.revokeObjectURL(currentUrl);
+          return URL.createObjectURL(file);
+        });
         setMode('preview');
       }
     };
@@ -193,7 +239,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) {
+    if (file) {
       validateAndSetFile(file);
     }
   }, [validateAndSetFile]);
@@ -390,6 +436,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const handleClose = () => {
     stopCamera();
     if (timerRef.current) clearInterval(timerRef.current);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(null);
     setPreviewUrl(null);
     setVideoDuration(0);
@@ -423,6 +470,14 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     setError('');
     setMode('choose');
   };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl, stopCamera]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
