@@ -353,7 +353,36 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
                         &ldquo;{activeSignal.sample}&rdquo;
                       </p>
 
-                      <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="mt-3 rounded-xl border border-white/15 bg-black/45 p-3 shadow-2xl shadow-black/30 backdrop-blur-xl">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neon-cyan/90 text-slate-950">
+                              <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-slate-300">
+                                Builder feedback
+                              </p>
+                              <p className="truncate text-[11px] font-semibold text-white">
+                                {activeSignal.feedbackType} with notes
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 gap-1.5">
+                            {activeSignal.scores.map((score) => (
+                              <div key={score.label} className="rounded-md bg-white/10 px-2 py-1.5 text-right">
+                                <p className="text-[8px] uppercase tracking-[0.08em] text-slate-400">{score.label}</p>
+                                <p className="text-[11px] font-bold leading-tight text-white">{score.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="line-clamp-2 text-[11px] font-medium leading-4 text-white">
+                          &ldquo;{activeSignal.feedbackNote}&rdquo;
+                        </p>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-3 gap-2">
                         {activeSignal.stats.map((stat) => (
                           <div key={stat.label} className="min-w-0 rounded-lg bg-white/10 p-2.5 backdrop-blur">
                             <p className="truncate text-[10px] leading-tight text-slate-300">{stat.label}</p>
@@ -371,38 +400,6 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
                       <div className="relative flex h-12 w-12 flex-col items-center justify-center overflow-hidden rounded-full border border-white/25 bg-white/14 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_10px_28px_rgba(0,0,0,0.28)] backdrop-blur-xl before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/20 before:blur-sm">
                         <Trophy className="relative h-4 w-4 text-toast" aria-hidden="true" />
                         <span className="relative text-[9px] font-bold text-white/90">Toast</span>
-                      </div>
-                    </div>
-
-                    <div className="absolute left-3 right-16 top-[43%] rounded-xl border border-white/20 bg-black/55 p-3 shadow-2xl shadow-black/35 backdrop-blur-xl">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neon-cyan/90 text-slate-950">
-                            <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-300">
-                              Builder feedback
-                            </p>
-                            <p className="text-[11px] font-semibold text-white">
-                              {activeSignal.feedbackType} with notes
-                            </p>
-                          </div>
-                        </div>
-                        <span className="rounded-full border border-neon-lime/30 bg-neon-lime/10 px-2 py-1 text-[10px] font-bold text-neon-lime">
-                          2 scores
-                        </span>
-                      </div>
-                      <p className="text-xs font-medium leading-5 text-white">
-                        &ldquo;{activeSignal.feedbackNote}&rdquo;
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        {activeSignal.scores.map((score) => (
-                          <div key={score.label} className="rounded-lg bg-white/10 px-2.5 py-2">
-                            <p className="text-[9px] uppercase tracking-[0.1em] text-slate-400">{score.label}</p>
-                            <p className="mt-0.5 text-sm font-bold text-white">{score.value}/10</p>
-                          </div>
-                        ))}
                       </div>
                     </div>
                   </motion.div>
