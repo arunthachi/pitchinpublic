@@ -30,8 +30,8 @@ const pitchLoop = [
   },
   {
     icon: MessageSquareText,
-    title: 'Get Toast/Roast',
-    description: 'Learn what lands, what confuses people, and what needs sharper proof.',
+    title: 'Get scored feedback',
+    description: 'Collect Toast/Roast reactions, written notes, and 1-10 scores from other builders.',
   },
   {
     icon: Repeat2,
@@ -52,7 +52,13 @@ const practiceSignals = [
     imagePosition: '48% center',
     imageSize: 'cover',
     recordingMode: 'Selfie pitch',
-    clarityDelta: '+10 audience',
+    clarityDelta: '+10 clarity',
+    feedbackType: 'Toast',
+    feedbackNote: 'Clear ICP. Say the customer in the first sentence.',
+    scores: [
+      { label: 'Clarity', value: '8.4' },
+      { label: 'Market', value: '7.8' },
+    ],
     stats: [
       { label: 'Streak', value: '5d' },
       { label: 'Clarity', value: '+24' },
@@ -71,6 +77,12 @@ const practiceSignals = [
     imageSize: 'cover',
     recordingMode: 'Camera practice',
     clarityDelta: '+12 pain',
+    feedbackType: 'Roast',
+    feedbackNote: 'The pain is real, but the demo still sounds like a feature tour.',
+    scores: [
+      { label: 'Clarity', value: '6.9' },
+      { label: 'Problem', value: '8.1' },
+    ],
     stats: [
       { label: 'Streak', value: '7d' },
       { label: 'Clarity', value: '+28' },
@@ -89,6 +101,12 @@ const practiceSignals = [
     imageSize: 'auto 128%',
     recordingMode: 'Demo room pitch',
     clarityDelta: '+15 urgency',
+    feedbackType: 'Toast',
+    feedbackNote: 'The timing lands. Add one proof point before the ask.',
+    scores: [
+      { label: 'Clarity', value: '8.7' },
+      { label: 'Timing', value: '8.9' },
+    ],
     stats: [
       { label: 'Streak', value: '9d' },
       { label: 'Clarity', value: '+31' },
@@ -107,6 +125,12 @@ const practiceSignals = [
     imageSize: 'cover',
     recordingMode: 'CTA take',
     clarityDelta: '+9 ask',
+    feedbackType: 'Roast',
+    feedbackNote: 'Good close, but the ask is too broad. Pick one next step.',
+    scores: [
+      { label: 'Clarity', value: '7.6' },
+      { label: 'Ask', value: '6.8' },
+    ],
     stats: [
       { label: 'Streak', value: '6d' },
       { label: 'Clarity', value: '+22' },
@@ -201,9 +225,9 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
                 transition={{ delay: 0.16, duration: 0.4 }}
                 className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl"
               >
-                Record your elevator pitch, get constructive Toast/Roast feedback from
-                other builders, and improve your clarity, confidence, and momentum before
-                the room checks out.
+                Record your elevator pitch, get Toast/Roast reactions plus written
+                comments and clarity scores from other builders, then tighten the next
+                version before the room checks out.
               </motion.p>
 
               <motion.div
@@ -349,6 +373,38 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
                         <span className="relative text-[9px] font-bold text-white/90">Toast</span>
                       </div>
                     </div>
+
+                    <div className="absolute left-3 right-16 top-[43%] rounded-xl border border-white/20 bg-black/55 p-3 shadow-2xl shadow-black/35 backdrop-blur-xl">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neon-cyan/90 text-slate-950">
+                            <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-300">
+                              Builder feedback
+                            </p>
+                            <p className="text-[11px] font-semibold text-white">
+                              {activeSignal.feedbackType} with notes
+                            </p>
+                          </div>
+                        </div>
+                        <span className="rounded-full border border-neon-lime/30 bg-neon-lime/10 px-2 py-1 text-[10px] font-bold text-neon-lime">
+                          2 scores
+                        </span>
+                      </div>
+                      <p className="text-xs font-medium leading-5 text-white">
+                        &ldquo;{activeSignal.feedbackNote}&rdquo;
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        {activeSignal.scores.map((score) => (
+                          <div key={score.label} className="rounded-lg bg-white/10 px-2.5 py-2">
+                            <p className="text-[9px] uppercase tracking-[0.1em] text-slate-400">{score.label}</p>
+                            <p className="mt-0.5 text-sm font-bold text-white">{score.value}/10</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </motion.div>
                 </div>
               </div>
@@ -476,7 +532,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
                 Join the first founder practice rooms.
               </h2>
               <p className="mt-3 max-w-2xl leading-7 text-slate-300">
-                Early members will help shape the pitch loop, event rooms, and Toast/Roast feedback quality before public launch.
+                Early members will help shape the pitch loop, event rooms, written comments, and scored Toast/Roast feedback before public launch.
               </p>
             </div>
             <button
