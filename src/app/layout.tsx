@@ -5,6 +5,24 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.pitchinpublic.io";
+const siteName = "Pitch in Public";
+const siteTitle = "Pitch in Public | Sharpen Your Pitch";
+const siteDescription =
+  "Daily 60-second pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your message.";
+const ogImages = [
+  {
+    url: `${appUrl}/og-image.png`,
+    width: 1200,
+    height: 630,
+    alt: "Pitch in Public - Sharpen Your Pitch",
+  },
+  {
+    url: `${appUrl}/og-square.png`,
+    width: 1200,
+    height: 1200,
+    alt: "Pitch in Public PiP monogram",
+  },
+];
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -14,13 +32,15 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Pitch in Public | Sharpen Your Pitch",
-  description:
-    "Daily 60-second pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your message.",
-  applicationName: "Pitch in Public",
+  title: siteTitle,
+  description: siteDescription,
+  applicationName: siteName,
   keywords: ["startup", "pitch", "feedback", "founders", "investors", "MVP"],
-  authors: [{ name: "Pitch in Public" }],
+  authors: [{ name: siteName }],
   metadataBase: new URL(appUrl),
+  alternates: {
+    canonical: appUrl,
+  },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -41,9 +61,17 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: appUrl,
-    title: "Pitch in Public | Sharpen Your Pitch",
-    description: "Daily pitch practice for founders.",
-    siteName: "Pitch in Public",
+    title: siteTitle,
+    description: siteDescription,
+    siteName,
+    images: ogImages,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+    images: [`${appUrl}/og-image.png`],
   },
 };
 
