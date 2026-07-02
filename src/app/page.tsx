@@ -315,9 +315,9 @@ export default function Home() {
       {/* Main Content Area - Video Feed */}
       <main className="flex min-h-[100dvh] flex-1 items-center justify-center overflow-hidden bg-black lg:ml-56 lg:bg-[radial-gradient(circle_at_50%_18%,rgba(0,240,255,0.12),transparent_28%),radial-gradient(circle_at_72%_78%,rgba(198,255,0,0.08),transparent_24%),#020617]">
         {/* Desktop: Centered with reactions on side */}
-        <div className="hidden min-h-[100dvh] w-full items-center justify-center gap-6 px-6 lg:flex">
-          {/* Video Feed Container - desktop uses the full app viewport, not a phone mockup. */}
-          <div className="relative h-[100dvh] max-h-[100dvh] aspect-[9/16] overflow-hidden bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55)] xl:rounded-2xl">
+        <div className="hidden min-h-[100dvh] w-full items-center justify-center gap-5 px-6 py-8 lg:flex">
+          {/* Video Feed Container - desktop app surface, capped like TikTok web. */}
+          <div className="relative h-[min(88dvh,860px)] min-h-[620px] aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)]">
             <FullScreenVideoFeed
               pitches={legacyPitches}
               hideReactions={true}
