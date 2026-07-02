@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
 import Hls from 'hls.js';
@@ -29,6 +29,14 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
 
+  const playVideo = useCallback((video: HTMLVideoElement) => {
+    video.play().catch((error) => {
+      if (error?.name !== 'AbortError') {
+        console.error(error);
+      }
+    });
+  }, []);
+
   // Initialize HLS or native video
   useEffect(() => {
     const video = videoRef.current;
@@ -52,7 +60,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (playing) {
-            video.play().catch(console.error);
+            playVideo(video);
           }
         });
         hls.on(Hls.Events.ERROR, (event, data) => {
@@ -64,14 +72,14 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         // Native HLS support (Safari)
         video.src = url;
         if (playing) {
-          video.play().catch(console.error);
+          playVideo(video);
         }
       }
     } else {
       // Regular MP4 video
       video.src = url;
       if (playing) {
-        video.play().catch(console.error);
+        playVideo(video);
       }
     }
 
@@ -81,19 +89,19 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         hlsRef.current = null;
       }
     };
-  }, [url]);
+  }, [playVideo, playing, url]);
 
   // Handle playing state changes
   useEffect(() => {
     setIsPlaying(playing);
     if (videoRef.current) {
       if (playing) {
-        videoRef.current.play().catch(console.error);
+        playVideo(videoRef.current);
       } else {
         videoRef.current.pause();
       }
     }
-  }, [playing]);
+  }, [playVideo, playing]);
 
   // Handle mute state changes
   useEffect(() => {
@@ -130,7 +138,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
       if (isPlaying) {
         videoRef.current.pause();
       } else {
-        videoRef.current.play().catch(console.error);
+        playVideo(videoRef.current);
       }
     }
     setIsPlaying(!isPlaying);

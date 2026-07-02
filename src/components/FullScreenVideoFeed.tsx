@@ -191,13 +191,11 @@ export function FullScreenVideoFeed({
         if (deleteResponse.ok) {
           const data = await deleteResponse.json();
           counts = data.counts;
-          console.log('Switched from toast to roast, counts after delete:', counts);
         } else {
           throw new Error('Failed to remove previous reaction');
         }
       }
 
-      console.log('Creating optimistic update with counts:', counts);
       // Optimistic update - update UI immediately
       const updatedPitch = {
         ...currentPitch,
@@ -205,7 +203,6 @@ export function FullScreenVideoFeed({
         toastCount: counts.toastCount,
       };
 
-      console.log('Optimistic pitch:', updatedPitch);
       // Update local state
       setLocalPitches((prevPitches) =>
         prevPitches.map((p) => (p.id === currentPitch.id ? updatedPitch : p))
@@ -220,8 +217,6 @@ export function FullScreenVideoFeed({
         body: JSON.stringify({ type: 'roast' }),
       });
 
-      console.log('Roast API response status:', response.status, response.statusText);
-
       if (!response.ok) {
         const error = await response.json();
         console.error('Failed to create roast. Status:', response.status, 'Error:', error);
@@ -231,17 +226,13 @@ export function FullScreenVideoFeed({
         );
       } else {
         const data = await response.json();
-        console.log('Roast API success response:', data);
-        console.log('Response has counts:', !!data.counts, 'Counts value:', data.counts);
         // Update with actual counts from server
         if (data.counts) {
-          console.log('Updating pitch with server counts:', data.counts);
           const finalPitch = {
             ...updatedPitch,
             roastCount: data.counts.roastCount,
             toastCount: data.counts.toastCount,
           };
-          console.log('Final pitch after roast:', finalPitch);
           setLocalPitches((prevPitches) =>
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
@@ -330,8 +321,6 @@ export function FullScreenVideoFeed({
         body: JSON.stringify({ type: 'toast' }),
       });
 
-      console.log('Toast API response status:', response.status, response.statusText);
-
       if (!response.ok) {
         const error = await response.json();
         console.error('Failed to create toast. Status:', response.status, 'Error:', error);
@@ -341,17 +330,13 @@ export function FullScreenVideoFeed({
         );
       } else {
         const data = await response.json();
-        console.log('Toast API success response:', data);
-        console.log('Response has counts:', !!data.counts, 'Counts value:', data.counts);
         // Update with actual counts from server
         if (data.counts) {
-          console.log('Updating pitch with server counts:', data.counts);
           const finalPitch = {
             ...updatedPitch,
             roastCount: data.counts.roastCount,
             toastCount: data.counts.toastCount,
           };
-          console.log('Final pitch after toast:', finalPitch);
           setLocalPitches((prevPitches) =>
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
@@ -386,7 +371,6 @@ export function FullScreenVideoFeed({
         const error = await response.json();
         console.error('Failed to submit feedback:', error);
       } else {
-        console.log('Feedback submitted successfully');
         // Close feedback panel after successful submission
         setFeedbackPanelOpen(false);
       }
@@ -452,7 +436,7 @@ export function FullScreenVideoFeed({
   };
 
   return (
-    <div className="relative w-full h-full bg-black overflow-hidden" {...bind()}>
+    <div className="relative w-full h-full touch-none overflow-hidden bg-black" {...bind()}>
       <AnimatePresence initial={false} custom={direction}>
         <motion.div
           key={currentPitch.id}
@@ -478,7 +462,7 @@ export function FullScreenVideoFeed({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-72 bg-gradient-to-t from-black via-black/62 to-transparent" />
 
           {/* Floating Info */}
-          <FloatingPitchInfo pitch={currentPitch} />
+          <FloatingPitchInfo pitch={currentPitch} reserveActionRail={!hideReactions} />
 
           {/* Floating Reactions - positioned on right side like TikTok */}
           {!hideReactions && (

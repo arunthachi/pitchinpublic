@@ -182,13 +182,15 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
           <div className="flex items-center gap-2">
             {showAlphaSignIn && (
               <>
-                <button
-                  type="button"
-                  onClick={onAlphaPreview}
+                <a
+                  href="/?alpha=1&preview=1"
+                  onClick={() => {
+                    onAlphaPreview?.();
+                  }}
                   className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   Preview
-                </button>
+                </a>
                 <button
                   type="button"
                   onClick={onAlphaSignIn}

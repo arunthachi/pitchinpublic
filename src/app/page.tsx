@@ -37,6 +37,11 @@ export default function Home() {
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [alphaAccessEnabled, setAlphaAccessEnabled] = useState(false);
   const [showGuestFeedPreview, setShowGuestFeedPreview] = useState(false);
+  const [urlAccess, setUrlAccess] = useState({
+    alpha: false,
+    preview: false,
+    checked: false,
+  });
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [fullProfile, setFullProfile] = useState<Profile | null>(null);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
@@ -49,31 +54,32 @@ export default function Home() {
     badgeDescription: string;
   } | null>(null);
   const isGuest = !user;
-  const showAlphaControls = alphaAccessEnabled || process.env.NODE_ENV === 'development';
+  const effectiveGuestFeedPreview = showGuestFeedPreview || urlAccess.preview;
+  const showAlphaControls = alphaAccessEnabled || urlAccess.alpha || process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setAlphaAccessEnabled(new URLSearchParams(window.location.search).get('alpha') === '1');
+    const params = new URLSearchParams(window.location.search);
+    setUrlAccess({
+      alpha: params.get('alpha') === '1',
+      preview: params.get('preview') === '1',
+      checked: true,
+    });
   }, []);
 
   // Fetch user profile from Supabase when user logs in
   useEffect(() => {
     const fetchUserProfile = async () => {
-      console.log('fetchUserProfile called, user:', user);
-
       if (!user) {
-        console.log('No user, clearing profile');
         setUserProfile(null);
         return;
       }
 
       // Always create a user object from auth data first
       const authBasedUser = authUserToUser(user);
-      console.log('Created user from auth data:', authBasedUser);
 
       try {
         const supabase = createClient();
-        console.log('Fetching profile for user ID:', user.id);
 
         const { data, error } = await supabase
           .from('profiles')
@@ -81,18 +87,13 @@ export default function Home() {
           .eq('id', user.id)
           .single();
 
-        console.log('Profile fetch result - data:', data, 'error:', error);
-
         if (!error && data) {
-          console.log('Converting database profile to user format:', data);
           const dbUser = profileToUser(data);
-          console.log('Converted database user:', dbUser);
           setUserProfile(dbUser);
           setFullProfile(data);
           // Profile setup is now on-demand only, triggered by user action, not automatically
         } else {
           // If profiles table fetch fails or returns nothing, use auth user data
-          console.log('Profiles table fetch failed or returned no data, using auth-based user');
           setUserProfile(authBasedUser);
           // Profile setup is now on-demand only, triggered by user action, not automatically
         }
@@ -123,7 +124,7 @@ export default function Home() {
     try {
       setPitchesLoading(true);
       const params = new URLSearchParams({ limit: '100' });
-      if (isGuest && showGuestFeedPreview) {
+      if (isGuest && effectiveGuestFeedPreview) {
         params.set('videoId', PRELAUNCH_PREVIEW_VIDEO_ID);
       }
 
@@ -138,7 +139,7 @@ export default function Home() {
         userId: pitch.user_id,
         founderName: pitch.profiles?.full_name || 'Anonymous',
         founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
-        companyName: 'Company', // Will be populated in next phase
+        companyName: pitch.company_name || pitch.description || 'Startup',
         hook: pitch.hook,
         description: pitch.description || '',
         videoUrl: pitch.video_url,
@@ -168,17 +169,17 @@ export default function Home() {
     } finally {
       setPitchesLoading(false);
     }
-  }, [isGuest, showGuestFeedPreview]);
+  }, [isGuest, effectiveGuestFeedPreview]);
 
   // Fetch pitches once the feed is visible. The marketing landing should stay lightweight.
   useEffect(() => {
-    if (isGuest && !showGuestFeedPreview) {
+    if (isGuest && !effectiveGuestFeedPreview) {
       setPitchesLoading(false);
       return;
     }
 
     fetchPitches();
-  }, [fetchPitches, isGuest, showGuestFeedPreview]);
+  }, [fetchPitches, isGuest, effectiveGuestFeedPreview]);
 
   // Filter user's own pitches using the fetched profile
   // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
@@ -194,6 +195,11 @@ export default function Home() {
   const returnToWaitlist = useCallback(() => {
     setShowGuestFeedPreview(false);
     setSignInModalOpen(false);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('preview');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+    }
   }, []);
 
   const promptForRestrictedAction = useCallback(() => {
@@ -208,7 +214,11 @@ export default function Home() {
   // The public prelaunch landing should not wait on Supabase auth initialization.
   // Authenticated users may see the landing briefly while their session resolves,
   // which is better than blocking first paint for every anonymous visitor.
-  if (loading && isGuest && !showGuestFeedPreview) {
+  if (!urlAccess.checked) {
+    return <div className="min-h-screen bg-black" />;
+  }
+
+  if (loading && isGuest && !effectiveGuestFeedPreview) {
     return (
       <>
         <WelcomeHero
@@ -226,8 +236,8 @@ export default function Home() {
     );
   }
 
-  // Show loading state for authenticated app surfaces while auth is resolving.
-  if (loading) {
+  // Show loading state only when an authenticated session is already known.
+  if (loading && !isGuest) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-black">
         <div className="text-white">Loading...</div>
@@ -237,7 +247,7 @@ export default function Home() {
 
   // Show main app for both authenticated and non-authenticated users
   // Non-authenticated users see the feed but can't interact without signing in
-  if (isGuest && !showGuestFeedPreview) {
+  if (isGuest && !effectiveGuestFeedPreview) {
     return (
       <>
         <WelcomeHero
@@ -303,7 +313,7 @@ export default function Home() {
       )}
 
       {/* Main Content Area - Video Feed */}
-      <main className="flex min-h-[100dvh] flex-1 items-center justify-center overflow-hidden bg-black lg:ml-64 lg:bg-[radial-gradient(circle_at_50%_18%,rgba(0,240,255,0.12),transparent_28%),radial-gradient(circle_at_72%_78%,rgba(198,255,0,0.08),transparent_24%),#020617]">
+      <main className="flex min-h-[100dvh] flex-1 items-center justify-center overflow-hidden bg-black lg:ml-56 lg:bg-[radial-gradient(circle_at_50%_18%,rgba(0,240,255,0.12),transparent_28%),radial-gradient(circle_at_72%_78%,rgba(198,255,0,0.08),transparent_24%),#020617]">
         {/* Desktop: Centered with reactions on side */}
         <div className="hidden min-h-[100dvh] w-full items-center justify-center gap-6 px-6 py-6 lg:flex">
           {/* Video Feed Container - desktop renders the same mobile app surface inside a device frame */}
@@ -320,7 +330,7 @@ export default function Home() {
 
           {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
-            <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-4 shadow-2xl shadow-black/30 backdrop-blur-2xl">
+            <div className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-4 shadow-2xl shadow-black/30 backdrop-blur-2xl">
               <FloatingReactions
                 pitch={currentPitch}
                 onRoast={isGuest ? promptForRestrictedAction : handlers.onRoast}

@@ -154,7 +154,7 @@ export function FloatingReactions({
   };
 
   return (
-    <div className="flex flex-col gap-4 items-center">
+    <div className="flex flex-col items-center gap-3">
       {/* Founder Avatar - Like TikTok profile */}
       <div className="relative mb-2">
         <motion.img
@@ -194,15 +194,15 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 h-14 w-14 rounded-full bg-roast/10 blur-md"
+            className="absolute inset-0 h-12 w-12 rounded-full bg-roast/10 blur-md"
             animate={justRoasted ? { scale: [1, 1.22, 1], opacity: [0.35, 0.65, 0.25] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-4 before:rounded-full before:bg-white/18 before:blur-sm ${
+          <div className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
             userReaction === 'roast'
-              ? 'bg-white/18 border-roast/45 ring-1 ring-roast/25'
-              : 'bg-white/12 border-white/20 hover:border-roast/35 hover:bg-white/18'
+              ? 'bg-white/18 border-roast/[0.45] ring-1 ring-roast/[0.25]'
+              : 'bg-white/[0.12] border-white/20 hover:border-roast/[0.35] hover:bg-white/[0.18]'
           }`}>
             {/* Icon container - both icons always in DOM for stable click handling */}
             <div className="absolute inset-0 flex items-center justify-center">
@@ -219,7 +219,7 @@ export function FloatingReactions({
               />
               {/* Icon - shows when roastCount = 0 */}
               <Flame
-                className={`w-7 h-7 transition-all duration-300 absolute ${
+                className={`h-6 w-6 transition-all duration-300 absolute ${
                   pitch.roastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 } ${
                   userReaction === 'roast'
@@ -275,15 +275,15 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 h-14 w-14 rounded-full bg-toast/10 blur-md"
+            className="absolute inset-0 h-12 w-12 rounded-full bg-toast/10 blur-md"
             animate={justToasted ? { scale: [1, 1.22, 1], opacity: [0.35, 0.65, 0.25] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className={`relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-4 before:rounded-full before:bg-white/18 before:blur-sm ${
+          <div className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
             userReaction === 'toast'
-              ? 'bg-white/18 border-toast/45 ring-1 ring-toast/25'
-              : 'bg-white/12 border-white/20 hover:border-toast/35 hover:bg-white/18'
+              ? 'bg-white/18 border-toast/[0.45] ring-1 ring-toast/[0.25]'
+              : 'bg-white/[0.12] border-white/20 hover:border-toast/[0.35] hover:bg-white/[0.18]'
           }`}>
             {/* Icon container - both icons always in DOM for stable click handling */}
             <div className="absolute inset-0 flex items-center justify-center">
@@ -300,7 +300,7 @@ export function FloatingReactions({
               />
               {/* Icon - shows when toastCount = 0 */}
               <Wine
-                className={`w-7 h-7 transition-all duration-300 absolute ${
+                className={`h-6 w-6 transition-all duration-300 absolute ${
                   pitch.toastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 } ${
                   userReaction === 'toast'
@@ -350,9 +350,9 @@ export function FloatingReactions({
         className="relative flex flex-col items-center gap-2 group"
         aria-label="Leave detailed feedback"
       >
-        <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-4 before:rounded-full before:bg-white/18 before:blur-sm hover:border-neon-cyan/45 hover:bg-white/18">
+        <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm hover:border-neon-cyan/[0.45] hover:bg-white/[0.18]">
           <MessageSquareText
-            className="relative z-10 h-7 w-7 text-white/90 transition-colors group-hover:text-neon-cyan"
+            className="relative z-10 h-6 w-6 text-white/90 transition-colors group-hover:text-neon-cyan"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
             strokeWidth={1.7}
           />
@@ -375,14 +375,14 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 w-16 h-16 bg-neon-cyan/10 rounded-full blur-sm"
+            className="absolute inset-0 h-12 w-12 bg-neon-cyan/10 rounded-full blur-sm"
             animate={bookmarkState ? { scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-neon-cyan/40 hover:border-neon-cyan/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(0,240,255,0.4)]">
+          <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 hover:border-neon-cyan/[0.45] hover:bg-white/[0.18]">
             <Bookmark
-              className={`w-8 h-8 transition-all duration-300 ${
+              className={`h-6 w-6 transition-all duration-300 ${
                 bookmarkState
                   ? 'text-neon-cyan fill-neon-cyan drop-shadow-[0_0_12px_rgba(0,240,255,0.8)]'
                   : 'text-white group-hover:text-neon-cyan'
@@ -406,9 +406,9 @@ export function FloatingReactions({
         whileHover={{ scale: 1.05 }}
         className="relative flex flex-col items-center gap-2 group"
       >
-        <div className="relative w-14 h-14 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-slate-400/40 hover:border-slate-400/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(203,213,225,0.3)]">
+        <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 hover:border-white/[0.35] hover:bg-white/[0.18]">
           <Share2
-            className="w-7 h-7 text-white group-hover:text-slate-200 transition-all duration-300"
+            className="h-6 w-6 text-white/90 transition-all duration-300 group-hover:text-slate-200"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
             strokeWidth={1.5}
           />

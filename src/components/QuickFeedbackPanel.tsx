@@ -61,30 +61,35 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 w-full sm:w-[400px] bg-slate-950 border-l border-slate-800 z-[70] overflow-y-auto"
+            className="fixed bottom-0 right-0 top-0 z-[70] w-full overflow-y-auto border-l border-white/10 bg-slate-950/96 shadow-2xl shadow-black/40 backdrop-blur-2xl sm:w-[420px]"
           >
             <div className="p-6 space-y-6">
               {/* Header */}
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-heading font-bold text-white">
-                  Quick Feedback
-                </h2>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">
+                    Builder feedback
+                  </p>
+                  <h2 className="mt-1 text-xl font-heading font-bold text-white">
+                    Help sharpen this pitch
+                  </h2>
+                </div>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition-colors"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] transition-colors hover:bg-white/[0.12]"
                 >
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
 
               {/* Roast/Toast Toggle */}
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
                 <button
                   onClick={() => setFeedbackType('roast')}
-                  className={`flex-1 py-3 px-4 rounded-lg font-heading font-bold text-sm transition-all ${
+                  className={`rounded-xl px-4 py-3 text-sm font-heading font-bold transition-all ${
                     isRoast
-                      ? 'bg-roast text-white'
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      ? 'bg-roast text-white shadow-lg shadow-roast/20'
+                      : 'text-slate-400 hover:bg-white/[0.08] hover:text-slate-200'
                   }`}
                 >
                   <Flame className="inline-block w-4 h-4 mr-2" />
@@ -92,10 +97,10 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 </button>
                 <button
                   onClick={() => setFeedbackType('toast')}
-                  className={`flex-1 py-3 px-4 rounded-lg font-heading font-bold text-sm transition-all ${
+                  className={`rounded-xl px-4 py-3 text-sm font-heading font-bold transition-all ${
                     !isRoast
-                      ? 'bg-toast text-white'
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      ? 'bg-toast text-white shadow-lg shadow-toast/20'
+                      : 'text-slate-400 hover:bg-white/[0.08] hover:text-slate-200'
                   }`}
                 >
                   <Wine className="inline-block w-4 h-4 mr-2" />
@@ -104,9 +109,20 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               </div>
 
               {/* Sliders */}
-              <div className="space-y-5 p-4 rounded-lg bg-slate-900/50 border border-slate-800">
+              <div className="grid grid-cols-4 gap-2">
+                {['ICP', 'Clarity', 'Ask', 'Energy'].map((chip) => (
+                  <div
+                    key={chip}
+                    className="rounded-xl border border-white/10 bg-white/[0.05] px-2 py-2 text-center text-[11px] font-bold uppercase tracking-[0.08em] text-slate-300"
+                  >
+                    {chip}
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                 <h3 className="font-heading font-bold text-xs text-slate-400 uppercase tracking-wider">
-                  Rate 1-10
+                  Score the pitch
                 </h3>
 
                 {/* Clarity */}
@@ -129,7 +145,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 {/* Solution */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-body text-slate-300">Solution</span>
+                    <span className="text-sm font-body text-slate-300">ICP</span>
                     <span className={`text-lg font-heading font-bold ${isRoast ? 'text-roast' : 'text-toast'}`}>
                       {scores.solution}
                     </span>
@@ -146,7 +162,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 {/* Market */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-body text-slate-300">Market</span>
+                    <span className="text-sm font-body text-slate-300">Ask</span>
                     <span className={`text-lg font-heading font-bold ${isRoast ? 'text-roast' : 'text-toast'}`}>
                       {scores.market}
                     </span>
@@ -163,7 +179,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 {/* Presentation */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-body text-slate-300">Presentation</span>
+                    <span className="text-sm font-body text-slate-300">Energy</span>
                     <span className={`text-lg font-heading font-bold ${isRoast ? 'text-roast' : 'text-toast'}`}>
                       {scores.presentation}
                     </span>
@@ -181,15 +197,15 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               {/* Notes */}
               <div className="space-y-2">
                 <label className="text-sm font-body text-slate-300">
-                  Your {isRoast ? 'Critique' : 'Encouragement'}
+                  Written note
                 </label>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder={
                     isRoast
-                      ? 'Be brutally honest. What needs work?'
-                      : "What's working well? What excites you?"
+                      ? 'What is unclear, weak, or missing? Be specific and constructive.'
+                      : 'What is working, memorable, or worth doubling down on?'
                   }
                   rows={4}
                   className="resize-none"
@@ -206,7 +222,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                     : 'bg-toast hover:bg-toast/90 text-white'
                 }`}
               >
-                {isRoast ? '🔥 Submit Roast' : '🥂 Submit Toast'}
+                {isRoast ? 'Submit constructive roast' : 'Submit useful toast'}
               </Button>
             </div>
           </motion.div>
