@@ -266,7 +266,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] overflow-hidden bg-black">
+    <div className="flex h-[100dvh] w-screen overflow-hidden bg-black">
       {/* Left Sidebar Navigation - Hidden on mobile, shown for everyone on desktop */}
       <div className="hidden lg:block">
         <SidebarNav
@@ -313,11 +313,11 @@ export default function Home() {
       )}
 
       {/* Main Content Area - Video Feed */}
-      <main className="flex min-h-[100dvh] flex-1 items-center justify-center overflow-hidden bg-black lg:ml-56 lg:bg-[radial-gradient(circle_at_50%_18%,rgba(0,240,255,0.12),transparent_28%),radial-gradient(circle_at_72%_78%,rgba(198,255,0,0.08),transparent_24%),#020617]">
+      <main className="flex h-[100dvh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-black lg:ml-56 lg:bg-black">
         {/* Desktop: Centered with reactions on side */}
-        <div className="hidden min-h-[100dvh] w-full items-center justify-center gap-5 px-6 py-8 lg:flex">
-          {/* Video Feed Container - desktop app surface, capped like TikTok web. */}
-          <div className="relative h-[min(88dvh,860px)] min-h-[620px] aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)]">
+        <div className="hidden h-full w-full items-center justify-center gap-6 px-8 py-6 lg:flex">
+          {/* Video Feed Container - desktop app surface sized by viewport, not fixed pixels. */}
+          <div className="relative h-[84dvh] max-h-[calc(100dvh-3rem)] min-h-[520px] aspect-[9/16] overflow-hidden rounded-[1.35rem] bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)]">
             <FullScreenVideoFeed
               pitches={legacyPitches}
               hideReactions={true}
