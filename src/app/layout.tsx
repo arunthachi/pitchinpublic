@@ -4,6 +4,8 @@ import { GridBackground } from "@/components/GridBackground";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.pitchinpublic.io";
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -12,13 +14,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Pitch in Public | Where Founders Get Real Feedback",
+  title: "Pitch in Public | Sharpen Your Pitch",
   description:
-    "Daily 60-second pitch practice for founders. Join the early access waitlist at pitchinpublic.io.",
+    "Daily 60-second pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your message.",
   applicationName: "Pitch in Public",
   keywords: ["startup", "pitch", "feedback", "founders", "investors", "MVP"],
   authors: [{ name: "Pitch in Public" }],
-  metadataBase: new URL("https://pitchinpublic.io"),
+  metadataBase: new URL(appUrl),
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -34,8 +36,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    url: "https://pitchinpublic.io",
-    title: "Pitch in Public",
+    url: appUrl,
+    title: "Pitch in Public | Sharpen Your Pitch",
     description: "Daily pitch practice for founders.",
     siteName: "Pitch in Public",
   },
