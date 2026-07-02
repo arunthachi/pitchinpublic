@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -37,6 +37,7 @@ export function FullScreenVideoFeed({
   const [localPitches, setLocalPitches] = useState<LegacyPitch[]>(pitches);
   const [userReaction, setUserReaction] = useState<'roast' | 'toast' | null>(null);
   const [hasTrackedView, setHasTrackedView] = useState(false);
+  const wheelLockRef = useRef(false);
 
   // Sync local pitches when props change
   React.useEffect(() => {
@@ -116,6 +117,21 @@ export function FullScreenVideoFeed({
       return prev;
     });
   }, []);
+
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaY) < 24 || wheelLockRef.current) return;
+
+    wheelLockRef.current = true;
+    if (event.deltaY > 0) {
+      goToNext();
+    } else {
+      goToPrev();
+    }
+
+    window.setTimeout(() => {
+      wheelLockRef.current = false;
+    }, 650);
+  }, [goToNext, goToPrev]);
 
   // Gesture handling
   const bind = useGesture({
@@ -436,7 +452,11 @@ export function FullScreenVideoFeed({
   };
 
   return (
-    <div className="relative w-full h-full touch-none overflow-hidden bg-black" {...bind()}>
+    <div
+      className="relative h-full w-full touch-none overflow-hidden bg-black"
+      onWheel={handleWheel}
+      {...bind()}
+    >
       <AnimatePresence initial={false} custom={direction}>
         <motion.div
           key={currentPitch.id}

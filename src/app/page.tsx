@@ -315,17 +315,14 @@ export default function Home() {
       {/* Main Content Area - Video Feed */}
       <main className="flex min-h-[100dvh] flex-1 items-center justify-center overflow-hidden bg-black lg:ml-56 lg:bg-[radial-gradient(circle_at_50%_18%,rgba(0,240,255,0.12),transparent_28%),radial-gradient(circle_at_72%_78%,rgba(198,255,0,0.08),transparent_24%),#020617]">
         {/* Desktop: Centered with reactions on side */}
-        <div className="hidden min-h-[100dvh] w-full items-center justify-center gap-6 px-6 py-6 lg:flex">
-          {/* Video Feed Container - desktop renders the same mobile app surface inside a device frame */}
-          <div className="relative h-[min(86vh,820px)] aspect-[9/19.5] rounded-[2.8rem] border-[10px] border-slate-950 bg-black p-1 shadow-[0_32px_100px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.08)]">
-            <div className="pointer-events-none absolute left-1/2 top-3 z-50 h-1.5 w-24 -translate-x-1/2 rounded-full bg-slate-900/85" />
-            <div className="h-full overflow-hidden rounded-[2.1rem] bg-black">
-              <FullScreenVideoFeed
-                pitches={legacyPitches}
-                hideReactions={true}
-                onCurrentPitchChange={handlePitchChange}
-              />
-            </div>
+        <div className="hidden min-h-[100dvh] w-full items-center justify-center gap-6 px-6 lg:flex">
+          {/* Video Feed Container - desktop uses the full app viewport, not a phone mockup. */}
+          <div className="relative h-[100dvh] max-h-[100dvh] aspect-[9/16] overflow-hidden bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55)] xl:rounded-2xl">
+            <FullScreenVideoFeed
+              pitches={legacyPitches}
+              hideReactions={true}
+              onCurrentPitchChange={handlePitchChange}
+            />
           </div>
 
           {/* Reactions - Outside video (desktop only) */}
