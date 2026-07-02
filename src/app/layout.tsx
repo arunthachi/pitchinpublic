@@ -31,7 +31,11 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    icon: [{ url: "/icons/app-icon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/app-icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/icons/app-icon.svg" }],
   },
   openGraph: {

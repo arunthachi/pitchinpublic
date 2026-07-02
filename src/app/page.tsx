@@ -215,7 +215,13 @@ export default function Home() {
   // Authenticated users may see the landing briefly while their session resolves,
   // which is better than blocking first paint for every anonymous visitor.
   if (!urlAccess.checked) {
-    return <div className="min-h-screen bg-black" />;
+    return (
+      <WelcomeHero
+        showAlphaSignIn={showAlphaControls}
+        onAlphaSignIn={() => setSignInModalOpen(true)}
+        onAlphaPreview={() => setShowGuestFeedPreview(true)}
+      />
+    );
   }
 
   if (loading && isGuest && !effectiveGuestFeedPreview) {

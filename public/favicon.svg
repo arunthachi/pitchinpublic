@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00F0FF"/>
+      <stop offset="1" stop-color="#C6FF00"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <text x="32" y="42" text-anchor="middle" fill="#020617" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="30" font-weight="950" letter-spacing="-1.5">PiP</text>
+  <circle cx="32" cy="18" r="4.5" fill="#F8FAFC"/>
+  <path d="M31 16.2v3.6l3.2-1.8-3.2-1.8z" fill="#020617"/>
+</svg>

@@ -16,6 +16,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
+import { BrandMark } from './BrandMark';
 
 interface WelcomeHeroProps {
   showAlphaSignIn?: boolean;
@@ -170,9 +171,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neon-cyan text-slate-950">
-              <Mic className="h-5 w-5" aria-hidden="true" />
-            </div>
+            <BrandMark className="h-10 w-10" />
             <div>
               <p className="font-heading text-base font-bold leading-none">Pitch in Public</p>
               <p className="mt-1 text-xs text-slate-400">Daily pitch practice for founders</p>

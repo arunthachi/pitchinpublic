@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, MessageSquareText, Settings, Plus, Sparkles, Search, Trophy, Video, Users } from 'lucide-react';
+import { BarChart3, MessageSquareText, Settings, Plus, Search, Trophy, Video, Users } from 'lucide-react';
 import Link from 'next/link';
+import { BrandMark } from './BrandMark';
 
 interface SidebarNavProps {
   onPostClick: () => void;
@@ -31,9 +32,7 @@ export function SidebarNav({
       {/* Logo */}
       <Link href="/" className="p-4 lg:px-5 lg:py-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-lime flex items-center justify-center flex-shrink-0">
-            <Sparkles className="w-6 h-6 text-slate-900" />
-          </div>
+          <BrandMark className="h-10 w-10 flex-shrink-0" />
           <div className="hidden lg:block">
             <h1 className="text-lg font-heading font-bold text-white leading-none">
               Pitch in Public
