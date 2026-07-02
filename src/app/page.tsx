@@ -266,7 +266,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-[100dvh] w-screen overflow-hidden bg-black">
+    <div className="fixed inset-0 overflow-hidden bg-black">
       {/* Left Sidebar Navigation - Hidden on mobile, shown for everyone on desktop */}
       <div className="hidden lg:block">
         <SidebarNav
@@ -313,7 +313,7 @@ export default function Home() {
       )}
 
       {/* Main Content Area - Video Feed */}
-      <main className="flex h-[100dvh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-black lg:ml-56 lg:bg-black">
+      <main className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black lg:left-56">
         {/* Desktop: Centered with reactions on side */}
         <div className="hidden h-full w-full items-center justify-center gap-6 px-8 py-6 lg:flex">
           {/* Video Feed Container - desktop app surface sized by viewport, not fixed pixels. */}

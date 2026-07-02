@@ -47,14 +47,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark h-full bg-black">
       <body
-        className="font-body antialiased bg-slate-950 text-slate-100 min-h-screen"
+        className="h-full min-h-screen overflow-x-hidden bg-black font-body text-slate-100 antialiased"
       >
         <GridBackground />
         <ErrorBoundary>
           <AuthProvider>
-            <main className="relative z-10">{children}</main>
+            <main className="relative z-10 min-h-screen bg-black">{children}</main>
           </AuthProvider>
         </ErrorBoundary>
       </body>
