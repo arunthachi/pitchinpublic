@@ -15,9 +15,23 @@ export const metadata: Metadata = {
   title: "Pitch in Public | Where Founders Get Real Feedback",
   description:
     "Daily 60-second pitch practice for founders. Join the early access waitlist at pitchinpublic.io.",
+  applicationName: "Pitch in Public",
   keywords: ["startup", "pitch", "feedback", "founders", "investors", "MVP"],
   authors: [{ name: "Pitch in Public" }],
   metadataBase: new URL("https://pitchinpublic.io"),
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Pitch in Public",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [{ url: "/icons/app-icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icons/app-icon.svg" }],
+  },
   openGraph: {
     type: "website",
     url: "https://pitchinpublic.io",

@@ -1,0 +1,21 @@
+{
+  "name": "Pitch in Public",
+  "short_name": "Pitch",
+  "description": "Daily 60-second pitch practice for founders.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "browser"],
+  "background_color": "#000000",
+  "theme_color": "#00F0FF",
+  "orientation": "portrait",
+  "categories": ["business", "productivity", "social"],
+  "icons": [
+    {
+      "src": "/icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

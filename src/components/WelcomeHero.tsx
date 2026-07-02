@@ -20,6 +20,7 @@ import {
 interface WelcomeHeroProps {
   showAlphaSignIn?: boolean;
   onAlphaSignIn?: () => void;
+  onAlphaPreview?: () => void;
 }
 
 const pitchLoop = [
@@ -143,7 +144,7 @@ const WAITLIST_FORM_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLScScUpcsCAG9bcWsOC6yPJGc-FkXeShcKCo8mdN-oPTOKBP8Q/viewform';
 const WAITLIST_EMAIL_ENTRY_ID = 'entry.533178309';
 
-export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeHeroProps) {
+export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPreview }: WelcomeHeroProps) {
   const [activeSignal, setActiveSignal] = useState(practiceSignals[0]);
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistError, setWaitlistError] = useState('');
@@ -180,13 +181,22 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
 
           <div className="flex items-center gap-2">
             {showAlphaSignIn && (
-              <button
-                type="button"
-                onClick={onAlphaSignIn}
-                className="rounded-lg bg-neon-cyan px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-              >
-                Founder alpha
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={onAlphaPreview}
+                  className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
+                  Preview
+                </button>
+                <button
+                  type="button"
+                  onClick={onAlphaSignIn}
+                  className="rounded-lg bg-neon-cyan px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
+                  Founder alpha
+                </button>
+              </>
             )}
             <span className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
               Waitlist

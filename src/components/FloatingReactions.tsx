@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Wine, Share2, BarChart3, Plus, Bookmark } from 'lucide-react';
+import { Flame, Wine, Share2, Plus, Bookmark, MessageSquareText } from 'lucide-react';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
 
@@ -127,6 +127,15 @@ export function FloatingReactions({
 
   const handleToastLongPress = () => {
     onOpenFeedback('toast');
+  };
+
+  const handleDetailedFeedbackClick = () => {
+    if (isGuest && onSignInClick) {
+      onSignInClick();
+      return;
+    }
+
+    onOpenFeedback(userReaction || 'toast');
   };
 
   const handleBookmarkClick = () => {
@@ -333,6 +342,26 @@ export function FloatingReactions({
         </AnimatePresence>
       </motion.button>
 
+      {/* Detailed Feedback - visible entry point for written/scored comments */}
+      <motion.button
+        onClick={handleDetailedFeedbackClick}
+        whileTap={{ scale: 0.85 }}
+        whileHover={{ scale: 1.05 }}
+        className="relative flex flex-col items-center gap-2 group"
+        aria-label="Leave detailed feedback"
+      >
+        <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-4 before:rounded-full before:bg-white/18 before:blur-sm hover:border-neon-cyan/45 hover:bg-white/18">
+          <MessageSquareText
+            className="relative z-10 h-7 w-7 text-white/90 transition-colors group-hover:text-neon-cyan"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
+            strokeWidth={1.7}
+          />
+        </div>
+        <span className="text-xs font-bold text-white drop-shadow-md">
+          {formatNumber(pitch.feedback?.length || 0)}
+        </span>
+      </motion.button>
+
       {/* Bookmark Button - Save pitch for later */}
       <motion.button
         onClick={handleBookmarkClick}
@@ -386,35 +415,6 @@ export function FloatingReactions({
         </div>
       </motion.button>
 
-      {/* Views Badge */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        className="relative flex flex-col items-center gap-2 group"
-      >
-        <div className="relative w-14 h-14 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-slate-400/40 hover:border-slate-400/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(203,213,225,0.2)]">
-          <span className="text-lg">👁️</span>
-        </div>
-        <span className="text-xs font-bold text-white drop-shadow-md">
-          {formatNumber(pitch.views)}
-        </span>
-      </motion.button>
-
-      {/* Score Badge */}
-      <div className="flex flex-col items-center gap-2">
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          className="relative w-14 h-14 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md border border-neon-cyan/40 hover:border-neon-cyan/70 transition-all duration-200 hover:bg-black/70 shadow-xl hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]"
-        >
-          <BarChart3
-            className="w-7 h-7 text-white hover:text-neon-cyan transition-all duration-300"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
-            strokeWidth={1.5}
-          />
-        </motion.div>
-        <span className="text-xs font-bold text-white drop-shadow-md">
-          {pitch.interestScore}
-        </span>
-      </div>
     </div>
   );
 }

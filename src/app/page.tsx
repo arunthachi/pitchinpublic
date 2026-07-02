@@ -49,6 +49,7 @@ export default function Home() {
     badgeDescription: string;
   } | null>(null);
   const isGuest = !user;
+  const showAlphaControls = alphaAccessEnabled || process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -195,6 +196,15 @@ export default function Home() {
     setSignInModalOpen(false);
   }, []);
 
+  const promptForRestrictedAction = useCallback(() => {
+    if (showAlphaControls) {
+      setSignInModalOpen(true);
+      return;
+    }
+
+    returnToWaitlist();
+  }, [returnToWaitlist, showAlphaControls]);
+
   // The public prelaunch landing should not wait on Supabase auth initialization.
   // Authenticated users may see the landing briefly while their session resolves,
   // which is better than blocking first paint for every anonymous visitor.
@@ -202,10 +212,11 @@ export default function Home() {
     return (
       <>
         <WelcomeHero
-          showAlphaSignIn={alphaAccessEnabled}
+          showAlphaSignIn={showAlphaControls}
           onAlphaSignIn={() => setSignInModalOpen(true)}
+          onAlphaPreview={() => setShowGuestFeedPreview(true)}
         />
-        {alphaAccessEnabled && (
+        {showAlphaControls && (
           <SignInModal
             isOpen={signInModalOpen}
             onClose={() => setSignInModalOpen(false)}
@@ -230,10 +241,11 @@ export default function Home() {
     return (
       <>
         <WelcomeHero
-          showAlphaSignIn={alphaAccessEnabled}
+          showAlphaSignIn={showAlphaControls}
           onAlphaSignIn={() => setSignInModalOpen(true)}
+          onAlphaPreview={() => setShowGuestFeedPreview(true)}
         />
-        {alphaAccessEnabled && (
+        {showAlphaControls && (
           <SignInModal
             isOpen={signInModalOpen}
             onClose={() => setSignInModalOpen(false)}
@@ -244,13 +256,13 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen bg-black">
+    <div className="flex min-h-[100dvh] overflow-hidden bg-black">
       {/* Left Sidebar Navigation - Hidden on mobile, shown for everyone on desktop */}
       <div className="hidden lg:block">
         <SidebarNav
-          onPostClick={() => isGuest ? returnToWaitlist() : setRecordingStudioOpen(true)}
+          onPostClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
           isGuest={isGuest}
-          onSignInClick={returnToWaitlist}
+          onSignInClick={promptForRestrictedAction}
           guestActionLabel="Join waitlist"
         />
       </div>
@@ -263,8 +275,8 @@ export default function Home() {
       {/* Bottom Navigation Bar - Mobile Only */}
       <div className="lg:hidden">
         <BottomNavBar
-          onCreateClick={() => isGuest ? returnToWaitlist() : setRecordingStudioOpen(true)}
-          onProfileClick={() => isGuest ? returnToWaitlist() : setProfileOpen(true)}
+          onCreateClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
+          onProfileClick={() => isGuest ? promptForRestrictedAction() : setProfileOpen(true)}
           isGuest={isGuest}
         />
       </div>
@@ -291,47 +303,52 @@ export default function Home() {
       )}
 
       {/* Main Content Area - Video Feed */}
-      <main className="flex-1 lg:ml-64 flex items-center justify-center bg-black">
+      <main className="flex min-h-[100dvh] flex-1 items-center justify-center overflow-hidden bg-black lg:ml-64 lg:bg-[radial-gradient(circle_at_50%_18%,rgba(0,240,255,0.12),transparent_28%),radial-gradient(circle_at_72%_78%,rgba(198,255,0,0.08),transparent_24%),#020617]">
         {/* Desktop: Centered with reactions on side */}
-        <div className="hidden lg:flex items-end gap-3 py-4">
-          {/* Video Feed Container - Phone aspect ratio */}
-          <div className="relative h-[calc(100vh-4rem)] w-auto aspect-[9/16] max-h-[calc(100vh-4rem)] bg-black rounded-xl overflow-hidden shadow-2xl shadow-black/50">
-            <FullScreenVideoFeed
-              pitches={legacyPitches}
-              hideReactions={true}
-              onCurrentPitchChange={handlePitchChange}
-            />
+        <div className="hidden min-h-[100dvh] w-full items-center justify-center gap-6 px-6 py-6 lg:flex">
+          {/* Video Feed Container - desktop renders the same mobile app surface inside a device frame */}
+          <div className="relative h-[min(86vh,820px)] aspect-[9/19.5] rounded-[2.8rem] border-[10px] border-slate-950 bg-black p-1 shadow-[0_32px_100px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.08)]">
+            <div className="pointer-events-none absolute left-1/2 top-3 z-50 h-1.5 w-24 -translate-x-1/2 rounded-full bg-slate-900/85" />
+            <div className="h-full overflow-hidden rounded-[2.1rem] bg-black">
+              <FullScreenVideoFeed
+                pitches={legacyPitches}
+                hideReactions={true}
+                onCurrentPitchChange={handlePitchChange}
+              />
+            </div>
           </div>
 
           {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
-            <FloatingReactions
-              pitch={currentPitch}
-              onRoast={isGuest ? returnToWaitlist : handlers.onRoast}
-              onToast={isGuest ? returnToWaitlist : handlers.onToast}
-              onOpenFeedback={isGuest ? returnToWaitlist : handlers.onOpenFeedback}
-              onShare={isGuest ? returnToWaitlist : handlers.onShare}
-              isGuest={isGuest}
-              onSignInClick={returnToWaitlist}
-            />
+            <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-4 shadow-2xl shadow-black/30 backdrop-blur-2xl">
+              <FloatingReactions
+                pitch={currentPitch}
+                onRoast={isGuest ? promptForRestrictedAction : handlers.onRoast}
+                onToast={isGuest ? promptForRestrictedAction : handlers.onToast}
+                onOpenFeedback={isGuest ? promptForRestrictedAction : handlers.onOpenFeedback}
+                onShare={isGuest ? promptForRestrictedAction : handlers.onShare}
+                isGuest={isGuest}
+                onSignInClick={promptForRestrictedAction}
+              />
+            </div>
           )}
 
           {/* Gamification Stats - Desktop Only */}
           {!isGuest && (
-            <div className="hidden lg:flex flex-col gap-4 w-80 max-h-[calc(100vh-2rem)] overflow-y-auto pr-2">
+            <div className="hidden w-80 max-h-[calc(100vh-3rem)] flex-col gap-4 overflow-y-auto pr-2 lg:flex">
               <GamificationStats onOpenChallenge={() => setShowDailyChallenge(true)} />
             </div>
           )}
         </div>
 
         {/* Mobile: Full screen like TikTok */}
-        <div className="lg:hidden w-full h-screen">
+        <div className="h-[100dvh] w-full lg:hidden">
           <FullScreenVideoFeed
             pitches={legacyPitches}
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
             isGuest={isGuest}
-            onSignInClick={returnToWaitlist}
+            onSignInClick={promptForRestrictedAction}
           />
         </div>
       </main>

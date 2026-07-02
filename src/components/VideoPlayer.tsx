@@ -143,11 +143,11 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   };
 
   return (
-    <div className="relative w-full h-full bg-black overflow-hidden">
+    <div className="relative w-full h-full overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(0,240,255,0.12),transparent_34%),linear-gradient(180deg,#020617_0%,#000_55%)]">
       {/* Video Player */}
       <video
         ref={videoRef}
-        className="w-full h-full object-cover"
+        className="relative z-10 h-full w-full object-contain"
         autoPlay={playing}
         muted={muted}
         playsInline
@@ -157,7 +157,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
       />
 
       {/* Enhanced Progress Bar with Time Display */}
-      <div className="absolute bottom-0 left-0 right-0 z-50">
+      <div className="absolute bottom-16 left-0 right-0 z-50 lg:bottom-0">
         {/* Thicker, more visible progress bar */}
         <div className="relative h-1.5 bg-black/40 hover:h-2 transition-all duration-100">
           {/* Animated gradient progress */}

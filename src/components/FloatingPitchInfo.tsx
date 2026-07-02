@@ -12,7 +12,7 @@ interface FloatingPitchInfoProps {
 
 export function FloatingPitchInfo({ pitch }: FloatingPitchInfoProps) {
   return (
-    <div className="absolute bottom-20 left-0 right-16 z-30 px-4 pb-4 pointer-events-none">
+    <div className="pointer-events-none absolute bottom-24 left-0 right-16 z-30 px-4 pb-5 lg:bottom-16">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

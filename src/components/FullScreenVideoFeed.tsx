@@ -474,12 +474,15 @@ export function FullScreenVideoFeed({
             onEnded={goToNext}
           />
 
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-32 bg-gradient-to-b from-black/45 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-72 bg-gradient-to-t from-black via-black/62 to-transparent" />
+
           {/* Floating Info */}
           <FloatingPitchInfo pitch={currentPitch} />
 
           {/* Floating Reactions - positioned on right side like TikTok */}
           {!hideReactions && (
-            <div className="absolute right-2 sm:right-3 bottom-20 sm:bottom-40 z-40">
+            <div className="absolute bottom-24 right-2 z-40 sm:bottom-32 sm:right-3">
               <FloatingReactions
                 pitch={currentPitch}
                 onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
