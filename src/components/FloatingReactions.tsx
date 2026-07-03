@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Flame, Wine, Share2, Plus, Bookmark, MessageSquareText } from 'lucide-react';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
@@ -110,6 +110,11 @@ export function FloatingReactions({
   };
 
   const handleRoastClick = () => {
+    if (isGuest) {
+      onRoast();
+      return;
+    }
+
     setJustRoasted(true);
     onRoast();
     setTimeout(() => setJustRoasted(false), 1000);
@@ -120,6 +125,11 @@ export function FloatingReactions({
   };
 
   const handleToastClick = () => {
+    if (isGuest) {
+      onToast();
+      return;
+    }
+
     setJustToasted(true);
     onToast();
     setTimeout(() => setJustToasted(false), 1000);
@@ -201,7 +211,7 @@ export function FloatingReactions({
           {/* Main circular button background */}
           <div className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
             userReaction === 'roast'
-              ? 'bg-white/18 border-roast/[0.45] ring-1 ring-roast/[0.25]'
+              ? 'bg-white/[0.18] border-roast/[0.45] ring-1 ring-roast/[0.25]'
               : 'bg-white/[0.12] border-white/20 hover:border-roast/[0.35] hover:bg-white/[0.18]'
           }`}>
             {/* Icon container - both icons always in DOM for stable click handling */}
@@ -247,18 +257,6 @@ export function FloatingReactions({
           </span>
         </div>
 
-        <AnimatePresence>
-          {justRoasted && (
-            <motion.div
-              initial={{ opacity: 1, y: 0, scale: 1 }}
-              animate={{ opacity: 0, y: -50, scale: 1.5 }}
-              exit={{ opacity: 0 }}
-              className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none"
-            >
-              <RoastEmoji className="text-2xl" />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.button>
 
       {/* Toast Button - Tap for quick toast, hold for detailed feedback */}
@@ -282,7 +280,7 @@ export function FloatingReactions({
           {/* Main circular button background */}
           <div className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
             userReaction === 'toast'
-              ? 'bg-white/18 border-toast/[0.45] ring-1 ring-toast/[0.25]'
+              ? 'bg-white/[0.18] border-toast/[0.45] ring-1 ring-toast/[0.25]'
               : 'bg-white/[0.12] border-white/20 hover:border-toast/[0.35] hover:bg-white/[0.18]'
           }`}>
             {/* Icon container - both icons always in DOM for stable click handling */}
@@ -328,18 +326,6 @@ export function FloatingReactions({
           </span>
         </div>
 
-        <AnimatePresence>
-          {justToasted && (
-            <motion.div
-              initial={{ opacity: 1, y: 0, scale: 1 }}
-              animate={{ opacity: 0, y: -50, scale: 1.5 }}
-              exit={{ opacity: 0 }}
-              className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none"
-            >
-              <ToastEmoji className="text-2xl" />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.button>
 
       {/* Detailed Feedback - visible entry point for written/scored comments */}

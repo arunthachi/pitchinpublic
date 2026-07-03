@@ -23,6 +23,93 @@ interface FullScreenVideoFeedProps {
   onSignInClick?: () => void;
 }
 
+type ReactionBurstType = 'roast' | 'toast';
+
+const toastBurstParticles = [
+  { x: -80, y: -54, size: 18, delay: 0 },
+  { x: -34, y: -92, size: 12, delay: 0.04 },
+  { x: 30, y: -76, size: 16, delay: 0.08 },
+  { x: 72, y: -28, size: 10, delay: 0.12 },
+  { x: -92, y: 8, size: 13, delay: 0.1 },
+  { x: -12, y: -34, size: 9, delay: 0.16 },
+];
+
+const roastBurstParticles = [
+  { x: -78, y: -48, delay: 0, rotate: -18 },
+  { x: -28, y: -92, delay: 0.04, rotate: 12 },
+  { x: 34, y: -76, delay: 0.08, rotate: -8 },
+  { x: 76, y: -24, delay: 0.12, rotate: 20 },
+  { x: -92, y: 8, delay: 0.1, rotate: -28 },
+  { x: -4, y: -34, delay: 0.16, rotate: 14 },
+];
+
+function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
+  const isToast = type === 'toast';
+
+  return (
+    <motion.div
+      initial={{ scale: 0.94 }}
+      animate={{ scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.16 }}
+      className="pointer-events-none absolute right-20 top-[44%] z-50 sm:right-24"
+    >
+      <div
+        className={`relative z-20 whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-black uppercase tracking-[0.08em] text-white shadow-2xl backdrop-blur-xl ${
+          isToast
+            ? 'bg-toast/90 shadow-toast/30'
+            : 'bg-roast/90 shadow-roast/30'
+        }`}
+      >
+        {isToast ? 'Toast +1' : 'Roast +1'}
+      </div>
+
+      <div className="absolute left-1/2 top-1/2">
+        {isToast
+          ? toastBurstParticles.map((particle, index) => (
+              <motion.span
+                key={index}
+                initial={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
+                animate={{
+                  opacity: [0, 1, 1, 0],
+                  x: particle.x,
+                  y: particle.y,
+                  scale: [0.4, 1, 0.3],
+                }}
+                transition={{ duration: 1, times: [0, 0.16, 0.72, 1], delay: particle.delay, ease: 'easeOut' }}
+                className="absolute z-10 rounded-full border border-white bg-neon-cyan/75 shadow-[0_0_26px_rgba(0,240,255,0.95)] backdrop-blur-sm"
+                style={{ height: particle.size, width: particle.size }}
+              />
+            ))
+          : roastBurstParticles.map((particle, index) => (
+              <motion.span
+                key={index}
+                initial={{ opacity: 0, x: 0, y: 0, scale: 0.35, rotate: 0 }}
+                animate={{
+                  opacity: [0, 1, 1, 0],
+                  x: particle.x,
+                  y: particle.y,
+                  scale: [0.35, 1.1, 0.25],
+                  rotate: particle.rotate,
+                }}
+                transition={{ duration: 0.86, times: [0, 0.16, 0.7, 1], delay: particle.delay, ease: 'easeOut' }}
+                className="absolute z-10 h-6 w-4 rounded-full bg-roast shadow-[0_0_28px_rgba(255,59,48,1)]"
+              />
+            ))}
+      </div>
+
+      <motion.div
+        initial={{ y: 6, scale: 0.82 }}
+        animate={{ y: -78, scale: [0.82, 1.25, 1.1, 0.9] }}
+        transition={{ duration: isToast ? 1 : 0.88, ease: 'easeOut' }}
+        className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 text-4xl drop-shadow-[0_0_18px_rgba(255,255,255,0.65)]"
+      >
+        {isToast ? '🥂' : '🔥'}
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export function FullScreenVideoFeed({
   pitches,
   onCurrentPitchChange,
@@ -37,7 +124,41 @@ export function FullScreenVideoFeed({
   const [localPitches, setLocalPitches] = useState<LegacyPitch[]>(pitches);
   const [userReaction, setUserReaction] = useState<'roast' | 'toast' | null>(null);
   const [hasTrackedView, setHasTrackedView] = useState(false);
+  const [reactionBurst, setReactionBurst] = useState<{ type: ReactionBurstType; id: number } | null>(null);
   const wheelLockRef = useRef(false);
+  const reactionBurstTimeoutRef = useRef<number | null>(null);
+
+  const triggerReactionBurst = useCallback((type: ReactionBurstType) => {
+    if (reactionBurstTimeoutRef.current) {
+      window.clearTimeout(reactionBurstTimeoutRef.current);
+    }
+
+    setReactionBurst({ type, id: Date.now() });
+    reactionBurstTimeoutRef.current = window.setTimeout(() => {
+      setReactionBurst(null);
+      reactionBurstTimeoutRef.current = null;
+    }, 1100);
+  }, []);
+
+  useEffect(() => {
+    const handleReactionBurst = (event: Event) => {
+      const type = (event as CustomEvent<{ type?: ReactionBurstType }>).detail?.type;
+      if (type === 'toast' || type === 'roast') {
+        triggerReactionBurst(type);
+      }
+    };
+
+    window.addEventListener('pip-reaction-burst', handleReactionBurst);
+    return () => window.removeEventListener('pip-reaction-burst', handleReactionBurst);
+  }, [triggerReactionBurst]);
+
+  useEffect(() => {
+    return () => {
+      if (reactionBurstTimeoutRef.current) {
+        window.clearTimeout(reactionBurstTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Sync local pitches when props change
   React.useEffect(() => {
@@ -253,6 +374,7 @@ export function FullScreenVideoFeed({
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
           setUserReaction('roast');
+          triggerReactionBurst('roast');
         } else {
           console.error('CRITICAL: No counts in response. Response data:', data);
           console.error('Response.ok was true but counts missing. This indicates API response format issue.');
@@ -357,6 +479,7 @@ export function FullScreenVideoFeed({
             prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
           );
           setUserReaction('toast');
+          triggerReactionBurst('toast');
         } else {
           console.error('CRITICAL: No counts in response. Response data:', data);
           console.error('Response.ok was true but counts missing. This indicates API response format issue.');
@@ -387,6 +510,7 @@ export function FullScreenVideoFeed({
         const error = await response.json();
         console.error('Failed to submit feedback:', error);
       } else {
+        triggerReactionBurst(feedback.type);
         // Close feedback panel after successful submission
         setFeedbackPanelOpen(false);
       }
@@ -499,6 +623,15 @@ export function FullScreenVideoFeed({
               />
             </div>
           )}
+
+          <AnimatePresence>
+            {reactionBurst && (
+              <FeedReactionBurst
+                key={reactionBurst.id}
+                type={reactionBurst.type}
+              />
+            )}
+          </AnimatePresence>
 
           {/* Navigation Hints */}
           {hasPrev && (
