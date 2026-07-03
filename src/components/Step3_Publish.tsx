@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check, Loader2, Share2 } from 'lucide-react';
+import { Check, Loader2, Share2, Video } from 'lucide-react';
 
 interface Step3_PublishProps {
   pitchTitle: string;
@@ -21,6 +21,12 @@ export function Step3_Publish({
   onShare,
   isLoading = false,
 }: Step3_PublishProps) {
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -67,20 +73,31 @@ export function Step3_Publish({
         transition={{ delay: 0.4 }}
         className="space-y-3"
       >
-        <div className="relative aspect-[9/16] max-h-[35vh] mx-auto bg-black rounded-xl overflow-hidden">
+        <div className="relative mx-auto aspect-[9/16] max-h-[min(32dvh,340px)] overflow-hidden rounded-2xl border border-white/10 bg-black">
           <video
             src={previewUrl}
             controls
-            className="w-full h-full object-contain"
+            playsInline
+            className="h-full w-full object-contain"
           />
-          <div className="absolute top-3 left-3 px-2 py-1 bg-black/70 rounded-full">
-            <span className="text-xs text-white font-medium">{videoDuration}s</span>
+          <div className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
+            {formatTime(videoDuration)}
           </div>
         </div>
 
-        <div className="bg-slate-800/50 rounded-lg p-4 text-left">
-          <p className="text-sm text-slate-400 mb-1">Your pitch:</p>
-          <p className="text-white font-semibold line-clamp-3">{pitchTitle}</p>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon-lime/15 text-neon-lime">
+              <Video className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-white line-clamp-2">{pitchTitle}</p>
+              <p className="mt-0.5 text-sm text-slate-400">{formatTime(videoDuration)} published</p>
+            </div>
+            <div className="rounded-full border border-neon-lime/25 bg-neon-lime/10 px-3 py-1 text-xs font-bold text-neon-lime">
+              Live
+            </div>
+          </div>
         </div>
       </motion.div>
 
