@@ -622,24 +622,25 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                       </div>
                     )}
 
-                    {/* Recording Timer - Prominent Display */}
+                    {/* Recording Timer */}
                     {isRecording && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        {/* Large Timer */}
+                      <div className="absolute inset-0 pointer-events-none">
                         <motion.div
                           key={recordingTime}
-                          initial={{ scale: 0.8, opacity: 0 }}
+                          initial={{ scale: 0.92, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
-                          className="flex flex-col items-center"
+                          className="absolute bottom-32 left-1/2 -translate-x-1/2"
                         >
-                          <div className="mb-4 px-6 py-3 bg-red-500/90 backdrop-blur-sm rounded-full">
-                            <Circle className="w-3 h-3 fill-white text-white animate-pulse inline mr-2" />
-                            <span className="text-white text-4xl font-bold font-mono">{formatTime(recordingTime)}</span>
+                          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-red-500/85 px-3.5 py-2 shadow-lg shadow-black/30 backdrop-blur-md">
+                            <Circle className="h-2.5 w-2.5 fill-white/90 text-white/90 animate-pulse" />
+                            <span className="font-mono text-lg font-bold leading-none tracking-tight text-white">
+                              {formatTime(recordingTime)}
+                            </span>
                           </div>
                         </motion.div>
 
                         {/* Progress Bar - Show 30-60 second range */}
-                        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-64">
+                        <div className="absolute bottom-16 left-1/2 w-64 -translate-x-1/2">
                           <div className="relative h-2 bg-black/50 rounded-full overflow-hidden">
                             <motion.div
                               className="h-full bg-gradient-to-r from-red-500 to-orange-400"
