@@ -738,13 +738,25 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                 <>
                   <div className="text-center mb-4">
                     <h2 className="text-xl font-bold text-white">Ready to upload</h2>
-                    <p className="text-sm text-slate-400 mt-1">Your take is saved locally. Upload it to add the hook.</p>
+                    <p className="text-sm text-slate-400 mt-1">Preview your take, then upload it to add the hook.</p>
                   </div>
 
-                  <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <div className="relative mx-auto mb-3 aspect-[9/16] max-h-[min(38dvh,380px)] overflow-hidden rounded-2xl border border-white/10 bg-black">
+                    <video
+                      src={previewUrl || undefined}
+                      controls
+                      playsInline
+                      className="h-full w-full object-contain"
+                    />
+                    <div className="absolute left-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur">
+                      {formatTime(videoDuration)}
+                    </div>
+                  </div>
+
+                  <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan">
-                        <Video className="h-6 w-6" />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neon-cyan/15 text-neon-cyan">
+                        <Video className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-white">Pitch video captured</p>
