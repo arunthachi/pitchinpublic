@@ -110,6 +110,13 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     }
   }, []);
 
+  useEffect(() => {
+    if (mode !== 'record' || !videoRef.current || !streamRef.current) return;
+
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(console.error);
+  }, [mode]);
+
   // Start recording with countdown
   const startRecording = useCallback(() => {
     setCountdown(3);
@@ -603,7 +610,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                       autoPlay
                       muted
                       playsInline
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                       style={{ transform: 'scaleX(-1)' }}
                     />
 
