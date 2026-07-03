@@ -33,7 +33,8 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   }, [initialType, isOpen]);
 
   const handleSubmit = () => {
-    onSubmit({ type: feedbackType, scores, notes });
+    const trimmedNotes = notes.trim();
+    onSubmit({ type: feedbackType, scores, notes: trimmedNotes });
     onClose();
     // Reset
     setScores({ clarity: 5, solution: 5, market: 5, presentation: 5 });
@@ -197,7 +198,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               {/* Notes */}
               <div className="space-y-2">
                 <label className="text-sm font-body text-slate-300">
-                  Written note
+                  Written note <span className="text-slate-500">(optional)</span>
                 </label>
                 <Textarea
                   value={notes}
@@ -215,7 +216,6 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               {/* Submit Button */}
               <Button
                 onClick={handleSubmit}
-                disabled={!notes.trim()}
                 className={`w-full py-6 text-base font-heading font-bold ${
                   isRoast
                     ? 'bg-roast hover:bg-roast/90 text-white'

@@ -35,10 +35,11 @@ export function FeedbackModal({ pitchId, onSubmit }: FeedbackModalProps) {
   const [notes, setNotes] = useState('');
 
   const handleSubmit = () => {
+    const trimmedNotes = notes.trim();
     onSubmit({
       type: feedbackType,
       scores,
-      notes,
+      notes: trimmedNotes,
     });
     setOpen(false);
     // Reset form
@@ -194,7 +195,7 @@ export function FeedbackModal({ pitchId, onSubmit }: FeedbackModalProps) {
               {/* Notes */}
               <div className="space-y-2">
                 <label className="text-sm font-body text-slate-300">
-                  Your {isRoast ? 'Critique' : 'Encouragement'}
+                  Your {isRoast ? 'critique' : 'encouragement'} <span className="text-slate-500">(optional)</span>
                 </label>
                 <Textarea
                   value={notes}
@@ -218,7 +219,6 @@ export function FeedbackModal({ pitchId, onSubmit }: FeedbackModalProps) {
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!notes.trim()}
             className={
               isRoast
                 ? 'bg-roast hover:bg-roast/90 text-white font-heading font-bold'
