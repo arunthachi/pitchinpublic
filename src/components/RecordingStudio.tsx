@@ -737,18 +737,26 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
               {mode === 'preview' && (
                 <>
                   <div className="text-center mb-4">
-                    <h2 className="text-xl font-bold text-white">Preview your pitch</h2>
-                    <p className="text-sm text-slate-400 mt-1">Upload first, then add the hook and publish.</p>
+                    <h2 className="text-xl font-bold text-white">Ready to upload</h2>
+                    <p className="text-sm text-slate-400 mt-1">Your take is saved locally. Upload it to add the hook.</p>
                   </div>
 
-                  <div className="relative aspect-[9/16] max-h-[min(44dvh,500px)] mx-auto bg-black rounded-xl overflow-hidden mb-4">
-                    <video
-                      src={previewUrl || undefined}
-                      controls
-                      className="w-full h-full object-contain"
-                    />
-                    <div className="absolute top-3 left-3 px-2 py-1 bg-black/70 rounded-full">
-                      <span className="text-xs text-white font-medium">{videoDuration}s</span>
+                  <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan">
+                        <Video className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-white">Pitch video captured</p>
+                        <p className="text-sm text-slate-400">
+                          {formatTime(videoDuration)} recorded
+                        </p>
+                      </div>
+                      {canUploadRecordedClip && (
+                        <div className="rounded-full border border-neon-lime/25 bg-neon-lime/10 px-3 py-1 text-xs font-bold text-neon-lime">
+                          Ready
+                        </div>
+                      )}
                     </div>
                   </div>
 
