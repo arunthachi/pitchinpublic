@@ -16,6 +16,8 @@ type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
 type UploadPhase = 'idle' | 'uploading' | 'processing' | 'ready';
 
 const MAX_VIDEO_FILE_SIZE_BYTES = 200 * 1024 * 1024;
+const MIN_RECORDING_SECONDS = 30;
+const MAX_RECORDING_SECONDS = 60;
 const RECORDING_MIME_TYPES = [
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8,opus',
@@ -55,6 +57,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const discardRecordingRef = useRef(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingTimeRef = useRef(0);
 
@@ -164,6 +167,12 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       };
 
       mediaRecorder.onstop = () => {
+        if (discardRecordingRef.current) {
+          discardRecordingRef.current = false;
+          chunksRef.current = [];
+          return;
+        }
+
         const fileExtension = mimeType.includes('mp4') ? 'mp4' : 'webm';
         const blob = new Blob(chunksRef.current, { type: mimeType });
         const file = new File([blob], `pitch-recording.${fileExtension}`, { type: mimeType });
@@ -186,7 +195,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => {
-          if (prev >= 60) {
+          if (prev >= MAX_RECORDING_SECONDS) {
             stopRecording();
             return prev;
           }
@@ -220,10 +229,10 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       const duration = Math.floor(video.duration);
       setVideoDuration(duration);
 
-      if (duration < 30) {
-        setError(`Too short (${duration}s). Need 30-60 seconds.`);
-      } else if (duration > 60) {
-        setError(`Too long (${duration}s). Max 60 seconds.`);
+      if (duration < MIN_RECORDING_SECONDS) {
+        setError(`Too short (${duration}s). Need ${MIN_RECORDING_SECONDS}-${MAX_RECORDING_SECONDS} seconds.`);
+      } else if (duration > MAX_RECORDING_SECONDS) {
+        setError(`Too long (${duration}s). Max ${MAX_RECORDING_SECONDS} seconds.`);
       } else {
         setSelectedFile(file);
         setPreviewUrl((currentUrl) => {
@@ -259,7 +268,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       const uploadUrlResponse = await fetch('/api/videos/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ maxDurationSeconds: 60 }),
+        body: JSON.stringify({ maxDurationSeconds: MAX_RECORDING_SECONDS }),
       });
 
       const uploadUrlData = await uploadUrlResponse.json();
@@ -374,8 +383,8 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     try {
       const actualDuration = Math.round(uploadedVideo.duration || videoDuration);
 
-      if (actualDuration < 30 || actualDuration > 60) {
-        throw new Error(`Video duration must be 30-60 seconds (got ${actualDuration}s)`);
+      if (actualDuration < MIN_RECORDING_SECONDS || actualDuration > MAX_RECORDING_SECONDS) {
+        throw new Error(`Video duration must be ${MIN_RECORDING_SECONDS}-${MAX_RECORDING_SECONDS} seconds (got ${actualDuration}s)`);
       }
 
       const pitchPayload: any = {
@@ -441,6 +450,10 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   };
 
   const handleClose = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      discardRecordingRef.current = true;
+      mediaRecorderRef.current.stop();
+    }
     stopCamera();
     if (timerRef.current) clearInterval(timerRef.current);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -465,6 +478,16 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   };
 
   const goBack = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      discardRecordingRef.current = true;
+      mediaRecorderRef.current.stop();
+    } else {
+      discardRecordingRef.current = false;
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     stopCamera();
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(null);
@@ -474,6 +497,10 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     setVideoId(null);
     setVideoProvider(null);
     setUploadedVideo(null);
+    setIsRecording(false);
+    setRecordingTime(0);
+    recordingTimeRef.current = 0;
+    setCountdown(null);
     setError('');
     setMode('choose');
   };
@@ -492,17 +519,21 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const canUploadRecordedClip = videoDuration >= MIN_RECORDING_SECONDS && videoDuration <= MAX_RECORDING_SECONDS;
+  const canStopForPreview = recordingTime >= MIN_RECORDING_SECONDS;
+  const secondsUntilPreview = Math.max(0, MIN_RECORDING_SECONDS - recordingTime);
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain p-3 sm:p-6">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            className="fixed inset-0 bg-black/90 backdrop-blur-md"
           />
 
           {/* Modal */}
@@ -511,7 +542,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative w-[90vw] max-w-md bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl"
+            className="relative my-auto w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
           >
             {/* Close Button */}
             <button
@@ -521,7 +552,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
               <X className="w-4 h-4 text-slate-400" />
             </button>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {/* Details Mode */}
               {mode === 'details' && previewUrl && (
                 <Step2_AddDetails
@@ -604,7 +635,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
               {/* Record Mode */}
               {mode === 'record' && (
                 <>
-                  <div className="relative aspect-[9/16] max-h-[60vh] mx-auto bg-black rounded-xl overflow-hidden mb-4">
+                  <div className="relative aspect-[9/16] max-h-[min(58dvh,560px)] mx-auto bg-black rounded-xl overflow-hidden mb-4">
                     <video
                       ref={videoRef}
                       autoPlay
@@ -651,13 +682,13 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                           <div className="relative h-2 bg-black/50 rounded-full overflow-hidden">
                             <motion.div
                               className="h-full bg-gradient-to-r from-red-500 to-orange-400"
-                              style={{ width: `${Math.min(100, (recordingTime / 60) * 100)}%` }}
+                              style={{ width: `${Math.min(100, (recordingTime / MAX_RECORDING_SECONDS) * 100)}%` }}
                             />
                           </div>
                           <div className="flex justify-between text-xs text-slate-300 mt-2 px-2">
                             <span>0s</span>
-                            <span className="font-semibold">{recordingTime < 30 ? `${30 - recordingTime}s min` : 'Ready ✓'}</span>
-                            <span>60s</span>
+                            <span className="font-semibold">{canStopForPreview ? 'Ready' : `${secondsUntilPreview}s to preview`}</span>
+                            <span>{MAX_RECORDING_SECONDS}s</span>
                           </div>
                         </div>
                       </div>
@@ -680,15 +711,23 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                         <Circle className="w-4 h-4 fill-white" />
                         Record
                       </button>
-                    ) : (
+                    ) : canStopForPreview ? (
                       <button
                         onClick={stopRecording}
-                        disabled={recordingTime < 30}
-                        className="flex-1 py-3 bg-white text-slate-900 font-semibold rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="flex-1 py-3 bg-white text-slate-900 font-semibold rounded-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"
                       >
                         <Square className="w-4 h-4 fill-slate-900" />
-                        Stop
+                        Stop & preview
                       </button>
+                    ) : (
+                      <div className="flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-3 text-center">
+                        <div className="font-mono text-lg font-bold leading-none text-white">
+                          {formatTime(recordingTime)}
+                        </div>
+                        <div className="mt-1 text-xs font-semibold text-slate-400">
+                          {secondsUntilPreview}s to preview
+                        </div>
+                      </div>
                     )}
                   </div>
                 </>
@@ -702,7 +741,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                     <p className="text-sm text-slate-400 mt-1">Upload first, then add the hook and publish.</p>
                   </div>
 
-                  <div className="relative aspect-[9/16] max-h-[50vh] mx-auto bg-black rounded-xl overflow-hidden mb-4">
+                  <div className="relative aspect-[9/16] max-h-[min(44dvh,500px)] mx-auto bg-black rounded-xl overflow-hidden mb-4">
                     <video
                       src={previewUrl || undefined}
                       controls
@@ -712,6 +751,14 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                       <span className="text-xs text-white font-medium">{videoDuration}s</span>
                     </div>
                   </div>
+
+                  {!canUploadRecordedClip && (
+                    <div className="mb-4 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                      {videoDuration < MIN_RECORDING_SECONDS
+                        ? `${MIN_RECORDING_SECONDS - videoDuration}s more needed. Retake to publish.`
+                        : `Clip is over ${MAX_RECORDING_SECONDS}s. Retake to publish.`}
+                    </div>
+                  )}
 
                   {/* Upload Progress Bar */}
                   {uploading && (
@@ -736,7 +783,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
 
                   <button
                     onClick={handleSubmit}
-                    disabled={uploading}
+                    disabled={uploading || !canUploadRecordedClip}
                     className="w-full py-4 bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-bold text-lg rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {uploading ? (
