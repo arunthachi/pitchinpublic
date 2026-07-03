@@ -44,10 +44,8 @@ const feedbackSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { pitchId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(request);
 
   // Apply rate limiting

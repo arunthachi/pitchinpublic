@@ -1,6 +1,7 @@
 'use client';
 
 import React, { ReactNode, ErrorInfo } from 'react';
+import Link from 'next/link';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 
 interface Props {
@@ -134,12 +135,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 >
                   Try Again
                 </button>
-                <a
+                <Link
                   href="/"
                   className="w-full px-6 py-3 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-white font-medium rounded-lg transition-colors text-center"
                 >
                   Go Home
-                </a>
+                </Link>
               </div>
 
               {/* Support Message */}

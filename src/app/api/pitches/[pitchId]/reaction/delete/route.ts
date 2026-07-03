@@ -15,10 +15,8 @@ import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/l
  *   }
  * }
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { pitchId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(request);
 
   // Apply rate limiting

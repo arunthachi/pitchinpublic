@@ -12,10 +12,8 @@ import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/l
  *   "isFollowing": boolean
  * }
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { userId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ userId: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(request);
 
   // Apply rate limiting
@@ -162,10 +160,8 @@ export async function POST(
  *   "isFollowing": boolean
  * }
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { userId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ userId: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(request);
 
   // Apply rate limiting
@@ -264,10 +260,8 @@ export async function DELETE(
  *   "isFollowing": boolean
  * }
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { userId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ userId: string }> }) {
+  const params = await props.params;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',

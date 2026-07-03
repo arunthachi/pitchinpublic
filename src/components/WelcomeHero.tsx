@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -181,7 +182,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
           <div className="flex items-center gap-2">
             {showAlphaSignIn && (
               <>
-                <a
+                <Link
                   href="/?alpha=1&preview=1"
                   onClick={() => {
                     onAlphaPreview?.();
@@ -189,7 +190,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                   className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   Preview
-                </a>
+                </Link>
                 <button
                   type="button"
                   onClick={onAlphaSignIn}

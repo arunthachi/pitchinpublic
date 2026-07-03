@@ -27,10 +27,8 @@ import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/l
  *   }
  * }
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { pitchId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(request);
 
   // Apply rate limiting: 100 requests per hour per IP

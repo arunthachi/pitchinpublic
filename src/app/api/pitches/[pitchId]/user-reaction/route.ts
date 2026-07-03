@@ -11,10 +11,8 @@ import { createServerClient } from '@supabase/ssr';
  *   "reactionId": "uuid" | null
  * }
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { pitchId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
+  const params = await props.params;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',

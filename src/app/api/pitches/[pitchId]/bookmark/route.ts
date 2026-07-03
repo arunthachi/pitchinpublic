@@ -18,10 +18,8 @@ import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/l
  *   "bookmarkCount": 5
  * }
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { pitchId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(request);
 
   // Apply rate limiting: 100 requests per hour per IP
@@ -150,10 +148,8 @@ export async function POST(
  *   "bookmarkCount": 4
  * }
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { pitchId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
+  const params = await props.params;
   const ip = getClientIp(request);
 
   // Apply rate limiting: 100 requests per hour per IP
@@ -265,10 +261,8 @@ export async function DELETE(
  *   "bookmarkCount": 5
  * }
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { pitchId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
+  const params = await props.params;
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
