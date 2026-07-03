@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
@@ -30,7 +31,8 @@ const AchievementUnlock = dynamic(() => import('@/components/AchievementUnlock')
 
 const PRELAUNCH_PREVIEW_VIDEO_ID = '095d0785cea145007372cff7878fb46f';
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -54,8 +56,10 @@ export default function Home() {
     badgeDescription: string;
   } | null>(null);
   const isGuest = !user;
-  const effectiveGuestFeedPreview = showGuestFeedPreview || urlAccess.preview;
-  const showAlphaControls = alphaAccessEnabled || urlAccess.alpha || process.env.NODE_ENV === 'development';
+  const urlPreviewAccess = urlAccess.preview || searchParams.get('preview') === '1';
+  const urlAlphaAccess = urlAccess.alpha || searchParams.get('alpha') === '1';
+  const effectiveGuestFeedPreview = showGuestFeedPreview || urlPreviewAccess;
+  const showAlphaControls = alphaAccessEnabled || urlAlphaAccess || process.env.NODE_ENV === 'development';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -214,7 +218,7 @@ export default function Home() {
   // The public prelaunch landing should not wait on Supabase auth initialization.
   // Authenticated users may see the landing briefly while their session resolves,
   // which is better than blocking first paint for every anonymous visitor.
-  if (!urlAccess.checked) {
+  if (!urlAccess.checked && !urlPreviewAccess && !urlAlphaAccess) {
     return (
       <WelcomeHero
         showAlphaSignIn={showAlphaControls}
@@ -498,5 +502,13 @@ export default function Home() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <HomeContent />
+    </Suspense>
   );
 }
