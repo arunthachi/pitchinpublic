@@ -18,12 +18,26 @@ interface Streak {
   currentStreak: number;
   bestStreak: number;
   totalActivities: number;
+  pitchReps?: number;
   isActiveToday: boolean;
+  recentDays?: Array<{
+    date: string;
+    active: boolean;
+    isToday: boolean;
+  }>;
 }
 
 const SIDEBAR_COLLAPSED_KEY = 'pip.sidebarCollapsed';
 
 function buildSevenDayMomentum(streak: Streak) {
+  if (streak.recentDays?.length === 7) {
+    return streak.recentDays.map((day, index) => ({
+      key: day.date || index,
+      active: day.active,
+      isToday: day.isToday,
+    }));
+  }
+
   return Array.from({ length: 7 }, (_, index) => {
     const offsetFromToday = 6 - index;
     const active = streak.isActiveToday
@@ -198,7 +212,7 @@ export function SidebarNav({
                   <p className="text-xs text-slate-500">Run {streak.currentStreak || 0}d · Best {streak.bestStreak || 0}d</p>
                 </div>
               </div>
-              <span className="text-xs font-semibold text-slate-400">{streak.totalActivities || 0} reps</span>
+              <span className="text-xs font-semibold text-slate-400">{streak.pitchReps ?? streak.totalActivities ?? 0} reps</span>
             </div>
 
             <div className="mb-3 rounded-2xl border border-white/10 bg-black/20 p-3">

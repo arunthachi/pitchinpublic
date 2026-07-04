@@ -2,6 +2,50 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 
+function toDateKey(date: Date) {
+  return date.toISOString().split('T')[0];
+}
+
+function getDateKeyDaysAgo(daysAgo: number) {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() - daysAgo);
+  return toDateKey(date);
+}
+
+function getConsecutiveRun(activeDates: Set<string>, startOffset = 0) {
+  let run = 0;
+
+  for (let offset = startOffset; offset < 370; offset += 1) {
+    if (!activeDates.has(getDateKeyDaysAgo(offset))) break;
+    run += 1;
+  }
+
+  return run;
+}
+
+function getLongestRun(activeDates: Set<string>) {
+  const dates = Array.from(activeDates).sort();
+  let longest = 0;
+  let current = 0;
+  let previousTime: number | null = null;
+
+  for (const dateKey of dates) {
+    const time = new Date(`${dateKey}T00:00:00.000Z`).getTime();
+
+    if (previousTime === null || time - previousTime === 86400000) {
+      current += 1;
+    } else {
+      current = 1;
+    }
+
+    longest = Math.max(longest, current);
+    previousTime = time;
+  }
+
+  return longest;
+}
+
 /**
  * GET /api/user/streak
  * Get current user's streak information
@@ -61,17 +105,53 @@ export async function GET(request: NextRequest) {
       throw streakError;
     }
 
-    // If no streak record exists, create one
+    const since = getDateKeyDaysAgo(89);
+    const { data: recentPitches, error: pitchesError } = await supabase
+      .from('pitches')
+      .select('id,created_at')
+      .eq('user_id', user.id)
+      .eq('status', 'published')
+      .is('deleted_at', null)
+      .gte('created_at', `${since}T00:00:00.000Z`)
+      .order('created_at', { ascending: false });
+
+    if (pitchesError) {
+      console.error('Error fetching pitch momentum:', pitchesError);
+    }
+
+    const pitchRows = recentPitches || [];
+    const activeDates = new Set(
+      pitchRows
+        .map((pitch) => (pitch.created_at ? String(pitch.created_at).slice(0, 10) : ''))
+        .filter(Boolean)
+    );
+    const today = getDateKeyDaysAgo(0);
+    const isActiveToday = activeDates.has(today) || streak?.last_activity_date === today;
+    const currentRunStart = isActiveToday ? 0 : 1;
+    const pitchCurrentStreak = getConsecutiveRun(activeDates, currentRunStart);
+    const pitchBestStreak = getLongestRun(activeDates);
+    const recentDays = Array.from({ length: 7 }, (_, index) => {
+      const offset = 6 - index;
+      const date = getDateKeyDaysAgo(offset);
+
+      return {
+        date,
+        active: activeDates.has(date),
+        isToday: offset === 0,
+      };
+    });
+
+    // If no streak record exists, create one, but still return pitch-derived momentum.
     if (!streak) {
-      const { data: newStreak, error: createError } = await supabase
+      const { error: createError } = await supabase
         .from('user_streaks')
         .insert({
           user_id: user.id,
-          current_streak: 0,
-          best_streak: 0,
-          last_activity_date: null,
+          current_streak: pitchCurrentStreak,
+          best_streak: pitchBestStreak,
+          last_activity_date: isActiveToday ? today : null,
           last_activity_type: null,
-          total_activities: 0,
+          total_activities: pitchRows.length,
         })
         .select()
         .single();
@@ -81,27 +161,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         streak: {
-          currentStreak: 0,
-          bestStreak: 0,
-          lastActivityDate: null,
-          totalActivities: 0,
-          isActiveToday: false,
+          currentStreak: pitchCurrentStreak,
+          bestStreak: pitchBestStreak,
+          lastActivityDate: isActiveToday ? today : null,
+          totalActivities: pitchRows.length,
+          pitchReps: pitchRows.length,
+          isActiveToday,
+          recentDays,
         },
       });
     }
 
-    // Check if user was active today
-    const today = new Date().toISOString().split('T')[0];
-    const isActiveToday = streak.last_activity_date === today;
+    const aggregateCurrentStreak = streak.current_streak || 0;
+    const aggregateBestStreak = streak.best_streak || 0;
+    const aggregateTotal = streak.total_activities || 0;
 
     return NextResponse.json({
       success: true,
       streak: {
-        currentStreak: streak.current_streak || 0,
-        bestStreak: streak.best_streak || 0,
-        lastActivityDate: streak.last_activity_date,
-        totalActivities: streak.total_activities || 0,
+        currentStreak: Math.max(aggregateCurrentStreak, pitchCurrentStreak),
+        bestStreak: Math.max(aggregateBestStreak, pitchBestStreak),
+        lastActivityDate: isActiveToday ? today : streak.last_activity_date,
+        totalActivities: Math.max(aggregateTotal, pitchRows.length),
+        pitchReps: pitchRows.length,
         isActiveToday,
+        recentDays,
       },
     });
   } catch (error) {
