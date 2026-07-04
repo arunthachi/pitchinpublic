@@ -3,8 +3,10 @@ import "./globals.css";
 import { GridBackground } from "@/components/GridBackground";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { GoogleTagManager } from "@/components/GoogleTagManager";
 
 const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://app.pitchinpublic.io").replace(/\/$/, "");
+const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 const siteName = "Pitch in Public";
 const siteTitle = "Pitch in Public | Sharpen Your Pitch";
 const siteDescription =
@@ -143,6 +145,7 @@ export default function RootLayout({
       <body
         className="h-full min-h-screen overflow-x-hidden bg-background font-body text-slate-100 antialiased"
       >
+        <GoogleTagManager gtmId={gtmId} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
