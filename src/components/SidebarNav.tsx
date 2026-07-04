@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, Flame, Plus, Trophy, Video, Zap } from 'lucide-react';
+import { CalendarDays, Flame, PanelLeftClose, PanelLeftOpen, Plus, Trophy, Video, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
@@ -20,6 +20,8 @@ interface Streak {
   totalActivities: number;
   isActiveToday: boolean;
 }
+
+const SIDEBAR_COLLAPSED_KEY = 'pip.sidebarCollapsed';
 
 function buildSevenDayMomentum(streak: Streak) {
   return Array.from({ length: 7 }, (_, index) => {
@@ -44,11 +46,24 @@ export function SidebarNav({
   onChallengeClick,
 }: SidebarNavProps) {
   const [streak, setStreak] = useState<Streak | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const navItems = [
     { label: 'Practice', icon: Video, active: true },
     { label: 'Pitch Sprint', icon: CalendarDays, href: '/events/new' },
     { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
   ];
+
+  useEffect(() => {
+    setIsCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true');
+  }, []);
+
+  const toggleCollapsed = () => {
+    setIsCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (isGuest) {
@@ -77,29 +92,46 @@ export function SidebarNav({
   }, [isGuest]);
 
   return (
-    <aside className="fixed bottom-0 left-0 top-0 z-50 flex w-20 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(18,23,34,0.86),rgba(5,7,10,0.96))] shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl lg:w-56">
+    <aside
+      className={`fixed bottom-0 left-0 top-0 z-50 flex w-20 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(18,23,34,0.86),rgba(5,7,10,0.96))] shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl transition-[width] duration-300 ease-out ${
+        isCollapsed ? 'lg:w-20' : 'lg:w-56'
+      }`}
+    >
       {/* Logo */}
-      <Link href="/" className="p-4 lg:px-5 lg:py-6">
-        <div className="flex items-center gap-3">
+      <div className={`flex items-center gap-2 p-4 lg:py-6 ${isCollapsed ? 'lg:px-4' : 'lg:px-5'}`}>
+        <Link href="/" className="min-w-0 flex-1">
+          <div className={`flex items-center gap-3 ${isCollapsed ? 'lg:justify-center' : ''}`}>
           <BrandMark className="h-10 w-10 flex-shrink-0" />
-          <div className="hidden lg:block">
+          <div className={`hidden min-w-0 lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>
             <h1 className="text-lg font-heading font-bold text-white leading-none">
               Pitch in Public
             </h1>
             <p className="text-xs text-slate-400 font-body">For Founders</p>
           </div>
-        </div>
-      </Link>
+          </div>
+        </Link>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className={`btn-glass hidden h-9 w-9 shrink-0 items-center justify-center p-0 text-slate-300 hover:text-white lg:flex ${
+            isCollapsed ? 'absolute -right-4 top-7' : ''
+          }`}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
+      </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-5 lg:px-3">
+      <nav className={`flex-1 px-2 py-5 ${isCollapsed ? 'lg:px-3' : 'lg:px-3'}`}>
         <div className="space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const content = (
               <>
                 <Icon className="h-6 w-6 flex-shrink-0" />
-                <span className={`hidden lg:block ${item.active ? 'font-heading font-bold' : 'font-body font-semibold'}`}>
+                <span className={`hidden lg:block ${isCollapsed ? 'lg:hidden' : ''} ${item.active ? 'font-heading font-bold' : 'font-body font-semibold'}`}>
                   {item.label}
                 </span>
               </>
@@ -110,7 +142,10 @@ export function SidebarNav({
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-slate-400 transition-colors hover:bg-white/[0.07] hover:text-slate-100 lg:px-4"
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-slate-400 transition-colors hover:bg-white/[0.07] hover:text-slate-100 ${
+                    isCollapsed ? 'lg:justify-center lg:px-3' : 'lg:px-4'
+                  }`}
+                  title={isCollapsed ? item.label : undefined}
                 >
                   {content}
                 </Link>
@@ -122,11 +157,14 @@ export function SidebarNav({
                 key={item.label}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 transition-colors lg:px-4 ${
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+                  isCollapsed ? 'lg:justify-center lg:px-3' : 'lg:px-4'
+                } ${
                   item.active
                     ? 'glass-pill border-neon-cyan/35 bg-neon-cyan/10 text-neon-cyan'
                     : 'text-slate-400 hover:bg-white/[0.07] hover:text-slate-100'
                 }`}
+                title={isCollapsed ? item.label : undefined}
               >
                 {content}
               </motion.button>
@@ -139,13 +177,16 @@ export function SidebarNav({
           onClick={onPostClick}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="cta-primary mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 font-heading font-bold"
+          className={`cta-primary mt-6 flex w-full items-center justify-center gap-2 px-4 py-3.5 font-heading font-bold ${
+            isCollapsed ? 'lg:px-3' : ''
+          }`}
+          title={isCollapsed ? 'Record Pitch' : undefined}
         >
           <Plus className="w-5 h-5" />
-          <span className="hidden lg:block">Record Pitch</span>
+          <span className={`hidden lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>Record Pitch</span>
         </motion.button>
 
-        {!isGuest && streak && (
+        {!isGuest && streak && !isCollapsed && (
           <div className="glass-card mt-6 hidden rounded-2xl p-3 lg:block">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -204,14 +245,17 @@ export function SidebarNav({
               onClick={onSignInClick}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="cta-primary mb-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-heading font-bold"
+              className={`cta-primary mb-4 flex w-full items-center justify-center gap-2 px-4 py-3 font-heading font-bold ${
+                isCollapsed ? 'lg:px-3' : ''
+              }`}
+              title={isCollapsed ? guestActionLabel : undefined}
             >
-              <span className="hidden lg:block">{guestActionLabel}</span>
+              <span className={`hidden lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>{guestActionLabel}</span>
               <span className="lg:hidden">{guestActionLabel}</span>
             </motion.button>
 
             {/* Footer Links - Desktop Only */}
-            <div className="hidden lg:block space-y-3 text-xs">
+            <div className={`hidden space-y-3 text-xs lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>
               {/* Company Section */}
               <div>
                 <h4 className="text-slate-500 font-semibold mb-1">Company</h4>
