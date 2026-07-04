@@ -57,6 +57,9 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   };
 
   const isRoast = feedbackType === 'roast';
+  const stopPanelEvent = (event: React.SyntheticEvent) => {
+    event.stopPropagation();
+  };
 
   return (
     <AnimatePresence>
@@ -77,26 +80,35 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 right-0 top-0 z-[70] w-full overflow-y-auto border-l border-white/10 bg-slate-950/96 shadow-2xl shadow-black/40 backdrop-blur-2xl sm:w-[420px]"
+            onPointerDown={stopPanelEvent}
+            onTouchMove={stopPanelEvent}
+            onWheel={stopPanelEvent}
+            className="fixed inset-y-0 right-0 z-[70] flex w-full flex-col border-l border-white/10 bg-slate-950/96 shadow-2xl shadow-black/40 backdrop-blur-2xl sm:w-[420px]"
+            style={{ touchAction: 'pan-y' }}
           >
-            <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6">
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">
-                    Builder feedback
-                  </p>
-                  <h2 className="mt-1 text-xl font-heading font-bold text-white">
-                    Help sharpen this pitch
-                  </h2>
-                </div>
-                <button
-                  onClick={onClose}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] transition-colors hover:bg-white/[0.12]"
-                >
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">
+                  Builder feedback
+                </p>
+                <h2 className="mt-1 text-xl font-heading font-bold text-white">
+                  Help sharpen this pitch
+                </h2>
               </div>
+              <button
+                onClick={onClose}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] transition-colors hover:bg-white/[0.12]"
+                aria-label="Close feedback panel"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div
+              className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
 
               {/* Roast/Toast Toggle */}
               <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
@@ -218,17 +230,21 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                  onPointerDown={stopPanelEvent}
+                  onTouchStart={stopPanelEvent}
+                  onWheel={stopPanelEvent}
                   placeholder={
                     isRoast
                       ? 'What is unclear, weak, or missing? Be specific and constructive.'
                       : 'What is working, memorable, or worth doubling down on?'
                   }
                   rows={4}
-                  className="resize-none"
+                  className="min-h-[120px] resize-y text-base"
                 />
               </div>
+            </div>
 
-              {/* Submit Button */}
+            <div className="border-t border-white/10 bg-slate-950/95 px-4 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.75)] sm:px-6">
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
@@ -241,7 +257,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 {isSubmitting ? 'Saving feedback...' : isRoast ? 'Submit constructive roast' : 'Submit useful toast'}
               </Button>
               {submitError && (
-                <p className="text-center text-sm font-semibold text-roast">
+                <p className="mt-3 text-center text-sm font-semibold text-roast">
                   {submitError}
                 </p>
               )}

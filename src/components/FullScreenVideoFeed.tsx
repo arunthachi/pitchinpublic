@@ -264,6 +264,7 @@ export function FullScreenVideoFeed({
   }, []);
 
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (feedbackPanelOpen) return;
     if (Math.abs(event.deltaY) < 24 || wheelLockRef.current) return;
 
     wheelLockRef.current = true;
@@ -276,11 +277,16 @@ export function FullScreenVideoFeed({
     window.setTimeout(() => {
       wheelLockRef.current = false;
     }, 650);
-  }, [goToNext, goToPrev]);
+  }, [feedbackPanelOpen, goToNext, goToPrev]);
 
   // Gesture handling
   const bind = useGesture({
     onDrag: ({ movement: [, my], direction: [, dy], velocity: [, vy], cancel }) => {
+      if (feedbackPanelOpen) {
+        cancel();
+        return;
+      }
+
       // Swipe up = next video
       if (my < -50 && vy > 0.5 && hasNext) {
         cancel();
@@ -297,12 +303,22 @@ export function FullScreenVideoFeed({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (feedbackPanelOpen) return;
+      const activeElement = document.activeElement;
+      if (
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
       if (e.key === 'ArrowDown') goToNext();
       if (e.key === 'ArrowUp') goToPrev();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToNext, goToPrev]);
+  }, [feedbackPanelOpen, goToNext, goToPrev]);
 
   const handleRoast = async () => {
     if (!currentPitch) return;
@@ -624,7 +640,7 @@ export function FullScreenVideoFeed({
     <div
       className="relative h-full w-full touch-none overflow-hidden bg-black"
       onWheel={handleWheel}
-      {...bind()}
+      {...(feedbackPanelOpen ? {} : bind())}
     >
       <AnimatePresence initial={false} custom={direction}>
         <motion.div
