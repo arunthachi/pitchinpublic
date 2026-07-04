@@ -354,9 +354,9 @@ function HomeContent() {
       {/* Main Content Area - Video Feed */}
       <main className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black lg:left-56">
         {/* Desktop: Centered with reactions on side */}
-        <div className="hidden h-full w-full items-center justify-center gap-6 px-8 py-6 lg:flex">
-          {/* Video Feed Container - desktop app surface sized by viewport, not fixed pixels. */}
-          <div className="relative h-[84dvh] max-h-[calc(100dvh-3rem)] min-h-[520px] aspect-[9/16] overflow-hidden rounded-[1.35rem] bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)]">
+        <div className="hidden h-full w-full items-start justify-center gap-4 px-6 pb-3 pt-6 lg:flex xl:gap-5">
+          {/* Video Feed Container - TikTok-style responsive 9:16 frame, top-aligned for desktop. */}
+          <div className="relative aspect-[9/16] h-[calc(100dvh-5.25rem)] max-h-[calc(100dvh-5.25rem)] min-h-[560px] overflow-hidden rounded-[1.25rem] bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)]">
             <FullScreenVideoFeed
               pitches={legacyPitches}
               hideReactions={true}
@@ -366,7 +366,7 @@ function HomeContent() {
 
           {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
-            <div className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-4 shadow-2xl shadow-black/30 backdrop-blur-2xl">
+            <div className="mt-[min(28dvh,280px)] rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-4 shadow-2xl shadow-black/30 backdrop-blur-2xl">
               <FloatingReactions
                 pitch={currentPitch}
                 onRoast={isGuest ? promptForRestrictedAction : handlers.onRoast}
@@ -385,7 +385,7 @@ function HomeContent() {
 
           {/* Gamification Stats - Desktop Only */}
           {!isGuest && (
-            <div className="hidden w-80 max-h-[calc(100vh-3rem)] flex-col gap-4 overflow-y-auto pr-2 lg:flex">
+            <div className="hidden w-72 max-h-[calc(100vh-5.25rem)] flex-col gap-4 overflow-y-auto pr-2 pt-[min(36dvh,360px)] xl:w-80 lg:flex">
               <GamificationStats onOpenChallenge={() => setShowDailyChallenge(true)} />
             </div>
           )}

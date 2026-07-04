@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart3, MessageCircle, Trophy, User } from 'lucide-react';
+import { Video, User } from 'lucide-react';
 import { useState } from 'react';
 
 interface BottomNavBarProps {
@@ -20,30 +20,12 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, isGuest = 
           onClick={() => setActiveTab('home')}
           className="flex flex-col items-center gap-1 px-4 py-1"
         >
-          <BarChart3
+          <Video
             size={28}
             className={activeTab === 'home' ? 'text-white' : 'text-gray-400'}
           />
           <span className={`text-xs ${activeTab === 'home' ? 'text-white' : 'text-gray-400'}`}>
             Practice
-          </span>
-        </button>
-
-        {/* Network */}
-        <button
-          onClick={() => setActiveTab('network')}
-          className="flex flex-col items-center gap-1 px-4 py-1 relative"
-        >
-          <Trophy
-            size={28}
-            className={activeTab === 'network' ? 'text-white' : 'text-gray-400'}
-          />
-          {/* Notification badge */}
-          <div className="absolute top-0 right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-            7
-          </div>
-          <span className={`text-xs ${activeTab === 'network' ? 'text-white' : 'text-gray-400'}`}>
-            Streaks
           </span>
         </button>
 
@@ -59,21 +41,6 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, isGuest = 
               </svg>
             </div>
           </div>
-        </button>
-
-        {/* Inbox */}
-        <button
-          onClick={() => setActiveTab('inbox')}
-          className="flex flex-col items-center gap-1 px-4 py-1"
-        >
-          <MessageCircle
-            size={28}
-            className={activeTab === 'inbox' ? 'text-white' : 'text-gray-400'}
-            fill={activeTab === 'inbox' ? 'white' : 'none'}
-          />
-          <span className={`text-xs ${activeTab === 'inbox' ? 'text-white' : 'text-gray-400'}`}>
-            Feedback
-          </span>
         </button>
 
         {/* Profile */}

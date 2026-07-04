@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, MessageSquareText, Settings, Plus, Search, Trophy, Video, Users } from 'lucide-react';
+import { Plus, Trophy, Video } from 'lucide-react';
 import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
@@ -21,10 +21,7 @@ export function SidebarNav({
 }: SidebarNavProps) {
   const navItems = [
     { label: 'Practice', icon: Video, active: true },
-    { label: 'Feedback', icon: MessageSquareText },
-    { label: 'Rooms', icon: Users },
-    { label: 'Leaderboard', icon: Trophy },
-    { label: 'My Pitches', icon: BarChart3 },
+    { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
   ];
 
   return (
@@ -42,31 +39,35 @@ export function SidebarNav({
         </div>
       </Link>
 
-      {/* Search Box */}
-      <div className="px-2 pb-4 lg:px-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Find pitches"
-            className="hidden w-full rounded-full border border-white/10 bg-white/[0.06] py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 transition-colors focus:border-neon-cyan/45 focus:bg-white/[0.08] focus:outline-none lg:block"
-          />
-          {/* Icon-only search button for mobile */}
-          <button className="lg:hidden w-10 h-10 rounded-full bg-slate-800/50 border border-slate-700 flex items-center justify-center hover:bg-slate-800 transition-colors">
-            <Search className="w-5 h-5 text-slate-400" />
-          </button>
-        </div>
-      </div>
-
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-4 lg:px-3">
+      <nav className="flex-1 px-2 py-5 lg:px-3">
         <div className="space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const content = (
+              <>
+                <Icon className="h-6 w-6 flex-shrink-0" />
+                <span className={`hidden lg:block ${item.active ? 'font-heading font-bold' : 'font-body font-semibold'}`}>
+                  {item.label}
+                </span>
+              </>
+            );
+
+            if (item.href) {
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-slate-100 lg:px-4"
+                >
+                  {content}
+                </Link>
+              );
+            }
+
             return (
               <motion.button
                 key={item.label}
-                onClick={!item.active && isGuest && onSignInClick ? onSignInClick : undefined}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 transition-colors lg:px-4 ${
@@ -75,10 +76,7 @@ export function SidebarNav({
                     : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
                 }`}
               >
-                <Icon className="h-6 w-6 flex-shrink-0" />
-                <span className={`hidden lg:block ${item.active ? 'font-heading font-bold' : 'font-body'}`}>
-                  {item.label}
-                </span>
+                {content}
               </motion.button>
             );
           })}
@@ -96,7 +94,7 @@ export function SidebarNav({
         </motion.button>
       </nav>
 
-      {/* Bottom section - Log in for guests, Settings for authenticated */}
+      {/* Bottom section - waitlist access for guests. Settings stays hidden until it is functional. */}
       <div className="border-t border-white/10 p-2 lg:p-4">
         {isGuest ? (
           <>
@@ -138,16 +136,7 @@ export function SidebarNav({
               </div>
             </div>
           </>
-        ) : (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full flex items-center gap-3 px-3 lg:px-4 py-3 rounded-lg hover:bg-slate-900/50 text-slate-400 hover:text-slate-200 transition-colors"
-          >
-            <Settings className="w-6 h-6 flex-shrink-0" />
-            <span className="hidden lg:block font-body">Settings</span>
-          </motion.button>
-        )}
+        ) : null}
       </div>
     </aside>
   );
