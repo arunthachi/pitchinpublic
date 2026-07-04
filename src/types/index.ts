@@ -95,6 +95,7 @@ export interface Feedback {
   content: string;
   is_public: boolean;
   signal?: string;
+  signals?: string[];
   readiness?: number;
   scores?: {
     clarity: number;
@@ -117,6 +118,7 @@ export interface LegacyFeedback {
   authorRole: string;
   type: FeedbackType;
   signal?: string;
+  signals?: string[];
   readiness?: number;
   scores: {
     clarity: number;
@@ -171,6 +173,7 @@ export interface UserStreak {
 export interface FeedbackFormData {
   type: FeedbackType;
   signal: string;
+  signals: string[];
   readiness: number;
   scores: {
     clarity: number;

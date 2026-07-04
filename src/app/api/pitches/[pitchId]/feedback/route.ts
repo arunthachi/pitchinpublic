@@ -13,6 +13,7 @@ import { z } from 'zod';
  * {
  *   "type": "roast" | "toast",
  *   "signal": "string",
+ *   "signals": ["string"],
  *   "readiness": number (1-4),
  *   "notes": "string (optional)"
  * }
@@ -31,7 +32,8 @@ import { z } from 'zod';
 
 const feedbackSchema = z.object({
   type: z.enum(['roast', 'toast']),
-  signal: z.string().min(2).max(80),
+  signal: z.string().min(2).max(80).optional(),
+  signals: z.array(z.string().min(2).max(80)).min(1).max(3).optional(),
   readiness: z.number().int().min(1).max(4),
   scores: z.object({
     clarity: z.number().min(1).max(10),
@@ -40,7 +42,20 @@ const feedbackSchema = z.object({
     presentation: z.number().min(1).max(10),
   }).optional(),
   notes: z.string().max(2000).optional(),
+}).superRefine((value, ctx) => {
+  if (!value.signal && !value.signals?.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['signals'],
+      message: 'Select at least one feedback signal.',
+    });
+  }
 });
+
+function normalizedSignals(feedback: z.infer<typeof feedbackSchema>) {
+  const rawSignals = feedback.signals?.length ? feedback.signals : [feedback.signal || 'Clear'];
+  return [...new Set(rawSignals.map((item) => item.trim()).filter(Boolean))].slice(0, 3);
+}
 
 function serializeFeedbackContent(feedback: z.infer<typeof feedbackSchema>) {
   const score = feedback.readiness * 2.5;
@@ -51,9 +66,12 @@ function serializeFeedbackContent(feedback: z.infer<typeof feedbackSchema>) {
     presentation: score,
   };
 
+  const signals = normalizedSignals(feedback);
+
   return JSON.stringify({
     notes: feedback.notes?.trim() || '',
-    signal: feedback.signal,
+    signal: signals[0],
+    signals,
     readiness: feedback.readiness,
     scores,
   });
@@ -172,6 +190,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     }
 
     const feedbackData = validation.data;
+    const signals = normalizedSignals(feedbackData);
 
     // Insert feedback
     const { data: feedback, error: insertError } = await supabase
@@ -208,7 +227,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
         feedback: {
           id: feedback.id,
           type: feedback.type,
-          signal: feedbackData.signal,
+          signal: signals[0],
+          signals,
           readiness: feedbackData.readiness,
           notes: feedbackData.notes?.trim() || '',
           scores: scoresFromFeedback(feedbackData),

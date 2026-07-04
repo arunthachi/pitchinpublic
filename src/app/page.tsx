@@ -159,6 +159,7 @@ function HomeContent() {
             authorRole: 'Founder',
             type: item.type,
             signal: parsedContent.signal,
+            signals: parsedContent.signals || (parsedContent.signal ? [parsedContent.signal] : undefined),
             readiness: parsedContent.readiness,
             scores: parsedContent.scores || {
               clarity: 5,

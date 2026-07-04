@@ -70,11 +70,17 @@ function readinessLabel(value: number) {
 function getMostCommonSignal(feedback: LegacyFeedback[]) {
   const counts = new Map<string, number>();
   feedback.forEach((item) => {
-    if (!item.signal) return;
-    counts.set(item.signal, (counts.get(item.signal) || 0) + 1);
+    const signals = item.signals?.length ? item.signals : item.signal ? [item.signal] : [];
+    signals.forEach((signal) => {
+      counts.set(signal, (counts.get(signal) || 0) + 1);
+    });
   });
 
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+}
+
+function getSignals(feedback: LegacyFeedback) {
+  return feedback.signals?.length ? feedback.signals : feedback.signal ? [feedback.signal] : [feedback.type];
 }
 
 export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }: FeedbackThreadPanelProps) {
@@ -203,8 +209,15 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                           </div>
                         </div>
 
-                        <div className="mt-4 inline-flex rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold uppercase tracking-[0.08em] text-slate-200">
-                          {item.signal || item.type}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {getSignals(item).map((signal) => (
+                            <span
+                              key={signal}
+                              className="inline-flex rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold uppercase tracking-[0.08em] text-slate-200"
+                            >
+                              {signal}
+                            </span>
+                          ))}
                         </div>
 
                         {item.notes ? (

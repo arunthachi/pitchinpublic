@@ -46,6 +46,7 @@ function parseFeedback(rawFeedback: any[] | undefined) {
       authorRole: 'Founder',
       type: item.type,
       signal: parsedContent.signal,
+      signals: parsedContent.signals || (parsedContent.signal ? [parsedContent.signal] : undefined),
       readiness: parsedContent.readiness,
       scores: parsedContent.scores || {
         clarity: 5,
@@ -286,7 +287,7 @@ export default function UserProfilePage() {
                 <div className="mb-3 flex items-center justify-between">
                   <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase ${item.type === 'roast' ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
                     {item.type === 'roast' ? <Flame className="h-3.5 w-3.5" /> : <Wine className="h-3.5 w-3.5" />}
-                    {item.signal || item.type}
+                    {(item.signals?.length ? item.signals.join(' + ') : item.signal) || item.type}
                   </span>
                   <span className="text-xs font-semibold text-slate-500">{readinessLabel(item.readiness || 2)}</span>
                 </div>

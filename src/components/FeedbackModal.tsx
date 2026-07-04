@@ -39,6 +39,7 @@ export function FeedbackModal({ pitchId, onSubmit }: FeedbackModalProps) {
     onSubmit({
       type: feedbackType,
       signal: feedbackType === 'toast' ? 'Clear' : 'Unclear audience',
+      signals: [feedbackType === 'toast' ? 'Clear' : 'Unclear audience'],
       readiness: 2,
       scores,
       notes: trimmedNotes,

@@ -17,6 +17,7 @@ interface QuickFeedbackPanelProps {
 
 const toastSignals = ['Clear', 'Compelling', 'Strong problem', 'Strong ask'];
 const roastSignals = ['Unclear audience', 'Weak pain', 'Too much jargon', 'Missing ask', 'Not urgent'];
+const maxSignals = 3;
 const readinessLevels = [
   { value: 1, label: 'Needs work', helper: 'Core message is not landing yet.' },
   { value: 2, label: 'Getting there', helper: 'Direction is visible, but the pitch needs focus.' },
@@ -79,7 +80,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   const [portalNode, setPortalNode] = React.useState<HTMLElement | null>(null);
   const sheetStyle = usePhoneFrameSheetStyle(isOpen);
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>(initialType);
-  const [signal, setSignal] = useState(toastSignals[0]);
+  const [signals, setSignals] = useState<string[]>([toastSignals[0]]);
   const [readiness, setReadiness] = useState(2);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,19 +90,21 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   React.useEffect(() => {
     if (isOpen) {
       setFeedbackType(initialType);
-      setSignal(initialType === 'roast' ? roastSignals[0] : toastSignals[0]);
+      setSignals([initialType === 'roast' ? roastSignals[0] : toastSignals[0]]);
     }
   }, [initialType, isOpen]);
 
   const handleSubmit = async () => {
     const trimmedNotes = notes.trim();
+    const selectedSignals = signals.length ? signals : [activeSignals[0]];
     setIsSubmitting(true);
     setSubmitError('');
 
     try {
       const result = await onSubmit({
         type: feedbackType,
-        signal,
+        signal: selectedSignals[0],
+        signals: selectedSignals,
         readiness,
         scores: readinessToScores(readiness),
         notes: trimmedNotes,
@@ -114,6 +117,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
       onClose();
       setReadiness(2);
       setNotes('');
+      setSignals([activeSignals[0]]);
     } catch {
       setSubmitError('Could not save feedback. Please try again.');
     } finally {
@@ -123,6 +127,15 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
 
   const isRoast = feedbackType === 'roast';
   const activeSignals = isRoast ? roastSignals : toastSignals;
+  const toggleSignal = (option: string) => {
+    setSignals((current) => {
+      if (current.includes(option)) {
+        return current.length === 1 ? current : current.filter((item) => item !== option);
+      }
+
+      return current.length >= maxSignals ? [...current.slice(1), option] : [...current, option];
+    });
+  };
   const stopPanelEvent = (event: React.SyntheticEvent) => {
     event.stopPropagation();
   };
@@ -185,7 +198,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 <button
                   onClick={() => {
                     setFeedbackType('roast');
-                    setSignal(roastSignals[0]);
+                    setSignals([roastSignals[0]]);
                   }}
                   className={`rounded-2xl px-4 py-3 text-sm font-heading font-black transition-all ${
                     isRoast
@@ -199,7 +212,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 <button
                   onClick={() => {
                     setFeedbackType('toast');
-                    setSignal(toastSignals[0]);
+                    setSignals([toastSignals[0]]);
                   }}
                   className={`rounded-2xl px-4 py-3 text-sm font-heading font-black transition-all ${
                     !isRoast
@@ -216,17 +229,21 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 <div className="flex items-center gap-2">
                   <Target className={`h-4 w-4 ${isRoast ? 'text-roast' : 'text-toast'}`} />
                   <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Pick the one signal
+                    Pick up to {maxSignals} signals
                   </h3>
+                  <span className="ml-auto text-xs font-bold text-slate-500">
+                    {signals.length}/{maxSignals}
+                  </span>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
                   {activeSignals.map((option) => {
-                    const selected = signal === option;
+                    const selected = signals.includes(option);
                     return (
                       <button
                         key={option}
                         type="button"
-                        onClick={() => setSignal(option)}
+                        onClick={() => toggleSignal(option)}
+                        aria-pressed={selected}
                         className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left font-semibold transition ${
                           selected
                             ? isRoast

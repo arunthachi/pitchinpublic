@@ -65,6 +65,7 @@ export default function PitchDetailPage() {
       authorRole: 'Founder',
       type: feedbackData.type,
       signal: feedbackData.signal,
+      signals: feedbackData.signals,
       readiness: feedbackData.readiness,
       scores: feedbackData.scores,
       notes: feedbackData.notes,
@@ -291,7 +292,7 @@ export default function PitchDetailPage() {
                           <div className="mb-3 flex flex-wrap gap-2">
                             <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-slate-200">
                               <Target className="h-3.5 w-3.5 text-neon-cyan" />
-                              {feedback.signal || (isRoast ? 'Sharpen the ask' : 'Clear signal')}
+                              {(feedback.signals?.length ? feedback.signals.join(' + ') : feedback.signal) || (isRoast ? 'Sharpen the ask' : 'Clear signal')}
                             </span>
                             <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold text-slate-300">
                               {readinessLabel(readiness)}

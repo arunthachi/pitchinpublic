@@ -577,6 +577,7 @@ export function FullScreenVideoFeed({
         body: JSON.stringify({
           type: feedback.type,
           signal: feedback.signal,
+          signals: feedback.signals,
           readiness: feedback.readiness,
           scores: feedback.scores,
           notes: feedback.notes,
@@ -595,6 +596,7 @@ export function FullScreenVideoFeed({
           authorRole: 'Founder',
           type: feedback.type,
           signal: data.feedback?.signal || feedback.signal,
+          signals: data.feedback?.signals || feedback.signals,
           readiness: data.feedback?.readiness || feedback.readiness,
           scores: feedback.scores,
           notes: feedback.notes,
