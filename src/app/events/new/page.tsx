@@ -17,6 +17,14 @@ const focusOptions = [
   'Competition prep',
 ];
 
+function openNativeDatePicker(input: HTMLInputElement) {
+  try {
+    (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+  } catch {
+    input.focus();
+  }
+}
+
 export default function NewEventPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -125,10 +133,23 @@ export default function NewEventPage() {
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Pitch day">
-                <input type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} className="input-dark" required />
+                <input
+                  type="date"
+                  value={form.eventDate}
+                  onClick={(e) => openNativeDatePicker(e.currentTarget)}
+                  onChange={(e) => setForm({ ...form, eventDate: e.target.value })}
+                  className="input-dark cursor-pointer"
+                  required
+                />
               </Field>
               <Field label="Submission deadline">
-                <input type="date" value={form.submissionDeadline} onChange={(e) => setForm({ ...form, submissionDeadline: e.target.value })} className="input-dark" />
+                <input
+                  type="date"
+                  value={form.submissionDeadline}
+                  onClick={(e) => openNativeDatePicker(e.currentTarget)}
+                  onChange={(e) => setForm({ ...form, submissionDeadline: e.target.value })}
+                  className="input-dark cursor-pointer"
+                />
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

@@ -21,6 +21,21 @@ interface Streak {
   isActiveToday: boolean;
 }
 
+function buildSevenDayMomentum(streak: Streak) {
+  return Array.from({ length: 7 }, (_, index) => {
+    const offsetFromToday = 6 - index;
+    const active = streak.isActiveToday
+      ? offsetFromToday < streak.currentStreak
+      : offsetFromToday > 0 && offsetFromToday <= streak.currentStreak;
+
+    return {
+      key: index,
+      active,
+      isToday: offsetFromToday === 0,
+    };
+  });
+}
+
 export function SidebarNav({
   onPostClick,
   isGuest = false,
@@ -145,10 +160,34 @@ export function SidebarNav({
               <span className="text-xs font-semibold text-slate-400">{streak.totalActivities || 0} reps</span>
             </div>
 
+            <div className="mb-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Last 7 days</span>
+                <span className="text-[10px] font-bold text-neon-lime">{streak.currentStreak || 0}d run</span>
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {buildSevenDayMomentum(streak).map((day) => (
+                  <span
+                    key={day.key}
+                    className={`h-5 rounded-md border ${
+                      day.active
+                        ? day.isToday
+                          ? 'border-neon-lime/40 bg-neon-lime shadow-[0_0_16px_rgba(183,255,42,0.22)]'
+                          : 'border-neon-cyan/25 bg-neon-cyan/45'
+                        : day.isToday
+                          ? 'border-white/15 bg-white/[0.08]'
+                          : 'border-white/[0.04] bg-white/[0.045]'
+                    }`}
+                    title={day.isToday ? 'Today' : 'Recent pitch momentum'}
+                  />
+                ))}
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={onChallengeClick}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-neon-cyan/35 bg-gradient-to-r from-neon-cyan/15 to-neon-lime/10 px-3 py-2.5 text-sm font-bold text-white transition hover:border-neon-cyan/70"
+              className="btn-glass flex w-full items-center justify-center gap-2 border-neon-cyan/35 bg-gradient-to-r from-neon-cyan/15 to-neon-lime/10 px-3 py-2.5 text-sm font-bold text-white hover:border-neon-cyan/70"
             >
               <Zap className="h-4 w-4 text-neon-lime" />
               {streak.isActiveToday ? 'Open pitch goal' : 'Plan next pitch'}

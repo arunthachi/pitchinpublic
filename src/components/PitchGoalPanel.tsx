@@ -68,6 +68,14 @@ function daysUntil(dateValue: string) {
   return Math.max(0, Math.ceil((target.getTime() - today.getTime()) / 86400000));
 }
 
+function openNativeDatePicker(input: HTMLInputElement) {
+  try {
+    (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+  } catch {
+    input.focus();
+  }
+}
+
 function getPhase(daysLeft: number) {
   if (daysLeft > 60) return 'Foundation';
   if (daysLeft > 30) return 'Sharpen';
@@ -266,8 +274,9 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
                       <input
                         type="date"
                         value={form.pitchDate}
+                        onClick={(event) => openNativeDatePicker(event.currentTarget)}
                         onChange={(event) => setForm((current) => ({ ...current, pitchDate: event.target.value }))}
-                        className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-base font-semibold text-white outline-none transition focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20"
+                        className="mt-2 w-full cursor-pointer rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-base font-semibold text-white outline-none transition focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20"
                       />
                     </label>
 

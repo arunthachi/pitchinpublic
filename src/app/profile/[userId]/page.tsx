@@ -31,6 +31,15 @@ interface FinalTake {
   status: string;
 }
 
+interface PitchMomentumDay {
+  date: Date;
+  key: string;
+  level: number;
+  pitchCount: number;
+  feedbackCount: number;
+  finalCount: number;
+}
+
 function parseFeedback(rawFeedback: any[] | undefined) {
   return (rawFeedback || []).map((item) => {
     let parsedContent: any = {};
@@ -86,6 +95,88 @@ function convertApiPitchToLegacy(pitch: any): LegacyPitch {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(value));
+}
+
+function toDateKey(value: Date | string) {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return date.toISOString().slice(0, 10);
+}
+
+function startOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function addDays(value: Date, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function buildPitchMomentumDays(pitches: LegacyPitch[], finalPitchIds: Set<string>) {
+  const today = startOfDay(new Date());
+  const start = addDays(today, -111);
+  const activityByDate = new Map<string, { pitchCount: number; feedbackCount: number; finalCount: number }>();
+
+  pitches.forEach((pitch) => {
+    const pitchKey = toDateKey(pitch.createdAt);
+    const current = activityByDate.get(pitchKey) || { pitchCount: 0, feedbackCount: 0, finalCount: 0 };
+    current.pitchCount += 1;
+    if (finalPitchIds.has(pitch.id)) current.finalCount += 1;
+    activityByDate.set(pitchKey, current);
+
+    (pitch.feedback || []).forEach((feedback) => {
+      if (!feedback.createdAt) return;
+      const feedbackKey = toDateKey(feedback.createdAt);
+      const feedbackDay = activityByDate.get(feedbackKey) || { pitchCount: 0, feedbackCount: 0, finalCount: 0 };
+      feedbackDay.feedbackCount += 1;
+      activityByDate.set(feedbackKey, feedbackDay);
+    });
+  });
+
+  return Array.from({ length: 112 }, (_, index) => {
+    const date = addDays(start, index);
+    const key = toDateKey(date);
+    const activity = activityByDate.get(key) || { pitchCount: 0, feedbackCount: 0, finalCount: 0 };
+    const score = activity.pitchCount * 2 + activity.feedbackCount + activity.finalCount * 2;
+
+    return {
+      date,
+      key,
+      level: Math.min(4, score),
+      ...activity,
+    };
+  });
+}
+
+function getStreakStats(days: PitchMomentumDay[]) {
+  const activeKeys = new Set(days.filter((day) => day.level > 0).map((day) => day.key));
+  const today = startOfDay(new Date());
+  let current = 0;
+  let cursor = today;
+
+  while (activeKeys.has(toDateKey(cursor))) {
+    current += 1;
+    cursor = addDays(cursor, -1);
+  }
+
+  let longest = 0;
+  let run = 0;
+  days.forEach((day) => {
+    if (day.level > 0) {
+      run += 1;
+      longest = Math.max(longest, run);
+    } else {
+      run = 0;
+    }
+  });
+
+  return {
+    activeDays: activeKeys.size,
+    current,
+    longest,
+  };
 }
 
 function readinessLabel(value: number) {
@@ -145,6 +236,8 @@ export default function UserProfilePage() {
 
   const finalPitchIds = useMemo(() => new Set(finalTakes.map((take) => take.pitch_id)), [finalTakes]);
   const allFeedback = pitches.flatMap((pitch) => pitch.feedback || []);
+  const momentumDays = useMemo(() => buildPitchMomentumDays(pitches, finalPitchIds), [pitches, finalPitchIds]);
+  const momentumStats = useMemo(() => getStreakStats(momentumDays), [momentumDays]);
   const avgReadiness = allFeedback.length
     ? Math.round((allFeedback.reduce((sum, item) => sum + (item.readiness || 2), 0) / allFeedback.length) * 10) / 10
     : 0;
@@ -255,6 +348,15 @@ export default function UserProfilePage() {
           </div>
         </section>
 
+        <PitchMomentumHeatmap
+          days={momentumDays}
+          totalPitches={pitches.length}
+          totalFeedback={allFeedback.length}
+          activeDays={momentumStats.activeDays}
+          currentStreak={momentumStats.current}
+          longestStreak={momentumStats.longest}
+        />
+
         <nav className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035] p-1 backdrop-blur-xl">
           {[
             { id: 'pitches' as const, label: 'Pitches', icon: Grid3X3 },
@@ -364,6 +466,105 @@ export default function UserProfilePage() {
         )}
       </main>
     </div>
+  );
+}
+
+function PitchMomentumHeatmap({
+  days,
+  totalPitches,
+  totalFeedback,
+  activeDays,
+  currentStreak,
+  longestStreak,
+}: {
+  days: PitchMomentumDay[];
+  totalPitches: number;
+  totalFeedback: number;
+  activeDays: number;
+  currentStreak: number;
+  longestStreak: number;
+}) {
+  const monthMarkers = days.reduce<Array<{ label: string; index: number }>>((markers, day, index) => {
+    if (day.date.getDate() <= 7) {
+      const label = new Intl.DateTimeFormat('en', { month: 'short' }).format(day.date);
+      if (markers[markers.length - 1]?.label !== label) markers.push({ label, index });
+    }
+    return markers;
+  }, []);
+
+  const levelClass = [
+    'bg-white/[0.055] border-white/[0.04]',
+    'bg-neon-cyan/18 border-neon-cyan/10',
+    'bg-neon-cyan/34 border-neon-cyan/20',
+    'bg-toast/48 border-toast/25',
+    'bg-neon-lime/85 border-neon-lime/35 shadow-[0_0_18px_rgba(183,255,42,0.22)]',
+  ];
+
+  return (
+    <section className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
+      <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-neon-cyan">Pitch Momentum</p>
+          <h2 className="mt-2 font-heading text-2xl font-black text-white">Practice reps over the last 16 weeks</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+            Brighter days mean more pitch reps, received feedback, or a final take submitted.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 overflow-hidden rounded-3xl border border-white/10 bg-black/20 text-center sm:min-w-[420px]">
+          {[
+            { label: 'Active days', value: activeDays },
+            { label: 'Current run', value: `${currentStreak}d` },
+            { label: 'Best run', value: `${longestStreak}d` },
+          ].map((stat) => (
+            <div key={stat.label} className="border-r border-white/10 px-4 py-3 last:border-r-0">
+              <p className="font-heading text-xl font-black text-white">{stat.value}</p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 overflow-x-auto pb-1">
+        <div className="min-w-[780px]">
+          <div className="relative mb-3 h-5">
+            {monthMarkers.map((marker) => (
+              <span
+                key={`${marker.label}-${marker.index}`}
+                className="absolute text-xs font-semibold text-slate-500"
+                style={{ left: `${(marker.index / Math.max(1, days.length - 1)) * 100}%` }}
+              >
+                {marker.label}
+              </span>
+            ))}
+          </div>
+          <div
+            className="grid grid-flow-col grid-rows-7 gap-1.5"
+            style={{ gridTemplateColumns: `repeat(${Math.ceil(days.length / 7)}, minmax(0, 1fr))` }}
+          >
+            {days.map((day) => (
+              <div
+                key={day.key}
+                title={`${formatDate(day.key)}: ${day.pitchCount} pitch reps, ${day.feedbackCount} feedback notes, ${day.finalCount} final takes`}
+                className={`h-4 w-4 rounded-[5px] border transition hover:scale-125 ${levelClass[day.level]}`}
+              />
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+            <div className="flex items-center gap-3">
+              <span>{totalPitches} pitch reps</span>
+              <span>{totalFeedback} feedback notes</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>Less</span>
+              {[0, 1, 2, 3, 4].map((level) => (
+                <span key={level} className={`h-3 w-3 rounded-[4px] border ${levelClass[level]}`} />
+              ))}
+              <span>More</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
