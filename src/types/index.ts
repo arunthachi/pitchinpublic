@@ -145,6 +145,8 @@ export interface LegacyPitch {
   versions?: PitchVersion[];
   feedback?: LegacyFeedback[];
   duration?: number;
+  isBookmarked?: boolean;
+  bookmarkCount?: number;
 }
 
 export interface QuickReaction {

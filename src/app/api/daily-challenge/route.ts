@@ -3,6 +3,44 @@ import { createServerClient } from '@supabase/ssr';
 
 export const dynamic = 'force-dynamic';
 
+const defaultChallenges = [
+  {
+    category: 'Product',
+    prompt: 'Describe your product in one sentence that makes someone want to try it.',
+    difficulty: 'easy',
+  },
+  {
+    category: 'Market',
+    prompt: 'Who is your clearest customer, and what painful problem do they already know they have?',
+    difficulty: 'medium',
+  },
+  {
+    category: 'Traction',
+    prompt: 'What proof do you have that people want this now?',
+    difficulty: 'medium',
+  },
+  {
+    category: 'Ask',
+    prompt: 'End your pitch with one specific ask: feedback, intros, pilots, or customers.',
+    difficulty: 'easy',
+  },
+] as const;
+
+function getFallbackChallenge(today: string) {
+  const daySeed = today.split('-').reduce((sum, part) => sum + Number(part), 0);
+  const challenge = defaultChallenges[daySeed % defaultChallenges.length];
+
+  return {
+    id: `daily-${today}`,
+    date: today,
+    category: challenge.category,
+    prompt: challenge.prompt,
+    difficulty: challenge.difficulty,
+    hasResponded: false,
+    responseCount: 0,
+  };
+}
+
 /**
  * GET /api/daily-challenge/today
  * Get today's daily challenge
@@ -40,7 +78,8 @@ export async function GET(request: NextRequest) {
     // Get today's date
     const today = new Date().toISOString().split('T')[0];
 
-    // Get today's challenge
+    // Get today's challenge. Older MVP databases may not have a `date` column yet,
+    // so this endpoint must gracefully fall back instead of breaking the challenge CTA.
     const { data: challenge, error: challengeError } = await supabase
       .from('daily_challenges')
       .select('*')
@@ -48,49 +87,36 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (challengeError && challengeError.code !== 'PGRST116') {
-      throw challengeError;
+      console.warn('Daily challenge date lookup failed, using fallback challenge:', challengeError.message);
+      return NextResponse.json({
+        success: true,
+        challenge: getFallbackChallenge(today),
+      });
     }
 
     // If no challenge exists for today, create a default one
     if (!challenge) {
-      const defaultChallenges = [
-        {
-          category: 'Product',
-          prompt: 'Describe your product in one sentence that makes someone want to try it.',
-          difficulty: 'easy',
-        },
-        {
-          category: 'Market',
-          prompt: 'Who is your biggest competitor and why are you different?',
-          difficulty: 'medium',
-        },
-        {
-          category: 'Traction',
-          prompt: 'What is your most impressive traction metric?',
-          difficulty: 'medium',
-        },
-        {
-          category: 'Vision',
-          prompt: 'Where do you see your company in 5 years?',
-          difficulty: 'hard',
-        },
-      ];
-
       // Pick a random challenge for today
-      const randomChallenge = defaultChallenges[Math.floor(Math.random() * defaultChallenges.length)];
+      const fallbackChallenge = getFallbackChallenge(today);
 
       const { data: newChallenge, error: createError } = await supabase
         .from('daily_challenges')
         .insert({
           date: today,
-          category: randomChallenge.category,
-          prompt: randomChallenge.prompt,
-          difficulty: randomChallenge.difficulty,
+          category: fallbackChallenge.category,
+          prompt: fallbackChallenge.prompt,
+          difficulty: fallbackChallenge.difficulty,
         })
         .select()
         .single();
 
-      if (createError) throw createError;
+      if (createError) {
+        console.warn('Daily challenge create failed, using fallback challenge:', createError.message);
+        return NextResponse.json({
+          success: true,
+          challenge: fallbackChallenge,
+        });
+      }
 
       return NextResponse.json({
         success: true,

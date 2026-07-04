@@ -27,6 +27,7 @@ export function DailyChallengeBanner({ isOpen, onClose }: DailyChallengeBannerPr
   const [responding, setResponding] = useState(false);
   const [response, setResponse] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
   // Fetch daily challenge
   useEffect(() => {
@@ -46,6 +47,7 @@ export function DailyChallengeBanner({ isOpen, onClose }: DailyChallengeBannerPr
     };
 
     if (isOpen) {
+      setError('');
       fetchChallenge();
     }
   }, [isOpen]);
@@ -54,6 +56,7 @@ export function DailyChallengeBanner({ isOpen, onClose }: DailyChallengeBannerPr
     if (!challenge || !response.trim()) return;
 
     setResponding(true);
+    setError('');
     try {
       const res = await fetch('/api/daily-challenge/respond', {
         method: 'POST',
@@ -64,15 +67,19 @@ export function DailyChallengeBanner({ isOpen, onClose }: DailyChallengeBannerPr
         }),
       });
 
+      const data = await res.json();
       if (res.ok) {
         setSubmitted(true);
         setResponse('');
         setTimeout(() => {
           onClose();
         }, 1500);
+      } else {
+        setError(data.error || 'Could not complete the challenge. Please try again.');
       }
     } catch (error) {
       console.error('Error submitting challenge response:', error);
+      setError('Could not complete the challenge. Please check your connection and try again.');
     } finally {
       setResponding(false);
     }
@@ -165,6 +172,11 @@ export function DailyChallengeBanner({ isOpen, onClose }: DailyChallengeBannerPr
                           {response.length}/2000
                         </span>
                       </div>
+                      {error && (
+                        <p className="mt-3 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                          {error}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex gap-3 pt-2">

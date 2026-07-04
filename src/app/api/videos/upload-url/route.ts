@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getVideoProvider } from '@/lib/video-providers';
+import { videoUploadSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 
 /**
@@ -83,7 +84,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const maxDurationSeconds = body.maxDurationSeconds || 60; // Default 60s for pitches
+    const validation = videoUploadSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Upload settings are invalid.',
+        },
+        {
+          status: 400,
+          headers: formatRateLimitHeaders(result),
+        }
+      );
+    }
+    const maxDurationSeconds = Math.min(validation.data.maxDurationSeconds, 60);
 
     const provider = getVideoProvider();
     const uploadUrlResult = await provider.getDirectUploadUrl({ maxDurationSeconds });

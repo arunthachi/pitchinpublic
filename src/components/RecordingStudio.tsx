@@ -18,6 +18,8 @@ type UploadPhase = 'idle' | 'uploading' | 'processing' | 'ready';
 const MAX_VIDEO_FILE_SIZE_BYTES = 200 * 1024 * 1024;
 const MIN_RECORDING_SECONDS = 30;
 const MAX_RECORDING_SECONDS = 60;
+const MIN_VERTICAL_ASPECT_RATIO = 0.45; // 9:20 tolerance
+const MAX_VERTICAL_ASPECT_RATIO = 0.82; // 4:5 tolerance
 const RECORDING_MIME_TYPES = [
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8,opus',
@@ -29,6 +31,8 @@ interface UploadedVideoMetadata {
   playbackUrl: string;
   thumbnailUrl?: string;
   duration?: number;
+  width?: number;
+  height?: number;
   status: 'processing' | 'ready' | 'error';
 }
 
@@ -64,6 +68,21 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
   const getSupportedRecordingMimeType = () => {
     if (typeof MediaRecorder === 'undefined') return '';
     return RECORDING_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+  };
+
+  const getAspectRatioError = (width?: number, height?: number) => {
+    if (!width || !height) return '';
+    const ratio = width / height;
+
+    if (height <= width) {
+      return 'Use a vertical video so it fills the pitch feed. Landscape and square videos are not supported yet.';
+    }
+
+    if (ratio < MIN_VERTICAL_ASPECT_RATIO || ratio > MAX_VERTICAL_ASPECT_RATIO) {
+      return 'Use a portrait video between 9:16 and 4:5 so it looks consistent in the feed.';
+    }
+
+    return '';
   };
 
   // Start camera preview
@@ -227,12 +246,15 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
     video.onloadedmetadata = () => {
       window.URL.revokeObjectURL(video.src);
       const duration = Math.floor(video.duration);
+      const aspectRatioError = getAspectRatioError(video.videoWidth, video.videoHeight);
       setVideoDuration(duration);
 
       if (duration < MIN_RECORDING_SECONDS) {
         setError(`Too short (${duration}s). Need ${MIN_RECORDING_SECONDS}-${MAX_RECORDING_SECONDS} seconds.`);
       } else if (duration > MAX_RECORDING_SECONDS) {
         setError(`Too long (${duration}s). Max ${MAX_RECORDING_SECONDS} seconds.`);
+      } else if (aspectRatioError) {
+        setError(aspectRatioError);
       } else {
         setSelectedFile(file);
         setPreviewUrl((currentUrl) => {
@@ -335,6 +357,11 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
         }
 
         if (lastMetadata?.status === 'ready' && lastMetadata.playbackUrl) {
+          const aspectRatioError = getAspectRatioError(lastMetadata.width, lastMetadata.height);
+          if (aspectRatioError) {
+            throw new Error(aspectRatioError);
+          }
+
           setUploadedVideo(lastMetadata);
           setVideoDuration(Math.round(lastMetadata.duration || videoDuration));
           setUploadPhase('ready');
@@ -578,9 +605,9 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
               {/* Choose Mode */}
               {mode === 'choose' && (
                 <>
-                  <div className="text-center mb-6">
-                    <h2 className="text-2xl font-bold text-white mb-1">Post your pitch</h2>
-                    <p className="text-slate-400 text-sm">30-60 second video</p>
+	                  <div className="text-center mb-6">
+	                    <h2 className="text-2xl font-bold text-white mb-1">Post your pitch</h2>
+	                    <p className="text-slate-400 text-sm">30-60s portrait video, max 200MB</p>
                   </div>
 
                   <div className="space-y-3">
@@ -619,7 +646,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                           </div>
                           <div className="text-left">
                             <p className="text-white font-semibold">Upload video</p>
-                            <p className="text-slate-400 text-sm">MP4, MOV, WEBM</p>
+	                            <p className="text-slate-400 text-sm">MP4, MOV, WEBM. Portrait only.</p>
                           </div>
                         </div>
                       </div>

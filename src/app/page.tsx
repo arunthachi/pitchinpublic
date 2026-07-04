@@ -120,7 +120,9 @@ function HomeContent() {
     onRoast: () => void;
     onToast: () => void;
     onOpenFeedback: (type: 'roast' | 'toast') => void;
+    onOpenFeedbackList: () => void;
     onShare: () => void;
+    onBookmark: (isBookmarked: boolean) => Promise<boolean>;
   } | null>(null);
 
   // Fetch pitches from API
@@ -370,9 +372,13 @@ function HomeContent() {
                 onRoast={isGuest ? promptForRestrictedAction : handlers.onRoast}
                 onToast={isGuest ? promptForRestrictedAction : handlers.onToast}
                 onOpenFeedback={isGuest ? promptForRestrictedAction : handlers.onOpenFeedback}
+                onOpenFeedbackList={isGuest ? promptForRestrictedAction : handlers.onOpenFeedbackList}
                 onShare={isGuest ? promptForRestrictedAction : handlers.onShare}
+                onBookmark={handlers.onBookmark}
                 isGuest={isGuest}
                 onSignInClick={promptForRestrictedAction}
+                isBookmarked={currentPitch.isBookmarked}
+                bookmarkCount={currentPitch.bookmarkCount || 0}
               />
             </div>
           )}

@@ -110,7 +110,7 @@ export const videoUploadSchema = z.object({
   maxDurationSeconds: z
     .number()
     .min(1, 'Duration must be at least 1 second')
-    .max(180, 'Duration must be at most 180 seconds (3 minutes)')
+    .max(60, 'Pitch videos must be at most 60 seconds')
     .default(60),
 });
 

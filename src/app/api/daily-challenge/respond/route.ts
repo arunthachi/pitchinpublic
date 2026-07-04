@@ -27,10 +27,14 @@ import { z } from 'zod';
  */
 
 const responseSchema = z.object({
-  challengeId: z.string().uuid(),
+  challengeId: z.string().min(1),
   response: z.string().max(2000, 'Response must be at most 2000 characters'),
   pitchId: z.string().uuid().optional(),
 });
+
+function isFallbackChallengeId(challengeId: string) {
+  return /^daily-\d{4}-\d{2}-\d{2}$/.test(challengeId);
+}
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
@@ -114,60 +118,73 @@ export async function POST(request: NextRequest) {
 
     const { challengeId, response: responseText, pitchId } = validation.data;
 
-    // Verify challenge exists
-    const { data: challenge, error: challengeError } = await supabase
-      .from('daily_challenges')
-      .select('id')
-      .eq('id', challengeId)
-      .single();
+    let response = {
+      id: `${challengeId}-${user.id}`,
+      challenge_id: challengeId,
+      created_at: new Date().toISOString(),
+    };
 
-    if (challengeError || !challenge) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Challenge not found',
-        },
-        {
-          status: 404,
-          headers: formatRateLimitHeaders(result),
-        }
-      );
+    if (!isFallbackChallengeId(challengeId)) {
+      // Verify challenge exists for DB-backed challenge rows.
+      const { data: challenge, error: challengeError } = await supabase
+        .from('daily_challenges')
+        .select('id')
+        .eq('id', challengeId)
+        .single();
+
+      if (challengeError || !challenge) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Challenge not found',
+          },
+          {
+            status: 404,
+            headers: formatRateLimitHeaders(result),
+          }
+        );
+      }
+
+      // Check if user already responded today.
+      const { data: existingResponse } = await supabase
+        .from('challenge_responses')
+        .select('id')
+        .eq('challenge_id', challengeId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingResponse) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "You've already completed today's challenge.",
+          },
+          {
+            status: 400,
+            headers: formatRateLimitHeaders(result),
+          }
+        );
+      }
+
+      // Insert response for DB-backed challenges. If this table is not ready in
+      // early MVP environments, continue with streak credit rather than failing.
+      const { data: insertedResponse, error: insertError } = await supabase
+        .from('challenge_responses')
+        .insert({
+          challenge_id: challengeId,
+          user_id: user.id,
+          response: responseText,
+          pitch_id: pitchId || null,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.warn('Challenge response insert failed; crediting challenge locally:', insertError.message);
+      } else if (insertedResponse) {
+        response = insertedResponse;
+      }
     }
-
-    // Check if user already responded today
-    const { data: existingResponse } = await supabase
-      .from('challenge_responses')
-      .select('id')
-      .eq('challenge_id', challengeId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (existingResponse) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'You have already responded to todays challenge',
-        },
-        {
-          status: 400,
-          headers: formatRateLimitHeaders(result),
-        }
-      );
-    }
-
-    // Insert response
-    const { data: response, error: insertError } = await supabase
-      .from('challenge_responses')
-      .insert({
-        challenge_id: challengeId,
-        user_id: user.id,
-        response: responseText,
-        pitch_id: pitchId || null,
-      })
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
 
     // Update user streak (challenge response counts as activity)
     let streakData = null;

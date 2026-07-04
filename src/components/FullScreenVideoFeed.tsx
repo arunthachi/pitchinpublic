@@ -9,6 +9,7 @@ import { VideoPlayer } from './VideoPlayer';
 import { FloatingPitchInfo } from './FloatingPitchInfo';
 import { FloatingReactions } from './FloatingReactions';
 import { QuickFeedbackPanel } from './QuickFeedbackPanel';
+import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 
 interface FullScreenVideoFeedProps {
   pitches: LegacyPitch[];
@@ -16,7 +17,9 @@ interface FullScreenVideoFeedProps {
     onRoast: () => void;
     onToast: () => void;
     onOpenFeedback: (type: 'roast' | 'toast') => void;
+    onOpenFeedbackList: () => void;
     onShare: () => void;
+    onBookmark: (isBookmarked: boolean) => Promise<boolean>;
   }) => void;
   hideReactions?: boolean;
   isGuest?: boolean;
@@ -143,10 +146,13 @@ export function FullScreenVideoFeed({
 }: FullScreenVideoFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
+  const [feedbackListOpen, setFeedbackListOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
   const [direction, setDirection] = useState<'up' | 'down'>('down');
   const [localPitches, setLocalPitches] = useState<LegacyPitch[]>(pitches);
   const [userReaction, setUserReaction] = useState<'roast' | 'toast' | null>(null);
+  const [bookmarkState, setBookmarkState] = useState(false);
+  const [bookmarkCount, setBookmarkCount] = useState(0);
   const [hasTrackedView, setHasTrackedView] = useState(false);
   const [reactionBurst, setReactionBurst] = useState<{ type: ReactionBurstType; id: number } | null>(null);
   const wheelLockRef = useRef(false);
@@ -195,6 +201,8 @@ export function FullScreenVideoFeed({
   useEffect(() => {
     setHasTrackedView(false);
     setUserReaction(null);
+    setBookmarkState(false);
+    setBookmarkCount(0);
   }, [currentPitch?.id]);
 
   // Fetch user's reaction and increment views when pitch changes
@@ -240,6 +248,33 @@ export function FullScreenVideoFeed({
       setHasTrackedView(true);
     }
   }, [currentPitch?.id, hasTrackedView]);
+
+  useEffect(() => {
+    const fetchBookmarkStatus = async () => {
+      if (!currentPitch) return;
+
+      try {
+        const response = await fetch(`/api/pitches/${currentPitch.id}/bookmark`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const nextBookmarkState = Boolean(data.isBookmarked);
+        const nextBookmarkCount = data.bookmarkCount || 0;
+        setBookmarkState(nextBookmarkState);
+        setBookmarkCount(nextBookmarkCount);
+        setLocalPitches((prevPitches) =>
+          prevPitches.map((p) =>
+            p.id === currentPitch.id
+              ? { ...p, isBookmarked: nextBookmarkState, bookmarkCount: nextBookmarkCount }
+              : p
+          )
+        );
+      } catch (error) {
+        console.error('Error fetching bookmark status:', error);
+      }
+    };
+
+    fetchBookmarkStatus();
+  }, [currentPitch?.id]);
   const hasNext = currentIndex < localPitches.length - 1;
   const hasPrev = currentIndex > 0;
 
@@ -580,6 +615,72 @@ export function FullScreenVideoFeed({
     }
   };
 
+  const handleBookmark = async (isBookmarked: boolean) => {
+    if (!currentPitch) return false;
+
+    const previousState = bookmarkState;
+    const previousCount = bookmarkCount;
+    setBookmarkState(isBookmarked);
+    setBookmarkCount((count) => Math.max(0, count + (isBookmarked ? 1 : -1)));
+    setLocalPitches((prevPitches) =>
+      prevPitches.map((p) =>
+        p.id === currentPitch.id
+          ? {
+              ...p,
+              isBookmarked,
+              bookmarkCount: Math.max(0, (p.bookmarkCount || bookmarkCount) + (isBookmarked ? 1 : -1)),
+            }
+          : p
+      )
+    );
+
+    try {
+      const response = await fetch(`/api/pitches/${currentPitch.id}/bookmark`, {
+        method: isBookmarked ? 'POST' : 'DELETE',
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setBookmarkState(previousState);
+        setBookmarkCount(previousCount);
+        setLocalPitches((prevPitches) =>
+          prevPitches.map((p) =>
+            p.id === currentPitch.id
+              ? { ...p, isBookmarked: previousState, bookmarkCount: previousCount }
+              : p
+          )
+        );
+        console.error('Failed to update bookmark:', data);
+        return false;
+      }
+
+      const nextBookmarkState = Boolean(data.isBookmarked);
+      const nextBookmarkCount = data.bookmarkCount || 0;
+      setBookmarkState(nextBookmarkState);
+      setBookmarkCount(nextBookmarkCount);
+      setLocalPitches((prevPitches) =>
+        prevPitches.map((p) =>
+          p.id === currentPitch.id
+            ? { ...p, isBookmarked: nextBookmarkState, bookmarkCount: nextBookmarkCount }
+            : p
+        )
+      );
+      return true;
+    } catch (error) {
+      setBookmarkState(previousState);
+      setBookmarkCount(previousCount);
+      setLocalPitches((prevPitches) =>
+        prevPitches.map((p) =>
+          p.id === currentPitch.id
+            ? { ...p, isBookmarked: previousState, bookmarkCount: previousCount }
+            : p
+        )
+      );
+      console.error('Error updating bookmark:', error);
+      return false;
+    }
+  };
+
   const handleShare = () => {
     if (!currentPitch) return;
 
@@ -597,8 +698,14 @@ export function FullScreenVideoFeed({
   };
 
   const openFeedback = (type: 'roast' | 'toast') => {
+    setFeedbackListOpen(false);
     setFeedbackType(type);
     setFeedbackPanelOpen(true);
+  };
+
+  const openFeedbackList = () => {
+    setFeedbackPanelOpen(false);
+    setFeedbackListOpen(true);
   };
 
   // Notify parent of current pitch changes
@@ -608,7 +715,9 @@ export function FullScreenVideoFeed({
         onRoast: handleRoast,
         onToast: handleToast,
         onOpenFeedback: openFeedback,
+        onOpenFeedbackList: openFeedbackList,
         onShare: handleShare,
+        onBookmark: handleBookmark,
       });
     }
   }, [currentPitch, onCurrentPitchChange]);
@@ -677,10 +786,14 @@ export function FullScreenVideoFeed({
                 onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
                 onToast={isGuest && onSignInClick ? onSignInClick : handleToast}
                 onOpenFeedback={isGuest && onSignInClick ? () => onSignInClick() : openFeedback}
+                onOpenFeedbackList={isGuest && onSignInClick ? () => onSignInClick() : openFeedbackList}
                 onShare={isGuest && onSignInClick ? onSignInClick : handleShare}
+                onBookmark={handleBookmark}
                 isGuest={isGuest}
                 onSignInClick={onSignInClick}
                 userReaction={userReaction}
+                isBookmarked={currentPitch.isBookmarked ?? bookmarkState}
+                bookmarkCount={currentPitch.bookmarkCount ?? bookmarkCount}
               />
             </div>
           )}
@@ -722,6 +835,13 @@ export function FullScreenVideoFeed({
         onClose={() => setFeedbackPanelOpen(false)}
         onSubmit={handleFeedbackSubmit}
         initialType={feedbackType}
+      />
+
+      <FeedbackThreadPanel
+        isOpen={feedbackListOpen}
+        feedback={currentPitch.feedback || []}
+        onClose={() => setFeedbackListOpen(false)}
+        onAddFeedback={openFeedback}
       />
 
     </div>

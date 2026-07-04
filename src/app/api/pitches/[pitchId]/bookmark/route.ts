@@ -91,13 +91,18 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     if (bookmarkError) {
       // If it's a unique constraint error, bookmark already exists
       if (bookmarkError.code === '23505') {
+        const { count } = await supabase
+          .from('bookmarks')
+          .select('*', { count: 'exact', head: true })
+          .eq('pitch_id', pitchId);
+
         return NextResponse.json(
           {
-            success: false,
-            error: 'Pitch is already bookmarked',
+            success: true,
+            isBookmarked: true,
+            bookmarkCount: count || 0,
           },
           {
-            status: 400,
             headers: formatRateLimitHeaders(result),
           }
         );

@@ -22,8 +22,9 @@ interface FloatingReactionsProps {
   onRoast: () => void;
   onToast: () => void;
   onOpenFeedback: (type: 'roast' | 'toast') => void;
+  onOpenFeedbackList?: () => void;
   onShare: () => void;
-  onBookmark?: (isBookmarked: boolean) => void;
+  onBookmark?: (isBookmarked: boolean) => boolean | void | Promise<boolean | void>;
   isGuest?: boolean;
   onSignInClick?: () => void;
   isBookmarked?: boolean;
@@ -36,6 +37,7 @@ export function FloatingReactions({
   onRoast,
   onToast,
   onOpenFeedback,
+  onOpenFeedbackList,
   onShare,
   onBookmark,
   isGuest = false,
@@ -50,6 +52,10 @@ export function FloatingReactions({
   const [bookmarkState, setBookmarkState] = useState(isBookmarked);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isLoadingFollow, setIsLoadingFollow] = useState(false);
+
+  React.useEffect(() => {
+    setBookmarkState(isBookmarked);
+  }, [isBookmarked, pitch.id]);
 
   // Fetch follow status on mount
   React.useEffect(() => {
@@ -145,10 +151,15 @@ export function FloatingReactions({
       return;
     }
 
+    if (onOpenFeedbackList) {
+      onOpenFeedbackList();
+      return;
+    }
+
     onOpenFeedback(userReaction || 'toast');
   };
 
-  const handleBookmarkClick = () => {
+  const handleBookmarkClick = async () => {
     if (isGuest && onSignInClick) {
       onSignInClick();
       return;
@@ -156,7 +167,10 @@ export function FloatingReactions({
 
     const newBookmarkState = !bookmarkState;
     setBookmarkState(newBookmarkState);
-    onBookmark?.(newBookmarkState);
+    const result = await onBookmark?.(newBookmarkState);
+    if (result === false) {
+      setBookmarkState(!newBookmarkState);
+    }
   };
 
   const handleAvatarClick = () => {
