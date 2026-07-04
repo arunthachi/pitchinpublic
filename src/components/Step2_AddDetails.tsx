@@ -12,6 +12,8 @@ interface Step2_AddDetailsProps {
   onBack: () => void;
   isLoading?: boolean;
   practicePrompt?: PracticePrompt | null;
+  initialHook?: string;
+  initialDescription?: string;
 }
 
 export function Step2_AddDetails({
@@ -21,11 +23,18 @@ export function Step2_AddDetails({
   onBack,
   isLoading = false,
   practicePrompt,
+  initialHook = '',
+  initialDescription = '',
 }: Step2_AddDetailsProps) {
-  const [hook, setHook] = useState('');
-  const [description, setDescription] = useState('');
+  const [hook, setHook] = useState(initialHook);
+  const [description, setDescription] = useState(initialDescription);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setHook(initialHook);
+    setDescription(initialDescription);
+  }, [initialHook, initialDescription]);
 
   // Check if form is valid
   const isValid = hook.trim().length >= 10 && hook.trim().length <= 280;

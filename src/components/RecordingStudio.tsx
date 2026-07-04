@@ -23,6 +23,7 @@ const MIN_RECORDING_SECONDS = 30;
 const MAX_RECORDING_SECONDS = 60;
 const MIN_VERTICAL_ASPECT_RATIO = 0.45; // 9:20 tolerance
 const MAX_VERTICAL_ASPECT_RATIO = 0.82; // 4:5 tolerance
+const LAST_PITCH_DETAILS_KEY = 'pitchinpublic:last-pitch-details';
 const RECORDING_MIME_TYPES = [
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8,opus',
@@ -67,6 +68,37 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
   const discardRecordingRef = useRef(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingTimeRef = useRef(0);
+  const loadedSavedDetailsRef = useRef(false);
+  const pitchHookRef = useRef('');
+  const pitchDescriptionRef = useRef('');
+
+  useEffect(() => {
+    pitchHookRef.current = pitchHook;
+  }, [pitchHook]);
+
+  useEffect(() => {
+    pitchDescriptionRef.current = pitchDescription;
+  }, [pitchDescription]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      loadedSavedDetailsRef.current = false;
+      return;
+    }
+    if (loadedSavedDetailsRef.current || typeof window === 'undefined') return;
+    loadedSavedDetailsRef.current = true;
+
+    try {
+      const saved = window.localStorage.getItem(LAST_PITCH_DETAILS_KEY);
+      if (!saved) return;
+
+      const parsed = JSON.parse(saved) as { hook?: string; description?: string };
+      if (!pitchHookRef.current && parsed.hook) setPitchHook(parsed.hook);
+      if (!pitchDescriptionRef.current && parsed.description) setPitchDescription(parsed.description);
+    } catch {
+      window.localStorage.removeItem(LAST_PITCH_DETAILS_KEY);
+    }
+  }, [isOpen]);
 
   const getSupportedRecordingMimeType = () => {
     if (typeof MediaRecorder === 'undefined') return '';
@@ -409,6 +441,12 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
     setError('');
     setPitchHook(data.hook);
     setPitchDescription(data.description);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(
+        LAST_PITCH_DETAILS_KEY,
+        JSON.stringify({ hook: data.hook, description: data.description })
+      );
+    }
 
     try {
       const actualDuration = Math.round(uploadedVideo.duration || videoDuration);
@@ -599,6 +637,8 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
                   onBack={() => setMode('preview')}
                   isLoading={uploading}
                   practicePrompt={practicePrompt}
+                  initialHook={pitchHook}
+                  initialDescription={pitchDescription}
                 />
               )}
 
