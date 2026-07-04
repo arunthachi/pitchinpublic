@@ -41,30 +41,30 @@ export function PracticeLoopPanel({
     <motion.aside
       initial={{ opacity: 0, x: 18 }}
       animate={{ opacity: 1, x: 0 }}
-      className="hidden w-[330px] space-y-4 xl:block"
+      className="hidden max-h-[calc(100dvh-2rem)] w-[330px] space-y-3 overflow-y-auto pr-1 [scrollbar-width:none] xl:block [&::-webkit-scrollbar]:hidden"
     >
-      <div className="glass-card rounded-[1.75rem] border-white/12 bg-white/[0.055] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
-        <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="glass-card rounded-[1.5rem] border-white/12 bg-white/[0.055] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
+        <div className="mb-3 flex items-start justify-between gap-4">
           <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-neon-cyan">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-neon-cyan">
               <Zap className="h-3.5 w-3.5" />
               Today
             </div>
-            <h2 className="font-heading text-2xl font-black leading-tight text-white">
+            <h2 className="font-heading text-xl font-black leading-tight text-white">
               {prompt.title}
             </h2>
           </div>
           <button
             type="button"
             onClick={onOpenGoal}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-slate-300 transition hover:border-neon-cyan/50 hover:text-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-slate-300 transition hover:border-neon-cyan/50 hover:text-white"
             aria-label="Open pitch goal"
           >
             <Target className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="text-sm leading-6 text-slate-200">{prompt.prompt}</p>
+        <p className="text-sm leading-5 text-slate-200">{prompt.prompt}</p>
         <p className="mt-3 border-l-2 border-neon-lime/60 pl-3 text-xs leading-5 text-slate-400">
           {prompt.why}
         </p>
@@ -72,14 +72,14 @@ export function PracticeLoopPanel({
         <button
           type="button"
           onClick={onRecord}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-4 font-heading text-base font-black text-slate-950 shadow-[0_18px_46px_rgba(0,230,246,0.18)] transition hover:scale-[1.01]"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-3.5 font-heading text-base font-black text-slate-950 shadow-[0_18px_46px_rgba(0,230,246,0.18)] transition hover:scale-[1.01]"
         >
           <Video className="h-5 w-5" />
           Record today&apos;s rep
         </button>
 
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3">
-          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-neon-lime">
+        <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+          <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-neon-lime">
             <Sparkles className="h-4 w-4" />
             Nudge
           </div>
@@ -87,7 +87,7 @@ export function PracticeLoopPanel({
         </div>
       </div>
 
-      <div className="glass-card rounded-[1.5rem] border-white/12 bg-white/[0.045] p-4 backdrop-blur-2xl">
+      <div className="glass-card rounded-[1.5rem] border-white/12 bg-white/[0.045] p-3.5 backdrop-blur-2xl">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Gauge className="h-5 w-5 text-neon-cyan" />
@@ -98,7 +98,7 @@ export function PracticeLoopPanel({
           </span>
         </div>
 
-        <div className="mb-4 h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="mb-3 h-2 overflow-hidden rounded-full bg-white/10">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${loopProgress}%` }}
@@ -116,7 +116,7 @@ export function PracticeLoopPanel({
         <button
           type="button"
           onClick={onOpenGoal}
-          className="mt-3 flex w-full items-center justify-between rounded-full border border-white/10 bg-white/[0.06] px-4 py-3 text-left transition hover:bg-white/[0.09]"
+          className="mt-3 flex w-full items-center justify-between rounded-full border border-white/10 bg-white/[0.06] px-4 py-2.5 text-left transition hover:bg-white/[0.09]"
         >
           <span>
             <span className="block text-sm font-bold text-white">{goalName || 'Daily pitch practice'}</span>
@@ -136,11 +136,11 @@ export function PracticeLoopPanel({
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-neon-cyan">
+      <div className="mb-1.5 flex items-center gap-1.5 text-neon-cyan">
         {icon}
         <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{label}</span>
       </div>
-      <p className="font-heading text-xl font-black text-white">{value}</p>
+      <p className="font-heading text-lg font-black text-white">{value}</p>
     </div>
   );
 }

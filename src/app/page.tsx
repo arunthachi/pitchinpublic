@@ -496,7 +496,7 @@ function HomeContent() {
 
           {!isGuest && (
             <div
-              className="absolute top-1/2 hidden -translate-y-1/2 xl:block"
+              className="absolute bottom-4 top-4 hidden items-center xl:flex"
               style={{
                 left: 'calc(50% + var(--feed-w) / 2 + 7.25rem)',
               }}
