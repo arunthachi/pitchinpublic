@@ -24,32 +24,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!hasSupabaseConfig()) {
+    let isMounted = true;
+    const finishSignedOut = () => {
+      if (!isMounted) return;
       setUser(null);
       setSession(null);
       setLoading(false);
+    };
+
+    if (!hasSupabaseConfig()) {
+      finishSignedOut();
       return;
     }
 
     const supabase = createClient();
+    const authTimeout = window.setTimeout(finishSignedOut, 2500);
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!isMounted) return;
+        window.clearTimeout(authTimeout);
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        window.clearTimeout(authTimeout);
+        finishSignedOut();
+      });
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      window.clearTimeout(authTimeout);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      window.clearTimeout(authTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

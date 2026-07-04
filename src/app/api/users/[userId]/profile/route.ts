@@ -41,8 +41,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
   );
 
   try {
-    console.log(`Fetching profile for userId: ${params.userId}`);
-
     // Fetch user profile from profiles table
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -61,8 +59,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
       )
       .eq('id', params.userId)
       .single();
-
-    console.log(`Profile fetch result - data:`, profile, 'error:', error);
 
     // Handle errors - PGRST116 means no rows found (user doesn't exist)
     if (error) {
@@ -84,29 +80,23 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
     }
 
     // Fetch follower count
-    const { data: followers, error: followerError } = await supabase
+    const { count: followersCount, error: followerError } = await supabase
       .from('follows')
       .select('id', { count: 'exact', head: true })
       .eq('following_id', params.userId);
 
-    const followersCount = !followerError && followers ? followers.length : 0;
-
     // Fetch following count
-    const { data: following, error: followingError } = await supabase
+    const { count: followingCount, error: followingError } = await supabase
       .from('follows')
       .select('id', { count: 'exact', head: true })
       .eq('follower_id', params.userId);
 
-    const followingCount = !followingError && following ? following.length : 0;
-
     // Fetch pitches count
-    const { data: pitches, error: pitchesError } = await supabase
+    const { count: pitchesCount, error: pitchesError } = await supabase
       .from('pitches')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', params.userId)
       .eq('deleted_at', null);
-
-    const pitchesCount = !pitchesError && pitches ? pitches.length : 0;
 
     return NextResponse.json({
       success: true,
@@ -119,9 +109,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
         website: profile.website || null,
         twitter: profile.twitter_handle || null,
         linkedin: profile.linkedin_url || null,
-        followersCount,
-        followingCount,
-        pitchesCount,
+        followersCount: followerError ? 0 : followersCount || 0,
+        followingCount: followingError ? 0 : followingCount || 0,
+        pitchesCount: pitchesError ? 0 : pitchesCount || 0,
         createdAt: profile.created_at,
       },
     });

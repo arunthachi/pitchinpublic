@@ -13,14 +13,38 @@ interface FeedbackThreadPanelProps {
 }
 
 function averageScore(feedback: LegacyFeedback) {
+  if (feedback.readiness) return feedback.readiness;
   const scores = feedback.scores;
-  return Math.round(((scores.clarity + scores.solution + scores.market + scores.presentation) / 4) * 10) / 10;
+  return Math.max(1, Math.min(4, Math.round(((scores.clarity + scores.solution + scores.market + scores.presentation) / 4) / 2.5)));
+}
+
+function readinessLabel(value: number) {
+  if (value >= 4) return 'Pitch-ready';
+  if (value >= 3) return 'Strong';
+  if (value >= 2) return 'Getting there';
+  return 'Needs work';
+}
+
+function getMostCommonSignal(feedback: LegacyFeedback[]) {
+  const counts = new Map<string, number>();
+  feedback.forEach((item) => {
+    if (!item.signal) return;
+    counts.set(item.signal, (counts.get(item.signal) || 0) + 1);
+  });
+
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
 }
 
 export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }: FeedbackThreadPanelProps) {
   const stopPanelEvent = (event: React.SyntheticEvent) => {
     event.stopPropagation();
   };
+  const avgReadiness = feedback.length
+    ? Math.round((feedback.reduce((sum, item) => sum + averageScore(item), 0) / feedback.length) * 10) / 10
+    : 0;
+  const topSignal = getMostCommonSignal(feedback);
+  const toastCount = feedback.filter((item) => item.type === 'toast').length;
+  const roastCount = feedback.filter((item) => item.type === 'roast').length;
 
   return (
     <AnimatePresence>
@@ -78,50 +102,71 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                   </p>
                 </div>
               ) : (
-                feedback.map((item) => {
-                  const isRoast = item.type === 'roast';
-                  return (
-                    <article
-                      key={item.id}
-                      className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/20"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`flex h-10 w-10 items-center justify-center rounded-full ${isRoast ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
-                            {isRoast ? <Flame className="h-5 w-5" /> : <Wine className="h-5 w-5" />}
+                <>
+                  <div className="rounded-2xl border border-neon-cyan/20 bg-[linear-gradient(145deg,rgba(0,240,255,0.12),rgba(163,255,18,0.08)),rgba(255,255,255,0.04)] p-4 shadow-lg shadow-black/20">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">Coach signal</p>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="rounded-xl bg-black/25 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Readiness</p>
+                        <p className="mt-1 font-heading text-lg font-black text-white">{readinessLabel(avgReadiness)}</p>
+                      </div>
+                      <div className="rounded-xl bg-black/25 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Toast</p>
+                        <p className="mt-1 font-heading text-lg font-black text-toast">{toastCount}</p>
+                      </div>
+                      <div className="rounded-xl bg-black/25 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Roast</p>
+                        <p className="mt-1 font-heading text-lg font-black text-roast">{roastCount}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                      <p className="text-sm font-semibold text-white">
+                        {topSignal
+                          ? `${topSignal[1]} builder${topSignal[1] === 1 ? '' : 's'} flagged: ${topSignal[0]}`
+                          : 'No repeated signal yet.'}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        Next rep: tighten the first 10 seconds around the most repeated signal.
+                      </p>
+                    </div>
+                  </div>
+
+                  {feedback.map((item) => {
+                    const isRoast = item.type === 'roast';
+                    const score = averageScore(item);
+                    return (
+                      <article
+                        key={item.id}
+                        className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/20"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${isRoast ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
+                              {isRoast ? <Flame className="h-5 w-5" /> : <Wine className="h-5 w-5" />}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-white">{item.authorName}</p>
+                              <p className="text-xs text-slate-500">{item.authorRole}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-white">{item.authorName}</p>
-                            <p className="text-xs text-slate-500">{item.authorRole}</p>
+                          <div className={`rounded-full px-3 py-1 text-xs font-black uppercase ${isRoast ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
+                            {readinessLabel(score)}
                           </div>
                         </div>
-                        <div className={`rounded-full px-3 py-1 text-xs font-black uppercase ${isRoast ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
-                          {item.type} {averageScore(item)}/10
+
+                        <div className="mt-4 inline-flex rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold uppercase tracking-[0.08em] text-slate-200">
+                          {item.signal || item.type}
                         </div>
-                      </div>
 
-                      {item.notes ? (
-                        <p className="mt-4 text-sm leading-6 text-slate-200">&ldquo;{item.notes}&rdquo;</p>
-                      ) : (
-                        <p className="mt-4 text-sm leading-6 text-slate-500">Score-only feedback.</p>
-                      )}
-
-                      <div className="mt-4 grid grid-cols-4 gap-2">
-                        {[
-                          ['Clarity', item.scores.clarity],
-                          ['ICP', item.scores.solution],
-                          ['Ask', item.scores.market],
-                          ['Energy', item.scores.presentation],
-                        ].map(([label, value]) => (
-                          <div key={label} className="rounded-xl bg-white/[0.06] px-2 py-2 text-center">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">{label}</p>
-                            <p className="mt-1 font-heading text-lg font-bold text-white">{value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </article>
-                  );
-                })
+                        {item.notes ? (
+                          <p className="mt-3 text-sm leading-6 text-slate-200">&ldquo;{item.notes}&rdquo;</p>
+                        ) : (
+                          <p className="mt-3 text-sm leading-6 text-slate-500">Signal-only coach note.</p>
+                        )}
+                      </article>
+                    );
+                  })}
+                </>
               )}
             </div>
 

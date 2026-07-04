@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Flame, Wine } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
+import { X, Flame, Wine, CheckCircle2, Target } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { FeedbackFormData } from '@/types';
@@ -15,14 +14,29 @@ interface QuickFeedbackPanelProps {
   initialType?: 'roast' | 'toast';
 }
 
+const toastSignals = ['Clear', 'Compelling', 'Strong problem', 'Strong ask'];
+const roastSignals = ['Unclear audience', 'Weak pain', 'Too much jargon', 'Missing ask', 'Not urgent'];
+const readinessLevels = [
+  { value: 1, label: 'Needs work', helper: 'Core message is not landing yet.' },
+  { value: 2, label: 'Getting there', helper: 'Direction is visible, but the pitch needs focus.' },
+  { value: 3, label: 'Strong', helper: 'Useful and clear enough for the right room.' },
+  { value: 4, label: 'Pitch-ready', helper: 'This version can hold attention under pressure.' },
+];
+
+function readinessToScores(readiness: number) {
+  const score = readiness * 2.5;
+  return {
+    clarity: score,
+    solution: score,
+    market: score,
+    presentation: score,
+  };
+}
+
 export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 'toast' }: QuickFeedbackPanelProps) {
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>(initialType);
-  const [scores, setScores] = useState({
-    clarity: 5,
-    solution: 5,
-    market: 5,
-    presentation: 5,
-  });
+  const [signal, setSignal] = useState(toastSignals[0]);
+  const [readiness, setReadiness] = useState(2);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -31,6 +45,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   React.useEffect(() => {
     if (isOpen) {
       setFeedbackType(initialType);
+      setSignal(initialType === 'roast' ? roastSignals[0] : toastSignals[0]);
     }
   }, [initialType, isOpen]);
 
@@ -40,14 +55,20 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
     setSubmitError('');
 
     try {
-      const result = await onSubmit({ type: feedbackType, scores, notes: trimmedNotes });
+      const result = await onSubmit({
+        type: feedbackType,
+        signal,
+        readiness,
+        scores: readinessToScores(readiness),
+        notes: trimmedNotes,
+      });
       if (result === false) {
         setSubmitError('Could not save feedback. Please try again.');
         return;
       }
 
       onClose();
-      setScores({ clarity: 5, solution: 5, market: 5, presentation: 5 });
+      setReadiness(2);
       setNotes('');
     } catch {
       setSubmitError('Could not save feedback. Please try again.');
@@ -57,6 +78,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   };
 
   const isRoast = feedbackType === 'roast';
+  const activeSignals = isRoast ? roastSignals : toastSignals;
   const stopPanelEvent = (event: React.SyntheticEvent) => {
     event.stopPropagation();
   };
@@ -113,7 +135,10 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               {/* Roast/Toast Toggle */}
               <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
                 <button
-                  onClick={() => setFeedbackType('roast')}
+                  onClick={() => {
+                    setFeedbackType('roast');
+                    setSignal(roastSignals[0]);
+                  }}
                   className={`rounded-xl px-4 py-3 text-sm font-heading font-bold transition-all ${
                     isRoast
                       ? 'bg-roast text-white shadow-lg shadow-roast/20'
@@ -124,7 +149,10 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                   ROAST
                 </button>
                 <button
-                  onClick={() => setFeedbackType('toast')}
+                  onClick={() => {
+                    setFeedbackType('toast');
+                    setSignal(toastSignals[0]);
+                  }}
                   className={`rounded-xl px-4 py-3 text-sm font-heading font-bold transition-all ${
                     !isRoast
                       ? 'bg-toast text-white shadow-lg shadow-toast/20'
@@ -136,89 +164,60 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 </button>
               </div>
 
-              {/* Sliders */}
-              <div className="grid grid-cols-4 gap-2">
-                {['ICP', 'Clarity', 'Ask', 'Energy'].map((chip) => (
-                  <div
-                    key={chip}
-                    className="rounded-xl border border-white/10 bg-white/[0.05] px-2 py-2 text-center text-[11px] font-bold uppercase tracking-[0.08em] text-slate-300"
-                  >
-                    {chip}
-                  </div>
-                ))}
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="flex items-center gap-2">
+                  <Target className={`h-4 w-4 ${isRoast ? 'text-roast' : 'text-toast'}`} />
+                  <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Pick the one signal
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {activeSignals.map((option) => {
+                    const selected = signal === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setSignal(option)}
+                        className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left font-semibold transition ${
+                          selected
+                            ? isRoast
+                              ? 'border-roast/60 bg-roast/15 text-white'
+                              : 'border-toast/60 bg-toast/15 text-white'
+                            : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        <span>{option}</span>
+                        {selected && <CheckCircle2 className="h-4 w-4" />}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <h3 className="font-heading font-bold text-xs text-slate-400 uppercase tracking-wider">
-                  Score the pitch
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Readiness
                 </h3>
-
-                {/* Clarity */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-body text-slate-300">Clarity</span>
-                    <span className={`text-lg font-heading font-bold ${isRoast ? 'text-roast' : 'text-toast'}`}>
-                      {scores.clarity}
-                    </span>
-                  </div>
-                  <Slider
-                    value={[scores.clarity]}
-                    onValueChange={([value]) => setScores({ ...scores, clarity: value })}
-                    min={1}
-                    max={10}
-                    step={1}
-                  />
-                </div>
-
-                {/* Solution */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-body text-slate-300">ICP</span>
-                    <span className={`text-lg font-heading font-bold ${isRoast ? 'text-roast' : 'text-toast'}`}>
-                      {scores.solution}
-                    </span>
-                  </div>
-                  <Slider
-                    value={[scores.solution]}
-                    onValueChange={([value]) => setScores({ ...scores, solution: value })}
-                    min={1}
-                    max={10}
-                    step={1}
-                  />
-                </div>
-
-                {/* Market */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-body text-slate-300">Ask</span>
-                    <span className={`text-lg font-heading font-bold ${isRoast ? 'text-roast' : 'text-toast'}`}>
-                      {scores.market}
-                    </span>
-                  </div>
-                  <Slider
-                    value={[scores.market]}
-                    onValueChange={([value]) => setScores({ ...scores, market: value })}
-                    min={1}
-                    max={10}
-                    step={1}
-                  />
-                </div>
-
-                {/* Presentation */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-body text-slate-300">Energy</span>
-                    <span className={`text-lg font-heading font-bold ${isRoast ? 'text-roast' : 'text-toast'}`}>
-                      {scores.presentation}
-                    </span>
-                  </div>
-                  <Slider
-                    value={[scores.presentation]}
-                    onValueChange={([value]) => setScores({ ...scores, presentation: value })}
-                    min={1}
-                    max={10}
-                    step={1}
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  {readinessLevels.map((level) => {
+                    const selected = readiness === level.value;
+                    return (
+                      <button
+                        key={level.value}
+                        type="button"
+                        onClick={() => setReadiness(level.value)}
+                        className={`rounded-xl border p-3 text-left transition ${
+                          selected
+                            ? 'border-neon-cyan/70 bg-neon-cyan/15 text-white'
+                            : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        <span className="block text-sm font-bold">{level.label}</span>
+                        <span className="mt-1 block text-xs leading-5 text-slate-400">{level.helper}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

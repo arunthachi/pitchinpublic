@@ -12,12 +12,8 @@ import { z } from 'zod';
  * Request body:
  * {
  *   "type": "roast" | "toast",
- *   "scores": {
- *     "clarity": number (1-10),
- *     "solution": number (1-10),
- *     "market": number (1-10),
- *     "presentation": number (1-10)
- *   },
+ *   "signal": "string",
+ *   "readiness": number (1-4),
  *   "notes": "string (optional)"
  * }
  *
@@ -35,20 +31,42 @@ import { z } from 'zod';
 
 const feedbackSchema = z.object({
   type: z.enum(['roast', 'toast']),
+  signal: z.string().min(2).max(80),
+  readiness: z.number().int().min(1).max(4),
   scores: z.object({
     clarity: z.number().min(1).max(10),
     solution: z.number().min(1).max(10),
     market: z.number().min(1).max(10),
     presentation: z.number().min(1).max(10),
-  }),
+  }).optional(),
   notes: z.string().max(2000).optional(),
 });
 
 function serializeFeedbackContent(feedback: z.infer<typeof feedbackSchema>) {
+  const score = feedback.readiness * 2.5;
+  const scores = feedback.scores || {
+    clarity: score,
+    solution: score,
+    market: score,
+    presentation: score,
+  };
+
   return JSON.stringify({
     notes: feedback.notes?.trim() || '',
-    scores: feedback.scores,
+    signal: feedback.signal,
+    readiness: feedback.readiness,
+    scores,
   });
+}
+
+function scoresFromFeedback(feedback: z.infer<typeof feedbackSchema>) {
+  const score = feedback.readiness * 2.5;
+  return feedback.scores || {
+    clarity: score,
+    solution: score,
+    market: score,
+    presentation: score,
+  };
 }
 
 export async function POST(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
@@ -190,8 +208,10 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
         feedback: {
           id: feedback.id,
           type: feedback.type,
+          signal: feedbackData.signal,
+          readiness: feedbackData.readiness,
           notes: feedbackData.notes?.trim() || '',
-          scores: feedbackData.scores,
+          scores: scoresFromFeedback(feedbackData),
           createdAt: feedback.created_at,
         },
       },

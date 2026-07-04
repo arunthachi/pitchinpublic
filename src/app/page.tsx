@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
@@ -35,6 +35,7 @@ const PRELAUNCH_PREVIEW_VIDEO_ID = '095d0785cea145007372cff7878fb46f';
 
 function HomeContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { user, loading } = useAuth();
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -157,6 +158,8 @@ function HomeContent() {
             authorName: 'Builder',
             authorRole: 'Founder',
             type: item.type,
+            signal: parsedContent.signal,
+            readiness: parsedContent.readiness,
             scores: parsedContent.scores || {
               clarity: 5,
               solution: 5,
@@ -347,7 +350,7 @@ function HomeContent() {
       <div className="lg:hidden">
         <BottomNavBar
           onCreateClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
-          onProfileClick={() => isGuest ? promptForRestrictedAction() : setProfileOpen(true)}
+          onProfileClick={() => isGuest ? promptForRestrictedAction() : router.push('/me')}
           onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
           isGuest={isGuest}
         />
@@ -363,7 +366,7 @@ function HomeContent() {
         </button>
       ) : (
         <button
-          onClick={() => setProfileOpen(true)}
+          onClick={() => router.push('/me')}
           className="hidden lg:block fixed top-4 right-4 z-50 w-11 h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
         >
           <img

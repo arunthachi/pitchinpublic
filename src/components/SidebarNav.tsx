@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Plus, Trophy, Video, Zap } from 'lucide-react';
+import { CalendarDays, Flame, Plus, Trophy, Video, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
@@ -31,6 +31,7 @@ export function SidebarNav({
   const [streak, setStreak] = useState<Streak | null>(null);
   const navItems = [
     { label: 'Practice', icon: Video, active: true },
+    { label: 'Pitch Sprint', icon: CalendarDays, href: '/events/new' },
     { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
   ];
 

@@ -10,6 +10,7 @@ import {
   Calendar,
   Flame,
   Sparkles,
+  Target,
   User,
 } from 'lucide-react';
 import { getLegacyPitchById } from '@/lib/data';
@@ -19,7 +20,20 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FeedbackFormData } from '@/types';
-import { formatNumber, formatDate, calculateAverageScore } from '@/lib/utils';
+import { formatNumber, formatDate } from '@/lib/utils';
+
+function readinessLabel(value?: number) {
+  if (!value) return 'Getting there';
+  if (value >= 4) return 'Pitch-ready';
+  if (value >= 3) return 'Strong';
+  if (value >= 2) return 'Getting there';
+  return 'Needs work';
+}
+
+function readinessFromScores(scores: FeedbackFormData['scores']) {
+  const average = (scores.clarity + scores.solution + scores.market + scores.presentation) / 4;
+  return Math.max(1, Math.min(4, Math.round(average / 2.5)));
+}
 
 export default function PitchDetailPage() {
   const params = useParams();
@@ -50,6 +64,8 @@ export default function PitchDetailPage() {
       authorName: 'You',
       authorRole: 'Founder',
       type: feedbackData.type,
+      signal: feedbackData.signal,
+      readiness: feedbackData.readiness,
       scores: feedbackData.scores,
       notes: feedbackData.notes,
       createdAt: new Date().toISOString(),
@@ -215,7 +231,7 @@ export default function PitchDetailPage() {
                 ) : (
                   localFeedback.map((feedback) => {
                     const isRoast = feedback.type === 'roast';
-                    const avgScore = calculateAverageScore(feedback.scores);
+                    const readiness = feedback.readiness || readinessFromScores(feedback.scores);
 
                     return (
                       <motion.div
@@ -267,48 +283,38 @@ export default function PitchDetailPage() {
                                   isRoast ? 'text-roast' : 'text-toast'
                                 }`}
                               >
-                                {avgScore}
+                                {readiness}/4
                               </div>
                             </div>
                           </div>
 
+                          <div className="mb-3 flex flex-wrap gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-slate-200">
+                              <Target className="h-3.5 w-3.5 text-neon-cyan" />
+                              {feedback.signal || (isRoast ? 'Sharpen the ask' : 'Clear signal')}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-bold text-slate-300">
+                              {readinessLabel(readiness)}
+                            </span>
+                          </div>
+
                           <p className="text-slate-300 font-body leading-relaxed mb-3">
-                            {feedback.notes}
+                            {feedback.notes || 'No extra note added.'}
                           </p>
 
-                          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800">
-                            <div className="text-center">
-                              <p className="text-xs text-slate-500 font-body">
-                                Clarity
-                              </p>
-                              <p className="text-sm font-heading font-bold text-slate-300">
-                                {feedback.scores.clarity}/10
-                              </p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-slate-500 font-body">
-                                Solution
-                              </p>
-                              <p className="text-sm font-heading font-bold text-slate-300">
-                                {feedback.scores.solution}/10
-                              </p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-slate-500 font-body">
-                                Market
-                              </p>
-                              <p className="text-sm font-heading font-bold text-slate-300">
-                                {feedback.scores.market}/10
-                              </p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-slate-500 font-body">
-                                Presentation
-                              </p>
-                              <p className="text-sm font-heading font-bold text-slate-300">
-                                {feedback.scores.presentation}/10
-                              </p>
-                            </div>
+                          <div className="grid grid-cols-4 gap-1.5 pt-3 border-t border-slate-800">
+                            {[1, 2, 3, 4].map((step) => (
+                              <div
+                                key={step}
+                                className={`h-2 rounded-full ${
+                                  step <= readiness
+                                    ? isRoast
+                                      ? 'bg-roast'
+                                      : 'bg-toast'
+                                    : 'bg-white/10'
+                                }`}
+                              />
+                            ))}
                           </div>
                         </Card>
                       </motion.div>

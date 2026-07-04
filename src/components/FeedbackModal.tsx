@@ -38,6 +38,8 @@ export function FeedbackModal({ pitchId, onSubmit }: FeedbackModalProps) {
     const trimmedNotes = notes.trim();
     onSubmit({
       type: feedbackType,
+      signal: feedbackType === 'toast' ? 'Clear' : 'Unclear audience',
+      readiness: 2,
       scores,
       notes: trimmedNotes,
     });
