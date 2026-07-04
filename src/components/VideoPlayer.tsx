@@ -22,12 +22,14 @@ function isHlsUrl(url: string): boolean {
 export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const playingRef = useRef(playing);
   const [muted, setMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(playing);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const hlsRecoveryAttemptsRef = useRef(0);
 
   const playVideo = useCallback((video: HTMLVideoElement) => {
     video.play().catch((error) => {
@@ -36,6 +38,10 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
       }
     });
   }, []);
+
+  useEffect(() => {
+    playingRef.current = playing;
+  }, [playing]);
 
   // Initialize HLS or native video
   useEffect(() => {
@@ -48,37 +54,62 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
       hlsRef.current = null;
     }
 
+    hlsRecoveryAttemptsRef.current = 0;
+
     if (isHlsUrl(url)) {
       // HLS stream (Cloudflare Stream, etc.)
       if (Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: true,
-          lowLatencyMode: true,
+          lowLatencyMode: false,
+          backBufferLength: 30,
+          fragLoadingMaxRetry: 4,
+          manifestLoadingMaxRetry: 4,
         });
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (playing) {
+          if (playingRef.current) {
             playVideo(video);
           }
         });
         hls.on(Hls.Events.ERROR, (event, data) => {
           if (data.fatal) {
-            console.error('HLS fatal error:', data);
+            hlsRecoveryAttemptsRef.current += 1;
+
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hlsRecoveryAttemptsRef.current <= 3) {
+              console.warn('Recovering HLS network error:', data.details);
+              hls.startLoad();
+              return;
+            }
+
+            if (data.type === Hls.ErrorTypes.MEDIA_ERROR && hlsRecoveryAttemptsRef.current <= 2) {
+              console.warn('Recovering HLS media error:', data.details);
+              hls.recoverMediaError();
+              return;
+            }
+
+            console.warn('Unable to recover HLS playback:', {
+              type: data.type,
+              details: data.details,
+              response: data.response,
+            });
+            hls.destroy();
+            hlsRef.current = null;
           }
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Native HLS support (Safari)
         video.src = url;
-        if (playing) {
+        if (playingRef.current) {
           playVideo(video);
         }
       }
     } else {
       // Regular MP4 video
       video.src = url;
-      if (playing) {
+      if (playingRef.current) {
         playVideo(video);
       }
     }
@@ -89,7 +120,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         hlsRef.current = null;
       }
     };
-  }, [playVideo, playing, url]);
+  }, [playVideo, url]);
 
   // Handle playing state changes
   useEffect(() => {
