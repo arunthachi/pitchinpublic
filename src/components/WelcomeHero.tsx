@@ -180,6 +180,12 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/for-events"
+              className="hidden rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:inline-flex"
+            >
+              For events
+            </Link>
             {showAlphaSignIn && (
               <>
                 <Link
@@ -528,6 +534,42 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 bg-black px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 rounded-xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl sm:p-8 lg:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <p className="font-heading text-sm font-bold uppercase tracking-[0.18em] text-neon-cyan">
+                For pitch events
+              </p>
+              <h2 className="mt-3 font-heading text-3xl font-bold text-white sm:text-4xl">
+                Give founders reps before demo day, not just a stage on demo day.
+              </h2>
+              <p className="mt-4 leading-8 text-slate-300">
+                Pitch in Public can support competitions, founder meetups, speed networking, and accelerator prep with practice plans, best-take submissions, and constructive feedback loops.
+              </p>
+              <Link
+                href="/for-events"
+                className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg border border-neon-cyan/35 bg-neon-cyan/10 px-6 py-3 font-heading font-bold text-neon-cyan transition hover:border-neon-cyan hover:bg-neon-cyan/15"
+              >
+                Explore event pilots
+                <ArrowRight className="h-5 w-5" aria-hidden="true" />
+              </Link>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { value: '01', label: 'Create pitch day' },
+                { value: '02', label: 'Nudge daily reps' },
+                { value: '03', label: 'Submit best take' },
+              ].map((step) => (
+                <div key={step.value} className="rounded-lg border border-white/10 bg-black p-5">
+                  <p className="font-heading text-3xl font-bold text-neon-lime">{step.value}</p>
+                  <p className="mt-4 text-lg font-bold leading-6 text-white">{step.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

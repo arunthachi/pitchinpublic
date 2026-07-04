@@ -150,7 +150,7 @@ export function SidebarNav({
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-neon-cyan/35 bg-gradient-to-r from-neon-cyan/15 to-neon-lime/15 px-3 py-2.5 text-sm font-bold text-white transition hover:border-neon-cyan/70"
             >
               <Zap className="h-4 w-4 text-neon-lime" />
-              {streak.isActiveToday ? 'View challenge' : 'Complete challenge'}
+              {streak.isActiveToday ? 'Open pitch goal' : 'Plan next pitch'}
             </button>
           </div>
         )}

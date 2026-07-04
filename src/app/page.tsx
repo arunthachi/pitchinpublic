@@ -24,6 +24,9 @@ import { ProfileEditModal } from '@/components/ProfileEditModal';
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
   ssr: false,
 });
+const PitchGoalPanel = dynamic(() => import('@/components/PitchGoalPanel').then(mod => ({ default: mod.PitchGoalPanel })), {
+  ssr: false,
+});
 const AchievementUnlock = dynamic(() => import('@/components/AchievementUnlock').then(mod => ({ default: mod.AchievementUnlock })), {
   ssr: false,
 });
@@ -48,6 +51,7 @@ function HomeContent() {
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [showDailyChallenge, setShowDailyChallenge] = useState(false);
+  const [showPitchGoal, setShowPitchGoal] = useState(false);
   const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
   const [achievement, setAchievement] = useState<{
     badgeIcon: string;
@@ -330,7 +334,7 @@ function HomeContent() {
           isGuest={isGuest}
           onSignInClick={promptForRestrictedAction}
           guestActionLabel="Join waitlist"
-          onChallengeClick={() => setShowDailyChallenge(true)}
+          onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
         />
       </div>
 
@@ -344,7 +348,7 @@ function HomeContent() {
         <BottomNavBar
           onCreateClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
           onProfileClick={() => isGuest ? promptForRestrictedAction() : setProfileOpen(true)}
-          onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowDailyChallenge(true)}
+          onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
           isGuest={isGuest}
         />
       </div>
@@ -462,7 +466,7 @@ function HomeContent() {
           onEditProfile={() => setShowProfileEdit(true)}
           onOpenChallenge={() => {
             setProfileOpen(false);
-            setShowDailyChallenge(true);
+            setShowPitchGoal(true);
           }}
         />
       )}
@@ -532,6 +536,16 @@ function HomeContent() {
       )}
 
       {/* Daily Challenge Banner */}
+      {!isGuest && (
+        <PitchGoalPanel
+          isOpen={showPitchGoal}
+          onClose={() => setShowPitchGoal(false)}
+          onRecordPitch={() => setRecordingStudioOpen(true)}
+          userPitches={userPitches}
+        />
+      )}
+
+      {/* Daily Challenge Banner - retained for backend challenge responses. */}
       {!isGuest && (
         <DailyChallengeBanner
           isOpen={showDailyChallenge}
