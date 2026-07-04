@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
+  const next = requestUrl.searchParams.get('next');
   const origin = requestUrl.origin;
 
   if (code) {
@@ -11,6 +12,7 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // Redirect to home page after successful sign in
-  return NextResponse.redirect(`${origin}/`);
+  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+
+  return NextResponse.redirect(`${origin}${safeNext}`);
 }

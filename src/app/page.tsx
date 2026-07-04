@@ -243,6 +243,24 @@ function HomeContent() {
     returnToWaitlist();
   }, [returnToWaitlist, showAlphaControls]);
 
+  useEffect(() => {
+    if (loading || searchParams.get('record') !== '1') return;
+
+    if (user) {
+      setRecordingStudioOpen(true);
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('record');
+        window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+      }
+      return;
+    }
+
+    if (showAlphaControls) {
+      setSignInModalOpen(true);
+    }
+  }, [loading, searchParams, showAlphaControls, user]);
+
   // The public prelaunch landing should not wait on Supabase auth initialization.
   // Authenticated users may see the landing briefly while their session resolves,
   // which is better than blocking first paint for every anonymous visitor.
