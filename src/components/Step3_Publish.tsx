@@ -13,6 +13,21 @@ interface Step3_PublishProps {
   isLoading?: boolean;
 }
 
+const publishConfetti = [
+  { x: -132, y: -92, rotate: -32, delay: 0.02, color: 'bg-neon-cyan', shape: 'rounded-full' },
+  { x: -96, y: -126, rotate: 22, delay: 0.06, color: 'bg-neon-lime', shape: 'rounded-sm' },
+  { x: -54, y: -104, rotate: -58, delay: 0.1, color: 'bg-toast', shape: 'rounded-full' },
+  { x: -18, y: -136, rotate: 44, delay: 0.04, color: 'bg-white', shape: 'rounded-sm' },
+  { x: 28, y: -118, rotate: -18, delay: 0.08, color: 'bg-neon-cyan', shape: 'rounded-full' },
+  { x: 72, y: -138, rotate: 61, delay: 0.12, color: 'bg-neon-lime', shape: 'rounded-sm' },
+  { x: 118, y: -98, rotate: 27, delay: 0.05, color: 'bg-toast', shape: 'rounded-full' },
+  { x: 142, y: -52, rotate: -44, delay: 0.14, color: 'bg-white', shape: 'rounded-sm' },
+  { x: -146, y: -38, rotate: 72, delay: 0.16, color: 'bg-neon-lime', shape: 'rounded-sm' },
+  { x: -116, y: 10, rotate: -12, delay: 0.18, color: 'bg-neon-cyan', shape: 'rounded-full' },
+  { x: 106, y: 6, rotate: 38, delay: 0.2, color: 'bg-white', shape: 'rounded-sm' },
+  { x: 148, y: -18, rotate: -66, delay: 0.22, color: 'bg-toast', shape: 'rounded-full' },
+];
+
 export function Step3_Publish({
   pitchTitle,
   previewUrl,
@@ -32,8 +47,34 @@ export function Step3_Publish({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="space-y-6 text-center"
+      className="relative space-y-6 overflow-hidden text-center"
     >
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center">
+        <div className="relative h-28 w-28">
+          {publishConfetti.map((particle, index) => (
+            <motion.span
+              key={`${particle.x}-${particle.y}-${index}`}
+              initial={{ x: 0, y: 20, rotate: 0, scale: 0.2, opacity: 0 }}
+              animate={{
+                x: particle.x,
+                y: particle.y,
+                rotate: particle.rotate,
+                scale: [0.2, 1, 0.92, 0.1],
+                opacity: [0, 1, 0.92, 0],
+              }}
+              transition={{ duration: 1.45, delay: particle.delay, ease: 'easeOut' }}
+              className={`absolute left-1/2 top-16 h-2.5 w-2.5 shadow-[0_0_18px_rgba(103,232,249,0.45)] ${particle.color} ${particle.shape}`}
+            />
+          ))}
+          <motion.div
+            initial={{ scale: 0.35, opacity: 0 }}
+            animate={{ scale: [0.35, 1.25, 1], opacity: [0, 0.55, 0] }}
+            transition={{ duration: 1.05, ease: 'easeOut' }}
+            className="absolute left-1/2 top-12 h-28 w-28 -translate-x-1/2 rounded-full bg-neon-lime/25 blur-2xl"
+          />
+        </div>
+      </div>
+
       {/* Success Animation */}
       <div className="flex justify-center">
         <motion.div
