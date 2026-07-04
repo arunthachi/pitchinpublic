@@ -57,7 +57,7 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
             className={activeTab === 'challenge' ? 'text-neon-lime' : 'text-gray-400'}
           />
           <span className={`text-xs ${activeTab === 'challenge' ? 'text-white' : 'text-gray-400'}`}>
-            Challenge
+            Goal
           </span>
         </button>
 

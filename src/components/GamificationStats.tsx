@@ -186,7 +186,7 @@ export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
         onClick={onOpenChallenge}
         className="w-full rounded-xl border border-neon-cyan/50 bg-gradient-to-r from-neon-cyan/20 to-neon-lime/20 px-4 py-3 text-center text-sm font-semibold text-white transition-all hover:border-neon-cyan"
       >
-        {streak.isActiveToday ? 'Review today’s challenge' : 'Complete today’s challenge'}
+        {streak.isActiveToday ? 'Review pitch goal' : 'Plan next pitch goal'}
       </motion.button>
     </motion.div>
   );
