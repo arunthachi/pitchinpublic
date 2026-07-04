@@ -5,11 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw } from 'lucide-react';
 import { Step2_AddDetails } from './Step2_AddDetails';
 import { Step3_Publish } from './Step3_Publish';
+import type { PracticePrompt } from '@/lib/practice';
 
 interface RecordingStudioProps {
   isOpen: boolean;
   onClose: () => void;
   onPitchCreated?: (pitch: any) => void;
+  practicePrompt?: PracticePrompt | null;
+  practiceGoalId?: string | null;
 }
 
 type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
@@ -36,7 +39,7 @@ interface UploadedVideoMetadata {
   status: 'processing' | 'ready' | 'error';
 }
 
-export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingStudioProps) {
+export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePrompt, practiceGoalId }: RecordingStudioProps) {
   const [mode, setMode] = useState<Mode>('choose');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -430,6 +433,13 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
       if (videoProvider) {
         pitchPayload.videoProvider = videoProvider;
       }
+      if (practiceGoalId) {
+        pitchPayload.practiceGoalId = practiceGoalId;
+      }
+      if (practicePrompt) {
+        pitchPayload.promptKey = practicePrompt.key;
+        pitchPayload.promptText = practicePrompt.prompt;
+      }
 
       const response = await fetch('/api/pitches', {
         method: 'POST',
@@ -588,6 +598,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
                   onNext={handleDetailsNext}
                   onBack={() => setMode('preview')}
                   isLoading={uploading}
+                  practicePrompt={practicePrompt}
                 />
               )}
 
@@ -606,9 +617,18 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated }: RecordingSt
               {mode === 'choose' && (
                 <>
 	                  <div className="text-center mb-6">
-	                    <h2 className="text-2xl font-bold text-white mb-1">Post your pitch</h2>
+	                    <h2 className="text-2xl font-bold text-white mb-1">
+                        {practicePrompt ? "Record today's rep" : 'Post your pitch'}
+                      </h2>
 	                    <p className="text-slate-400 text-sm">30-60s portrait video, max 200MB</p>
                   </div>
+
+                  {practicePrompt && (
+                    <div className="mb-4 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Today&apos;s prompt</p>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-white">{practicePrompt.prompt}</p>
+                    </div>
+                  )}
 
                   <div className="space-y-3">
                     {/* Record Option */}

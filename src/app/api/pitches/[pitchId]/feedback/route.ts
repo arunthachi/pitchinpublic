@@ -221,6 +221,18 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
       // Non-fatal, don't throw
     }
 
+    try {
+      await supabase
+        .from('practice_reps')
+        .update({
+          readiness: feedbackData.readiness,
+          clarity_delta: feedbackData.type === 'toast' ? 1 : 0,
+        })
+        .eq('pitch_id', params.pitchId);
+    } catch (error) {
+      console.error('Error updating practice rep signal:', error);
+    }
+
     return NextResponse.json(
       {
         success: true,

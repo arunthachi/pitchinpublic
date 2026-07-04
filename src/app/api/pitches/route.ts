@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
+import { getPromptForDate } from '@/lib/practice';
 
 /**
  * POST /api/pitches
@@ -117,32 +118,98 @@ export async function POST(request: NextRequest) {
     }
 
     const pitchData = validation.data;
+    const prompt = getPromptForDate();
+    const promptKey = pitchData.promptKey || prompt.key;
+    const promptText = pitchData.promptText || prompt.prompt;
+
+    let repNumber = 1;
+    if (pitchData.practiceGoalId) {
+      try {
+        const { count } = await supabase
+          .from('practice_reps')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('goal_id', pitchData.practiceGoalId);
+        repNumber = (count || 0) + 1;
+      } catch (error) {
+        console.error('Error counting practice reps:', error);
+      }
+    } else {
+      try {
+        const { count } = await supabase
+          .from('pitches')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'published');
+        repNumber = (count || 0) + 1;
+      } catch (error) {
+        console.error('Error counting pitch reps:', error);
+      }
+    }
 
     // Insert pitch into database
-    const { data: pitch, error: insertError } = await supabase
+    const insertPayload = {
+      user_id: user.id,
+      hook: pitchData.hook,
+      description: pitchData.description || null,
+      video_id: pitchData.videoId,
+      video_url: pitchData.playbackUrl,
+      video_provider: pitchData.videoProvider || process.env.VIDEO_PROVIDER || 'cloudflare',
+      thumbnail_url: pitchData.thumbnailUrl || null,
+      duration: pitchData.duration,
+      status: 'published',
+      version_number: repNumber,
+      views_count: 0,
+      roast_count: 0,
+      toast_count: 0,
+      interest_score: 50,
+      practice_goal_id: pitchData.practiceGoalId || null,
+      prompt_key: promptKey,
+      prompt_text: promptText,
+    };
+
+    let insertResult = await supabase
       .from('pitches')
-      .insert({
-        user_id: user.id,
-        hook: pitchData.hook,
-        description: pitchData.description || null,
-        video_id: pitchData.videoId,
-        video_url: pitchData.playbackUrl,
-        video_provider: pitchData.videoProvider || process.env.VIDEO_PROVIDER || 'cloudflare',
-        thumbnail_url: pitchData.thumbnailUrl || null,
-        duration: pitchData.duration,
-        status: 'published',
-        version_number: 1,
-        views_count: 0,
-        roast_count: 0,
-        toast_count: 0,
-        interest_score: 50,
-      })
+      .insert(insertPayload)
       .select()
       .single();
+
+    if (insertResult.error && /practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(insertResult.error.message)) {
+      const {
+        practice_goal_id: _practiceGoalId,
+        prompt_key: _promptKey,
+        prompt_text: _promptText,
+        ...fallbackPayload
+      } = insertPayload;
+
+      insertResult = await supabase
+        .from('pitches')
+        .insert(fallbackPayload)
+        .select()
+        .single();
+    }
+
+    const { data: pitch, error: insertError } = insertResult;
 
     if (insertError) {
       console.error('Error creating pitch:', insertError);
       throw insertError;
+    }
+
+    try {
+      await supabase
+        .from('practice_reps')
+        .insert({
+          user_id: user.id,
+          goal_id: pitchData.practiceGoalId || null,
+          pitch_id: pitch.id,
+          prompt_key: promptKey,
+          prompt_text: promptText,
+          rep_number: repNumber,
+          is_best_take: false,
+        });
+    } catch (error) {
+      console.error('Error creating practice rep:', error);
     }
 
     // Update user's pitches count (non-fatal, fire and forget)
@@ -153,6 +220,15 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('Error updating pitches count:', error);
       // Non-fatal error, don't throw
+    }
+
+    try {
+      await supabase.rpc('update_user_streak', {
+        user_id: user.id,
+        activity_type: 'pitch_rep',
+      });
+    } catch (error) {
+      console.error('Error updating pitch practice streak:', error);
     }
 
     return NextResponse.json(
@@ -167,6 +243,10 @@ export async function POST(request: NextRequest) {
           thumbnailUrl: pitch.thumbnail_url,
           duration: pitch.duration,
           status: pitch.status,
+          versionNumber: pitch.version_number || repNumber,
+          practiceGoalId: pitch.practice_goal_id || pitchData.practiceGoalId || null,
+          promptKey,
+          promptText,
           createdAt: pitch.created_at,
         },
       },
@@ -238,9 +318,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'published')
       .is('deleted_at', null);
 
-    let dataQuery = supabase
-      .from('pitches')
-      .select(`
+    const fullSelect = `
         id,
         hook,
         description,
@@ -251,6 +329,11 @@ export async function GET(request: NextRequest) {
         roast_count,
         toast_count,
         interest_score,
+        version_number,
+        practice_goal_id,
+        prompt_key,
+        prompt_text,
+        is_best_take,
         created_at,
         user_id,
         profiles:user_id (
@@ -266,28 +349,81 @@ export async function GET(request: NextRequest) {
           content,
           created_at
         )
-      `)
+      `;
+
+    const fallbackSelect = `
+        id,
+        hook,
+        description,
+        video_url,
+        thumbnail_url,
+        duration,
+        views_count,
+        roast_count,
+        toast_count,
+        interest_score,
+        version_number,
+        created_at,
+        user_id,
+        profiles:user_id (
+          id,
+          full_name,
+          avatar_url,
+          username
+        ),
+        feedback (
+          id,
+          user_id,
+          type,
+          content,
+          created_at
+        )
+      `;
+
+    const buildDataQuery = (select: string) => {
+      let query = supabase
+        .from('pitches')
+        .select(select)
       .eq('status', 'published')
       .is('deleted_at', null);
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      if (videoId) {
+        query = query.eq('video_id', videoId);
+      }
+
+      return query;
+    };
+
+    let dataQuery = buildDataQuery(fullSelect);
 
     // Filter by userId if provided
     if (userId) {
       countQuery = countQuery.eq('user_id', userId);
-      dataQuery = dataQuery.eq('user_id', userId);
     }
 
     if (videoId) {
       countQuery = countQuery.eq('video_id', videoId);
-      dataQuery = dataQuery.eq('video_id', videoId);
     }
 
     // Get total count (exclude deleted pitches)
     const { count } = await countQuery;
 
     // Get paginated pitches (exclude deleted pitches)
-    const { data: pitches, error } = await dataQuery
+    let { data: pitches, error } = await dataQuery
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    if (error && /practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(error.message)) {
+      const fallbackResult = await buildDataQuery(fallbackSelect)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      pitches = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       throw error;

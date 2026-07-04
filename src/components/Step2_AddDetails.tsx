@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import type { PracticePrompt } from '@/lib/practice';
 
 interface Step2_AddDetailsProps {
   videoDuration: number;
@@ -10,6 +11,7 @@ interface Step2_AddDetailsProps {
   onNext: (data: { hook: string; description: string }) => void | Promise<void>;
   onBack: () => void;
   isLoading?: boolean;
+  practicePrompt?: PracticePrompt | null;
 }
 
 export function Step2_AddDetails({
@@ -18,6 +20,7 @@ export function Step2_AddDetails({
   onNext,
   onBack,
   isLoading = false,
+  practicePrompt,
 }: Step2_AddDetailsProps) {
   const [hook, setHook] = useState('');
   const [description, setDescription] = useState('');
@@ -73,6 +76,13 @@ export function Step2_AddDetails({
         <h2 className="text-2xl font-bold text-white mb-1">Add your hook</h2>
         <p className="text-slate-400 text-sm">Make the pitch easy to understand before it goes live.</p>
       </div>
+
+      {practicePrompt && (
+        <div className="rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Today&apos;s rep</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-white">{practicePrompt.prompt}</p>
+        </div>
+      )}
 
       {/* Video Preview */}
       <div className="relative aspect-[9/16] max-h-[40vh] mx-auto bg-black rounded-xl overflow-hidden mb-4">

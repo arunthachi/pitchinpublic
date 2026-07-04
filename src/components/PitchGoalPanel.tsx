@@ -23,9 +23,12 @@ interface PitchGoalPanelProps {
   onClose: () => void;
   onRecordPitch: () => void;
   userPitches: LegacyPitch[];
+  practiceGoal?: any | null;
+  onGoalSaved?: () => void | Promise<void>;
 }
 
 interface PitchGoal {
+  id?: string;
   name: string;
   pitchDate: string;
   pitchType: string;
@@ -133,9 +136,18 @@ function defaultPitchDate() {
   return date.toISOString().slice(0, 10);
 }
 
-export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: PitchGoalPanelProps) {
+export function PitchGoalPanel({
+  isOpen,
+  onClose,
+  onRecordPitch,
+  userPitches,
+  practiceGoal,
+  onGoalSaved,
+}: PitchGoalPanelProps) {
   const [goal, setGoal] = useState<PitchGoal | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState<PitchGoal>({
     name: 'My next pitch day',
     pitchDate: defaultPitchDate(),
@@ -148,6 +160,22 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
 
+    if (practiceGoal) {
+      const nextGoal: PitchGoal = {
+        id: practiceGoal.id,
+        name: practiceGoal.name || 'My next pitch day',
+        pitchDate: practiceGoal.target_date || defaultPitchDate(),
+        pitchType: practiceGoal.event_id ? 'competition' : 'competition',
+        focus: practiceGoal.focus || 'clarity',
+        bestPitchId: practiceGoal.best_pitch_id || undefined,
+        createdAt: practiceGoal.created_at || new Date().toISOString(),
+      };
+      setGoal(nextGoal);
+      setForm(nextGoal);
+      setIsEditing(false);
+      return;
+    }
+
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (!saved) return;
 
@@ -158,7 +186,7 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
     } catch {
       window.localStorage.removeItem(STORAGE_KEY);
     }
-  }, [isOpen]);
+  }, [isOpen, practiceGoal]);
 
   const daysLeft = goal ? daysUntil(goal.pitchDate) : daysUntil(form.pitchDate);
   const phase = getPhase(daysLeft);
@@ -169,27 +197,87 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
   const bestPitch = userPitches.find((pitch) => pitch.id === goal?.bestPitchId);
   const latestPitch = userPitches[0];
 
-  const saveGoal = () => {
+  const saveGoal = async () => {
     const nextGoal = {
       ...form,
       name: form.name.trim() || 'My next pitch day',
       createdAt: goal?.createdAt || new Date().toISOString(),
     };
-    setGoal(nextGoal);
-    setForm(nextGoal);
-    setIsEditing(false);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextGoal));
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/practice/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: nextGoal.id,
+          name: nextGoal.name,
+          targetDate: nextGoal.pitchDate,
+          focus: nextGoal.focus,
+          context: nextGoal.pitchType,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Could not save pitch plan');
+      }
+
+      const savedGoal: PitchGoal = {
+        id: data.goal.id,
+        name: data.goal.name,
+        pitchDate: data.goal.target_date || nextGoal.pitchDate,
+        pitchType: nextGoal.pitchType,
+        focus: data.goal.focus || nextGoal.focus,
+        bestPitchId: data.goal.best_pitch_id || nextGoal.bestPitchId,
+        createdAt: data.goal.created_at || nextGoal.createdAt,
+      };
+
+      setGoal(savedGoal);
+      setForm(savedGoal);
+      setIsEditing(false);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedGoal));
+      }
+      await onGoalSaved?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save pitch plan');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const updateBestPitch = (pitchId: string) => {
+  const updateBestPitch = async (pitchId: string) => {
     if (!goal) return;
-    const nextGoal = { ...goal, bestPitchId: pitchId };
-    setGoal(nextGoal);
-    setForm(nextGoal);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextGoal));
+    if (!pitchId) {
+      const nextGoal = { ...goal, bestPitchId: undefined };
+      setGoal(nextGoal);
+      setForm(nextGoal);
+      return;
+    }
+    setError('');
+
+    try {
+      const response = await fetch(`/api/pitches/${pitchId}/best-take`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Could not mark best take');
+      }
+
+      const nextGoal = { ...goal, bestPitchId: pitchId };
+      setGoal(nextGoal);
+      setForm(nextGoal);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextGoal));
+      }
+      await onGoalSaved?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not mark best take');
     }
   };
 
@@ -314,9 +402,10 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
                       <button
                         type="button"
                         onClick={saveGoal}
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-3 font-heading font-bold text-slate-950 transition hover:scale-[1.01]"
+                        disabled={saving}
+                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-3 font-heading font-bold text-slate-950 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Create pitch plan
+                        {saving ? 'Saving plan...' : 'Create pitch plan'}
                         <ArrowRight className="h-5 w-5" />
                       </button>
                       {goal && (
@@ -329,6 +418,12 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
                         </button>
                       )}
                     </div>
+
+                    {error && (
+                      <p className="rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                        {error}
+                      </p>
+                    )}
                   </div>
 
                   <GoalPreview daysLeft={daysLeft} phase={phase} plan={plan} />
@@ -442,6 +537,11 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
                               Mark latest pitch as best take
                             </button>
                           )}
+                          {error && (
+                            <p className="rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                              {error}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
@@ -463,9 +563,9 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
                     </button>
                     {expanded && (
                       <div className="rounded-2xl border border-white/10 bg-black/35 p-5 text-sm leading-7 text-slate-300">
-                        The MVP stores your selected best take locally. The next backend step
-                        is event rooms: organizer invites, founder submissions, judge review,
-                        audience voting, and exportable results.
+                        Your selected best take is saved to your practice goal. Event rooms can use
+                        that take for founder submissions, judge review, audience voting, and
+                        exportable results.
                       </div>
                     )}
 

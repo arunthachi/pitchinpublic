@@ -19,6 +19,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
+import { PracticeLoopPanel } from '@/components/PracticeLoopPanel';
+import { getPromptForDate, type PracticePrompt } from '@/lib/practice';
 
 // Lazy load modal components (not needed on initial page load)
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
@@ -32,6 +34,26 @@ const AchievementUnlock = dynamic(() => import('@/components/AchievementUnlock')
 });
 
 const PRELAUNCH_PREVIEW_VIDEO_ID = '095d0785cea145007372cff7878fb46f';
+
+interface PracticeToday {
+  prompt: PracticePrompt;
+  nudge: string;
+  goal: any | null;
+  progress: {
+    practiceDays: number;
+    pitchReps: number;
+    currentStreak: number;
+    bestStreak: number;
+    clarityDelta: number;
+    bestTakeId: string | null;
+    deadlineDaysLeft: number | null;
+  };
+  latestRep: any | null;
+  readiness: {
+    value: number | null;
+    label: string;
+  };
+}
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -54,6 +76,28 @@ function HomeContent() {
   const [showDailyChallenge, setShowDailyChallenge] = useState(false);
   const [showPitchGoal, setShowPitchGoal] = useState(false);
   const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
+  const [practiceToday, setPracticeToday] = useState<PracticeToday>(() => {
+    const prompt = getPromptForDate();
+    return {
+      prompt,
+      nudge: `Today's pitch sprint: ${prompt.prompt} Record a 60-second take and see if it beats your best one.`,
+      goal: null,
+      progress: {
+        practiceDays: 0,
+        pitchReps: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        clarityDelta: 0,
+        bestTakeId: null,
+        deadlineDaysLeft: null,
+      },
+      latestRep: null,
+      readiness: {
+        value: null,
+        label: 'No signal yet',
+      },
+    };
+  });
   const [achievement, setAchievement] = useState<{
     badgeIcon: string;
     badgeName: string;
@@ -190,6 +234,11 @@ function HomeContent() {
           toastCount: pitch.toast_count,
           createdAt: pitch.created_at,
           duration: pitch.duration,
+          versionNumber: pitch.version_number,
+          practiceGoalId: pitch.practice_goal_id || null,
+          promptKey: pitch.prompt_key || null,
+          promptText: pitch.prompt_text || null,
+          isBestTake: Boolean(pitch.is_best_take),
           feedback,
         };
       });
@@ -210,6 +259,26 @@ function HomeContent() {
       setPitchesLoading(false);
     }
   }, [isGuest, effectiveGuestFeedPreview]);
+
+  const fetchPracticeToday = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/practice/today');
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (data.success && data.prompt && data.progress) {
+        setPracticeToday(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch practice today:', error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchPracticeToday();
+  }, [fetchPracticeToday]);
 
   // Fetch pitches once the feed is visible. The marketing landing should stay lightweight.
   useEffect(() => {
@@ -425,6 +494,26 @@ function HomeContent() {
             </div>
           )}
 
+          {!isGuest && (
+            <div
+              className="absolute top-1/2 hidden -translate-y-1/2 xl:block"
+              style={{
+                left: 'calc(50% + var(--feed-w) / 2 + 7.25rem)',
+              }}
+            >
+              <PracticeLoopPanel
+                prompt={practiceToday.prompt}
+                nudge={practiceToday.nudge}
+                progress={practiceToday.progress}
+                readinessLabel={practiceToday.readiness.label}
+                goalName={practiceToday.goal?.name}
+                latestRepNumber={practiceToday.latestRep?.rep_number}
+                onRecord={() => setRecordingStudioOpen(true)}
+                onOpenGoal={() => setShowPitchGoal(true)}
+              />
+            </div>
+          )}
+
         </div>
 
         {/* Mobile: Full screen like TikTok */}
@@ -454,8 +543,11 @@ function HomeContent() {
             // Refresh feed after new pitch is created
             setTimeout(() => {
               fetchPitches();
+              fetchPracticeToday();
             }, 1000); // Brief delay to allow database to settle
           }}
+          practicePrompt={practiceToday.prompt}
+          practiceGoalId={practiceToday.goal?.id || null}
         />
       )}
 
@@ -547,8 +639,13 @@ function HomeContent() {
         <PitchGoalPanel
           isOpen={showPitchGoal}
           onClose={() => setShowPitchGoal(false)}
-          onRecordPitch={() => setRecordingStudioOpen(true)}
+          onRecordPitch={() => {
+            setShowPitchGoal(false);
+            setRecordingStudioOpen(true);
+          }}
           userPitches={userPitches}
+          practiceGoal={practiceToday.goal}
+          onGoalSaved={fetchPracticeToday}
         />
       )}
 

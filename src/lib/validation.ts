@@ -136,6 +136,9 @@ export const pitchSchema = z.object({
   videoProvider: z.string().min(1, 'Video provider is required').trim().optional(),
   thumbnailUrl: z.string().url('Invalid thumbnail URL').optional().or(z.literal('')),
   duration: z.number().min(30, 'Video must be at least 30 seconds').max(60, 'Video must be at most 60 seconds'),
+  practiceGoalId: z.string().uuid('Invalid practice goal ID').optional().nullable(),
+  promptKey: z.string().min(2).max(80).optional(),
+  promptText: z.string().min(2).max(500).optional(),
 });
 
 export type PitchInput = z.infer<typeof pitchSchema>;

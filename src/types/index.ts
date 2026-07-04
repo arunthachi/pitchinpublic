@@ -151,6 +151,11 @@ export interface LegacyPitch {
   versions?: PitchVersion[];
   feedback?: LegacyFeedback[];
   duration?: number;
+  versionNumber?: number;
+  practiceGoalId?: string | null;
+  promptKey?: string | null;
+  promptText?: string | null;
+  isBestTake?: boolean;
   isBookmarked?: boolean;
   bookmarkCount?: number;
 }

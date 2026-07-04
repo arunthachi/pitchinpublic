@@ -6,8 +6,8 @@ import { emailSchema, phoneSchema } from '@/lib/validation';
 /**
  * POST /api/auth/otp
  *
- * Send OTP (One-Time Password) via email or SMS
- * Supports: email magic link, SMS OTP
+ * Send OTP (One-Time Password) via email or SMS.
+ * MVP UI uses email OTP; phone remains server-side only until SMS is enabled.
  *
  * Rate Limited: 5 requests per minute per IP address
  *
@@ -140,6 +140,7 @@ export async function POST(request: NextRequest) {
         email: destination,
         options: {
           emailRedirectTo: `${request.nextUrl.origin}/auth/callback`,
+          shouldCreateUser: true,
         },
       });
 
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: true,
-          message: `Magic link sent to ${destination}`,
+          message: `Code sent to ${destination}`,
           method: 'email',
           provider: 'supabase',
           destination: destination.replace(/(.{3})(.*)(@.*)/, '$1***$3'), // Mask email

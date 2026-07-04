@@ -89,6 +89,11 @@ function convertApiPitchToLegacy(pitch: any): LegacyPitch {
     toastCount: pitch.toast_count || 0,
     createdAt: pitch.created_at,
     duration: pitch.duration || undefined,
+    versionNumber: pitch.version_number,
+    practiceGoalId: pitch.practice_goal_id || null,
+    promptKey: pitch.prompt_key || null,
+    promptText: pitch.prompt_text || null,
+    isBestTake: Boolean(pitch.is_best_take),
     feedback: parseFeedback(pitch.feedback),
   };
 }
@@ -243,7 +248,7 @@ export default function UserProfilePage() {
     : 0;
 
   const visiblePitches = activeTab === 'best'
-    ? pitches.filter((pitch) => finalPitchIds.has(pitch.id))
+    ? pitches.filter((pitch) => finalPitchIds.has(pitch.id) || pitch.isBestTake)
     : pitches;
 
   if (loading) {
