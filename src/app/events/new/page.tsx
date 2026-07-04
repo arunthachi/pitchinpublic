@@ -6,6 +6,17 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, CalendarDays, Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
+const focusOptions = [
+  'Clarity and ask',
+  'ICP and audience',
+  'Problem pain',
+  'Storytelling',
+  'Traction proof',
+  'Investor Q&A',
+  'Demo flow',
+  'Competition prep',
+];
+
 export default function NewEventPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -17,10 +28,12 @@ export default function NewEventPage() {
     eventDate: '',
     submissionDeadline: '',
     pitchLengthSeconds: 60,
-    focus: 'clarity and ask',
+    focus: focusOptions[0],
     visibility: 'unlisted',
     accessCode: '',
   });
+  const [customFocus, setCustomFocus] = useState('');
+  const isCustomFocus = form.focus === 'custom';
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -33,7 +46,7 @@ export default function NewEventPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          submissionDeadline: form.submissionDeadline ? new Date(form.submissionDeadline).toISOString() : '',
+          focus: isCustomFocus ? customFocus.trim() : form.focus,
         }),
       });
       const data = await response.json();
@@ -51,14 +64,14 @@ export default function NewEventPage() {
   };
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-black text-white">Loading...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading...</div>;
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-black px-4 text-center text-white">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center text-white">
         <h1 className="font-heading text-4xl font-bold">Sign in to create a pitch sprint.</h1>
-        <Link href="/?alpha=1&preview=1" className="mt-6 rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
+        <Link href="/?alpha=1&preview=1" className="cta-primary mt-6 rounded-xl px-5 py-3 font-heading font-bold">
           Go to app
         </Link>
       </div>
@@ -66,8 +79,8 @@ export default function NewEventPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-white/10 bg-black/80 backdrop-blur-xl">
+    <div className="min-h-screen bg-background text-white">
+      <header className="border-b border-white/10 bg-graphite-dark/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white">
             <ArrowLeft className="h-4 w-4" />
@@ -79,7 +92,7 @@ export default function NewEventPage() {
 
       <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:py-12">
         <section>
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neon-lime/25 bg-neon-lime/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-neon-lime">
+          <div className="glass-pill mb-5 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-neon-lime">
             <Sparkles className="h-4 w-4" />
             Pitch Sprint
           </div>
@@ -87,14 +100,14 @@ export default function NewEventPage() {
           <p className="mt-5 max-w-xl text-lg leading-8 text-slate-300">
             Keep the event setup focused: deadline, pitch length, invite code, and the one thing founders should improve before pitch day.
           </p>
-          <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+          <div className="glass-card mt-6 rounded-3xl p-5">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Pilot defaults</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-black/35 p-4">
+              <div className="rounded-2xl bg-black/25 p-4">
                 <CalendarDays className="mb-3 h-5 w-5 text-neon-cyan" />
                 <p className="font-bold">30-90 day sprint</p>
               </div>
-              <div className="rounded-2xl bg-black/35 p-4">
+              <div className="rounded-2xl bg-black/25 p-4">
                 <Lock className="mb-3 h-5 w-5 text-neon-lime" />
                 <p className="font-bold">Invite link or code</p>
               </div>
@@ -102,7 +115,7 @@ export default function NewEventPage() {
           </div>
         </section>
 
-        <form onSubmit={submit} className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl shadow-black/30 backdrop-blur-2xl sm:p-6">
+        <form onSubmit={submit} className="glass-panel rounded-[2rem] p-5 sm:p-6">
           <div className="space-y-4">
             <Field label="Event name">
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-dark" required />
@@ -115,7 +128,7 @@ export default function NewEventPage() {
                 <input type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} className="input-dark" required />
               </Field>
               <Field label="Submission deadline">
-                <input type="datetime-local" value={form.submissionDeadline} onChange={(e) => setForm({ ...form, submissionDeadline: e.target.value })} className="input-dark" />
+                <input type="date" value={form.submissionDeadline} onChange={(e) => setForm({ ...form, submissionDeadline: e.target.value })} className="input-dark" />
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -134,9 +147,51 @@ export default function NewEventPage() {
                 </select>
               </Field>
             </div>
-            <Field label="Sprint focus">
-              <input value={form.focus} onChange={(e) => setForm({ ...form, focus: e.target.value })} className="input-dark" />
-            </Field>
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="block text-sm font-bold text-slate-300">Sprint focus</span>
+                <span className="text-xs font-semibold text-slate-500">Pick one</span>
+              </div>
+              <div className="glass-card flex flex-wrap gap-2 rounded-3xl p-3">
+                {focusOptions.map((option) => {
+                  const selected = form.focus === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setForm({ ...form, focus: option })}
+                      className={`rounded-full border px-3.5 py-2 text-sm font-bold transition ${
+                        selected
+                          ? 'border-neon-cyan bg-neon-cyan text-slate-950 shadow-lg shadow-neon-cyan/15'
+                          : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-neon-cyan/45 hover:text-white'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, focus: 'custom' })}
+                  className={`rounded-full border px-3.5 py-2 text-sm font-bold transition ${
+                    isCustomFocus
+                      ? 'border-neon-lime bg-neon-lime text-slate-950 shadow-lg shadow-neon-lime/15'
+                      : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-neon-lime/45 hover:text-white'
+                  }`}
+                >
+                  Custom
+                </button>
+              </div>
+              {isCustomFocus && (
+                <input
+                  value={customFocus}
+                  onChange={(e) => setCustomFocus(e.target.value)}
+                  className="input-dark mt-3"
+                  placeholder="e.g. sharpen closing ask"
+                  required
+                />
+              )}
+            </div>
             <Field label="Optional access code">
               <input value={form.accessCode} onChange={(e) => setForm({ ...form, accessCode: e.target.value })} className="input-dark" placeholder="WESTPORT2026" />
             </Field>
@@ -144,7 +199,7 @@ export default function NewEventPage() {
 
           {error && <p className="mt-4 rounded-xl border border-roast/25 bg-roast/10 px-4 py-3 text-sm font-semibold text-roast">{error}</p>}
 
-          <button disabled={isSaving} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-4 font-heading font-black text-slate-950 transition hover:scale-[1.01] disabled:opacity-60">
+          <button disabled={isSaving} className="cta-primary mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black transition hover:scale-[1.01] disabled:opacity-60">
             {isSaving ? 'Creating sprint...' : 'Create pitch sprint'}
             <ArrowRight className="h-5 w-5" />
           </button>

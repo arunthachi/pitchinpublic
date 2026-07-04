@@ -327,7 +327,7 @@ export function PitchGoalPanel({ isOpen, onClose, onRecordPitch, userPitches }: 
               ) : (
                 <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
                   <div className="space-y-4">
-                    <div className="rounded-2xl border border-neon-cyan/20 bg-[linear-gradient(145deg,rgba(0,240,255,0.12),rgba(163,255,18,0.08)),rgba(255,255,255,0.04)] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl">
+                    <div className="glass-card rounded-2xl border-neon-cyan/20 bg-[linear-gradient(145deg,rgba(0,230,246,0.12),rgba(183,255,42,0.08)),rgba(255,255,255,0.04)] p-5">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-xs font-bold uppercase tracking-[0.22em] text-neon-cyan">Countdown</p>

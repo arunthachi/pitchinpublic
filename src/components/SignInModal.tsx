@@ -92,7 +92,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
               className="relative w-full max-w-[460px]"
             >
-              <div className="relative overflow-hidden rounded-[2rem] border border-white/15 bg-[#07090d]/95 shadow-2xl shadow-black/50">
+              <div className="glass-panel relative overflow-hidden rounded-[2rem]">
                 <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-neon-cyan/20 via-neon-lime/10 to-transparent" />
 
                 <button
@@ -106,7 +106,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
 
                 <div className="relative p-6 pt-10 sm:p-8 sm:pt-11">
                   <div className="mb-7">
-                    <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-white/25 bg-white/15 text-neon-cyan shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_18px_46px_rgba(0,240,255,0.16)] backdrop-blur-xl">
+                    <div className="glass-pill mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl text-neon-cyan">
                       <QrCode className="h-7 w-7" />
                     </div>
                     <h2 className="font-heading text-3xl font-bold tracking-normal text-white sm:text-4xl">
@@ -137,7 +137,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                       type="button"
                       onClick={() => handleSocialSignIn('google')}
                       disabled={loading !== null}
-                      className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white px-5 py-4 font-bold text-slate-950 shadow-[0_18px_48px_rgba(255,255,255,0.14)] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-3 rounded-full bg-white px-5 py-4 font-bold text-slate-950 shadow-[0_18px_48px_rgba(255,255,255,0.14)] transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {loading === 'google' ? (
                         <Loader2 className="h-5 w-5 animate-spin" />

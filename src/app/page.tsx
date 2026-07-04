@@ -303,7 +303,7 @@ function HomeContent() {
   // Show loading state only when an authenticated session is already known.
   if (loading && !isGuest) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-white">Loading...</div>
       </div>
     );
@@ -330,7 +330,7 @@ function HomeContent() {
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-black">
+    <div className="fixed inset-0 overflow-hidden bg-background">
       {/* Left Sidebar Navigation - Hidden on mobile, shown for everyone on desktop */}
       <div className="hidden lg:block">
         <SidebarNav
@@ -361,14 +361,14 @@ function HomeContent() {
       {isGuest ? (
         <button
           onClick={() => setShowGuestFeedPreview(false)}
-          className="hidden lg:block fixed top-4 right-4 z-50 px-6 py-2.5 rounded-lg border border-white/15 bg-black/70 text-white font-semibold text-sm hover:border-neon-cyan hover:text-neon-cyan transition-all"
+          className="btn-glass fixed right-4 top-4 z-50 hidden px-6 py-2.5 text-sm font-semibold hover:border-neon-cyan hover:text-neon-cyan lg:block"
         >
           Back to waitlist
         </button>
       ) : (
         <button
           onClick={() => router.push('/me')}
-          className="hidden lg:block fixed top-4 right-4 z-50 w-11 h-11 rounded-full border-2 border-slate-700 hover:border-neon-cyan transition-all overflow-hidden group"
+          className="glass-pill fixed right-4 top-4 z-50 hidden h-11 w-11 overflow-hidden rounded-full transition-all hover:border-neon-cyan lg:block"
         >
           <img
             src={userProfile?.avatar || mockUser.avatar}
@@ -379,31 +379,34 @@ function HomeContent() {
       )}
 
       {/* Main Content Area - Video Feed */}
-      <main className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black">
+      <main className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_48%_8%,rgba(0,230,246,0.06),transparent_24rem),radial-gradient(circle_at_68%_72%,rgba(183,255,42,0.045),transparent_28rem)]">
         {/* Desktop: Centered with reactions on side */}
         <div
           className="relative hidden h-full w-full lg:block"
           style={{
-            '--feed-h': 'clamp(560px, calc(100dvh - 5.25rem), 1080px)',
+            '--feed-h': 'clamp(640px, calc(100dvh - 2rem), 1080px)',
             '--feed-w': 'calc(var(--feed-h) * 9 / 16)',
           } as React.CSSProperties}
         >
           {/* Video Feed Container - TikTok-style responsive 9:16 frame, centered in the viewport. */}
-          <div className="absolute left-1/2 top-6 h-[var(--feed-h)] w-[var(--feed-w)] -translate-x-1/2 overflow-hidden rounded-[1.25rem] bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)]">
+          <div className="glass-shell absolute left-1/2 top-4 h-[var(--feed-h)] w-[var(--feed-w)] -translate-x-1/2 overflow-hidden rounded-[1.35rem] p-[1px]">
+            <div className="h-full w-full overflow-hidden rounded-[1.28rem] bg-black">
             <FullScreenVideoFeed
               pitches={legacyPitches}
               hideReactions={true}
               onCurrentPitchChange={handlePitchChange}
             />
+            </div>
           </div>
 
           {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
             <div
-              className="absolute rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-4 shadow-2xl shadow-black/30 backdrop-blur-2xl"
+              className="glass-pill absolute rounded-full px-2.5 py-4"
               style={{
                 left: 'calc(50% + var(--feed-w) / 2 + 1rem)',
-                top: 'calc(1.5rem + min(28dvh, 280px))',
+                top: 'calc(1rem + (var(--feed-h) / 2))',
+                transform: 'translateY(-50%)',
               }}
             >
               <FloatingReactions
@@ -575,7 +578,7 @@ function HomeContent() {
         transition={{ delay: 3, duration: 1 }}
         className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 pointer-events-none"
       >
-        <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700">
+        <div className="glass-pill rounded-full px-4 py-2">
           <p className="text-xs text-white font-body">
             Swipe up/down or use arrow keys
           </p>
@@ -587,7 +590,7 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
       <HomeContent />
     </Suspense>
   );

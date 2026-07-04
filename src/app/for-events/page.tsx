@@ -91,7 +91,7 @@ export default function ForEventsPage() {
 
       <main>
         <section className="relative overflow-hidden border-b border-white/10">
-          <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(0,240,255,0.14),transparent_34%),linear-gradient(180deg,rgba(163,255,18,0.1),transparent_42%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(0,230,246,0.14),transparent_34%),linear-gradient(180deg,rgba(183,255,42,0.1),transparent_42%)]" />
           <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:py-24">
             <div className="flex flex-col justify-center">
               <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-lg border border-neon-lime/30 bg-neon-lime/10 px-3 py-2 text-sm font-semibold text-neon-lime">

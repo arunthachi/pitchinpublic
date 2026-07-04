@@ -99,7 +99,7 @@ export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
       className="space-y-4"
     >
       {/* Momentum Card */}
-      <div className="overflow-hidden rounded-2xl border border-neon-cyan/20 bg-[radial-gradient(circle_at_20%_0%,rgba(0,240,255,0.16),transparent_34%),linear-gradient(145deg,rgba(15,23,42,0.95),rgba(2,6,23,0.95))] p-5 backdrop-blur-sm">
+      <div className="glass-card overflow-hidden rounded-2xl border-neon-cyan/20 bg-[radial-gradient(circle_at_20%_0%,rgba(0,230,246,0.16),transparent_34%),linear-gradient(145deg,rgba(18,23,34,0.95),rgba(5,7,10,0.95))] p-5">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-neon-cyan/25 bg-neon-cyan/10">

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Flame, MessageSquareText, Plus, Wine, X } from 'lucide-react';
+import { Flame, MessageSquareText, Wine, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { LegacyFeedback } from '@/types';
 
@@ -110,7 +110,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-md"
+            className="fixed inset-0 z-[80] bg-black/44 backdrop-blur-md"
           />
 
           <motion.div
@@ -121,10 +121,10 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
             onPointerDown={stopPanelEvent}
             onTouchMove={stopPanelEvent}
             onWheel={stopPanelEvent}
-            className="fixed z-[90] flex flex-col overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06)),rgba(8,13,28,0.78)] shadow-[0_34px_110px_rgba(0,0,0,0.62)] ring-1 ring-white/10 backdrop-blur-3xl"
+            className="glass-panel fixed z-[90] flex flex-col overflow-hidden rounded-[2rem] ring-1 ring-white/10"
             style={{ ...sheetStyle, touchAction: 'pan-y' }}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.04] px-5 py-4 sm:px-6">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-5 py-4 sm:px-6">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">
                   Founder feedback
@@ -135,7 +135,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
               </div>
               <button
                 onClick={onClose}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.10] shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.16]"
+                className="glass-pill flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/[0.16]"
                 aria-label="Close feedback"
               >
                 <X className="h-5 w-5 text-slate-200" />
@@ -147,7 +147,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {feedback.length === 0 ? (
-                <div className="rounded-3xl border border-white/12 bg-black/20 p-5 text-center">
+                <div className="glass-card rounded-3xl p-5 text-center">
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neon-cyan/15 text-neon-cyan">
                     <MessageSquareText className="h-6 w-6" />
                   </div>
@@ -158,18 +158,18 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                 </div>
               ) : (
                 <>
-                  <div className="rounded-3xl border border-neon-cyan/20 bg-[linear-gradient(145deg,rgba(0,240,255,0.14),rgba(163,255,18,0.08)),rgba(0,0,0,0.22)] p-4 shadow-lg shadow-black/20">
+                  <div className="glass-card rounded-3xl border-neon-cyan/20 bg-[linear-gradient(145deg,rgba(0,230,246,0.14),rgba(183,255,42,0.08)),rgba(0,0,0,0.18)] p-4">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">Coach signal</p>
                     <div className="mt-4 grid grid-cols-3 gap-2">
-                      <div className="rounded-2xl bg-black/25 p-3">
+                      <div className="rounded-2xl bg-black/20 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Readiness</p>
                         <p className="mt-1 font-heading text-lg font-black text-white">{readinessLabel(avgReadiness)}</p>
                       </div>
-                      <div className="rounded-2xl bg-black/25 p-3">
+                      <div className="rounded-2xl bg-black/20 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Toast</p>
                         <p className="mt-1 font-heading text-lg font-black text-toast">{toastCount}</p>
                       </div>
-                      <div className="rounded-2xl bg-black/25 p-3">
+                      <div className="rounded-2xl bg-black/20 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Roast</p>
                         <p className="mt-1 font-heading text-lg font-black text-roast">{roastCount}</p>
                       </div>
@@ -192,7 +192,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                     return (
                       <article
                         key={item.id}
-                        className="rounded-3xl border border-white/10 bg-black/20 p-4 shadow-lg shadow-black/20"
+                        className="glass-card rounded-3xl p-4"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
@@ -232,19 +232,19 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 border-t border-white/10 bg-black/28 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
+            <div className="grid grid-cols-2 gap-3 border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <button
                 onClick={() => onAddFeedback('roast')}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-roast/30 bg-roast/15 px-4 py-3 text-sm font-black text-roast transition-colors hover:bg-roast/20"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-roast/30 bg-roast/15 px-4 py-3 text-sm font-black text-roast transition-colors hover:bg-roast/20"
               >
-                <Plus className="h-4 w-4" />
+                <Flame className="h-4 w-4" />
                 Roast
               </button>
               <button
                 onClick={() => onAddFeedback('toast')}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-toast/30 bg-toast/15 px-4 py-3 text-sm font-black text-toast transition-colors hover:bg-toast/20"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-toast/30 bg-toast/15 px-4 py-3 text-sm font-black text-toast transition-colors hover:bg-toast/20"
               >
-                <Plus className="h-4 w-4" />
+                <Wine className="h-4 w-4" />
                 Toast
               </button>
             </div>

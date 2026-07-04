@@ -19,8 +19,8 @@ export function BrandMark({ className = 'h-10 w-10' }: BrandMarkProps) {
     >
       <defs>
         <linearGradient id={gradientId} x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#00F0FF" />
-          <stop offset="1" stopColor="#C6FF00" />
+          <stop stopColor="#00E6F6" />
+          <stop offset="1" stopColor="#B7FF2A" />
         </linearGradient>
       </defs>
       <rect width="64" height="64" rx="15" fill={`url(#${gradientId})`} />

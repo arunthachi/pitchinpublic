@@ -186,7 +186,7 @@ export function FloatingReactions({
           onClick={handleAvatarClick}
           src={pitch.founderAvatar}
           alt={pitch.founderName}
-          className="w-12 h-12 rounded-full border-2 border-white cursor-pointer shadow-lg hover:border-neon-cyan transition-colors"
+          className="h-12 w-12 cursor-pointer rounded-full border-2 border-white/70 shadow-lg transition-colors hover:border-neon-cyan"
           style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))' }}
         />
         {/* Follow Button */}
@@ -223,7 +223,7 @@ export function FloatingReactions({
           />
 
           {/* Main circular button background */}
-          <div className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
+          <div className={`glass-pill relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
             userReaction === 'roast'
               ? 'bg-white/[0.18] border-roast/[0.45] ring-1 ring-roast/[0.25]'
               : 'bg-white/[0.12] border-white/20 hover:border-roast/[0.35] hover:bg-white/[0.18]'
@@ -236,8 +236,8 @@ export function FloatingReactions({
                   pitch.roastCount > 0 ? 'opacity-90' : 'opacity-0 pointer-events-none'
                 } ${
                   userReaction === 'roast'
-                    ? 'drop-shadow-[0_0_8px_rgba(255,59,48,0.55)]'
-                    : justRoasted ? 'drop-shadow-[0_0_8px_rgba(255,59,48,0.5)]' : ''
+                    ? 'drop-shadow-[0_0_8px_rgba(255,90,77,0.55)]'
+                    : justRoasted ? 'drop-shadow-[0_0_8px_rgba(255,90,77,0.5)]' : ''
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
               />
@@ -247,8 +247,8 @@ export function FloatingReactions({
                   pitch.roastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 } ${
                   userReaction === 'roast'
-                    ? 'text-roast drop-shadow-[0_0_8px_rgba(255,59,48,0.55)]'
-                    : justRoasted ? 'text-roast drop-shadow-[0_0_8px_rgba(255,59,48,0.5)]' : 'text-white/90 group-hover:text-roast'
+                    ? 'text-roast drop-shadow-[0_0_8px_rgba(255,90,77,0.55)]'
+                    : justRoasted ? 'text-roast drop-shadow-[0_0_8px_rgba(255,90,77,0.5)]' : 'text-white/90 group-hover:text-roast'
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
                 strokeWidth={1.5}
@@ -292,7 +292,7 @@ export function FloatingReactions({
           />
 
           {/* Main circular button background */}
-          <div className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
+          <div className={`glass-pill relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
             userReaction === 'toast'
               ? 'bg-white/[0.18] border-toast/[0.45] ring-1 ring-toast/[0.25]'
               : 'bg-white/[0.12] border-white/20 hover:border-toast/[0.35] hover:bg-white/[0.18]'
@@ -305,8 +305,8 @@ export function FloatingReactions({
                   pitch.toastCount > 0 ? 'opacity-90' : 'opacity-0 pointer-events-none'
                 } ${
                   userReaction === 'toast'
-                    ? 'drop-shadow-[0_0_8px_rgba(52,199,89,0.55)]'
-                    : justToasted ? 'drop-shadow-[0_0_8px_rgba(52,199,89,0.5)]' : ''
+                    ? 'drop-shadow-[0_0_8px_rgba(53,201,111,0.55)]'
+                    : justToasted ? 'drop-shadow-[0_0_8px_rgba(53,201,111,0.5)]' : ''
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
               />
@@ -316,8 +316,8 @@ export function FloatingReactions({
                   pitch.toastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 } ${
                   userReaction === 'toast'
-                    ? 'text-toast drop-shadow-[0_0_8px_rgba(52,199,89,0.55)]'
-                    : justToasted ? 'text-toast drop-shadow-[0_0_8px_rgba(52,199,89,0.5)]' : 'text-white/90 group-hover:text-toast'
+                    ? 'text-toast drop-shadow-[0_0_8px_rgba(53,201,111,0.55)]'
+                    : justToasted ? 'text-toast drop-shadow-[0_0_8px_rgba(53,201,111,0.5)]' : 'text-white/90 group-hover:text-toast'
                 }`}
                 style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
                 strokeWidth={1.5}
@@ -350,7 +350,7 @@ export function FloatingReactions({
         className="relative flex flex-col items-center gap-2 group"
         aria-label="Leave detailed feedback"
       >
-        <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm hover:border-neon-cyan/[0.45] hover:bg-white/[0.18]">
+        <div className="glass-pill relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm hover:border-neon-cyan/[0.45] hover:bg-white/[0.18]">
           <MessageSquareText
             className="relative z-10 h-6 w-6 text-white/90 transition-colors group-hover:text-neon-cyan"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
@@ -380,11 +380,11 @@ export function FloatingReactions({
           />
 
           {/* Main circular button background */}
-          <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 hover:border-neon-cyan/[0.45] hover:bg-white/[0.18]">
+          <div className="glass-pill relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 hover:border-neon-cyan/[0.45] hover:bg-white/[0.18]">
             <Bookmark
               className={`h-6 w-6 transition-all duration-300 ${
                 bookmarkState
-                  ? 'text-neon-cyan fill-neon-cyan drop-shadow-[0_0_12px_rgba(0,240,255,0.8)]'
+                  ? 'text-neon-cyan fill-neon-cyan drop-shadow-[0_0_12px_rgba(0,230,246,0.72)]'
                   : 'text-white group-hover:text-neon-cyan'
               }`}
               style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
@@ -406,7 +406,7 @@ export function FloatingReactions({
         whileHover={{ scale: 1.05 }}
         className="relative flex flex-col items-center gap-2 group"
       >
-        <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-all duration-200 hover:border-white/[0.35] hover:bg-white/[0.18]">
+        <div className="glass-pill relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 hover:border-white/[0.35] hover:bg-white/[0.18]">
           <Share2
             className="h-6 w-6 text-white/90 transition-all duration-300 group-hover:text-slate-200"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}

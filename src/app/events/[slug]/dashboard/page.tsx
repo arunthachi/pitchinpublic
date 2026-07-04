@@ -83,12 +83,12 @@ export default function EventDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-background text-white">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
-        <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,rgba(0,240,255,0.10),rgba(163,255,18,0.08)),rgba(255,255,255,0.035)] p-6 shadow-2xl shadow-black/30 sm:p-8">
+        <section className="glass-panel rounded-[2rem] p-6 sm:p-8">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div>
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">
+              <div className="glass-pill mb-5 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">
                 <Sparkles className="h-4 w-4" />
                 Room Control
               </div>
@@ -98,11 +98,11 @@ export default function EventDashboardPage() {
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <button onClick={copyInvite} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-5 py-3 font-heading font-bold text-white">
+              <button onClick={copyInvite} className="glass-pill inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-heading font-bold text-white">
                 <Copy className="h-4 w-4" />
                 {copied ? 'Copied' : 'Copy invite'}
               </button>
-              <Link href={`/events/${slug}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
+              <Link href={`/events/${slug}`} className="cta-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-heading font-bold">
                 Founder view
                 <ExternalLink className="h-4 w-4" />
               </Link>
@@ -119,7 +119,7 @@ export default function EventDashboardPage() {
         </section>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[0.65fr_1.35fr]">
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <div className="glass-card rounded-[2rem] p-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-lime">Participants</p>
             <div className="mt-4 space-y-3">
               {participants.length ? participants.map((participant: any) => (
@@ -140,7 +140,7 @@ export default function EventDashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <div className="glass-card rounded-[2rem] p-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Ready Board</p>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {sortedSubmissions.length ? sortedSubmissions.map((submission: any) => {

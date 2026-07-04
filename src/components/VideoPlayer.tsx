@@ -182,7 +182,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(0,240,255,0.12),transparent_34%),linear-gradient(180deg,#020617_0%,#000_55%)]">
+    <div className="relative h-full w-full overflow-hidden bg-[radial-gradient(circle_at_50%_20%,rgba(0,230,246,0.12),transparent_34%),linear-gradient(180deg,#05070a_0%,#000_58%)]">
       {/* Video Player */}
       <video
         ref={videoRef}
@@ -243,7 +243,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
       <motion.button
         onClick={toggleMute}
         whileTap={{ scale: 0.9 }}
-        className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700 flex items-center justify-center"
+        className="glass-pill absolute right-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-full"
       >
         {muted ? (
           <VolumeX className="w-5 h-5 text-slate-300" />

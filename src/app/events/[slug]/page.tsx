@@ -98,19 +98,19 @@ export default function EventPage() {
   };
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-black text-white">Loading pitch sprint...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading pitch sprint...</div>;
   }
 
   if (!eventState?.success || !event) {
-    return <div className="flex min-h-screen items-center justify-center bg-black text-white">Pitch sprint not found.</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Pitch sprint not found.</div>;
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-background text-white">
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
         <section className="grid gap-6 lg:grid-cols-[1fr_0.88fr]">
-          <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,rgba(0,240,255,0.12),rgba(163,255,18,0.08)),rgba(255,255,255,0.035)] p-6 shadow-2xl shadow-black/30 sm:p-8">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-neon-lime/25 bg-neon-lime/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-lime">
+          <div className="glass-panel rounded-[2rem] p-6 sm:p-8">
+            <div className="glass-pill mb-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-lime">
               <Sparkles className="h-4 w-4" />
               Pitch Sprint
             </div>
@@ -123,7 +123,7 @@ export default function EventPage() {
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 backdrop-blur-2xl sm:p-6">
+          <div className="glass-card rounded-[2rem] p-5 sm:p-6">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Today&apos;s plan</p>
             <div className="mt-4 space-y-3">
               {plan.map((item) => (
@@ -133,19 +133,19 @@ export default function EventPage() {
                 </div>
               ))}
             </div>
-            <Link href="/?record=1&alpha=1&preview=1" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-4 font-heading font-black text-slate-950">
+            <Link href="/?record=1&alpha=1&preview=1" className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
               Record a practice rep
               <ArrowRight className="h-5 w-5" />
             </Link>
           </div>
         </section>
 
-        <section className="mt-6 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+        <section className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
           {!user ? (
             <div className="text-center">
               <h2 className="font-heading text-3xl font-bold">Sign in to join this sprint.</h2>
               <p className="mt-2 text-slate-400">Use Google, record reps, and submit your final take.</p>
-              <Link href={`/?alpha=1&preview=1&next=/events/${slug}`} className="mt-5 inline-flex rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
+              <Link href={`/?alpha=1&preview=1&next=/events/${slug}`} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
                 Sign in
               </Link>
             </div>
@@ -158,7 +158,7 @@ export default function EventPage() {
                 </span>
                 <input value={accessCode} onChange={(e) => setAccessCode(e.target.value)} className="input-dark" placeholder="WESTPORT2026" />
               </label>
-              <button onClick={join} disabled={saving} className="rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950 disabled:opacity-60">
+              <button onClick={join} disabled={saving} className="cta-primary rounded-xl px-5 py-3 font-heading font-bold disabled:opacity-60">
                 Join sprint
               </button>
             </div>
@@ -176,7 +176,7 @@ export default function EventPage() {
                         type="button"
                         onClick={() => setSelectedPitchId(pitch.id)}
                         className={`relative aspect-[9/16] overflow-hidden rounded-2xl border text-left transition ${
-                          selected ? 'border-neon-lime shadow-[0_0_0_2px_rgba(163,255,18,0.35)]' : 'border-white/10 hover:border-neon-cyan/60'
+                          selected ? 'border-neon-lime shadow-[0_0_0_2px_rgba(183,255,42,0.35)]' : 'border-white/10 hover:border-neon-cyan/60'
                         }`}
                       >
                         {pitch.thumbnail_url ? (
@@ -195,7 +195,7 @@ export default function EventPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+              <div className="glass-card rounded-3xl p-5">
                 <Trophy className="mb-4 h-8 w-8 text-neon-lime" />
                 <h3 className="font-heading text-2xl font-bold">{eventState.userSubmission ? 'Submitted' : 'Ready to submit?'}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
@@ -209,7 +209,7 @@ export default function EventPage() {
                 <button
                   onClick={submitFinalTake}
                   disabled={!selectedPitchId || saving}
-                  className="mt-5 w-full rounded-2xl bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-4 font-heading font-black text-slate-950 disabled:opacity-50"
+                  className="cta-primary mt-5 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : eventState.userSubmission ? 'Update final take' : 'Submit final take'}
                 </button>

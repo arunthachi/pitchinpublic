@@ -62,7 +62,7 @@ export function SidebarNav({
   }, [isGuest]);
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 z-50 flex w-20 flex-col border-r border-white/10 bg-black lg:w-56">
+    <aside className="fixed bottom-0 left-0 top-0 z-50 flex w-20 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(18,23,34,0.86),rgba(5,7,10,0.96))] shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl lg:w-56">
       {/* Logo */}
       <Link href="/" className="p-4 lg:px-5 lg:py-6">
         <div className="flex items-center gap-3">
@@ -95,7 +95,7 @@ export function SidebarNav({
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-slate-100 lg:px-4"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-slate-400 transition-colors hover:bg-white/[0.07] hover:text-slate-100 lg:px-4"
                 >
                   {content}
                 </Link>
@@ -109,8 +109,8 @@ export function SidebarNav({
                 whileTap={{ scale: 0.98 }}
                 className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 transition-colors lg:px-4 ${
                   item.active
-                    ? 'border border-neon-cyan/30 bg-neon-cyan/10 text-neon-cyan'
-                    : 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
+                    ? 'glass-pill border-neon-cyan/35 bg-neon-cyan/10 text-neon-cyan'
+                    : 'text-slate-400 hover:bg-white/[0.07] hover:text-slate-100'
                 }`}
               >
                 {content}
@@ -124,14 +124,14 @@ export function SidebarNav({
           onClick={onPostClick}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-neon-cyan to-neon-lime px-4 py-3.5 font-heading font-bold text-slate-950 shadow-[0_16px_40px_rgba(0,240,255,0.18)]"
+          className="cta-primary mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 font-heading font-bold"
         >
           <Plus className="w-5 h-5" />
           <span className="hidden lg:block">Record Pitch</span>
         </motion.button>
 
         {!isGuest && streak && (
-          <div className="mt-6 hidden rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-[0_18px_44px_rgba(0,0,0,0.22)] backdrop-blur-xl lg:block">
+          <div className="glass-card mt-6 hidden rounded-2xl p-3 lg:block">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-neon-cyan/15 text-neon-cyan">
@@ -148,7 +148,7 @@ export function SidebarNav({
             <button
               type="button"
               onClick={onChallengeClick}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-neon-cyan/35 bg-gradient-to-r from-neon-cyan/15 to-neon-lime/15 px-3 py-2.5 text-sm font-bold text-white transition hover:border-neon-cyan/70"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-neon-cyan/35 bg-gradient-to-r from-neon-cyan/15 to-neon-lime/10 px-3 py-2.5 text-sm font-bold text-white transition hover:border-neon-cyan/70"
             >
               <Zap className="h-4 w-4 text-neon-lime" />
               {streak.isActiveToday ? 'Open pitch goal' : 'Plan next pitch'}
@@ -165,7 +165,7 @@ export function SidebarNav({
               onClick={onSignInClick}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-heading font-bold mb-4"
+              className="cta-primary mb-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-heading font-bold"
             >
               <span className="hidden lg:block">{guestActionLabel}</span>
               <span className="lg:hidden">{guestActionLabel}</span>

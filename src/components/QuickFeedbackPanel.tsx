@@ -154,7 +154,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-md"
+            className="fixed inset-0 z-[80] bg-black/44 backdrop-blur-md"
           />
 
           {/* Panel */}
@@ -166,10 +166,10 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             onPointerDown={stopPanelEvent}
             onTouchMove={stopPanelEvent}
             onWheel={stopPanelEvent}
-            className="fixed z-[90] flex flex-col overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06)),rgba(8,13,28,0.78)] shadow-[0_34px_110px_rgba(0,0,0,0.62)] ring-1 ring-white/10 backdrop-blur-3xl"
+            className="glass-panel fixed z-[90] flex flex-col overflow-hidden rounded-[2rem] ring-1 ring-white/10"
             style={{ ...sheetStyle, touchAction: 'pan-y' }}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.04] px-5 py-4 sm:px-6">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-5 py-4 sm:px-6">
               {/* Header */}
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">
@@ -181,7 +181,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               </div>
               <button
                 onClick={onClose}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.10] shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.16]"
+                className="glass-pill flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/[0.16]"
                 aria-label="Close feedback panel"
               >
                 <X className="w-5 h-5 text-slate-200" />
@@ -194,7 +194,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             >
 
               {/* Roast/Toast Toggle */}
-              <div className="grid grid-cols-2 gap-2 rounded-3xl border border-white/10 bg-black/20 p-1">
+              <div className="glass-card grid grid-cols-2 gap-2 rounded-3xl p-1">
                 <button
                   onClick={() => {
                     setFeedbackType('roast');
@@ -216,7 +216,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                   }}
                   className={`rounded-2xl px-4 py-3 text-sm font-heading font-black transition-all ${
                     !isRoast
-                      ? 'bg-toast text-white shadow-lg shadow-toast/20'
+                      ? 'bg-toast text-slate-950 shadow-lg shadow-toast/20'
                       : 'text-slate-400 hover:bg-white/[0.08] hover:text-slate-200'
                   }`}
                 >
@@ -225,7 +225,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 </button>
               </div>
 
-              <div className="space-y-3 rounded-3xl border border-white/10 bg-black/20 p-4">
+              <div className="glass-card space-y-3 rounded-3xl p-4">
                 <div className="flex items-center gap-2">
                   <Target className={`h-4 w-4 ${isRoast ? 'text-roast' : 'text-toast'}`} />
                   <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -249,7 +249,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                             ? isRoast
                               ? 'border-roast/60 bg-roast/15 text-white'
                               : 'border-toast/60 bg-toast/15 text-white'
-                            : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08]'
+                            : 'border-white/10 bg-white/[0.045] text-slate-300 hover:bg-white/[0.08]'
                         }`}
                       >
                         <span>{option}</span>
@@ -260,7 +260,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 </div>
               </div>
 
-              <div className="space-y-3 rounded-3xl border border-white/10 bg-black/20 p-4">
+              <div className="glass-card space-y-3 rounded-3xl p-4">
                 <h3 className="font-heading text-xs font-bold uppercase tracking-wider text-slate-400">
                   Readiness
                 </h3>
@@ -275,7 +275,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                         className={`rounded-xl border p-3 text-left transition ${
                           selected
                             ? 'border-neon-cyan/70 bg-neon-cyan/15 text-white'
-                            : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08]'
+                            : 'border-white/10 bg-white/[0.045] text-slate-300 hover:bg-white/[0.08]'
                         }`}
                       >
                         <span className="block text-sm font-bold">{level.label}</span>
@@ -308,14 +308,14 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               </div>
             </div>
 
-            <div className="border-t border-white/10 bg-black/28 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
+            <div className="border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className={`w-full py-6 text-base font-heading font-bold ${
+                className={`w-full rounded-full py-6 text-base font-heading font-bold ${
                   isRoast
-                    ? 'bg-roast hover:bg-roast/90 text-white'
-                    : 'bg-toast hover:bg-toast/90 text-white'
+                    ? 'bg-roast text-white hover:bg-roast/90'
+                    : 'bg-toast text-slate-950 hover:bg-toast/90'
                 } disabled:opacity-60 disabled:cursor-not-allowed`}
               >
                 {isSubmitting ? 'Saving feedback...' : isRoast ? 'Submit constructive roast' : 'Submit useful toast'}

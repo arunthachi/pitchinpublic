@@ -199,7 +199,7 @@ export default function UserProfilePage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
-        <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,rgba(0,240,255,0.10),rgba(163,255,18,0.08)),rgba(255,255,255,0.035)] shadow-2xl shadow-black/30 backdrop-blur-2xl">
+        <section className="glass-panel overflow-hidden rounded-[2rem]">
           <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-[1fr_0.9fr]">
             <div className="flex flex-col gap-5 sm:flex-row">
               <img
@@ -324,7 +324,7 @@ export default function UserProfilePage() {
                   {pitch.thumbnailUrl ? (
                     <img src={pitch.thumbnailUrl} alt={pitch.hook} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(145deg,rgba(0,240,255,0.18),rgba(163,255,18,0.16)),#020617]">
+                    <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(145deg,rgba(0,230,246,0.18),rgba(183,255,42,0.16)),#05070a]">
                       <Video className="h-10 w-10 text-white/60" />
                     </div>
                   )}

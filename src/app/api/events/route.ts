@@ -6,7 +6,7 @@ const createEventSchema = z.object({
   name: z.string().min(3).max(120).trim(),
   description: z.string().max(1000).optional().or(z.literal('')),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  submissionDeadline: z.string().datetime().optional().or(z.literal('')),
+  submissionDeadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
   pitchLengthSeconds: z.number().min(30).max(180).default(60),
   focus: z.string().min(2).max(80).default('clarity'),
   visibility: z.enum(['private', 'unlisted', 'public']).default('unlisted'),

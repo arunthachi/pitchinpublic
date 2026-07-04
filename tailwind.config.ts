@@ -53,17 +53,30 @@ const config = {
           foreground: "hsl(var(--card-foreground))",
         },
         // Custom Pitch in Public colors
+        graphite: {
+          DEFAULT: '#121722',
+          light: '#1A2130',
+          dark: '#090D14',
+        },
+        clarity: {
+          DEFAULT: '#00E6F6',
+          soft: '#74F6FF',
+        },
+        momentum: {
+          DEFAULT: '#B7FF2A',
+          soft: '#D9FF7A',
+        },
         neon: {
-          cyan: '#00F0FF',
-          lime: '#CCFF00',
+          cyan: '#00E6F6',
+          lime: '#B7FF2A',
         },
         roast: {
-          DEFAULT: '#FF3B30',
-          light: '#FF6B60',
+          DEFAULT: '#FF5A4D',
+          light: '#FF8178',
         },
         toast: {
-          DEFAULT: '#34C759',
-          light: '#64D779',
+          DEFAULT: '#35C96F',
+          light: '#70E59A',
         },
       },
       borderRadius: {
@@ -82,10 +95,10 @@ const config = {
         },
         "glow-pulse": {
           "0%, 100%": {
-            boxShadow: "0 0 20px rgba(0, 240, 255, 0.3), 0 0 40px rgba(0, 240, 255, 0.1)"
+            boxShadow: "0 0 20px rgba(0, 230, 246, 0.28), 0 0 40px rgba(183, 255, 42, 0.08)"
           },
           "50%": {
-            boxShadow: "0 0 30px rgba(0, 240, 255, 0.5), 0 0 60px rgba(0, 240, 255, 0.2)"
+            boxShadow: "0 0 30px rgba(0, 230, 246, 0.44), 0 0 60px rgba(183, 255, 42, 0.16)"
           },
         },
       },

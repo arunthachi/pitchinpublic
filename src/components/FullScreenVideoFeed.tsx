@@ -97,7 +97,7 @@ function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
                   rotate: particle.rotate,
                 }}
                 transition={{ duration: 1.05, times: [0, 0.16, 0.72, 1], delay: particle.delay, ease: 'easeOut' }}
-                className={`absolute z-10 border border-white/70 shadow-[0_0_26px_rgba(0,240,255,0.9)] backdrop-blur-sm ${particle.color} ${getToastParticleClass(particle.shape)}`}
+                className={`absolute z-10 border border-white/70 shadow-[0_0_26px_rgba(0,230,246,0.82)] backdrop-blur-sm ${particle.color} ${getToastParticleClass(particle.shape)}`}
                 style={{
                   height: particle.shape === 'ribbon' ? Math.max(6, particle.size * 0.45) : particle.size,
                   width: particle.shape === 'ribbon' ? particle.size * 1.75 : particle.size,

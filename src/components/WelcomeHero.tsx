@@ -200,7 +200,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 <button
                   type="button"
                   onClick={onAlphaSignIn}
-                  className="rounded-lg bg-neon-cyan px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  className="cta-primary px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   Founder alpha
                 </button>
@@ -283,7 +283,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                       </div>
                       <button
                         type="submit"
-                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                        className="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                       >
                         <ArrowRight className="h-5 w-5" aria-hidden="true" />
                         Join waitlist
@@ -337,7 +337,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                     transition={{ duration: 0.24 }}
                     className="relative h-full bg-cover"
                     style={{
-                      backgroundImage: `linear-gradient(160deg,rgba(0,240,255,0.18),rgba(2,6,23,0.22) 30%,rgba(0,0,0,1) 72%),url('${activeSignal.imageUrl}')`,
+                      backgroundImage: `linear-gradient(160deg,rgba(0,230,246,0.18),rgba(5,7,10,0.22) 30%,rgba(0,0,0,1) 72%),url('${activeSignal.imageUrl}')`,
                       backgroundPosition: activeSignal.imagePosition,
                       backgroundSize: activeSignal.imageSize,
                     }}
@@ -589,7 +589,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
             <button
               type="button"
               onClick={() => document.getElementById('waitlist-email')?.focus()}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              className="cta-primary inline-flex shrink-0 items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
               Join waitlist
               <ArrowRight className="h-5 w-5" aria-hidden="true" />

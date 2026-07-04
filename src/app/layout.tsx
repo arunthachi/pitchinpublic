@@ -28,7 +28,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#00F0FF",
+  themeColor: "#05070A",
 };
 
 export const metadata: Metadata = {
@@ -81,14 +81,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark h-full bg-black">
+    <html lang="en" className="dark h-full bg-background">
       <body
-        className="h-full min-h-screen overflow-x-hidden bg-black font-body text-slate-100 antialiased"
+        className="h-full min-h-screen overflow-x-hidden bg-background font-body text-slate-100 antialiased"
       >
         <GridBackground />
         <ErrorBoundary>
           <AuthProvider>
-            <main className="relative z-10 min-h-screen bg-black">{children}</main>
+            <main className="relative z-10 min-h-screen bg-transparent">{children}</main>
           </AuthProvider>
         </ErrorBoundary>
       </body>

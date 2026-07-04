@@ -32,7 +32,7 @@ export function FloatingPitchInfo({ pitch, reserveActionRail = true }: FloatingP
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 360, damping: 34 }}
-            className="pointer-events-auto overflow-hidden rounded-[1.6rem] border border-white/[0.16] bg-black/[0.52] shadow-2xl shadow-black/40 backdrop-blur-xl"
+            className="glass-panel pointer-events-auto overflow-hidden rounded-[1.6rem]"
           >
             <button
               type="button"
@@ -45,10 +45,10 @@ export function FloatingPitchInfo({ pitch, reserveActionRail = true }: FloatingP
 
             <div className="px-3 pb-3 pt-2">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-white/[0.14] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-neon-cyan">
+                <span className="glass-pill rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-neon-cyan">
                   {pitch.stage}
                 </span>
-                <span className="rounded-full bg-white/[0.14] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-100">
+                <span className="glass-pill rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-100">
                   {pitch.industry}
                 </span>
               </div>
@@ -81,10 +81,10 @@ export function FloatingPitchInfo({ pitch, reserveActionRail = true }: FloatingP
             exit={{ opacity: 0, y: 12 }}
             transition={{ type: 'spring', stiffness: 360, damping: 32 }}
             onClick={() => setExpanded(true)}
-            className="pointer-events-auto flex w-full items-center gap-2 rounded-full border border-white/[0.14] bg-black/[0.38] px-3 py-2 text-left shadow-2xl shadow-black/35 backdrop-blur-xl transition hover:border-white/25 hover:bg-black/[0.5] focus:outline-none focus:ring-2 focus:ring-neon-cyan/70"
+            className="glass-pill pointer-events-auto flex w-full items-center gap-2 rounded-full px-3 py-2 text-left transition hover:border-white/25 hover:bg-white/[0.12] focus:outline-none focus:ring-2 focus:ring-neon-cyan/70"
             aria-expanded={expanded}
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neon-cyan text-black">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neon-cyan text-black shadow-[0_0_22px_rgba(0,230,246,0.35)]">
               <Target size={16} />
             </span>
             <span className="min-w-0 flex-1">
