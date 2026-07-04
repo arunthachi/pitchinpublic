@@ -11,7 +11,7 @@ import { FeedbackFormData } from '@/types';
 interface QuickFeedbackPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (feedback: FeedbackFormData) => void;
+  onSubmit: (feedback: FeedbackFormData) => boolean | void | Promise<boolean | void>;
   initialType?: 'roast' | 'toast';
 }
 
@@ -24,6 +24,8 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
     presentation: 5,
   });
   const [notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   // Update feedback type when initialType changes
   React.useEffect(() => {
@@ -32,13 +34,26 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
     }
   }, [initialType, isOpen]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmedNotes = notes.trim();
-    onSubmit({ type: feedbackType, scores, notes: trimmedNotes });
-    onClose();
-    // Reset
-    setScores({ clarity: 5, solution: 5, market: 5, presentation: 5 });
-    setNotes('');
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const result = await onSubmit({ type: feedbackType, scores, notes: trimmedNotes });
+      if (result === false) {
+        setSubmitError('Could not save feedback. Please try again.');
+        return;
+      }
+
+      onClose();
+      setScores({ clarity: 5, solution: 5, market: 5, presentation: 5 });
+      setNotes('');
+    } catch {
+      setSubmitError('Could not save feedback. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isRoast = feedbackType === 'roast';
@@ -216,14 +231,20 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               {/* Submit Button */}
               <Button
                 onClick={handleSubmit}
+                disabled={isSubmitting}
                 className={`w-full py-6 text-base font-heading font-bold ${
                   isRoast
                     ? 'bg-roast hover:bg-roast/90 text-white'
                     : 'bg-toast hover:bg-toast/90 text-white'
-                }`}
+                } disabled:opacity-60 disabled:cursor-not-allowed`}
               >
-                {isRoast ? 'Submit constructive roast' : 'Submit useful toast'}
+                {isSubmitting ? 'Saving feedback...' : isRoast ? 'Submit constructive roast' : 'Submit useful toast'}
               </Button>
+              {submitError && (
+                <p className="text-center text-sm font-semibold text-roast">
+                  {submitError}
+                </p>
+              )}
             </div>
           </motion.div>
         </>

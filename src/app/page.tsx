@@ -138,25 +138,52 @@ function HomeContent() {
       const data = await response.json();
 
       // Convert API format to legacy format for backwards compatibility
-      const converted = data.pitches.map((pitch: any) => ({
-        id: pitch.id,
-        userId: pitch.user_id,
-        founderName: pitch.profiles?.full_name || 'Anonymous',
-        founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
-        companyName: pitch.company_name || pitch.description || 'Startup',
-        hook: pitch.hook,
-        description: pitch.description || '',
-        videoUrl: pitch.video_url,
-        thumbnailUrl: pitch.thumbnail_url || '',
-        industry: 'SaaS', // Default, will be added in next phase
-        stage: 'Seed', // Default, will be added in next phase
-        views: pitch.views_count,
-        interestScore: pitch.interest_score,
-        roastCount: pitch.roast_count,
-        toastCount: pitch.toast_count,
-        createdAt: pitch.created_at,
-        duration: pitch.duration,
-      }));
+      const converted = data.pitches.map((pitch: any) => {
+        const feedback = (pitch.feedback || []).map((item: any) => {
+          let parsedContent: any = {};
+          try {
+            parsedContent = item.content ? JSON.parse(item.content) : {};
+          } catch {
+            parsedContent = { notes: item.content || '' };
+          }
+
+          return {
+            id: item.id,
+            authorName: 'Builder',
+            authorRole: 'Founder',
+            type: item.type,
+            scores: parsedContent.scores || {
+              clarity: 5,
+              solution: 5,
+              market: 5,
+              presentation: 5,
+            },
+            notes: parsedContent.notes || '',
+            createdAt: item.created_at,
+          };
+        });
+
+        return {
+          id: pitch.id,
+          userId: pitch.user_id,
+          founderName: pitch.profiles?.full_name || 'Anonymous',
+          founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
+          companyName: pitch.company_name || pitch.description || 'Startup',
+          hook: pitch.hook,
+          description: pitch.description || '',
+          videoUrl: pitch.video_url,
+          thumbnailUrl: pitch.thumbnail_url || '',
+          industry: 'SaaS', // Default, will be added in next phase
+          stage: 'Seed', // Default, will be added in next phase
+          views: pitch.views_count,
+          interestScore: pitch.interest_score,
+          roastCount: pitch.roast_count,
+          toastCount: pitch.toast_count,
+          createdAt: pitch.created_at,
+          duration: pitch.duration,
+          feedback,
+        };
+      });
 
       setLegacyPitches(converted);
       if (converted.length > 0 && !currentPitch) {

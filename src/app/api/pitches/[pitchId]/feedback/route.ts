@@ -44,6 +44,13 @@ const feedbackSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
+function serializeFeedbackContent(feedback: z.infer<typeof feedbackSchema>) {
+  return JSON.stringify({
+    notes: feedback.notes?.trim() || '',
+    scores: feedback.scores,
+  });
+}
+
 export async function POST(request: NextRequest, props: { params: Promise<{ pitchId: string }> }) {
   const params = await props.params;
   const ip = getClientIp(request);
@@ -155,8 +162,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
         pitch_id: params.pitchId,
         user_id: user.id,
         type: feedbackData.type,
-        content: feedbackData.notes || null,
-        scores: feedbackData.scores,
+        content: serializeFeedbackContent(feedbackData),
         is_public: true, // Default to public in Phase 1
       })
       .select()
@@ -184,7 +190,8 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
         feedback: {
           id: feedback.id,
           type: feedback.type,
-          scores: feedback.scores,
+          notes: feedbackData.notes?.trim() || '',
+          scores: feedbackData.scores,
           createdAt: feedback.created_at,
         },
       },

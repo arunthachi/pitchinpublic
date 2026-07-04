@@ -258,6 +258,13 @@ export async function GET(request: NextRequest) {
           full_name,
           avatar_url,
           username
+        ),
+        feedback (
+          id,
+          user_id,
+          type,
+          content,
+          created_at
         )
       `)
       .eq('status', 'published')

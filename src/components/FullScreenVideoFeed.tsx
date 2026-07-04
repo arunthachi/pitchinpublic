@@ -26,22 +26,38 @@ interface FullScreenVideoFeedProps {
 type ReactionBurstType = 'roast' | 'toast';
 
 const toastBurstParticles = [
-  { x: -80, y: -54, size: 18, delay: 0 },
-  { x: -34, y: -92, size: 12, delay: 0.04 },
-  { x: 30, y: -76, size: 16, delay: 0.08 },
-  { x: 72, y: -28, size: 10, delay: 0.12 },
-  { x: -92, y: 8, size: 13, delay: 0.1 },
-  { x: -12, y: -34, size: 9, delay: 0.16 },
+  { x: -92, y: -58, size: 18, delay: 0, rotate: -18, shape: 'bubble', color: 'bg-neon-cyan/70' },
+  { x: -48, y: -104, size: 11, delay: 0.04, rotate: 28, shape: 'spark', color: 'bg-white' },
+  { x: 24, y: -92, size: 16, delay: 0.08, rotate: -36, shape: 'bubble', color: 'bg-toast/70' },
+  { x: 76, y: -42, size: 12, delay: 0.12, rotate: 54, shape: 'ribbon', color: 'bg-neon-lime/80' },
+  { x: -106, y: 4, size: 10, delay: 0.1, rotate: 20, shape: 'spark', color: 'bg-neon-lime' },
+  { x: -10, y: -42, size: 9, delay: 0.16, rotate: -12, shape: 'dot', color: 'bg-white/90' },
+  { x: 98, y: 8, size: 8, delay: 0.18, rotate: 34, shape: 'dot', color: 'bg-neon-cyan' },
+  { x: 38, y: -22, size: 14, delay: 0.2, rotate: -68, shape: 'ribbon', color: 'bg-white/80' },
 ];
 
 const roastBurstParticles = [
-  { x: -78, y: -48, delay: 0, rotate: -18 },
-  { x: -28, y: -92, delay: 0.04, rotate: 12 },
-  { x: 34, y: -76, delay: 0.08, rotate: -8 },
-  { x: 76, y: -24, delay: 0.12, rotate: 20 },
-  { x: -92, y: 8, delay: 0.1, rotate: -28 },
-  { x: -4, y: -34, delay: 0.16, rotate: 14 },
+  { x: -90, y: -54, size: 18, delay: 0, rotate: -24, shape: 'ember', color: 'bg-roast' },
+  { x: -42, y: -102, size: 14, delay: 0.04, rotate: 18, shape: 'shard', color: 'bg-orange-400' },
+  { x: 28, y: -86, size: 17, delay: 0.08, rotate: -12, shape: 'ember', color: 'bg-red-500' },
+  { x: 82, y: -34, size: 12, delay: 0.12, rotate: 28, shape: 'ash', color: 'bg-amber-200' },
+  { x: -104, y: 8, size: 12, delay: 0.1, rotate: -36, shape: 'shard', color: 'bg-roast' },
+  { x: -2, y: -42, size: 10, delay: 0.16, rotate: 16, shape: 'ash', color: 'bg-orange-300' },
+  { x: 104, y: 10, size: 9, delay: 0.18, rotate: -8, shape: 'ash', color: 'bg-red-300' },
+  { x: 40, y: -22, size: 16, delay: 0.2, rotate: 42, shape: 'shard', color: 'bg-amber-500' },
 ];
+
+function getToastParticleClass(shape: string) {
+  if (shape === 'ribbon') return 'h-2.5 rounded-[3px]';
+  if (shape === 'spark') return 'rounded-[2px]';
+  return 'rounded-full';
+}
+
+function getRoastParticleClass(shape: string) {
+  if (shape === 'shard') return 'rounded-[45%_55%_35%_65%]';
+  if (shape === 'ash') return 'rounded-full';
+  return 'rounded-[65%_35%_60%_40%]';
+}
 
 function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
   const isToast = type === 'toast';
@@ -69,16 +85,20 @@ function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
           ? toastBurstParticles.map((particle, index) => (
               <motion.span
                 key={index}
-                initial={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
+                initial={{ opacity: 0, x: 0, y: 0, scale: 0.4, rotate: 0 }}
                 animate={{
                   opacity: [0, 1, 1, 0],
                   x: particle.x,
                   y: particle.y,
-                  scale: [0.4, 1, 0.3],
+                  scale: [0.4, 1, 0.72, 0.18],
+                  rotate: particle.rotate,
                 }}
-                transition={{ duration: 1, times: [0, 0.16, 0.72, 1], delay: particle.delay, ease: 'easeOut' }}
-                className="absolute z-10 rounded-full border border-white bg-neon-cyan/75 shadow-[0_0_26px_rgba(0,240,255,0.95)] backdrop-blur-sm"
-                style={{ height: particle.size, width: particle.size }}
+                transition={{ duration: 1.05, times: [0, 0.16, 0.72, 1], delay: particle.delay, ease: 'easeOut' }}
+                className={`absolute z-10 border border-white/70 shadow-[0_0_26px_rgba(0,240,255,0.9)] backdrop-blur-sm ${particle.color} ${getToastParticleClass(particle.shape)}`}
+                style={{
+                  height: particle.shape === 'ribbon' ? Math.max(6, particle.size * 0.45) : particle.size,
+                  width: particle.shape === 'ribbon' ? particle.size * 1.75 : particle.size,
+                }}
               />
             ))
           : roastBurstParticles.map((particle, index) => (
@@ -89,11 +109,15 @@ function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
                   opacity: [0, 1, 1, 0],
                   x: particle.x,
                   y: particle.y,
-                  scale: [0.35, 1.1, 0.25],
+                  scale: [0.35, 1.08, 0.7, 0.2],
                   rotate: particle.rotate,
                 }}
                 transition={{ duration: 0.86, times: [0, 0.16, 0.7, 1], delay: particle.delay, ease: 'easeOut' }}
-                className="absolute z-10 h-6 w-4 rounded-full bg-roast shadow-[0_0_28px_rgba(255,59,48,1)]"
+                className={`absolute z-10 shadow-[0_0_28px_rgba(255,59,48,0.95)] ${particle.color} ${getRoastParticleClass(particle.shape)}`}
+                style={{
+                  height: particle.shape === 'shard' ? particle.size * 1.45 : particle.size,
+                  width: particle.shape === 'shard' ? particle.size * 0.72 : particle.size,
+                }}
               />
             ))}
       </div>
@@ -491,7 +515,7 @@ export function FullScreenVideoFeed({
   };
 
   const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
-    if (!currentPitch) return;
+    if (!currentPitch) return false;
 
     try {
       const response = await fetch(`/api/pitches/${currentPitch.id}/feedback`, {
@@ -509,13 +533,34 @@ export function FullScreenVideoFeed({
       if (!response.ok) {
         const error = await response.json();
         console.error('Failed to submit feedback:', error);
+        return false;
       } else {
+        const data = await response.json();
+        const submittedFeedback = {
+          id: data.feedback?.id || `${currentPitch.id}-${Date.now()}`,
+          authorName: 'You',
+          authorRole: 'Founder',
+          type: feedback.type,
+          scores: feedback.scores,
+          notes: feedback.notes,
+          createdAt: data.feedback?.createdAt || new Date().toISOString(),
+        };
+
+        setLocalPitches((prevPitches) =>
+          prevPitches.map((p) =>
+            p.id === currentPitch.id
+              ? { ...p, feedback: [...(p.feedback || []), submittedFeedback] }
+              : p
+          )
+        );
         triggerReactionBurst(feedback.type);
         // Close feedback panel after successful submission
         setFeedbackPanelOpen(false);
+        return true;
       }
     } catch (error) {
       console.error('Error submitting feedback:', error);
+      return false;
     }
   };
 
