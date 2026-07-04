@@ -11,16 +11,16 @@ const siteDescription =
   "Daily 60-second pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your message.";
 const ogImages = [
   {
-    url: `${appUrl}/og-image.png`,
+    url: `${appUrl}/og-pip-v2.png`,
     width: 1200,
     height: 630,
     alt: "Pitch in Public - Sharpen Your Pitch",
   },
   {
-    url: `${appUrl}/og-square.png`,
+    url: `${appUrl}/og-square-v2.png`,
     width: 1200,
     height: 1200,
-    alt: "Pitch in Public PiP monogram",
+    alt: "Pitch in Public - Daily 60-second pitch practice for founders",
   },
 ];
 
@@ -71,7 +71,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: [`${appUrl}/og-image.png`],
+    images: [
+      {
+        url: `${appUrl}/og-pip-v2.png`,
+        alt: "Pitch in Public - Sharpen Your Pitch",
+      },
+    ],
   },
 };
 
