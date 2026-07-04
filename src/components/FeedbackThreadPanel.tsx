@@ -3,6 +3,7 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Flame, MessageSquareText, Plus, Wine, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { LegacyFeedback } from '@/types';
 
 interface FeedbackThreadPanelProps {
@@ -10,6 +11,47 @@ interface FeedbackThreadPanelProps {
   feedback: LegacyFeedback[];
   onClose: () => void;
   onAddFeedback: (type: 'roast' | 'toast') => void;
+}
+
+function usePhoneFrameSheetStyle(isOpen: boolean): React.CSSProperties {
+  const [style, setStyle] = React.useState<React.CSSProperties>({});
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const update = () => {
+      const frame = document.querySelector('[data-feed-frame="true"]');
+      const rect = frame?.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const source = rect && rect.width > 0 && rect.height > 0
+        ? rect
+        : ({ left: 0, top: 0, right: viewportWidth, bottom: viewportHeight, width: viewportWidth, height: viewportHeight } as DOMRect);
+      const margin = source.width < 520 ? 18 : 24;
+      const topReveal = source.width < 620 ? Math.max(84, Math.round(source.height * 0.28)) : 24;
+      const left = Math.max(12, source.left + margin);
+      const right = Math.min(viewportWidth - 12, source.right - margin);
+      const top = Math.max(12, source.top + topReveal);
+      const bottom = Math.min(viewportHeight - 12, source.bottom - margin);
+
+      setStyle({
+        left,
+        top,
+        width: Math.max(280, right - left),
+        maxHeight: Math.max(260, bottom - top),
+      });
+    };
+
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, [isOpen]);
+
+  return style;
 }
 
 function averageScore(feedback: LegacyFeedback) {
@@ -36,9 +78,16 @@ function getMostCommonSignal(feedback: LegacyFeedback[]) {
 }
 
 export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }: FeedbackThreadPanelProps) {
+  const [portalNode, setPortalNode] = React.useState<HTMLElement | null>(null);
+  const sheetStyle = usePhoneFrameSheetStyle(isOpen);
   const stopPanelEvent = (event: React.SyntheticEvent) => {
     event.stopPropagation();
   };
+
+  React.useEffect(() => {
+    setPortalNode(document.body);
+  }, []);
+
   const avgReadiness = feedback.length
     ? Math.round((feedback.reduce((sum, item) => sum + averageScore(item), 0) / feedback.length) * 10) / 10
     : 0;
@@ -46,7 +95,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
   const toastCount = feedback.filter((item) => item.type === 'toast').length;
   const roastCount = feedback.filter((item) => item.type === 'roast').length;
 
-  return (
+  const panel = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -55,44 +104,44 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-md"
           />
 
           <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            initial={{ opacity: 0, y: 28, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
             onPointerDown={stopPanelEvent}
             onTouchMove={stopPanelEvent}
             onWheel={stopPanelEvent}
-            className="fixed inset-y-0 right-0 z-[70] flex w-full flex-col border-l border-white/10 bg-slate-950/96 shadow-2xl shadow-black/40 backdrop-blur-2xl sm:w-[440px]"
-            style={{ touchAction: 'pan-y' }}
+            className="fixed z-[90] flex flex-col overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06)),rgba(8,13,28,0.78)] shadow-[0_34px_110px_rgba(0,0,0,0.62)] ring-1 ring-white/10 backdrop-blur-3xl"
+            style={{ ...sheetStyle, touchAction: 'pan-y' }}
           >
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6">
-              <div>
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.04] px-5 py-4 sm:px-6">
+              <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">
                   Founder feedback
                 </p>
-                <h2 className="mt-1 text-xl font-heading font-bold text-white">
+                <h2 className="mt-1 truncate text-2xl font-heading font-black text-white">
                   {feedback.length ? `${feedback.length} response${feedback.length === 1 ? '' : 's'}` : 'No feedback yet'}
                 </h2>
               </div>
               <button
                 onClick={onClose}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] transition-colors hover:bg-white/[0.12]"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.10] shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.16]"
                 aria-label="Close feedback"
               >
-                <X className="h-5 w-5 text-slate-400" />
+                <X className="h-5 w-5 text-slate-200" />
               </button>
             </div>
 
             <div
-              className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
+              className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
               {feedback.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-center">
+                <div className="rounded-3xl border border-white/12 bg-black/20 p-5 text-center">
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neon-cyan/15 text-neon-cyan">
                     <MessageSquareText className="h-6 w-6" />
                   </div>
@@ -103,23 +152,23 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                 </div>
               ) : (
                 <>
-                  <div className="rounded-2xl border border-neon-cyan/20 bg-[linear-gradient(145deg,rgba(0,240,255,0.12),rgba(163,255,18,0.08)),rgba(255,255,255,0.04)] p-4 shadow-lg shadow-black/20">
+                  <div className="rounded-3xl border border-neon-cyan/20 bg-[linear-gradient(145deg,rgba(0,240,255,0.14),rgba(163,255,18,0.08)),rgba(0,0,0,0.22)] p-4 shadow-lg shadow-black/20">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">Coach signal</p>
                     <div className="mt-4 grid grid-cols-3 gap-2">
-                      <div className="rounded-xl bg-black/25 p-3">
+                      <div className="rounded-2xl bg-black/25 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Readiness</p>
                         <p className="mt-1 font-heading text-lg font-black text-white">{readinessLabel(avgReadiness)}</p>
                       </div>
-                      <div className="rounded-xl bg-black/25 p-3">
+                      <div className="rounded-2xl bg-black/25 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Toast</p>
                         <p className="mt-1 font-heading text-lg font-black text-toast">{toastCount}</p>
                       </div>
-                      <div className="rounded-xl bg-black/25 p-3">
+                      <div className="rounded-2xl bg-black/25 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Roast</p>
                         <p className="mt-1 font-heading text-lg font-black text-roast">{roastCount}</p>
                       </div>
                     </div>
-                    <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                    <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3">
                       <p className="text-sm font-semibold text-white">
                         {topSignal
                           ? `${topSignal[1]} builder${topSignal[1] === 1 ? '' : 's'} flagged: ${topSignal[0]}`
@@ -137,7 +186,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                     return (
                       <article
                         key={item.id}
-                        className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/20"
+                        className="rounded-3xl border border-white/10 bg-black/20 p-4 shadow-lg shadow-black/20"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
@@ -170,17 +219,17 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 border-t border-white/10 bg-slate-950/95 px-4 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.75)] sm:px-6">
+            <div className="grid grid-cols-2 gap-3 border-t border-white/10 bg-black/28 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <button
                 onClick={() => onAddFeedback('roast')}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-roast/25 bg-roast/15 px-4 py-3 text-sm font-bold text-roast transition-colors hover:bg-roast/20"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-roast/30 bg-roast/15 px-4 py-3 text-sm font-black text-roast transition-colors hover:bg-roast/20"
               >
                 <Plus className="h-4 w-4" />
                 Roast
               </button>
               <button
                 onClick={() => onAddFeedback('toast')}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-toast/25 bg-toast/15 px-4 py-3 text-sm font-bold text-toast transition-colors hover:bg-toast/20"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-toast/30 bg-toast/15 px-4 py-3 text-sm font-black text-toast transition-colors hover:bg-toast/20"
               >
                 <Plus className="h-4 w-4" />
                 Toast
@@ -191,4 +240,6 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
       )}
     </AnimatePresence>
   );
+
+  return portalNode ? createPortal(panel, portalNode) : null;
 }

@@ -146,13 +146,13 @@ export function FloatingReactions({
   };
 
   const handleDetailedFeedbackClick = () => {
-    if (isGuest && onSignInClick) {
-      onSignInClick();
+    if (onOpenFeedbackList) {
+      onOpenFeedbackList();
       return;
     }
 
-    if (onOpenFeedbackList) {
-      onOpenFeedbackList();
+    if (isGuest && onSignInClick) {
+      onSignInClick();
       return;
     }
 

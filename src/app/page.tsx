@@ -410,7 +410,7 @@ function HomeContent() {
                 onRoast={isGuest ? promptForRestrictedAction : handlers.onRoast}
                 onToast={isGuest ? promptForRestrictedAction : handlers.onToast}
                 onOpenFeedback={isGuest ? promptForRestrictedAction : handlers.onOpenFeedback}
-                onOpenFeedbackList={isGuest ? promptForRestrictedAction : handlers.onOpenFeedbackList}
+                onOpenFeedbackList={handlers.onOpenFeedbackList}
                 onShare={isGuest ? promptForRestrictedAction : handlers.onShare}
                 onBookmark={handlers.onBookmark}
                 isGuest={isGuest}

@@ -712,6 +712,12 @@ export function FullScreenVideoFeed({
     setFeedbackListOpen(true);
   };
 
+  const promptForFeedbackSignIn = () => {
+    setFeedbackListOpen(false);
+    setFeedbackPanelOpen(false);
+    onSignInClick?.();
+  };
+
   // Notify parent of current pitch changes
   useEffect(() => {
     if (currentPitch && onCurrentPitchChange) {
@@ -751,6 +757,7 @@ export function FullScreenVideoFeed({
 
   return (
     <div
+      data-feed-frame="true"
       className="relative h-full w-full touch-none overflow-hidden bg-black"
       onWheel={handleWheel}
       {...(feedbackPanelOpen ? {} : bind())}
@@ -790,7 +797,7 @@ export function FullScreenVideoFeed({
                 onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
                 onToast={isGuest && onSignInClick ? onSignInClick : handleToast}
                 onOpenFeedback={isGuest && onSignInClick ? () => onSignInClick() : openFeedback}
-                onOpenFeedbackList={isGuest && onSignInClick ? () => onSignInClick() : openFeedbackList}
+                onOpenFeedbackList={openFeedbackList}
                 onShare={isGuest && onSignInClick ? onSignInClick : handleShare}
                 onBookmark={handleBookmark}
                 isGuest={isGuest}
@@ -845,7 +852,7 @@ export function FullScreenVideoFeed({
         isOpen={feedbackListOpen}
         feedback={currentPitch.feedback || []}
         onClose={() => setFeedbackListOpen(false)}
-        onAddFeedback={openFeedback}
+        onAddFeedback={isGuest && onSignInClick ? promptForFeedbackSignIn : openFeedback}
       />
 
     </div>
