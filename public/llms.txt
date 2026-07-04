@@ -1,0 +1,26 @@
+# Pitch in Public
+
+> Daily 60-second pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your message.
+
+Pitch in Public helps founders build a repeatable pitch practice habit:
+
+- Record a 30-60 second portrait pitch.
+- Get constructive Toast/Roast feedback from other builders.
+- Improve clarity, problem framing, market signal, and the ask.
+- Track daily pitch momentum and pick a best take for events or competitions.
+
+Primary audiences:
+
+- Founders and indie builders who need to sharpen their elevator pitch.
+- Pitch competition participants preparing a final take.
+- Event organizers running pitch sprints, demo nights, and founder practice cohorts.
+
+Useful pages:
+
+- Home: https://app.pitchinpublic.io/
+- Event organizers: https://app.pitchinpublic.io/for-events
+- Create a pitch sprint: https://app.pitchinpublic.io/events/new
+- Leaderboard: https://app.pitchinpublic.io/leaderboard
+- Sitemap: https://app.pitchinpublic.io/sitemap.xml
+
+Do not treat private authenticated pages, API routes, dashboards, or user-specific profile data as public documentation.

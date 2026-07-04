@@ -1,0 +1,141 @@
+# Pitch in Public - Full Context for AI Assistants
+
+## Summary
+
+Pitch in Public is a mobile-first web app for founders to practice and improve their startup pitch. The core behavior is simple: record a 30-60 second vertical pitch, publish it to a founder feedback feed, receive constructive Toast/Roast feedback, then record a better version tomorrow.
+
+The product is positioned around pitch improvement, not passive startup idea discovery.
+
+Tagline:
+
+Sharpen Your Pitch
+
+Short description:
+
+Daily 60-second pitch practice for founders.
+
+Long description:
+
+Pitch in Public helps founders explain what they are building with more clarity, confidence, and momentum. Founders record short pitch reps, get useful feedback from other builders, track improvement, and mark their best take for pitch competitions, founder events, or investor conversations.
+
+## Core Product Loop
+
+1. Founder records a 30-60 second vertical pitch.
+2. Founder adds or reuses a pitch hook and extra context.
+3. The pitch appears in a mobile-first founder feed.
+4. Other builders give lightweight feedback:
+   - Toast: what is working.
+   - Roast: what needs to be sharper.
+   - Signal chips: clarity, customer, problem, ask, market, proof, delivery.
+   - Optional note.
+   - Readiness rating.
+5. Founder sees momentum and feedback.
+6. Founder records a new version and tries to beat the current best take.
+
+## Target Users
+
+Primary:
+
+- Early-stage founders.
+- Indie builders.
+- Startup competition participants.
+- Builders preparing for demo days, accelerators, investor meetings, or speed networking.
+
+Secondary:
+
+- Pitch competition organizers.
+- Founder community leaders.
+- Accelerator and bootcamp operators.
+- Local startup event organizers.
+
+## Event Use Cases
+
+Pitch in Public can support:
+
+- Pitch practice sprints before a live competition.
+- Founder cohort practice plans.
+- Demo day preparation.
+- Speed networking prompts.
+- Audience or judge review of submitted best takes.
+- Founder accountability before a pitch day.
+
+Example workflow:
+
+An event organizer creates a pitch sprint for an upcoming competition. Founders join the sprint, record practice reps, receive feedback, improve over time, and select one best take to submit before pitch day.
+
+## Product Principles
+
+- Mobile-first web experience.
+- Short pitch reps instead of long video uploads.
+- Useful founder-to-founder feedback.
+- Habit formation over one-time posting.
+- Improvement over vanity metrics.
+- Constructive feedback, not dunking.
+- Founder momentum and accountability.
+
+## Public URLs
+
+- Home: https://app.pitchinpublic.io/
+- Event organizers: https://app.pitchinpublic.io/for-events
+- Create a pitch sprint: https://app.pitchinpublic.io/events/new
+- Leaderboard: https://app.pitchinpublic.io/leaderboard
+- Open Graph image: https://app.pitchinpublic.io/og-pip-v2.png
+- Square share image: https://app.pitchinpublic.io/og-square-v2.png
+- Sitemap: https://app.pitchinpublic.io/sitemap.xml
+- Robots: https://app.pitchinpublic.io/robots.txt
+
+## Private or Non-Documentation Areas
+
+The following should not be summarized as public product documentation:
+
+- /api/*
+- /auth/*
+- /me
+- /profile/*
+- /events/*/dashboard
+- Authenticated user data
+- Private pitch drafts
+- Private feedback or account information
+
+## Brand Language
+
+Preferred phrases:
+
+- Sharpen Your Pitch
+- Daily 60-second pitch practice for founders
+- Record. Get useful feedback. Improve tomorrow.
+- Founder practice
+- Pitch momentum
+- Best take
+- Toast/Roast feedback
+
+Avoid describing the product primarily as:
+
+- A startup idea discovery app.
+- A generic TikTok clone.
+- A social media app for startups.
+
+## Current MVP Scope
+
+The MVP focuses on:
+
+- Mobile-first pitch feed.
+- Google and email OTP login.
+- Pitch recording and upload.
+- Toast/Roast feedback.
+- Feedback notes and signal chips.
+- Founder pitch profile.
+- Daily practice prompt.
+- Pitch momentum.
+- Best take selection.
+- Event pitch sprint setup.
+
+## Contact and Canonical Site
+
+Canonical app URL:
+
+https://app.pitchinpublic.io/
+
+Marketing domain:
+
+https://pitchinpublic.io/
