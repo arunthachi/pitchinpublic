@@ -6,6 +6,7 @@ import { X, LogOut, Users, Video, TrendingUp, Clock, Flame, Edit, Trophy, Trash2
 import { User, LegacyPitch } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePitchActions } from '@/lib/hooks/usePitchActions';
+import { GamificationStats } from './GamificationStats';
 
 interface UserProfileProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface UserProfileProps {
   currentTwitter?: string;
   currentLinkedin?: string;
   onEditProfile?: () => void;
+  onOpenChallenge?: () => void;
 }
 
 interface Achievement {
@@ -35,6 +37,7 @@ export function UserProfile({
   user,
   userPitches,
   onEditProfile,
+  onOpenChallenge,
 }: UserProfileProps) {
   const { signOut } = useAuth();
   const { deletePitch } = usePitchActions();
@@ -221,6 +224,11 @@ export function UserProfile({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Gamification / Pitch Momentum */}
+            <div className="border-b border-slate-800 p-4 sm:p-6">
+              <GamificationStats onOpenChallenge={onOpenChallenge} />
             </div>
 
             {/* My Pitches Section */}

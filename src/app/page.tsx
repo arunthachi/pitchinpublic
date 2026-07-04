@@ -312,6 +312,7 @@ function HomeContent() {
           isGuest={isGuest}
           onSignInClick={promptForRestrictedAction}
           guestActionLabel="Join waitlist"
+          onChallengeClick={() => setShowDailyChallenge(true)}
         />
       </div>
 
@@ -325,6 +326,7 @@ function HomeContent() {
         <BottomNavBar
           onCreateClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
           onProfileClick={() => isGuest ? promptForRestrictedAction() : setProfileOpen(true)}
+          onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowDailyChallenge(true)}
           isGuest={isGuest}
         />
       </div>
@@ -440,6 +442,10 @@ function HomeContent() {
           currentTwitter={fullProfile?.twitter_handle || undefined}
           currentLinkedin={fullProfile?.linkedin_url || undefined}
           onEditProfile={() => setShowProfileEdit(true)}
+          onOpenChallenge={() => {
+            setProfileOpen(false);
+            setShowDailyChallenge(true);
+          }}
         />
       )}
 

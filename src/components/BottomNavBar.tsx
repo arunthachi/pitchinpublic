@@ -1,15 +1,16 @@
 'use client';
 
-import { Video, User } from 'lucide-react';
+import { Trophy, User, Video } from 'lucide-react';
 import { useState } from 'react';
 
 interface BottomNavBarProps {
   onCreateClick: () => void;
   onProfileClick: () => void;
+  onChallengeClick?: () => void;
   isGuest?: boolean;
 }
 
-export default function BottomNavBar({ onCreateClick, onProfileClick, isGuest = false }: BottomNavBarProps) {
+export default function BottomNavBar({ onCreateClick, onProfileClick, onChallengeClick, isGuest = false }: BottomNavBarProps) {
   const [activeTab, setActiveTab] = useState('home');
 
   return (
@@ -43,13 +44,30 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, isGuest = 
           </div>
         </button>
 
+        {/* Challenge */}
+        <button
+          onClick={() => {
+            setActiveTab('challenge');
+            onChallengeClick?.();
+          }}
+          className="flex flex-col items-center gap-1 px-2 py-1"
+        >
+          <Trophy
+            size={26}
+            className={activeTab === 'challenge' ? 'text-neon-lime' : 'text-gray-400'}
+          />
+          <span className={`text-xs ${activeTab === 'challenge' ? 'text-white' : 'text-gray-400'}`}>
+            Challenge
+          </span>
+        </button>
+
         {/* Profile */}
         <button
           onClick={() => {
             setActiveTab('profile');
             onProfileClick();
           }}
-          className="flex flex-col items-center gap-1 px-4 py-1"
+          className="flex flex-col items-center gap-1 px-2 py-1"
         >
           <User
             size={28}

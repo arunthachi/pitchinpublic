@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Trophy, Video } from 'lucide-react';
+import { Flame, Plus, Trophy, Video, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
@@ -11,6 +11,14 @@ interface SidebarNavProps {
   isGuest?: boolean;
   onSignInClick?: () => void;
   guestActionLabel?: string;
+  onChallengeClick?: () => void;
+}
+
+interface Streak {
+  currentStreak: number;
+  bestStreak: number;
+  totalActivities: number;
+  isActiveToday: boolean;
 }
 
 export function SidebarNav({
@@ -18,11 +26,39 @@ export function SidebarNav({
   isGuest = false,
   onSignInClick,
   guestActionLabel = 'Log in',
+  onChallengeClick,
 }: SidebarNavProps) {
+  const [streak, setStreak] = useState<Streak | null>(null);
   const navItems = [
     { label: 'Practice', icon: Video, active: true },
     { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
   ];
+
+  useEffect(() => {
+    if (isGuest) {
+      setStreak(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchStreak = async () => {
+      try {
+        const res = await fetch('/api/user/streak');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setStreak(data.streak);
+      } catch (error) {
+        console.error('Error fetching sidebar streak:', error);
+      }
+    };
+
+    fetchStreak();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isGuest]);
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 z-50 flex w-20 flex-col border-r border-white/10 bg-black lg:w-56">
@@ -92,6 +128,32 @@ export function SidebarNav({
           <Plus className="w-5 h-5" />
           <span className="hidden lg:block">Record Pitch</span>
         </motion.button>
+
+        {!isGuest && streak && (
+          <div className="mt-6 hidden rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-[0_18px_44px_rgba(0,0,0,0.22)] backdrop-blur-xl lg:block">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-neon-cyan/15 text-neon-cyan">
+                  <Flame className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-bold text-white">Pitch Momentum</p>
+                  <p className="text-xs text-slate-500">Run {streak.currentStreak || 0}d · Best {streak.bestStreak || 0}d</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-slate-400">{streak.totalActivities || 0} reps</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={onChallengeClick}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-neon-cyan/35 bg-gradient-to-r from-neon-cyan/15 to-neon-lime/15 px-3 py-2.5 text-sm font-bold text-white transition hover:border-neon-cyan/70"
+            >
+              <Zap className="h-4 w-4 text-neon-lime" />
+              {streak.isActiveToday ? 'View challenge' : 'Complete challenge'}
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* Bottom section - waitlist access for guests. Settings stays hidden until it is functional. */}
