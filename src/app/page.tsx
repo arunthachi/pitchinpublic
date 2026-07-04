@@ -351,11 +351,17 @@ function HomeContent() {
       )}
 
       {/* Main Content Area - Video Feed */}
-      <main className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black lg:left-56">
+      <main className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black">
         {/* Desktop: Centered with reactions on side */}
-        <div className="hidden h-full w-full items-start justify-center gap-4 px-6 pb-3 pt-6 lg:flex xl:gap-5">
-          {/* Video Feed Container - TikTok-style responsive 9:16 frame, top-aligned for desktop. */}
-          <div className="relative aspect-[9/16] h-[calc(100dvh-5.25rem)] max-h-[calc(100dvh-5.25rem)] min-h-[560px] overflow-hidden rounded-[1.25rem] bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)]">
+        <div
+          className="relative hidden h-full w-full lg:block"
+          style={{
+            '--feed-h': 'clamp(560px, calc(100dvh - 5.25rem), 1080px)',
+            '--feed-w': 'calc(var(--feed-h) * 9 / 16)',
+          } as React.CSSProperties}
+        >
+          {/* Video Feed Container - TikTok-style responsive 9:16 frame, centered in the viewport. */}
+          <div className="absolute left-1/2 top-6 h-[var(--feed-h)] w-[var(--feed-w)] -translate-x-1/2 overflow-hidden rounded-[1.25rem] bg-black shadow-[0_28px_90px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.08)]">
             <FullScreenVideoFeed
               pitches={legacyPitches}
               hideReactions={true}
@@ -365,7 +371,13 @@ function HomeContent() {
 
           {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
-            <div className="mt-[min(28dvh,280px)] rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-4 shadow-2xl shadow-black/30 backdrop-blur-2xl">
+            <div
+              className="absolute rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-4 shadow-2xl shadow-black/30 backdrop-blur-2xl"
+              style={{
+                left: 'calc(50% + var(--feed-w) / 2 + 1rem)',
+                top: 'calc(1.5rem + min(28dvh, 280px))',
+              }}
+            >
               <FloatingReactions
                 pitch={currentPitch}
                 onRoast={isGuest ? promptForRestrictedAction : handlers.onRoast}
