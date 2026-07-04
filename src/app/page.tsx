@@ -19,7 +19,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
-import { GamificationStats } from '@/components/GamificationStats';
 
 // Lazy load modal components (not needed on initial page load)
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
@@ -383,12 +382,6 @@ function HomeContent() {
             </div>
           )}
 
-          {/* Gamification Stats - Desktop Only */}
-          {!isGuest && (
-            <div className="hidden w-72 max-h-[calc(100vh-5.25rem)] flex-col gap-4 overflow-y-auto pr-2 pt-[min(36dvh,360px)] xl:w-80 lg:flex">
-              <GamificationStats onOpenChallenge={() => setShowDailyChallenge(true)} />
-            </div>
-          )}
         </div>
 
         {/* Mobile: Full screen like TikTok */}

@@ -186,7 +186,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
       {/* Video Player */}
       <video
         ref={videoRef}
-        className="relative z-10 h-full w-full object-contain"
+        className="relative z-10 h-full w-full object-cover"
         autoPlay={playing}
         muted={muted}
         playsInline
