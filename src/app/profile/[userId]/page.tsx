@@ -11,6 +11,7 @@ import {
   Globe,
   Grid3X3,
   Linkedin,
+  LogOut,
   MessageSquareText,
   Play,
   Sparkles,
@@ -195,7 +196,7 @@ export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const userId = params.userId as string;
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, signOut } = useAuth();
 
   const [profile, setProfile] = useState<User | null>(null);
   const [pitches, setPitches] = useState<LegacyPitch[]>([]);
@@ -247,6 +248,11 @@ export default function UserProfilePage() {
     ? Math.round((allFeedback.reduce((sum, item) => sum + (item.readiness || 2), 0) / allFeedback.length) * 10) / 10
     : 0;
 
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace('/');
+  };
+
   const visiblePitches = activeTab === 'best'
     ? pitches.filter((pitch) => finalPitchIds.has(pitch.id) || pitch.isBestTake)
     : pitches;
@@ -287,12 +293,24 @@ export default function UserProfilePage() {
           <p className="font-heading text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
             Founder portfolio
           </p>
-          <Link
-            href="/?alpha=1&preview=1"
-            className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-300 transition hover:text-white"
-          >
-            Practice
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/?alpha=1&preview=1"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-300 transition hover:text-white"
+            >
+              Practice
+            </Link>
+            {isOwnProfile && (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="inline-flex items-center gap-2 rounded-full border border-roast/30 bg-roast/10 px-3 py-2 text-sm font-semibold text-roast transition hover:border-roast/60 hover:bg-roast/15 hover:text-red-300"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Log out</span>
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

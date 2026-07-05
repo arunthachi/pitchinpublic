@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { Edit, LogOut, UserCircle } from 'lucide-react';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
@@ -58,9 +59,10 @@ interface PracticeToday {
 function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const [recordingStudioOpen, setRecordingStudioOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const [alphaAccessEnabled, setAlphaAccessEnabled] = useState(false);
   const [showGuestFeedPreview, setShowGuestFeedPreview] = useState(false);
@@ -320,6 +322,13 @@ function HomeContent() {
     returnToWaitlist();
   }, [returnToWaitlist, showAlphaControls]);
 
+  const handleSignOut = useCallback(async () => {
+    setAccountMenuOpen(false);
+    setProfileOpen(false);
+    await signOut();
+    router.replace('/');
+  }, [router, signOut]);
+
   useEffect(() => {
     if (loading || searchParams.get('record') !== '1') return;
 
@@ -435,16 +444,75 @@ function HomeContent() {
           Back to waitlist
         </button>
       ) : (
-        <button
-          onClick={() => router.push('/me')}
-          className="glass-pill fixed right-4 top-4 z-50 hidden h-11 w-11 overflow-hidden rounded-full transition-all hover:border-neon-cyan lg:block"
-        >
-          <img
-            src={userProfile?.avatar || mockUser.avatar}
-            alt={userProfile?.name || mockUser.name}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-          />
-        </button>
+        <div className="fixed right-4 top-4 z-50 hidden lg:block">
+          <button
+            type="button"
+            onClick={() => setAccountMenuOpen((open) => !open)}
+            className="glass-pill h-11 w-11 overflow-hidden rounded-full transition-all hover:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
+            aria-label="Open account menu"
+            aria-expanded={accountMenuOpen}
+          >
+            <img
+              src={userProfile?.avatar || mockUser.avatar}
+              alt={userProfile?.name || mockUser.name}
+              className="h-full w-full object-cover transition-transform hover:scale-110"
+            />
+          </button>
+
+          {accountMenuOpen && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 -z-10 cursor-default"
+                aria-label="Close account menu"
+                onClick={() => setAccountMenuOpen(false)}
+              />
+              <div className="glass-panel absolute right-0 mt-3 w-72 overflow-hidden rounded-3xl border-white/15 p-2 shadow-2xl shadow-black/50">
+                <div className="border-b border-white/10 px-3 py-3">
+                  <p className="truncate font-heading text-sm font-bold text-white">
+                    {userProfile?.name || mockUser.name}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-400">
+                    {userProfile?.email || user?.email || 'Founder account'}
+                  </p>
+                </div>
+
+                <div className="py-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      router.push('/me');
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07] hover:text-white"
+                  >
+                    <UserCircle className="h-5 w-5 text-neon-cyan" />
+                    View profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      setShowProfileEdit(true);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07] hover:text-white"
+                  >
+                    <Edit className="h-5 w-5 text-neon-lime" />
+                    Edit profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-roast transition hover:bg-roast/10 hover:text-red-300"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {/* Main Content Area - Video Feed */}
