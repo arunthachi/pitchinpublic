@@ -330,7 +330,13 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
 
       const uploadUrlData = await uploadUrlResponse.json();
       if (!uploadUrlResponse.ok || !uploadUrlData.success) {
-        throw new Error(uploadUrlData.error || 'Failed to get upload URL');
+        if (uploadUrlResponse.status === 401) {
+          throw new Error('Your session expired. Sign in again, then upload this take.');
+        }
+        if (uploadUrlResponse.status === 429) {
+          throw new Error(uploadUrlData.error || 'Too many upload attempts. Wait a bit, then try again.');
+        }
+        throw new Error(uploadUrlData.error || 'Could not start the upload. Try again.');
       }
 
       const { uploadUrl: directUploadUrl, videoId: providerVideoId, provider } = uploadUrlData.data;
@@ -351,16 +357,27 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
             setUploadProgress(100);
             resolve();
           } else {
-            reject(new Error('Failed to upload video'));
+            let message = 'Video upload failed. Check your connection and try again.';
+            try {
+              const response = JSON.parse(xhr.responseText || '{}');
+              message = response?.errors?.[0]?.message || response?.error || message;
+            } catch {
+              if (xhr.responseText) {
+                message = xhr.responseText.slice(0, 180);
+              }
+            }
+            reject(new Error(message));
           }
         });
 
-        xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+        xhr.addEventListener('error', () => reject(new Error('Network error during upload. Keep this tab open and try again on Wi-Fi or a stronger signal.')));
         xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+        xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Keep this tab open and try again.')));
 
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', file, file.name || 'pitch-video.mp4');
 
+        xhr.timeout = 120000;
         xhr.open('POST', directUploadUrl);
         xhr.send(formData);
       });
@@ -864,6 +881,12 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
                       {videoDuration < MIN_RECORDING_SECONDS
                         ? `${MIN_RECORDING_SECONDS - videoDuration}s more needed. Retake to publish.`
                         : `Clip is over ${MAX_RECORDING_SECONDS}s. Retake to publish.`}
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="mb-4 rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm leading-5 text-red-100">
+                      {error}
                     </div>
                   )}
 

@@ -184,7 +184,7 @@ export const RATE_LIMITS = {
   },
   // Video upload - moderate limits
   UPLOAD: {
-    limit: 10, // 10 requests
+    limit: 30, // 30 requests; one published pitch uses multiple upload-related calls
     window: 3600, // per hour
   },
   // General API - looser limits
