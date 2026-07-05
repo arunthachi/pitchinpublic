@@ -138,7 +138,8 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
         video: {
           facingMode: 'user',
           width: { ideal: 720 },
-          height: { ideal: 1280 }
+          height: { ideal: 1280 },
+          aspectRatio: { ideal: 9 / 16 },
         },
         audio: true,
       });
@@ -409,11 +410,9 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
         }
 
         if (lastMetadata?.status === 'ready' && lastMetadata.playbackUrl) {
-          const aspectRatioError = getAspectRatioError(lastMetadata.width, lastMetadata.height);
-          if (aspectRatioError) {
-            throw new Error(aspectRatioError);
-          }
-
+          // Uploaded files are validated before upload. Do not reject after provider
+          // processing because mobile browsers and Stream can report rotated camera
+          // recordings as landscape even when the user recorded in portrait.
           setUploadedVideo(lastMetadata);
           setVideoDuration(Math.round(lastMetadata.duration || videoDuration));
           setUploadPhase('ready');
