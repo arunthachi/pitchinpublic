@@ -108,6 +108,7 @@ function HomeContent() {
   const isGuest = !user;
   const urlPreviewAccess = urlAccess.preview || searchParams.get('preview') === '1';
   const urlAlphaAccess = urlAccess.alpha || searchParams.get('alpha') === '1';
+  const isAuthHandoff = searchParams.get('auth') === '1';
   const effectiveGuestFeedPreview = showGuestFeedPreview || urlPreviewAccess;
   const showAlphaControls = alphaAccessEnabled || urlAlphaAccess || process.env.NODE_ENV === 'development';
 
@@ -357,6 +358,18 @@ function HomeContent() {
         onAlphaSignIn={() => setSignInModalOpen(true)}
         onAlphaPreview={() => setShowGuestFeedPreview(true)}
       />
+    );
+  }
+
+  if (loading && isGuest && isAuthHandoff) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="glass-panel rounded-3xl px-6 py-5 text-center">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
+          <p className="font-heading text-lg font-bold text-white">Signing you in...</p>
+          <p className="mt-1 text-sm text-slate-400">Opening your pitch practice feed.</p>
+        </div>
+      </div>
     );
   }
 

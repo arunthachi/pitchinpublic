@@ -52,7 +52,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email, phone } = body;
+    const { email, phone, next } = body;
+    const nextPath = typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')
+      ? next
+      : '/?alpha=1&preview=1&auth=1';
+    const callbackUrl = new URL('/auth/callback', request.nextUrl.origin);
+    callbackUrl.searchParams.set('next', nextPath);
 
     // Validate input
     let method: 'email' | 'phone';
@@ -139,7 +144,7 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase.auth.signInWithOtp({
         email: destination,
         options: {
-          emailRedirectTo: `${request.nextUrl.origin}/auth/callback`,
+          emailRedirectTo: callbackUrl.toString(),
           shouldCreateUser: true,
         },
       });

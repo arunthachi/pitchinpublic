@@ -96,11 +96,19 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     try {
       setLoading('email');
       setError(null);
+      const nextPath = (() => {
+        const path = `${window.location.pathname}${window.location.search}` || '/';
+        const url = new URL(path, window.location.origin);
+        url.searchParams.set('alpha', '1');
+        url.searchParams.set('preview', '1');
+        url.searchParams.set('auth', '1');
+        return `${url.pathname}${url.search}`;
+      })();
 
       const response = await fetch('/api/auth/otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail }),
+        body: JSON.stringify({ email: trimmedEmail, next: nextPath }),
       });
       const data = await response.json();
 
