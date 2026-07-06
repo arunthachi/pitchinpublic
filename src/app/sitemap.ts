@@ -14,6 +14,11 @@ const publicRoutes = [
     changeFrequency: 'weekly' as const,
   },
   {
+    path: '/pilot',
+    priority: 0.85,
+    changeFrequency: 'weekly' as const,
+  },
+  {
     path: '/events/new',
     priority: 0.6,
     changeFrequency: 'monthly' as const,

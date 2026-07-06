@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import type { PracticePrompt } from '@/lib/practice';
+import { buildPitchDescription, parsePitchDescription } from '@/lib/pitch-copy';
 
 interface Step2_AddDetailsProps {
   videoDuration: number;
@@ -27,17 +28,26 @@ export function Step2_AddDetails({
   initialDescription = '',
 }: Step2_AddDetailsProps) {
   const [hook, setHook] = useState(initialHook);
-  const [description, setDescription] = useState(initialDescription);
+  const [startupName, setStartupName] = useState('');
+  const [feedbackAsk, setFeedbackAsk] = useState('');
+  const [context, setContext] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    const parsed = parsePitchDescription(initialDescription);
     setHook(initialHook);
-    setDescription(initialDescription);
+    setStartupName(parsed.startupName);
+    setFeedbackAsk(parsed.feedbackAsk);
+    setContext(parsed.context);
   }, [initialHook, initialDescription]);
 
   // Check if form is valid
-  const isValid = hook.trim().length >= 10 && hook.trim().length <= 280;
+  const isValid =
+    startupName.trim().length >= 2 &&
+    hook.trim().length >= 10 &&
+    hook.trim().length <= 280 &&
+    feedbackAsk.trim().length >= 4;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,16 +55,32 @@ export function Step2_AddDetails({
     // Validate
     const newErrors: Record<string, string> = {};
 
-    if (!hook.trim()) {
-      newErrors.hook = 'Pitch title is required';
-    } else if (hook.trim().length < 10) {
-      newErrors.hook = 'Pitch title must be at least 10 characters';
-    } else if (hook.trim().length > 280) {
-      newErrors.hook = 'Pitch title must be at most 280 characters';
+    if (!startupName.trim()) {
+      newErrors.startupName = 'Startup name is required';
+    } else if (startupName.trim().length < 2) {
+      newErrors.startupName = 'Startup name must be at least 2 characters';
+    } else if (startupName.trim().length > 120) {
+      newErrors.startupName = 'Startup name must be at most 120 characters';
     }
 
-    if (description.length > 2000) {
-      newErrors.description = 'Description must be at most 2000 characters';
+    if (!hook.trim()) {
+      newErrors.hook = 'One-line pitch is required';
+    } else if (hook.trim().length < 10) {
+      newErrors.hook = 'One-line pitch must be at least 10 characters';
+    } else if (hook.trim().length > 280) {
+      newErrors.hook = 'One-line pitch must be at most 280 characters';
+    }
+
+    if (!feedbackAsk.trim()) {
+      newErrors.feedbackAsk = 'Feedback ask is required';
+    } else if (feedbackAsk.trim().length < 4) {
+      newErrors.feedbackAsk = 'Feedback ask must be specific enough to guide builders';
+    } else if (feedbackAsk.trim().length > 220) {
+      newErrors.feedbackAsk = 'Feedback ask must be at most 220 characters';
+    }
+
+    if (context.length > 800) {
+      newErrors.context = 'Context must be at most 800 characters';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -66,7 +92,12 @@ export function Step2_AddDetails({
     try {
       await onNext({
         hook: hook.trim(),
-        description: description.trim(),
+        description: buildPitchDescription({
+          startupName,
+          oneLinePitch: hook,
+          feedbackAsk,
+          context,
+        }),
       });
     } finally {
       setIsSubmitting(false);
@@ -82,8 +113,8 @@ export function Step2_AddDetails({
     >
       {/* Header */}
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-white mb-1">Add your hook</h2>
-        <p className="text-slate-400 text-sm">Make the pitch easy to understand before it goes live.</p>
+        <h2 className="text-2xl font-bold text-white mb-1">Add pitch details</h2>
+        <p className="text-slate-400 text-sm">Give builders enough context to leave useful feedback.</p>
       </div>
 
       {practicePrompt && (
@@ -107,10 +138,35 @@ export function Step2_AddDetails({
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Startup Name */}
+        <div>
+          <label htmlFor="startupName" className="block text-sm font-semibold text-white mb-2">
+            Startup name <span className="text-red-400">*</span>
+          </label>
+          <input
+            id="startupName"
+            value={startupName}
+            onChange={(e) => {
+              setStartupName(e.target.value);
+              if (errors.startupName) {
+                setErrors({ ...errors, startupName: '' });
+              }
+            }}
+            placeholder="Your startup or working title"
+            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-4 py-3 text-white placeholder-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-neon-cyan"
+            maxLength={120}
+          />
+          <div className="mt-1 flex justify-between">
+            <span className={`text-xs ${errors.startupName ? 'text-red-400' : 'text-slate-400'}`}>
+              {errors.startupName || `${startupName.length}/120`}
+            </span>
+          </div>
+        </div>
+
         {/* Hook/Title Input */}
         <div>
           <label htmlFor="hook" className="block text-sm font-semibold text-white mb-2">
-            Pitch hook <span className="text-red-400">*</span>
+            One-line pitch <span className="text-red-400">*</span>
           </label>
           <textarea
             id="hook"
@@ -121,7 +177,7 @@ export function Step2_AddDetails({
                 setErrors({ ...errors, hook: '' });
               }
             }}
-            placeholder="Who is it for, what hurts, and why should anyone care?"
+            placeholder="For [customer], we help [painful problem] so they can [outcome]."
             className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-neon-cyan focus:border-transparent resize-none"
             rows={3}
             maxLength={280}
@@ -136,28 +192,54 @@ export function Step2_AddDetails({
           </div>
         </div>
 
-        {/* Description Input */}
+        {/* Feedback Ask */}
         <div>
-          <label htmlFor="description" className="block text-sm font-semibold text-white mb-2">
+          <label htmlFor="feedbackAsk" className="block text-sm font-semibold text-white mb-2">
+            Feedback ask <span className="text-red-400">*</span>
+          </label>
+          <textarea
+            id="feedbackAsk"
+            value={feedbackAsk}
+            onChange={(e) => {
+              setFeedbackAsk(e.target.value);
+              if (errors.feedbackAsk) {
+                setErrors({ ...errors, feedbackAsk: '' });
+              }
+            }}
+            placeholder="What should builders help sharpen? Clarity, ICP, problem, confidence, or the ask?"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-neon-cyan focus:border-transparent resize-none"
+            rows={3}
+            maxLength={220}
+          />
+          <div className="flex justify-between mt-1">
+            <span className={`text-xs ${errors.feedbackAsk ? 'text-red-400' : 'text-slate-400'}`}>
+              {errors.feedbackAsk || `${feedbackAsk.length}/220`}
+            </span>
+          </div>
+        </div>
+
+        {/* Context Input */}
+        <div>
+          <label htmlFor="context" className="block text-sm font-semibold text-white mb-2">
             Extra context <span className="text-slate-400 text-xs">(optional)</span>
           </label>
           <textarea
-            id="description"
-            value={description}
+            id="context"
+            value={context}
             onChange={(e) => {
-              setDescription(e.target.value);
-              if (errors.description) {
-                setErrors({ ...errors, description: '' });
+              setContext(e.target.value);
+              if (errors.context) {
+                setErrors({ ...errors, context: '' });
               }
             }}
-            placeholder="Add your company, target customer, current stage, or the feedback you want..."
+            placeholder="Stage, target customer, traction, event, or what changed since your last take..."
             className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-neon-cyan focus:border-transparent resize-none"
-            rows={4}
-            maxLength={2000}
+            rows={3}
+            maxLength={800}
           />
           <div className="flex justify-between mt-1">
-            <span className={`text-xs ${errors.description ? 'text-red-400' : 'text-slate-400'}`}>
-              {errors.description || `${description.length}/2000`}
+            <span className={`text-xs ${errors.context ? 'text-red-400' : 'text-slate-400'}`}>
+              {errors.context || `${context.length}/800`}
             </span>
           </div>
         </div>

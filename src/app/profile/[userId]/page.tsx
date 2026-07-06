@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { LegacyPitch, User } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { getPitchFeedbackAsk, getPitchStartupName, getTakeLabel } from '@/lib/pitch-copy';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
 
@@ -77,7 +78,7 @@ function convertApiPitchToLegacy(pitch: any): LegacyPitch {
     userId: pitch.user_id,
     founderName: profile.full_name || 'Founder',
     founderAvatar: profile.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP',
-    companyName: pitch.description || 'Practice pitch',
+    companyName: getPitchStartupName(pitch.description, 'Practice pitch'),
     hook: pitch.hook,
     description: pitch.description || '',
     videoUrl: pitch.video_url,
@@ -251,6 +252,26 @@ export default function UserProfilePage() {
   const handleSignOut = async () => {
     await signOut();
     router.replace('/');
+  };
+
+  const handleMarkBestTake = async (pitchId: string) => {
+    try {
+      const response = await fetch(`/api/pitches/${pitchId}/best-take`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) throw new Error('Could not mark best take.');
+
+      setPitches((current) =>
+        current.map((pitch) => ({
+          ...pitch,
+          isBestTake: pitch.id === pitchId,
+        }))
+      );
+      setActiveTab('best');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not mark best take.');
+    }
   };
 
   const visiblePitches = activeTab === 'best'
@@ -442,10 +463,10 @@ export default function UserProfilePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(index * 0.03, 0.3) }}
               >
-                <Link
-                  href={`/pitch/${pitch.id}`}
-                  className="group relative block aspect-[9/16] overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-lg shadow-black/25 transition hover:-translate-y-1 hover:border-neon-cyan/60"
-                >
+                <article className="group relative aspect-[9/16] overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-lg shadow-black/25 transition hover:-translate-y-1 hover:border-neon-cyan/60">
+                  <Link href={`/pitch/${pitch.id}`} className="absolute inset-0">
+                    <span className="sr-only">Open pitch</span>
+                  </Link>
                   {pitch.thumbnailUrl ? (
                     <img src={pitch.thumbnailUrl} alt={pitch.hook} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                   ) : (
@@ -453,31 +474,46 @@ export default function UserProfilePage() {
                       <Video className="h-10 w-10 text-white/60" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                  <div className="absolute left-3 top-3 flex gap-2">
-                    {finalPitchIds.has(pitch.id) && (
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+                  <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-2">
+                    {(finalPitchIds.has(pitch.id) || pitch.isBestTake) && (
                       <span className="rounded-full bg-neon-lime px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-950">
-                        Final
+                        Best
                       </span>
                     )}
+                    <span className="rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-white backdrop-blur">
+                      {getTakeLabel(pitch.versionNumber, pitch.isBestTake)}
+                    </span>
                     <span className="rounded-full bg-black/55 px-2 py-1 text-[10px] font-bold text-white backdrop-blur">
                       {pitch.duration || 60}s
                     </span>
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-xl">
                       <Play className="h-5 w-5 fill-white text-white" />
                     </span>
                   </div>
                   <div className="absolute bottom-0 left-0 right-0 p-3">
                     <p className="line-clamp-2 text-sm font-bold leading-5 text-white">{pitch.hook}</p>
+                    <p className="mt-1 line-clamp-1 text-xs font-medium text-slate-300">
+                      Ask: {getPitchFeedbackAsk(pitch.description)}
+                    </p>
                     <div className="mt-2 flex items-center gap-3 text-xs font-semibold text-slate-300">
                       <span className="inline-flex items-center gap-1"><Wine className="h-3 w-3 text-toast" />{pitch.toastCount}</span>
                       <span className="inline-flex items-center gap-1"><Flame className="h-3 w-3 text-roast" />{pitch.roastCount}</span>
                       <span>{formatDate(pitch.createdAt)}</span>
                     </div>
+                    {isOwnProfile && !pitch.isBestTake && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkBestTake(pitch.id)}
+                        className="relative z-10 mt-3 inline-flex w-full items-center justify-center rounded-full border border-neon-lime/40 bg-neon-lime/15 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-neon-lime opacity-0 transition group-hover:opacity-100 focus:opacity-100"
+                      >
+                        Mark Best Take
+                      </button>
+                    )}
                   </div>
-                </Link>
+                </article>
               </motion.div>
             ))}
           </section>

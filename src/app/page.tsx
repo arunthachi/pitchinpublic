@@ -22,6 +22,7 @@ import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
 import { PracticeLoopPanel } from '@/components/PracticeLoopPanel';
 import { getPromptForDate, type PracticePrompt } from '@/lib/practice';
+import { getPitchStartupName } from '@/lib/pitch-copy';
 
 // Lazy load modal components (not needed on initial page load)
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
@@ -224,7 +225,7 @@ function HomeContent() {
           userId: pitch.user_id,
           founderName: pitch.profiles?.full_name || 'Anonymous',
           founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
-          companyName: pitch.company_name || pitch.description || 'Startup',
+          companyName: getPitchStartupName(pitch.description, 'Startup'),
           hook: pitch.hook,
           description: pitch.description || '',
           videoUrl: pitch.video_url,
@@ -295,8 +296,8 @@ function HomeContent() {
 
   // Filter user's own pitches using the fetched profile
   // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
-  const userPitches = userProfile
-    ? legacyPitches.filter((pitch) => pitch.founderName === userProfile.name)
+  const userPitches = user
+    ? legacyPitches.filter((pitch) => pitch.userId === user.id)
     : [];
 
   const handlePitchChange = useCallback((pitch: LegacyPitch, newHandlers: typeof handlers) => {
