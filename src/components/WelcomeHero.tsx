@@ -302,6 +302,15 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                     {waitlistError ||
                       'Email first. Optional founder details open in the waitlist form.'}
                   </p>
+                  <p className="mt-2">
+                    Questions or pilot interest?{' '}
+                    <a
+                      href="mailto:hello@pitchinpublic.io"
+                      className="font-semibold text-neon-cyan transition hover:text-white"
+                    >
+                      hello@pitchinpublic.io
+                    </a>
+                  </p>
                 </div>
               </motion.div>
 
@@ -590,6 +599,15 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
               </h2>
               <p className="mt-3 max-w-2xl leading-7 text-slate-300">
                 Early members will help shape the pitch loop, event rooms, written comments, and scored Toast/Roast feedback before public launch.
+              </p>
+              <p className="mt-4 text-sm text-slate-400">
+                Questions, event pilots, or founder group interest:{' '}
+                <a
+                  href="mailto:hello@pitchinpublic.io"
+                  className="font-semibold text-neon-cyan transition hover:text-white"
+                >
+                  hello@pitchinpublic.io
+                </a>
               </p>
             </div>
             <button
