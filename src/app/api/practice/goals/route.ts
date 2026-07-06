@@ -29,6 +29,37 @@ function createSupabase(request: NextRequest) {
   );
 }
 
+function isSchemaCompatibilityError(error: any) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return /column .* does not exist|schema cache|Could not find|violates foreign key constraint|practice_goals/i.test(message);
+}
+
+async function ensureProfile(supabase: ReturnType<typeof createSupabase>, user: any) {
+  const email = user.email || `${user.id}@pitchinpublic.local`;
+  const fullName =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    user.email?.split('@')[0] ||
+    'Founder';
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert(
+      {
+        id: user.id,
+        email,
+        full_name: fullName,
+        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
+
+  if (error) {
+    console.error('Error ensuring profile for practice goal:', error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createSupabase(request);
 
@@ -41,6 +72,8 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
+
+    await ensureProfile(supabase, user);
 
     const body = await request.json();
     const validation = goalSchema.safeParse(body);
@@ -72,9 +105,17 @@ export async function POST(request: NextRequest) {
       prompt_started_on: new Date().toISOString().slice(0, 10),
       status: 'active',
     };
+    const minimalPayload = {
+      user_id: user.id,
+      name: payload.name,
+      context: payload.context,
+      target_date: payload.target_date,
+      focus: payload.focus,
+      status: payload.status,
+    };
 
     if (input.id) {
-      const { data, error } = await supabase
+      let result = await supabase
         .from('practice_goals')
         .update(payload)
         .eq('id', input.id)
@@ -82,8 +123,18 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
 
-      if (error) throw error;
-      return NextResponse.json({ success: true, goal: data });
+      if (result.error && isSchemaCompatibilityError(result.error)) {
+        result = await supabase
+          .from('practice_goals')
+          .update(minimalPayload)
+          .eq('id', input.id)
+          .eq('user_id', user.id)
+          .select()
+          .single();
+      }
+
+      if (result.error) throw result.error;
+      return NextResponse.json({ success: true, goal: result.data });
     }
 
     await supabase
@@ -92,15 +143,23 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .eq('status', 'active');
 
-    const { data, error } = await supabase
+    let result = await supabase
       .from('practice_goals')
       .insert(payload)
       .select()
       .single();
 
-    if (error) throw error;
+    if (result.error && isSchemaCompatibilityError(result.error)) {
+      result = await supabase
+        .from('practice_goals')
+        .insert(minimalPayload)
+        .select()
+        .single();
+    }
 
-    return NextResponse.json({ success: true, goal: data }, { status: 201 });
+    if (result.error) throw result.error;
+
+    return NextResponse.json({ success: true, goal: result.data }, { status: 201 });
   } catch (error) {
     console.error('Error saving practice goal:', error);
     return NextResponse.json(
