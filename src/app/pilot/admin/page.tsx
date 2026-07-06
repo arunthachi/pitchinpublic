@@ -3,7 +3,11 @@ import type { Metadata } from 'next';
 import { AlertCircle, ArrowLeft, CheckCircle2, MessageSquareText, Trophy, UserRound, Video } from 'lucide-react';
 import { BrandMark } from '@/components/BrandMark';
 import { createClient } from '@/lib/supabase/server';
-import { getPitchFeedbackAsk, getPitchStartupName, getTakeLabel } from '@/lib/pitch-copy';
+import {
+  getPitchFeedbackAskFromFields,
+  getPitchStartupNameFromFields,
+  getTakeLabelFromFields,
+} from '@/lib/pitch-copy';
 
 export const metadata: Metadata = {
   title: 'Pilot Admin | Pitch in Public',
@@ -15,6 +19,11 @@ interface PitchRow {
   user_id: string;
   hook: string;
   description: string | null;
+  startup_name?: string | null;
+  one_line_pitch?: string | null;
+  feedback_ask?: string | null;
+  extra_context?: string | null;
+  take_version?: number | null;
   duration: number | null;
   version_number?: number | null;
   is_best_take?: boolean | null;
@@ -126,6 +135,11 @@ async function loadPitches() {
       user_id,
       hook,
       description,
+      startup_name,
+      one_line_pitch,
+      feedback_ask,
+      extra_context,
+      take_version,
       duration,
       version_number,
       is_best_take,
@@ -153,7 +167,7 @@ async function loadPitches() {
 
   if (!result.error) return ((result.data || []) as unknown) as PitchRow[];
 
-  if (/is_best_take|deleted_at|schema cache|Could not find/i.test(result.error.message || '')) {
+  if (/startup_name|one_line_pitch|feedback_ask|extra_context|take_version|is_best_take|deleted_at|schema cache|Could not find/i.test(result.error.message || '')) {
     const fallback = await supabase
       .from('pitches')
       .select(
@@ -315,18 +329,18 @@ export default async function PilotAdminPage() {
                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] ${
                           pitch.is_best_take ? 'bg-neon-lime text-slate-950' : 'bg-white/10 text-slate-300'
                         }`}>
-                          {getTakeLabel(pitch.version_number, Boolean(pitch.is_best_take))}
+                          {getTakeLabelFromFields(pitch)}
                         </span>
                         <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-slate-300">
                           {pitch.feedback?.length || 0} feedback
                         </span>
                       </div>
                       <p className="text-xs font-bold uppercase tracking-[0.12em] text-neon-cyan">
-                        {getPitchStartupName(pitch.description, 'Startup')}
+                        {getPitchStartupNameFromFields(pitch, 'Startup')}
                       </p>
                       <p className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-white">{pitch.hook}</p>
                       <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
-                        Ask: {getPitchFeedbackAsk(pitch.description)}
+                        Ask: {getPitchFeedbackAskFromFields(pitch)}
                       </p>
                       <div className="mt-3 flex items-center justify-between text-xs font-semibold text-slate-500">
                         <span>{formatDate(pitch.created_at)}</span>

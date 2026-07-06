@@ -131,9 +131,16 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          company_id: string
+          company_id: string | null
           hook: string
           description: string | null
+          startup_name: string | null
+          one_line_pitch: string | null
+          feedback_ask: string | null
+          extra_context: string | null
+          take_version: number | null
+          visibility: string
+          source: string
           video_url: string
           video_provider: string
           video_id: string | null
@@ -151,9 +158,16 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
-          company_id: string
+          company_id?: string | null
           hook: string
           description?: string | null
+          startup_name?: string | null
+          one_line_pitch?: string | null
+          feedback_ask?: string | null
+          extra_context?: string | null
+          take_version?: number | null
+          visibility?: string
+          source?: string
           video_url: string
           video_provider?: string
           video_id?: string | null
@@ -171,9 +185,16 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
-          company_id?: string
+          company_id?: string | null
           hook?: string
           description?: string | null
+          startup_name?: string | null
+          one_line_pitch?: string | null
+          feedback_ask?: string | null
+          extra_context?: string | null
+          take_version?: number | null
+          visibility?: string
+          source?: string
           video_url?: string
           video_provider?: string
           video_id?: string | null
@@ -185,6 +206,61 @@ export interface Database {
           toast_count?: number
           interest_score?: number
           status?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      profile_roles: {
+        Row: {
+          id: string
+          user_id: string
+          role: string
+          is_primary: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          role: string
+          is_primary?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          role?: string
+          is_primary?: boolean
+          created_at?: string
+        }
+      }
+      company_members: {
+        Row: {
+          id: string
+          company_id: string
+          user_id: string
+          role: string
+          title: string | null
+          is_primary: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          user_id: string
+          role?: string
+          title?: string | null
+          is_primary?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          user_id?: string
+          role?: string
+          title?: string | null
+          is_primary?: boolean
           created_at?: string
           updated_at?: string
         }

@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { getPromptForDate } from '@/lib/practice';
+import { parsePitchDescription } from '@/lib/pitch-copy';
 
 /**
  * POST /api/pitches
@@ -13,6 +14,10 @@ import { getPromptForDate } from '@/lib/practice';
  * Request body:
  * {
  *   "hook": "string (10-280 chars)",
+ *   "startupName": "string (optional, max 120 chars)",
+ *   "oneLinePitch": "string (optional, max 280 chars)",
+ *   "feedbackAsk": "string (optional, max 220 chars)",
+ *   "extraContext": "string (optional, max 800 chars)",
  *   "description": "string (optional, max 2000 chars)",
  *   "videoId": "string (Cloudflare video ID)",
  *   "playbackUrl": "string (HLS playback URL)",
@@ -36,6 +41,81 @@ import { getPromptForDate } from '@/lib/practice';
  *   }
  * }
  */
+function slugifyCompanyName(name: string, userId: string) {
+  const base = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return `${base || 'startup'}-${userId.replace(/-/g, '').slice(0, 8)}`;
+}
+
+async function resolveCompanyId(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string,
+  companyId: string | null | undefined,
+  startupName: string
+) {
+  if (companyId) {
+    const { data } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('id', companyId)
+      .eq('founder_id', userId)
+      .maybeSingle();
+    return data?.id || null;
+  }
+
+  if (!startupName) return null;
+
+  const { data: existing } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('founder_id', userId)
+    .ilike('name', startupName)
+    .maybeSingle();
+
+  if (existing?.id) return existing.id;
+
+  const { data: created, error } = await supabase
+    .from('companies')
+    .insert({
+      founder_id: userId,
+      name: startupName,
+      slug: slugifyCompanyName(startupName, userId),
+      tagline: null,
+      description: null,
+      industry: 'Other',
+      stage: 'Idea',
+      status: 'active',
+    })
+    .select('id')
+    .single();
+
+  if (error || !created?.id) {
+    console.error('Error creating lightweight company:', error);
+    return null;
+  }
+
+  try {
+    await supabase
+      .from('company_members')
+      .upsert(
+        {
+          company_id: created.id,
+          user_id: userId,
+          role: 'founder',
+          is_primary: false,
+        },
+        { onConflict: 'company_id,user_id' }
+      );
+  } catch (memberError) {
+    console.error('Error creating company membership:', memberError);
+  }
+
+  return created.id;
+}
+
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
 
@@ -118,6 +198,12 @@ export async function POST(request: NextRequest) {
     }
 
     const pitchData = validation.data;
+    const parsedDescription = parsePitchDescription(pitchData.description);
+    const startupName = pitchData.startupName || parsedDescription.startupName || '';
+    const oneLinePitch = pitchData.oneLinePitch || pitchData.hook;
+    const feedbackAsk = pitchData.feedbackAsk || parsedDescription.feedbackAsk || '';
+    const extraContext = pitchData.extraContext || parsedDescription.context || '';
+    const companyId = await resolveCompanyId(supabase, user.id, pitchData.companyId, startupName);
     const prompt = getPromptForDate();
     const promptKey = pitchData.promptKey || prompt.key;
     const promptText = pitchData.promptText || prompt.prompt;
@@ -150,8 +236,14 @@ export async function POST(request: NextRequest) {
     // Insert pitch into database
     const insertPayload = {
       user_id: user.id,
+      company_id: companyId,
       hook: pitchData.hook,
       description: pitchData.description || null,
+      startup_name: startupName || null,
+      one_line_pitch: oneLinePitch,
+      feedback_ask: feedbackAsk || null,
+      extra_context: extraContext || null,
+      take_version: repNumber,
       video_id: pitchData.videoId,
       video_url: pitchData.playbackUrl,
       video_provider: pitchData.videoProvider || process.env.VIDEO_PROVIDER || 'cloudflare',
@@ -174,8 +266,14 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (insertResult.error && /practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(insertResult.error.message)) {
+    if (insertResult.error && /company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(insertResult.error.message)) {
       const {
+        company_id: _companyId,
+        startup_name: _startupName,
+        one_line_pitch: _oneLinePitch,
+        feedback_ask: _feedbackAsk,
+        extra_context: _extraContext,
+        take_version: _takeVersion,
         practice_goal_id: _practiceGoalId,
         prompt_key: _promptKey,
         prompt_text: _promptText,
@@ -238,12 +336,17 @@ export async function POST(request: NextRequest) {
           id: pitch.id,
           hook: pitch.hook,
           description: pitch.description,
+          startupName: pitch.startup_name || startupName || null,
+          oneLinePitch: pitch.one_line_pitch || oneLinePitch,
+          feedbackAsk: pitch.feedback_ask || feedbackAsk || null,
+          extraContext: pitch.extra_context || extraContext || null,
+          companyId: pitch.company_id || companyId,
           videoId: pitch.video_id,
           videoUrl: pitch.video_url,
           thumbnailUrl: pitch.thumbnail_url,
           duration: pitch.duration,
           status: pitch.status,
-          versionNumber: pitch.version_number || repNumber,
+          versionNumber: pitch.take_version || pitch.version_number || repNumber,
           practiceGoalId: pitch.practice_goal_id || pitchData.practiceGoalId || null,
           promptKey,
           promptText,
@@ -322,6 +425,12 @@ export async function GET(request: NextRequest) {
         id,
         hook,
         description,
+        startup_name,
+        one_line_pitch,
+        feedback_ask,
+        extra_context,
+        take_version,
+        company_id,
         video_url,
         thumbnail_url,
         duration,
@@ -417,7 +526,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error && /practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(error.message)) {
+    if (error && /startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(error.message)) {
       const fallbackResult = await buildDataQuery(fallbackSelect)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);

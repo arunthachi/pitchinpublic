@@ -50,9 +50,14 @@ export interface Company {
 export interface Pitch {
   id: string;
   user_id: string;
-  company_id: string;
+  company_id: string | null;
   hook: string;
   description: string | null;
+  startup_name?: string | null;
+  one_line_pitch?: string | null;
+  feedback_ask?: string | null;
+  extra_context?: string | null;
+  take_version?: number | null;
   video_url: string;
   video_provider: 'cloudflare' | 'mux' | 'bunny';
   video_id: string | null;
@@ -139,6 +144,8 @@ export interface LegacyPitch {
   companyName: string;
   hook: string;
   description: string;
+  feedbackAsk?: string;
+  extraContext?: string;
   videoUrl: string;
   thumbnailUrl: string;
   industry: Industry;

@@ -447,7 +447,14 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
     }
   };
 
-  const handleDetailsNext = async (data: { hook: string; description: string }) => {
+  const handleDetailsNext = async (data: {
+    hook: string;
+    description: string;
+    startupName: string;
+    oneLinePitch: string;
+    feedbackAsk: string;
+    extraContext: string;
+  }) => {
     if (!videoId || !uploadedVideo) {
       setError('Video is not ready yet');
       return;
@@ -473,6 +480,10 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
 
       const pitchPayload: any = {
         hook: data.hook,
+        startupName: data.startupName,
+        oneLinePitch: data.oneLinePitch,
+        feedbackAsk: data.feedbackAsk,
+        extraContext: data.extraContext,
         videoId,
         playbackUrl: uploadedVideo.playbackUrl,
         duration: actualDuration,

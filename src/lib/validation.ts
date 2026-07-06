@@ -120,6 +120,31 @@ export type VideoUploadInput = z.infer<typeof videoUploadSchema>;
  * Pitch creation validation
  */
 export const pitchSchema = z.object({
+  companyId: z.string().uuid('Invalid company ID').optional().nullable(),
+  startupName: z
+    .string()
+    .min(2, 'Startup name must be at least 2 characters')
+    .max(120, 'Startup name must be at most 120 characters')
+    .trim()
+    .optional(),
+  oneLinePitch: z
+    .string()
+    .min(10, 'One-line pitch must be at least 10 characters')
+    .max(280, 'One-line pitch must be at most 280 characters')
+    .trim()
+    .optional(),
+  feedbackAsk: z
+    .string()
+    .min(4, 'Feedback ask must be specific enough to guide builders')
+    .max(220, 'Feedback ask must be at most 220 characters')
+    .trim()
+    .optional(),
+  extraContext: z
+    .string()
+    .max(800, 'Extra context must be at most 800 characters')
+    .trim()
+    .optional()
+    .or(z.literal('')),
   hook: z
     .string()
     .min(10, 'Hook must be at least 10 characters')

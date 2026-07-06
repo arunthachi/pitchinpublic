@@ -22,7 +22,7 @@ import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
 import { PracticeLoopPanel } from '@/components/PracticeLoopPanel';
 import { getPromptForDate, type PracticePrompt } from '@/lib/practice';
-import { getPitchStartupName } from '@/lib/pitch-copy';
+import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
 
 // Lazy load modal components (not needed on initial page load)
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
@@ -225,9 +225,10 @@ function HomeContent() {
           userId: pitch.user_id,
           founderName: pitch.profiles?.full_name || 'Anonymous',
           founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
-          companyName: getPitchStartupName(pitch.description, 'Startup'),
+          companyName: getPitchStartupNameFromFields(pitch, 'Startup'),
           hook: pitch.hook,
           description: pitch.description || '',
+          feedbackAsk: getPitchFeedbackAskFromFields(pitch),
           videoUrl: pitch.video_url,
           thumbnailUrl: pitch.thumbnail_url || '',
           industry: 'SaaS', // Default, will be added in next phase
@@ -238,7 +239,7 @@ function HomeContent() {
           toastCount: pitch.toast_count,
           createdAt: pitch.created_at,
           duration: pitch.duration,
-          versionNumber: pitch.version_number,
+          versionNumber: pitch.take_version || pitch.version_number,
           practiceGoalId: pitch.practice_goal_id || null,
           promptKey: pitch.prompt_key || null,
           promptText: pitch.prompt_text || null,

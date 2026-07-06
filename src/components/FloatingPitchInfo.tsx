@@ -4,7 +4,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LegacyPitch } from '@/types';
 import { ChevronUp, Target } from 'lucide-react';
-import { getPitchFeedbackAsk, getTakeLabel } from '@/lib/pitch-copy';
+import { getTakeLabel } from '@/lib/pitch-copy';
 
 interface FloatingPitchInfoProps {
   pitch: LegacyPitch;
@@ -71,7 +71,7 @@ export function FloatingPitchInfo({ pitch, reserveActionRail = true }: FloatingP
               <div className="mt-3 flex items-start gap-2 border-t border-white/10 pt-3 text-white/[0.86]">
                 <Target size={14} className="mt-0.5 shrink-0 text-neon-lime" />
                 <span className="text-xs leading-snug">
-                  Feedback ask: {getPitchFeedbackAsk(pitch.description)}
+                  Feedback ask: {pitch.feedbackAsk || 'Help sharpen ICP, clarity, and closing ask.'}
                 </span>
               </div>
             </div>
@@ -96,7 +96,7 @@ export function FloatingPitchInfo({ pitch, reserveActionRail = true }: FloatingP
                 {pitch.companyName}
               </span>
               <span className="block truncate text-xs leading-tight text-white/72">
-                {getTakeLabel(pitch.versionNumber, pitch.isBestTake)} · Ask: {getPitchFeedbackAsk(pitch.description)}
+                {getTakeLabel(pitch.versionNumber, pitch.isBestTake)} · Ask: {pitch.feedbackAsk || 'Help sharpen ICP, clarity, and closing ask.'}
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.12] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/80">

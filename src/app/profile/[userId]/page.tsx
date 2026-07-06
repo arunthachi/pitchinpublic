@@ -22,7 +22,11 @@ import {
 } from 'lucide-react';
 import { LegacyPitch, User } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPitchFeedbackAsk, getPitchStartupName, getTakeLabel } from '@/lib/pitch-copy';
+import {
+  getPitchFeedbackAskFromFields,
+  getPitchStartupNameFromFields,
+  getTakeLabel,
+} from '@/lib/pitch-copy';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
 
@@ -78,9 +82,10 @@ function convertApiPitchToLegacy(pitch: any): LegacyPitch {
     userId: pitch.user_id,
     founderName: profile.full_name || 'Founder',
     founderAvatar: profile.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP',
-    companyName: getPitchStartupName(pitch.description, 'Practice pitch'),
+    companyName: getPitchStartupNameFromFields(pitch, 'Practice pitch'),
     hook: pitch.hook,
     description: pitch.description || '',
+    feedbackAsk: getPitchFeedbackAskFromFields(pitch),
     videoUrl: pitch.video_url,
     thumbnailUrl: pitch.thumbnail_url || '',
     industry: 'SaaS',
@@ -91,7 +96,7 @@ function convertApiPitchToLegacy(pitch: any): LegacyPitch {
     toastCount: pitch.toast_count || 0,
     createdAt: pitch.created_at,
     duration: pitch.duration || undefined,
-    versionNumber: pitch.version_number,
+    versionNumber: pitch.take_version || pitch.version_number,
     practiceGoalId: pitch.practice_goal_id || null,
     promptKey: pitch.prompt_key || null,
     promptText: pitch.prompt_text || null,
@@ -496,7 +501,7 @@ export default function UserProfilePage() {
                   <div className="absolute bottom-0 left-0 right-0 p-3">
                     <p className="line-clamp-2 text-sm font-bold leading-5 text-white">{pitch.hook}</p>
                     <p className="mt-1 line-clamp-1 text-xs font-medium text-slate-300">
-                      Ask: {getPitchFeedbackAsk(pitch.description)}
+                      Ask: {pitch.feedbackAsk || getPitchFeedbackAskFromFields({ description: pitch.description })}
                     </p>
                     <div className="mt-2 flex items-center gap-3 text-xs font-semibold text-slate-300">
                       <span className="inline-flex items-center gap-1"><Wine className="h-3 w-3 text-toast" />{pitch.toastCount}</span>

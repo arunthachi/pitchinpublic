@@ -9,7 +9,14 @@ import { buildPitchDescription, parsePitchDescription } from '@/lib/pitch-copy';
 interface Step2_AddDetailsProps {
   videoDuration: number;
   previewUrl: string;
-  onNext: (data: { hook: string; description: string }) => void | Promise<void>;
+  onNext: (data: {
+    hook: string;
+    description: string;
+    startupName: string;
+    oneLinePitch: string;
+    feedbackAsk: string;
+    extraContext: string;
+  }) => void | Promise<void>;
   onBack: () => void;
   isLoading?: boolean;
   practicePrompt?: PracticePrompt | null;
@@ -98,6 +105,10 @@ export function Step2_AddDetails({
           feedbackAsk,
           context,
         }),
+        startupName: startupName.trim(),
+        oneLinePitch: hook.trim(),
+        feedbackAsk: feedbackAsk.trim(),
+        extraContext: context.trim(),
       });
     } finally {
       setIsSubmitting(false);
