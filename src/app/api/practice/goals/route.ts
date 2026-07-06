@@ -34,6 +34,32 @@ function isSchemaCompatibilityError(error: any) {
   return /column .* does not exist|schema cache|Could not find|violates foreign key constraint|practice_goals/i.test(message);
 }
 
+function isMissingPracticeGoalsTable(error: any) {
+  const message = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  return /PGRST205|Could not find the table 'public\\.practice_goals'|practice_goals.*schema cache/i.test(message);
+}
+
+function virtualGoal(input: z.infer<typeof goalSchema>, userId: string, prompt: ReturnType<typeof getPromptForDate>) {
+  const now = new Date().toISOString();
+  return {
+    id: input.id || crypto.randomUUID(),
+    user_id: userId,
+    name: input.name.trim(),
+    company_name: input.companyName?.trim() || null,
+    context: input.context?.trim() || null,
+    target_date: input.targetDate || null,
+    event_id: input.eventId || null,
+    focus: input.focus,
+    status: 'active',
+    best_pitch_id: null,
+    current_prompt_key: prompt.key,
+    prompt_started_on: now.slice(0, 10),
+    created_at: now,
+    updated_at: now,
+    degraded: true,
+  };
+}
+
 async function ensureProfile(supabase: ReturnType<typeof createSupabase>, user: any) {
   const email = user.email || `${user.id}@pitchinpublic.local`;
   const fullName =
@@ -133,6 +159,15 @@ export async function POST(request: NextRequest) {
           .single();
       }
 
+      if (result.error && isMissingPracticeGoalsTable(result.error)) {
+        return NextResponse.json({
+          success: true,
+          degraded: true,
+          warning: 'Practice goals are stored locally until the database migration is applied.',
+          goal: virtualGoal(input, user.id, prompt),
+        });
+      }
+
       if (result.error) throw result.error;
       return NextResponse.json({ success: true, goal: result.data });
     }
@@ -155,6 +190,18 @@ export async function POST(request: NextRequest) {
         .insert(minimalPayload)
         .select()
         .single();
+    }
+
+    if (result.error && isMissingPracticeGoalsTable(result.error)) {
+      return NextResponse.json(
+        {
+          success: true,
+          degraded: true,
+          warning: 'Practice goals are stored locally until the database migration is applied.',
+          goal: virtualGoal(input, user.id, prompt),
+        },
+        { status: 201 }
+      );
     }
 
     if (result.error) throw result.error;
