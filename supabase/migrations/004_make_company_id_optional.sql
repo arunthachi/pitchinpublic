@@ -9,7 +9,7 @@
 -- Drop the NOT NULL constraint on company_id
 -- First drop the foreign key constraint
 ALTER TABLE pitches
-DROP CONSTRAINT pitches_company_id_fkey;
+DROP CONSTRAINT IF EXISTS pitches_company_id_fkey;
 
 -- Alter the column to allow NULL
 ALTER TABLE pitches

@@ -9,7 +9,7 @@
 -- Add deleted_at column to track when pitch was deleted
 -- NULL = not deleted, timestamp = deleted at that time
 ALTER TABLE pitches
-ADD COLUMN deleted_at TIMESTAMP NULL;
+ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL;
 
 -- Add comment explaining the column
 COMMENT ON COLUMN pitches.deleted_at IS 'Timestamp when pitch was soft-deleted. NULL means pitch is active.';
