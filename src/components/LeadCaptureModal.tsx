@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowRight, Building2, CheckCircle2, Globe2, Loader2, Mail, X } from 'lucide-react';
 
 type LeadType = 'founder' | 'organizer';
@@ -49,8 +50,13 @@ export function LeadCaptureModal({
   const [website, setWebsite] = useState('');
   const [state, setState] = useState<SubmitState>('idle');
   const [message, setMessage] = useState('');
+  const [mounted, setMounted] = useState(false);
   const titleId = useId();
   const modalCopy = copyByType[type];
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -127,9 +133,10 @@ export function LeadCaptureModal({
         {triggerIcon ? <ArrowRight className="h-5 w-5" aria-hidden="true" /> : null}
       </button>
 
-      {open ? (
+      {mounted && open
+        ? createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/72 px-4 py-6 backdrop-blur-xl"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/88 px-4 py-6 backdrop-blur-2xl"
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -140,7 +147,7 @@ export function LeadCaptureModal({
             className="absolute inset-0 cursor-default"
             onClick={resetAndClose}
           />
-          <div className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/15 bg-slate-950/86 shadow-2xl shadow-neon-cyan/10 backdrop-blur-2xl">
+          <div className="relative max-h-[min(92dvh,760px)] w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/18 bg-[#08111f]/98 shadow-2xl shadow-black/60 backdrop-blur-2xl">
             <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_18%_0%,rgba(0,230,246,0.26),transparent_20rem),radial-gradient(circle_at_82%_0%,rgba(183,255,42,0.18),transparent_18rem)]" />
             <div className="relative border-b border-white/10 p-6 sm:p-7">
               <button
@@ -178,7 +185,7 @@ export function LeadCaptureModal({
                 </div>
               </div>
             ) : (
-              <form onSubmit={submit} className="space-y-4 p-6 sm:p-7">
+              <form onSubmit={submit} className="max-h-[calc(min(92dvh,760px)-178px)] space-y-4 overflow-y-auto p-6 sm:p-7">
                 <label className="block">
                   <span className="mb-2 block text-sm font-bold text-slate-200">Email</span>
                   <span className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 focus-within:border-neon-cyan/70 focus-within:ring-2 focus-within:ring-neon-cyan/20">
@@ -249,8 +256,10 @@ export function LeadCaptureModal({
               </form>
             )}
           </div>
-        </div>
-      ) : null}
+        </div>,
+          document.body
+        )
+        : null}
     </>
   );
 }
