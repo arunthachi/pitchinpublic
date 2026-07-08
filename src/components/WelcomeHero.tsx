@@ -190,7 +190,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
               href="/for-events"
               className="hidden rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black sm:inline-flex"
             >
-              For events
+              For organizers
             </Link>
             {showAlphaSignIn && (
               <>
@@ -212,9 +212,6 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 </button>
               </>
             )}
-            <span className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-              Waitlist
-            </span>
           </div>
         </div>
       </header>

@@ -16,9 +16,9 @@ import {
 import { BrandMark } from '@/components/BrandMark';
 
 export const metadata: Metadata = {
-  title: 'Pitch in Public for Events | Run Better Pitch Practice',
+  title: 'Pitch in Public for Organizers | Run Better Pitch Practice',
   description:
-    'Turn pitch competitions, demo days, and founder events into guided practice sprints with 60-second pitch reps, feedback, and best-take submissions.',
+    'Turn pitch competitions, demo days, cohorts, and founder programs into guided practice sprints with 60-second pitch reps, feedback, and best-take submissions.',
 };
 
 const eventTypes = [
@@ -66,7 +66,7 @@ export default function ForEventsPage() {
             <BrandMark className="h-10 w-10" />
             <div>
               <p className="font-heading text-base font-bold leading-none">Pitch in Public</p>
-              <p className="mt-1 text-xs text-slate-400">For events</p>
+              <p className="mt-1 text-xs text-slate-400">For Organizers</p>
             </div>
           </Link>
           <div className="flex items-center gap-2">
@@ -99,10 +99,10 @@ export default function ForEventsPage() {
                 Pitch competitions, demo days, founder rooms
               </div>
               <h1 className="max-w-4xl text-balance font-heading text-5xl font-bold leading-[1.02] tracking-normal sm:text-6xl lg:text-7xl">
-                Turn your pitch event into a practice sprint.
+                Turn your founder program into a pitch practice sprint.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
-                Most pitch events judge the final minute. Pitch in Public helps founders
+                Most pitch events, cohorts, and founder programs judge the final minute. Pitch in Public helps founders
                 practice the weeks before, collect constructive feedback, and submit one
                 stronger take when it matters.
               </p>
