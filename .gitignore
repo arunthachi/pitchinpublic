@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Next.js cache
 /cache/
+
+# Supabase CLI local metadata
+supabase/.temp/
