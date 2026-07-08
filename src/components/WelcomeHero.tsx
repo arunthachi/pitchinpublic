@@ -18,6 +18,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { BrandMark } from './BrandMark';
+import { LeadCaptureModal } from './LeadCaptureModal';
 
 interface WelcomeHeroProps {
   showAlphaSignIn?: boolean;
@@ -142,30 +143,9 @@ const practiceSignals = [
   },
 ];
 
-const WAITLIST_FORM_URL =
-  'https://docs.google.com/forms/d/e/1FAIpQLScScUpcsCAG9bcWsOC6yPJGc-FkXeShcKCo8mdN-oPTOKBP8Q/viewform';
-const WAITLIST_EMAIL_ENTRY_ID = 'entry.533178309';
-
 export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPreview }: WelcomeHeroProps) {
   const [activeSignal, setActiveSignal] = useState(practiceSignals[0]);
   const [waitlistEmail, setWaitlistEmail] = useState('');
-  const [waitlistError, setWaitlistError] = useState('');
-
-  const openWaitlistForm = () => {
-    setWaitlistError('');
-
-    if (!waitlistEmail || !waitlistEmail.includes('@')) {
-      setWaitlistError('Enter your email to continue.');
-      return;
-    }
-
-    const params = new URLSearchParams({
-      usp: 'pp_url',
-      [WAITLIST_EMAIL_ENTRY_ID]: waitlistEmail,
-    });
-
-    window.open(`${WAITLIST_FORM_URL}?${params.toString()}`, '_blank', 'noopener,noreferrer');
-  };
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -257,13 +237,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 transition={{ delay: 0.24, duration: 0.4 }}
                 className="mt-8 max-w-xl"
               >
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      openWaitlistForm();
-                    }}
-                    className="rounded-xl border border-white/10 bg-black/45 p-2 shadow-2xl shadow-black/25 backdrop-blur"
-                  >
+                  <div className="rounded-xl border border-white/10 bg-black/45 p-2 shadow-2xl shadow-black/25 backdrop-blur">
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <label htmlFor="waitlist-email" className="sr-only">
                         Email address
@@ -276,7 +250,6 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                           value={waitlistEmail}
                           onChange={(event) => {
                             setWaitlistEmail(event.target.value);
-                            setWaitlistError('');
                           }}
                           placeholder="you@company.com"
                           autoComplete="email"
@@ -284,21 +257,18 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                           required
                         />
                       </div>
-                      <button
-                        type="submit"
-                        className="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                      >
-                        <ArrowRight className="h-5 w-5" aria-hidden="true" />
-                        Join waitlist
-                      </button>
+                      <LeadCaptureModal
+                        type="founder"
+                        triggerLabel="Join waitlist"
+                        initialEmail={waitlistEmail}
+                        source="landing-hero"
+                        triggerClassName="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                      />
                     </div>
-                  </form>
+                  </div>
 
                 <div className="mt-3 text-sm text-slate-400">
-                  <p>
-                    {waitlistError ||
-                      'Email first. Optional founder details open in the waitlist form.'}
-                  </p>
+                  <p>Email first. Startup details open in a quick in-app form.</p>
                   <p className="mt-2">
                     Questions or pilot interest?{' '}
                     <a
@@ -565,7 +535,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 href="/for-events"
                 className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg border border-neon-cyan/35 bg-neon-cyan/10 px-6 py-3 font-heading font-bold text-neon-cyan transition hover:border-neon-cyan hover:bg-neon-cyan/15"
               >
-                Explore event pilots
+                Explore organizer pilots
                 <ArrowRight className="h-5 w-5" aria-hidden="true" />
               </Link>
             </div>
@@ -607,14 +577,12 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 </a>
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => document.getElementById('waitlist-email')?.focus()}
-              className="cta-primary inline-flex shrink-0 items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-              Join waitlist
-              <ArrowRight className="h-5 w-5" aria-hidden="true" />
-            </button>
+            <LeadCaptureModal
+              type="founder"
+              triggerLabel="Join waitlist"
+              source="landing-bottom"
+              triggerClassName="cta-primary inline-flex shrink-0 items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            />
           </div>
         </section>
       </main>

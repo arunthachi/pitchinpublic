@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import {
-  ArrowRight,
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
@@ -14,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { BrandMark } from '@/components/BrandMark';
+import { LeadCaptureModal } from '@/components/LeadCaptureModal';
 
 export const metadata: Metadata = {
   title: 'Pitch in Public for Organizers | Run Better Pitch Practice',
@@ -76,15 +76,12 @@ export default function ForEventsPage() {
             >
               Founders
             </Link>
-            <a
-              href="https://forms.gle/DD6geQhkm3T7WsLA6"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-neon-cyan px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300"
-            >
-              Early access
-              <ArrowRight className="h-4 w-4" />
-            </a>
+            <LeadCaptureModal
+              type="organizer"
+              triggerLabel="Early access"
+              source="organizers-header"
+              triggerClassName="inline-flex items-center gap-2 rounded-lg bg-neon-cyan px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300"
+            />
           </div>
         </div>
       </header>
@@ -107,15 +104,12 @@ export default function ForEventsPage() {
                 stronger take when it matters.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href="https://forms.gle/DD6geQhkm3T7WsLA6"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
-                >
-                  Request event pilot
-                  <ArrowRight className="h-5 w-5" aria-hidden="true" />
-                </a>
+                <LeadCaptureModal
+                  type="organizer"
+                  triggerLabel="Request event pilot"
+                  source="organizers-hero"
+                  triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
+                />
                 <Link
                   href="/?alpha=1&preview=1"
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/[0.04] px-6 py-3 font-heading font-bold text-white transition hover:border-neon-cyan hover:text-neon-cyan"
@@ -137,7 +131,7 @@ export default function ForEventsPage() {
                     </div>
                     <div className="rounded-xl border border-neon-lime/30 bg-neon-lime/10 px-3 py-2 text-right">
                       <p className="text-xs text-slate-300">Pitch day</p>
-                      <p className="font-heading text-lg font-bold text-neon-lime">Apr 18</p>
+                      <p className="font-heading text-lg font-bold text-neon-lime">Oct 30</p>
                     </div>
                   </div>
 
@@ -273,15 +267,12 @@ export default function ForEventsPage() {
                 days to shape the event workflow.
               </p>
             </div>
-            <a
-              href="https://forms.gle/DD6geQhkm3T7WsLA6"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
-            >
-              Request pilot
-              <ArrowRight className="h-5 w-5" aria-hidden="true" />
-            </a>
+            <LeadCaptureModal
+              type="organizer"
+              triggerLabel="Request pilot"
+              source="organizers-bottom"
+              triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
+            />
           </div>
         </section>
       </main>

@@ -1,15 +1,14 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowRight, CheckCircle2, LockKeyhole, MessageSquareText, Repeat2, ShieldCheck, Trophy, Video } from 'lucide-react';
+import { CheckCircle2, LockKeyhole, MessageSquareText, Repeat2, ShieldCheck, Trophy, Video } from 'lucide-react';
 import { BrandMark } from '@/components/BrandMark';
+import { LeadCaptureModal } from '@/components/LeadCaptureModal';
 
 export const metadata: Metadata = {
   title: 'Pitch Without Fear Private Pilot | Pitch in Public',
   description:
     'A 2-week invite-only founder pitch practice pilot. Record a 60-second vertical First Take, get Roast/Toast feedback, improve it, and leave with a stronger Best Take.',
 };
-
-const applicationUrl = process.env.NEXT_PUBLIC_PILOT_FORM_URL || 'https://forms.gle/DD6geQhkm3T7WsLA6';
 
 const mustHave = [
   'Startup name',
@@ -55,15 +54,12 @@ export default function PilotPage() {
             >
               Open app
             </Link>
-            <a
-              href={applicationUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-neon-cyan px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300"
-            >
-              Apply
-              <ArrowRight className="h-4 w-4" />
-            </a>
+            <LeadCaptureModal
+              type="founder"
+              triggerLabel="Apply"
+              source="founders-pilot-header"
+              triggerClassName="inline-flex items-center gap-2 rounded-full bg-neon-cyan px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300"
+            />
           </div>
         </div>
       </header>
@@ -85,15 +81,12 @@ export default function PilotPage() {
                 improve it, and leave with one stronger Best Take.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href={applicationUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
-                >
-                  Apply to join the pilot
-                  <ArrowRight className="h-5 w-5" />
-                </a>
+                <LeadCaptureModal
+                  type="founder"
+                  triggerLabel="Apply to join the pilot"
+                  source="founders-pilot-hero"
+                  triggerClassName="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
+                />
                 <Link
                   href="/?alpha=1&preview=1"
                   className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold"
