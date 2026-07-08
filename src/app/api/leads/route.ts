@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +22,44 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#039;');
 }
 
+function createSupabaseClient() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return null;
+  }
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
+}
+
+async function updateLeadNotificationStatus(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  leadRequestId: string | null,
+  status: 'sent' | 'failed' | 'not_configured',
+  error?: string
+) {
+  if (!supabase || !leadRequestId || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+
+  const { error: updateError } = await supabase
+    .from('lead_requests')
+    .update({
+      notification_status: status,
+      notification_error: error ? error.slice(0, 1000) : null,
+    })
+    .eq('id', leadRequestId);
+
+  if (updateError) {
+    console.error('Lead request notification status update failed:', updateError);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const parsed = leadSchema.safeParse(await request.json());
@@ -29,6 +69,35 @@ export async function POST(request: NextRequest) {
     }
 
     const lead = parsed.data;
+    const source = `${request.headers.get('origin') || ''}${lead.source}`;
+    const userAgent = request.headers.get('user-agent') || 'Unknown';
+    const supabase = createSupabaseClient();
+    const leadRequestId = randomUUID();
+    let leadStored = false;
+
+    if (supabase) {
+      const { error } = await supabase
+        .from('lead_requests')
+        .insert({
+          id: leadRequestId,
+          type: lead.type,
+          email: lead.email,
+          name: lead.name,
+          website: lead.website || null,
+          source,
+          user_agent: userAgent,
+          notification_status: 'pending',
+        });
+
+      if (error) {
+        console.error('Lead request storage failed:', error);
+      } else {
+        leadStored = true;
+      }
+    } else {
+      console.error('Lead request storage is not configured. Missing Supabase env.');
+    }
+
     const recipients = (process.env.LEAD_EMAIL_TO || 'hello@pitchinpublic.io,arun@pitchinpublic.io')
       .split(',')
       .map((email) => email.trim())
@@ -38,15 +107,14 @@ export async function POST(request: NextRequest) {
 
     if (!resendApiKey) {
       console.error('Lead capture email is not configured. Missing RESEND_API_KEY.', lead);
-      return NextResponse.json(
-        { error: 'Lead capture is not configured yet. Please email hello@pitchinpublic.io.' },
-        { status: 503 }
-      );
+      if (leadStored) {
+        await updateLeadNotificationStatus(supabase, leadRequestId, 'not_configured');
+        return NextResponse.json({ ok: true, notification: 'not_configured' });
+      }
+      return NextResponse.json({ error: 'We could not send this request. Please email hello@pitchinpublic.io.' }, { status: 503 });
     }
 
     const subject = `[Pitch in Public] ${lead.type === 'founder' ? 'Founder waitlist' : 'Organizer pilot'}: ${lead.name}`;
-    const source = `${request.headers.get('origin') || ''}${lead.source}`;
-    const userAgent = request.headers.get('user-agent') || 'Unknown';
     const rows = [
       ['Type', lead.type],
       ['Email', lead.email],
@@ -97,11 +165,14 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Lead capture email failed:', errorText);
-      return NextResponse.json(
-        { error: 'We could not send this request. Please email hello@pitchinpublic.io.' },
-        { status: 502 }
-      );
+      if (leadStored) {
+        await updateLeadNotificationStatus(supabase, leadRequestId, 'failed', errorText);
+        return NextResponse.json({ ok: true, notification: 'failed' });
+      }
+      return NextResponse.json({ error: 'We could not send this request. Please email hello@pitchinpublic.io.' }, { status: 502 });
     }
+
+    await updateLeadNotificationStatus(supabase, leadRequestId, 'sent');
 
     return NextResponse.json({ ok: true });
   } catch (error) {
