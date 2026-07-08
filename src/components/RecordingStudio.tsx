@@ -687,7 +687,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
 	                    <h2 className="text-2xl font-bold text-white mb-1">
                         {practicePrompt ? "Record today's rep" : 'Post your pitch'}
                       </h2>
-	                    <p className="text-slate-400 text-sm">30-60s portrait video, max 200MB</p>
+	                    <p className="text-slate-400 text-sm">30-60s vertical video, 9:16 preferred, max 200MB</p>
                   </div>
 
                   {practicePrompt && (

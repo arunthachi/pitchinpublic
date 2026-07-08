@@ -184,7 +184,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
               href="/pilot"
               className="hidden rounded-lg border border-neon-lime/25 bg-neon-lime/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-neon-lime transition hover:border-neon-lime hover:bg-neon-lime/15 sm:inline-flex"
             >
-              Private pilot
+              For founders
             </Link>
             <Link
               href="/for-events"
