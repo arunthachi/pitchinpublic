@@ -6,7 +6,7 @@ import { BrandMark } from '@/components/BrandMark';
 export const metadata: Metadata = {
   title: 'Pitch Without Fear Private Pilot | Pitch in Public',
   description:
-    'A 2-week invite-only founder pitch practice pilot. Record a 60-second First Take, get Roast/Toast feedback, improve it, and leave with a stronger Best Take.',
+    'A 2-week invite-only founder pitch practice pilot. Record a 60-second vertical First Take, get Roast/Toast feedback, improve it, and leave with a stronger Best Take.',
 };
 
 const applicationUrl = process.env.NEXT_PUBLIC_PILOT_FORM_URL || 'https://forms.gle/DD6geQhkm3T7WsLA6';
@@ -14,7 +14,7 @@ const applicationUrl = process.env.NEXT_PUBLIC_PILOT_FORM_URL || 'https://forms.
 const mustHave = [
   'Startup name',
   'One-line pitch',
-  '60-second portrait video',
+  '60-second vertical pitch video',
   'Specific feedback ask',
 ];
 
@@ -45,7 +45,7 @@ export default function PilotPage() {
             <BrandMark className="h-10 w-10" />
             <div>
               <p className="font-heading text-base font-bold leading-none">Pitch in Public</p>
-              <p className="mt-1 text-xs text-slate-400">Private pilot</p>
+              <p className="mt-1 text-xs text-slate-400">For Founders</p>
             </div>
           </Link>
           <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ export default function PilotPage() {
                 Pitch Without Fear Private Pilot
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
-                Record your first 60-second pitch, get structured Roast/Toast feedback,
+                Record your first 60-second vertical pitch, get structured Roast/Toast feedback,
                 improve it, and leave with one stronger Best Take.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
