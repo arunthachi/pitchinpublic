@@ -233,10 +233,6 @@ export function LeadCaptureModal({
                   </span>
                 </label>
 
-                <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-slate-400">
-                  Type is automatically set to <span className="font-bold text-white">{type}</span>.
-                </div>
-
                 {message ? (
                   <p className={`text-sm ${state === 'error' ? 'text-red-300' : 'text-slate-300'}`}>{message}</p>
                 ) : null}
@@ -250,9 +246,6 @@ export function LeadCaptureModal({
                   {state === 'loading' ? 'Sending...' : type === 'founder' ? 'Request founder access' : 'Request organizer pilot'}
                 </button>
 
-                <p className="text-center text-xs leading-5 text-slate-500">
-                  Goes directly to hello@pitchinpublic.io and arun@pitchinpublic.io.
-                </p>
               </form>
             )}
           </div>
