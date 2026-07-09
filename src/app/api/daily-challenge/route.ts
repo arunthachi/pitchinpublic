@@ -21,7 +21,7 @@ const defaultChallenges = [
   },
   {
     category: 'Ask',
-    prompt: 'End your pitch with one specific ask: feedback, intros, pilots, or customers.',
+    prompt: 'End your pitch with one specific ask: feedback, intros, paid trials, or customers.',
     difficulty: 'easy',
   },
 ] as const;

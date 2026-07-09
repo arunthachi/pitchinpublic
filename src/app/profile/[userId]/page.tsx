@@ -451,12 +451,12 @@ export default function UserProfilePage() {
         ) : activeTab === 'goals' ? (
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-neon-cyan">Pitch goals</p>
-            <h2 className="mt-3 font-heading text-3xl font-bold">Event and personal goals are tracked from pitch sprints.</h2>
+            <h2 className="mt-3 font-heading text-3xl font-bold">Event and personal goals are tracked from pitch practice.</h2>
             <p className="mt-3 max-w-2xl leading-7 text-slate-400">
-              Join a pitch sprint, record reps, and mark one final take. Your sprint status and submitted takes will show here.
+              Join a pitch event, record reps, and mark one final take. Your event status and submitted takes will show here.
             </p>
             <Link href="/events/new" className="mt-5 inline-flex rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
-              Create pitch sprint
+              Create pitch event
             </Link>
           </section>
         ) : visiblePitches.length ? (
@@ -525,7 +525,7 @@ export default function UserProfilePage() {
         ) : (
           <EmptyState
             title={activeTab === 'best' ? 'No final take selected yet' : 'No pitches yet'}
-            body={activeTab === 'best' ? 'Join a pitch sprint and submit your strongest take.' : 'Record your first pitch to start building your portfolio.'}
+            body={activeTab === 'best' ? 'Join a pitch event and submit your strongest take.' : 'Record your first pitch to start building your portfolio.'}
           />
         )}
       </main>

@@ -18,7 +18,7 @@ import { LeadCaptureModal } from '@/components/LeadCaptureModal';
 export const metadata: Metadata = {
   title: 'Pitch in Public for Organizers | Run Better Pitch Practice',
   description:
-    'Turn pitch competitions, demo days, cohorts, and founder programs into guided practice sprints with 60-second pitch reps, feedback, and best-take submissions.',
+    'Turn pitch competitions, demo days, cohorts, and founder programs into guided pitch practice with 60-second pitch reps, feedback, and best-take submissions.',
 };
 
 const eventTypes = [
@@ -96,7 +96,7 @@ export default function ForEventsPage() {
                 Pitch competitions, demo days, founder rooms
               </div>
               <h1 className="max-w-4xl text-balance font-heading text-5xl font-bold leading-[1.02] tracking-normal sm:text-6xl lg:text-7xl">
-                Turn your founder program into a pitch practice sprint.
+                Turn your founder program into guided pitch practice.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
                 Most pitch events, cohorts, and founder programs judge the final minute. Pitch in Public helps founders
@@ -106,7 +106,7 @@ export default function ForEventsPage() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <LeadCaptureModal
                   type="organizer"
-                  triggerLabel="Request event pilot"
+                  triggerLabel="Request organizer access"
                   source="organizers-hero"
                   triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
                 />
@@ -127,7 +127,7 @@ export default function ForEventsPage() {
                       <p className="text-xs font-bold uppercase tracking-[0.22em] text-neon-cyan">
                         Local Shark Tank
                       </p>
-                      <h2 className="mt-2 font-heading text-2xl font-bold">90-day pitch sprint</h2>
+                      <h2 className="mt-2 font-heading text-2xl font-bold">90-day pitch prep</h2>
                     </div>
                     <div className="rounded-xl border border-neon-lime/30 bg-neon-lime/10 px-3 py-2 text-right">
                       <p className="text-xs text-slate-300">Pitch day</p>
@@ -246,7 +246,7 @@ export default function ForEventsPage() {
               <Medal className="mb-5 h-8 w-8 text-neon-lime" aria-hidden="true" />
               <h2 className="font-heading text-3xl font-bold">For organizers</h2>
               <p className="mt-4 leading-8 text-slate-300">
-                Run a preparation sprint, collect submissions, and make your event
+                Run guided preparation, collect submissions, and make your event
                 feel higher quality before anyone walks on stage.
               </p>
             </div>
@@ -257,7 +257,7 @@ export default function ForEventsPage() {
           <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-6 rounded-xl border border-neon-cyan/20 bg-neon-cyan/10 p-6 sm:p-8 lg:flex-row lg:items-center">
             <div>
               <p className="font-heading text-sm font-bold uppercase tracking-[0.18em] text-neon-cyan">
-                Event pilots
+                Organizer access
               </p>
               <h2 className="mt-3 font-heading text-3xl font-bold">
                 Bring Pitch in Public to your next founder room.
@@ -269,7 +269,7 @@ export default function ForEventsPage() {
             </div>
             <LeadCaptureModal
               type="organizer"
-              triggerLabel="Request pilot"
+              triggerLabel="Request organizer access"
               source="organizers-bottom"
               triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
             />

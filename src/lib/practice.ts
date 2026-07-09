@@ -44,7 +44,7 @@ export const PRACTICE_PROMPTS: PracticePrompt[] = [
     key: 'customer-pull',
     focus: 'customer',
     title: 'Prove someone wants it',
-    prompt: 'Add one customer signal: usage, waitlist, LOI, paid pilot, or repeated complaint.',
+    prompt: 'Add one customer signal: usage, invite requests, LOI, paid trial, or repeated complaint.',
     why: 'Traction can be tiny, but it must be specific enough to believe.',
   },
   {
@@ -58,7 +58,7 @@ export const PRACTICE_PROMPTS: PracticePrompt[] = [
     key: 'specific-ask',
     focus: 'ask',
     title: 'End with one ask',
-    prompt: 'Close with the single thing you want from the listener: feedback, intro, pilot, or vote.',
+    prompt: 'Close with the single thing you want from the listener: feedback, intro, trial, or vote.',
     why: 'A pitch without an ask makes the audience do the founder’s job.',
   },
   {
@@ -101,5 +101,5 @@ export function readinessLabel(readiness?: number | null) {
 }
 
 export function nudgeCopy(prompt: PracticePrompt) {
-  return `Today's pitch sprint: ${prompt.prompt} Record a 60-second take and see if it beats your best one.`;
+  return `Today's pitch task: ${prompt.prompt} Record a 60-second take and see if it beats your best one.`;
 }

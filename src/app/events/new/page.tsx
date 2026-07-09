@@ -31,7 +31,7 @@ export default function NewEventPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
-    name: 'Local Shark Tank Pitch Sprint',
+    name: 'Local Shark Tank Pitch Event',
     description: 'Practice reps and final-take submissions for founders preparing for pitch day.',
     eventDate: '',
     submissionDeadline: '',
@@ -60,12 +60,12 @@ export default function NewEventPage() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Could not create pitch sprint.');
+        throw new Error(data.error || 'Could not create pitch event.');
       }
 
       router.push(`/events/${data.event.slug}/dashboard`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create pitch sprint.');
+      setError(err instanceof Error ? err.message : 'Could not create pitch event.');
     } finally {
       setIsSaving(false);
     }
@@ -78,7 +78,7 @@ export default function NewEventPage() {
   if (!user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center text-white">
-        <h1 className="font-heading text-4xl font-bold">Sign in to create a pitch sprint.</h1>
+        <h1 className="font-heading text-4xl font-bold">Sign in to create a pitch event.</h1>
         <Link href="/?alpha=1&preview=1" className="cta-primary mt-6 rounded-xl px-5 py-3 font-heading font-bold">
           Go to app
         </Link>
@@ -102,18 +102,18 @@ export default function NewEventPage() {
         <section>
           <div className="glass-pill mb-5 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-neon-lime">
             <Sparkles className="h-4 w-4" />
-            Pitch Sprint
+            Pitch Event
           </div>
           <h1 className="font-heading text-5xl font-black leading-tight">Create the room founders practice toward.</h1>
           <p className="mt-5 max-w-xl text-lg leading-8 text-slate-300">
             Keep the event setup focused: deadline, pitch length, invite code, and the one thing founders should improve before pitch day.
           </p>
           <div className="glass-card mt-6 rounded-3xl p-5">
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Pilot defaults</p>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Event defaults</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-2xl bg-black/25 p-4">
                 <CalendarDays className="mb-3 h-5 w-5 text-neon-cyan" />
-                <p className="font-bold">30-90 day sprint</p>
+                <p className="font-bold">30-90 day prep window</p>
               </div>
               <div className="rounded-2xl bg-black/25 p-4">
                 <Lock className="mb-3 h-5 w-5 text-neon-lime" />
@@ -170,7 +170,7 @@ export default function NewEventPage() {
             </div>
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="block text-sm font-bold text-slate-300">Sprint focus</span>
+                <span className="block text-sm font-bold text-slate-300">Practice focus</span>
                 <span className="text-xs font-semibold text-slate-500">Pick one</span>
               </div>
               <div className="glass-card flex flex-wrap gap-2 rounded-3xl p-3">
@@ -221,7 +221,7 @@ export default function NewEventPage() {
           {error && <p className="mt-4 rounded-xl border border-roast/25 bg-roast/10 px-4 py-3 text-sm font-semibold text-roast">{error}</p>}
 
           <button disabled={isSaving} className="cta-primary mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black transition hover:scale-[1.01] disabled:opacity-60">
-            {isSaving ? 'Creating sprint...' : 'Create pitch sprint'}
+            {isSaving ? 'Creating pitch event...' : 'Create pitch event'}
             <ArrowRight className="h-5 w-5" />
           </button>
         </form>
