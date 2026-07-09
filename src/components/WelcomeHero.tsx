@@ -51,7 +51,7 @@ const practiceSignals = [
     prompt: 'Name the exact person you help before you describe the product.',
     sample: 'For solo builders who freeze when someone asks what they do.',
     founderName: 'Maya is recording',
-    businessName: 'Founder of NichePilot',
+    businessName: 'Founder of NicheLoop',
     imageUrl: '/images/landing/pitch-audience-woman.webp',
     imagePosition: '48% center',
     imageSize: 'cover',
@@ -161,7 +161,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
 
           <div className="flex items-center gap-2">
             <Link
-              href="/pilot"
+              href="/founders"
               className="hidden rounded-lg border border-neon-lime/25 bg-neon-lime/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-neon-lime transition hover:border-neon-lime hover:bg-neon-lime/15 sm:inline-flex"
             >
               For founders
@@ -259,7 +259,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                       </div>
                       <LeadCaptureModal
                         type="founder"
-                        triggerLabel="Join waitlist"
+                        triggerLabel="Request invite"
                         initialEmail={waitlistEmail}
                         source="landing-hero"
                         triggerClassName="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
@@ -270,7 +270,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 <div className="mt-3 text-sm text-slate-400">
                   <p>Email first. Startup details open in a quick in-app form.</p>
                   <p className="mt-2">
-                    Questions or pilot interest?{' '}
+                    Questions or founder access?{' '}
                     <a
                       href="mailto:hello@pitchinpublic.io"
                       className="font-semibold text-neon-cyan transition hover:text-white"
@@ -535,7 +535,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 href="/for-events"
                 className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg border border-neon-cyan/35 bg-neon-cyan/10 px-6 py-3 font-heading font-bold text-neon-cyan transition hover:border-neon-cyan hover:bg-neon-cyan/15"
               >
-                Explore organizer pilots
+                Explore organizer access
                 <ArrowRight className="h-5 w-5" aria-hidden="true" />
               </Link>
             </div>
@@ -565,10 +565,10 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 Join the first founder practice rooms.
               </h2>
               <p className="mt-3 max-w-2xl leading-7 text-slate-300">
-                Early members will help shape the pitch loop, event rooms, written comments, and scored Toast/Roast feedback before public launch.
+                Early members will help shape the pitch loop, written comments, and scored Toast/Roast feedback before public launch.
               </p>
               <p className="mt-4 text-sm text-slate-400">
-                Questions, event pilots, or founder group interest:{' '}
+                Questions, organizer access, or founder group interest:{' '}
                 <a
                   href="mailto:hello@pitchinpublic.io"
                   className="font-semibold text-neon-cyan transition hover:text-white"
@@ -579,7 +579,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
             </div>
             <LeadCaptureModal
               type="founder"
-              triggerLabel="Join waitlist"
+              triggerLabel="Request invite"
               source="landing-bottom"
               triggerClassName="cta-primary inline-flex shrink-0 items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             />

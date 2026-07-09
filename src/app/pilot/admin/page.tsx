@@ -10,8 +10,8 @@ import {
 } from '@/lib/pitch-copy';
 
 export const metadata: Metadata = {
-  title: 'Pilot Admin | Pitch in Public',
-  description: 'Read-only operator dashboard for the Pitch Without Fear private pilot.',
+  title: 'Founder Access Admin | Pitch in Public',
+  description: 'Read-only operator dashboard for early founder access.',
 };
 
 interface PitchRow {
@@ -122,7 +122,7 @@ function statusForFounder(founder: FounderSummary) {
   if (!founder.pitches.length) return { label: 'Needs first take', tone: 'warn' };
   if (founder.pitches.length === 1) return { label: 'Needs better take', tone: 'mid' };
   if (!founder.hasBestTake) return { label: 'Needs best take', tone: 'mid' };
-  return { label: 'Pilot ready', tone: 'ready' };
+  return { label: 'Ready to share', tone: 'ready' };
 }
 
 async function loadPitches() {
@@ -205,7 +205,7 @@ async function loadPitches() {
   throw result.error;
 }
 
-export default async function PilotAdminPage() {
+export default async function FounderAccessAdminPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -216,7 +216,7 @@ export default async function PilotAdminPage() {
       <AdminShell>
         <EmptyGate
           title="Sign in required"
-          body="Open the founder app and sign in, then come back to this pilot dashboard."
+          body="Open the founder app and sign in, then come back to this admin dashboard."
           ctaHref="/?alpha=1&preview=1"
           ctaLabel="Open app"
         />
@@ -228,7 +228,7 @@ export default async function PilotAdminPage() {
     return (
       <AdminShell>
         <EmptyGate
-          title="Not on the pilot admin list"
+          title="Not on the founder access admin list"
           body="Set PILOT_ADMIN_EMAILS to allow specific operators, or leave it unset for internal local testing."
           ctaHref="/"
           ctaLabel="Back to app"
@@ -243,7 +243,7 @@ export default async function PilotAdminPage() {
   try {
     pitches = await loadPitches();
   } catch (error) {
-    loadError = error instanceof Error ? error.message : 'Could not load pilot data.';
+    loadError = error instanceof Error ? error.message : 'Could not load founder access data.';
   }
 
   const founders = groupByFounder(pitches);
@@ -276,7 +276,7 @@ export default async function PilotAdminPage() {
         <div className="mt-6 rounded-3xl border border-roast/30 bg-roast/10 p-5 text-roast">
           <div className="flex items-center gap-2 font-bold">
             <AlertCircle className="h-5 w-5" />
-            Could not load pilot data
+            Could not load founder access data
           </div>
           <p className="mt-2 text-sm text-red-100">{loadError}</p>
         </div>
@@ -285,9 +285,9 @@ export default async function PilotAdminPage() {
       <section className="mt-8 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.035]">
         <div className="border-b border-white/10 p-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-lime">Operator view</p>
-          <h2 className="mt-2 font-heading text-3xl font-black">Private pilot tracker</h2>
+          <h2 className="mt-2 font-heading text-3xl font-black">Founder access tracker</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Use this manually during the pilot to see who posted, who needs a second take, who needs feedback, and who has a Best Take.
+            Use this manually to see who posted, who needs a second take, who needs feedback, and who has a Best Take.
           </p>
         </div>
 
@@ -353,7 +353,7 @@ export default async function PilotAdminPage() {
             );
           }) : (
             <div className="p-10 text-center">
-              <p className="font-heading text-2xl font-bold text-white">No pilot pitches yet</p>
+              <p className="font-heading text-2xl font-bold text-white">No founder pitches yet</p>
               <p className="mt-2 text-slate-400">Invite founders to record their First Take.</p>
             </div>
           )}
@@ -368,16 +368,16 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-black text-white">
       <header className="sticky top-0 z-50 border-b border-white/10 bg-black/82 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/pilot" className="flex items-center gap-3">
+          <Link href="/founders" className="flex items-center gap-3">
             <BrandMark className="h-10 w-10" />
             <div>
               <p className="font-heading text-base font-bold leading-none">Pitch in Public</p>
-              <p className="mt-1 text-xs text-slate-400">Pilot admin</p>
+              <p className="mt-1 text-xs text-slate-400">Founder access admin</p>
             </div>
           </Link>
-          <Link href="/pilot" className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-bold text-slate-200 hover:border-neon-cyan hover:text-neon-cyan">
+          <Link href="/founders" className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-sm font-bold text-slate-200 hover:border-neon-cyan hover:text-neon-cyan">
             <ArrowLeft className="h-4 w-4" />
-            Pilot page
+            Founders page
           </Link>
         </div>
       </header>

@@ -21,14 +21,14 @@ type SubmitState = 'idle' | 'loading' | 'success' | 'error';
 
 const copyByType: Record<LeadType, { title: string; subtitle: string; nameLabel: string; namePlaceholder: string }> = {
   founder: {
-    title: 'Join the founder pilot',
-    subtitle: 'Tell us where to send early access and what you are building.',
+    title: 'Request founder invite',
+    subtitle: 'Tell us where to send access and what you are building.',
     nameLabel: 'Startup name',
     namePlaceholder: 'ReachCopilot',
   },
   organizer: {
-    title: 'Request an organizer pilot',
-    subtitle: 'Share the program, event, or cohort you want to run a pitch sprint for.',
+    title: 'Request organizer access',
+    subtitle: 'Share the program, event, or cohort where founders need better pitch practice.',
     nameLabel: 'Organization name',
     namePlaceholder: 'Startup Westport',
   },
@@ -243,7 +243,7 @@ export function LeadCaptureModal({
                   className="cta-primary inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-4 font-heading font-black disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {state === 'loading' ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : null}
-                  {state === 'loading' ? 'Sending...' : type === 'founder' ? 'Request founder access' : 'Request organizer pilot'}
+                  {state === 'loading' ? 'Sending...' : type === 'founder' ? 'Request founder invite' : 'Request organizer access'}
                 </button>
 
               </form>

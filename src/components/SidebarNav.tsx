@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, Flame, PanelLeftClose, PanelLeftOpen, Plus, ShieldCheck, Trophy, Video, Zap } from 'lucide-react';
+import { CalendarDays, Flame, PanelLeftClose, PanelLeftOpen, Plus, Trophy, Video, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
@@ -63,8 +63,7 @@ export function SidebarNav({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navItems = [
     { label: 'Practice', icon: Video, active: true },
-    { label: 'Pilot', icon: ShieldCheck, href: '/pilot' },
-    { label: 'Pitch Sprint', icon: CalendarDays, href: '/events/new' },
+    { label: 'Pitch event', icon: CalendarDays, href: '/events/new' },
     { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
   ];
 
@@ -252,7 +251,7 @@ export function SidebarNav({
         )}
       </nav>
 
-      {/* Bottom section - waitlist access for guests. Settings stays hidden until it is functional. */}
+      {/* Bottom section - invite access for guests. Settings stays hidden until it is functional. */}
       <div className="border-t border-white/10 p-2 lg:p-4">
         {isGuest ? (
           <>

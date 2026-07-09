@@ -74,7 +74,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     .maybeSingle();
 
   if (!participant) {
-    return NextResponse.json({ success: false, error: 'Join the pitch sprint before submitting a final take.' }, { status: 403 });
+    return NextResponse.json({ success: false, error: 'Join the pitch event before submitting a final take.' }, { status: 403 });
   }
 
   const { data: submission, error } = await supabase

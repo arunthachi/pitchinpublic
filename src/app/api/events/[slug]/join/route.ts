@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   if (event.access_code) {
     const providedCode = validation.data.accessCode?.trim();
     if (providedCode !== event.access_code) {
-      return NextResponse.json({ success: false, error: 'That invite code does not match this pitch sprint.' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'That invite code does not match this pitch event.' }, { status: 403 });
     }
   }
 

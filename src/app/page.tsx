@@ -83,7 +83,7 @@ function HomeContent() {
     const prompt = getPromptForDate();
     return {
       prompt,
-      nudge: `Today's pitch sprint: ${prompt.prompt} Record a 60-second take and see if it beats your best one.`,
+      nudge: `Today's pitch task: ${prompt.prompt} Record a 60-second take and see if it beats your best one.`,
       goal: null,
       progress: {
         practiceDays: 0,
@@ -306,7 +306,7 @@ function HomeContent() {
     setHandlers(newHandlers);
   }, []);
 
-  const returnToWaitlist = useCallback(() => {
+  const returnToInvitePage = useCallback(() => {
     setShowGuestFeedPreview(false);
     setSignInModalOpen(false);
     if (typeof window !== 'undefined') {
@@ -322,8 +322,8 @@ function HomeContent() {
       return;
     }
 
-    returnToWaitlist();
-  }, [returnToWaitlist, showAlphaControls]);
+    returnToInvitePage();
+  }, [returnToInvitePage, showAlphaControls]);
 
   const handleSignOut = useCallback(async () => {
     setAccountMenuOpen(false);
@@ -430,7 +430,7 @@ function HomeContent() {
           onPostClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
           isGuest={isGuest}
           onSignInClick={promptForRestrictedAction}
-          guestActionLabel="Join waitlist"
+          guestActionLabel="Request invite"
           onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
         />
       </div>
@@ -456,7 +456,7 @@ function HomeContent() {
           onClick={() => setShowGuestFeedPreview(false)}
           className="btn-glass fixed right-4 top-4 z-50 hidden px-6 py-2.5 text-sm font-semibold hover:border-neon-cyan hover:text-neon-cyan lg:block"
         >
-          Back to waitlist
+          Back to invite page
         </button>
       ) : (
         <div className="fixed right-4 top-4 z-50 hidden lg:block">

@@ -71,10 +71,10 @@ export default function EventPage() {
     const data = await response.json();
     setSaving(false);
     if (!response.ok || !data.success) {
-      setMessage(data.error || 'Could not join this pitch sprint.');
+      setMessage(data.error || 'Could not join this pitch event.');
       return;
     }
-    setMessage('You joined the pitch sprint.');
+    setMessage('You joined the pitch event.');
     load();
   };
 
@@ -98,11 +98,11 @@ export default function EventPage() {
   };
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading pitch sprint...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading pitch event...</div>;
   }
 
   if (!eventState?.success || !event) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Pitch sprint not found.</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Pitch event not found.</div>;
   }
 
   return (
@@ -112,7 +112,7 @@ export default function EventPage() {
           <div className="glass-panel rounded-[2rem] p-6 sm:p-8">
             <div className="glass-pill mb-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-lime">
               <Sparkles className="h-4 w-4" />
-              Pitch Sprint
+              Pitch Event
             </div>
             <h1 className="font-heading text-5xl font-black leading-tight sm:text-6xl">{event.name}</h1>
             {event.description && <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">{event.description}</p>}
@@ -143,7 +143,7 @@ export default function EventPage() {
         <section className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
           {!user ? (
             <div className="text-center">
-              <h2 className="font-heading text-3xl font-bold">Sign in to join this sprint.</h2>
+              <h2 className="font-heading text-3xl font-bold">Sign in to join this pitch event.</h2>
               <p className="mt-2 text-slate-400">Use Google, record reps, and submit your final take.</p>
               <Link href={`/?alpha=1&preview=1&next=/events/${slug}`} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
                 Sign in
@@ -159,7 +159,7 @@ export default function EventPage() {
                 <input value={accessCode} onChange={(e) => setAccessCode(e.target.value)} className="input-dark" placeholder="WESTPORT2026" />
               </label>
               <button onClick={join} disabled={saving} className="cta-primary rounded-xl px-5 py-3 font-heading font-bold disabled:opacity-60">
-                Join sprint
+                Join pitch event
               </button>
             </div>
           ) : (

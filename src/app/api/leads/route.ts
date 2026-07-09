@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'We could not send this request. Please email hello@pitchinpublic.io.' }, { status: 503 });
     }
 
-    const subject = `[Pitch in Public] ${lead.type === 'founder' ? 'Founder waitlist' : 'Organizer pilot'}: ${lead.name}`;
+    const subject = `[Pitch in Public] ${lead.type === 'founder' ? 'Founder invite request' : 'Organizer access request'}: ${lead.name}`;
     const rows = [
       ['Type', lead.type],
       ['Email', lead.email],
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       <div style="font-family: Inter, Arial, sans-serif; background:#050608; color:#f8fafc; padding:24px;">
         <div style="max-width:640px; margin:0 auto; border:1px solid rgba(255,255,255,.14); border-radius:24px; padding:24px; background:#0f172a;">
           <p style="color:#22d3ee; font-size:12px; letter-spacing:.18em; text-transform:uppercase; font-weight:800;">Pitch in Public lead</p>
-          <h1 style="margin:8px 0 20px; font-size:28px;">${escapeHtml(lead.type === 'founder' ? 'Founder waitlist' : 'Organizer pilot request')}</h1>
+          <h1 style="margin:8px 0 20px; font-size:28px;">${escapeHtml(lead.type === 'founder' ? 'Founder invite request' : 'Organizer access request')}</h1>
           <table style="width:100%; border-collapse:collapse;">
             ${rows
               .map(
