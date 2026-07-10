@@ -453,10 +453,10 @@ export default function UserProfilePage() {
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-neon-cyan">Pitch goals</p>
             <h2 className="mt-3 font-heading text-3xl font-bold">Event and personal goals are tracked from pitch practice.</h2>
             <p className="mt-3 max-w-2xl leading-7 text-slate-400">
-              Join a pitch event, record reps, and mark one final take. Your event status and submitted takes will show here.
+              Record practice reps, collect feedback, and mark one Best Take. If an organizer invites you to an event, your submitted take will show here.
             </p>
-            <Link href="/events/new" className="mt-5 inline-flex rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
-              Create pitch event
+            <Link href="/?alpha=1&preview=1" className="mt-5 inline-flex rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
+              Back to practice
             </Link>
           </section>
         ) : visiblePitches.length ? (
