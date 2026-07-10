@@ -355,12 +355,15 @@ export function ProfileEditModal({
                                     setStartupPitch(e.target.value);
                                     if (error) setError(null);
                                   }}
-                                  placeholder="For [customer], we help [painful problem] so they can [outcome]."
+                                  placeholder="Write the version you want founders to react to."
                                   maxLength={280}
                                   rows={3}
                                   className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                                   disabled={loading}
                                 />
+                                <p className="mt-2 text-xs leading-5 text-slate-400">
+                                  Template: For [customer], we help [painful problem] so they can [outcome].
+                                </p>
                                 <p className="mt-1 text-xs text-slate-500">{startupPitch.length}/280 characters</p>
                               </div>
 
