@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
-import { PracticeLoopPanel } from '@/components/PracticeLoopPanel';
+import { MobileHabitNudge, PitchHabitPanel } from '@/components/PitchHabitPanel';
 import { getPromptForDate, type PracticePrompt } from '@/lib/practice';
 import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
 
@@ -596,13 +596,14 @@ function HomeContent() {
                 left: 'calc(50% + var(--feed-w) / 2 + 7.25rem)',
               }}
             >
-              <PracticeLoopPanel
+              <PitchHabitPanel
                 prompt={practiceToday.prompt}
                 nudge={practiceToday.nudge}
                 progress={practiceToday.progress}
                 readinessLabel={practiceToday.readiness.label}
                 goalName={practiceToday.goal?.name}
                 latestRepNumber={practiceToday.latestRep?.rep_number}
+                latestRepCreatedAt={practiceToday.latestRep?.created_at}
                 onRecord={() => setRecordingStudioOpen(true)}
                 onOpenGoal={() => setShowPitchGoal(true)}
               />
@@ -620,6 +621,15 @@ function HomeContent() {
             isGuest={isGuest}
             onSignInClick={promptForRestrictedAction}
           />
+          {!isGuest && (
+            <MobileHabitNudge
+              prompt={practiceToday.prompt}
+              progress={practiceToday.progress}
+              latestRepCreatedAt={practiceToday.latestRep?.created_at}
+              onRecord={() => setRecordingStudioOpen(true)}
+              onOpenGoal={() => setShowPitchGoal(true)}
+            />
+          )}
         </div>
       </main>
 
