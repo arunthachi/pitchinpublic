@@ -14,6 +14,15 @@ interface FloatingPitchInfoProps {
 
 export function FloatingPitchInfo({ pitch, reserveActionRail = true }: FloatingPitchInfoProps) {
   const [expanded, setExpanded] = React.useState(false);
+  const isGenericStartup = !pitch.companyName || ['startup', 'practice pitch'].includes(pitch.companyName.trim().toLowerCase());
+  const oneLine = pitch.hook?.trim();
+  const feedbackAsk = pitch.feedbackAsk?.trim();
+  const collapsedTitle = isGenericStartup ? oneLine || 'Pitch take' : pitch.companyName;
+  const collapsedMeta = [
+    getTakeLabel(pitch.versionNumber, pitch.isBestTake),
+    feedbackAsk ? `Ask: ${feedbackAsk}` : oneLine,
+  ].filter(Boolean).join(' · ');
+  const shouldRenderCollapsed = Boolean(collapsedTitle || collapsedMeta);
 
   React.useEffect(() => {
     setExpanded(false);
@@ -68,42 +77,46 @@ export function FloatingPitchInfo({ pitch, reserveActionRail = true }: FloatingP
                 </p>
               </div>
 
-              <div className="mt-3 flex items-start gap-2 border-t border-white/10 pt-3 text-white/[0.86]">
-                <Target size={14} className="mt-0.5 shrink-0 text-neon-lime" />
-                <span className="text-xs leading-snug">
-                  Feedback ask: {pitch.feedbackAsk || 'Help sharpen ICP, clarity, and closing ask.'}
-                </span>
-              </div>
+              {feedbackAsk && (
+                <div className="mt-3 flex items-start gap-2 border-t border-white/10 pt-3 text-white/[0.86]">
+                  <Target size={14} className="mt-0.5 shrink-0 text-neon-lime" />
+                  <span className="text-xs leading-snug">
+                    Feedback ask: {feedbackAsk}
+                  </span>
+                </div>
+              )}
             </div>
           </motion.div>
         ) : (
-          <motion.button
-            key="collapsed-pitch-info"
-            type="button"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
-            transition={{ type: 'spring', stiffness: 360, damping: 32 }}
-            onClick={() => setExpanded(true)}
-            className="glass-pill pointer-events-auto flex w-full items-center gap-2 rounded-full px-3 py-2 text-left transition hover:border-white/25 hover:bg-white/[0.12] focus:outline-none focus:ring-2 focus:ring-neon-cyan/70"
-            aria-expanded={expanded}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neon-cyan text-black shadow-[0_0_22px_rgba(0,230,246,0.35)]">
-              <Target size={16} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold leading-tight text-white">
-                {pitch.companyName}
+          shouldRenderCollapsed && (
+            <motion.button
+              key="collapsed-pitch-info"
+              type="button"
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+              onClick={() => setExpanded(true)}
+              className="glass-pill pointer-events-auto flex w-full items-center gap-2 rounded-full px-3 py-2 text-left transition hover:border-white/25 hover:bg-white/[0.12] focus:outline-none focus:ring-2 focus:ring-neon-cyan/70"
+              aria-expanded={expanded}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neon-cyan text-black shadow-[0_0_22px_rgba(0,230,246,0.35)]">
+                <Target size={16} />
               </span>
-              <span className="block truncate text-xs leading-tight text-white/72">
-                {getTakeLabel(pitch.versionNumber, pitch.isBestTake)} · Ask: {pitch.feedbackAsk || 'Help sharpen ICP, clarity, and closing ask.'}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold leading-tight text-white">
+                  {collapsedTitle}
+                </span>
+                <span className="block truncate text-xs leading-tight text-white/72">
+                  {collapsedMeta}
+                </span>
               </span>
-            </span>
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.12] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/80">
-              More
-              <ChevronUp size={12} />
-            </span>
-          </motion.button>
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.12] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/80">
+                More
+                <ChevronUp size={12} />
+              </span>
+            </motion.button>
+          )
         )}
       </AnimatePresence>
     </div>
