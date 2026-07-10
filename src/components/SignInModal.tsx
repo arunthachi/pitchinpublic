@@ -168,15 +168,15 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
             onClick={handleClose}
           />
 
-          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[101] flex items-start justify-center overflow-y-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6">
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 18 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 18 }}
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative w-full max-w-[460px]"
+              className="relative my-auto w-full max-w-[460px]"
             >
-              <div className="glass-panel relative overflow-hidden rounded-[2rem]">
+              <div className="glass-panel relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[2rem] sm:max-h-[calc(100dvh-3rem)]">
                 <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-neon-cyan/20 via-neon-lime/10 to-transparent" />
 
                 <button
