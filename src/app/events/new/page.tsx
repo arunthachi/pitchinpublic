@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, CalendarDays, Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
+import { LeadCaptureModal } from '@/components/LeadCaptureModal';
 
 const focusOptions = [
   'Clarity and ask',
@@ -28,6 +30,8 @@ function openNativeDatePicker(input: HTMLInputElement) {
 export default function NewEventPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const [roleLoading, setRoleLoading] = useState(true);
+  const [canManageEvents, setCanManageEvents] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
@@ -42,6 +46,45 @@ export default function NewEventPage() {
   });
   const [customFocus, setCustomFocus] = useState('');
   const isCustomFocus = form.focus === 'custom';
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      setRoleLoading(false);
+      setCanManageEvents(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkOrganizerAccess = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('profile_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'organizer')
+          .maybeSingle();
+
+        if (!cancelled) {
+          setCanManageEvents(Boolean(data));
+        }
+      } catch (error) {
+        console.error('Could not check organizer access:', error);
+        if (!cancelled) setCanManageEvents(false);
+      } finally {
+        if (!cancelled) setRoleLoading(false);
+      }
+    };
+
+    checkOrganizerAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -71,7 +114,7 @@ export default function NewEventPage() {
     }
   };
 
-  if (loading) {
+  if (loading || roleLoading) {
     return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading...</div>;
   }
 
@@ -82,6 +125,51 @@ export default function NewEventPage() {
         <Link href="/?alpha=1&preview=1" className="cta-primary mt-6 rounded-xl px-5 py-3 font-heading font-bold">
           Go to app
         </Link>
+      </div>
+    );
+  }
+
+  if (!canManageEvents) {
+    return (
+      <div className="min-h-screen bg-background text-white">
+        <header className="border-b border-white/10 bg-graphite-dark/80 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
+            <Link href="/?alpha=1&preview=1" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white">
+              <ArrowLeft className="h-4 w-4" />
+              Back to practice
+            </Link>
+            <p className="font-heading text-sm font-bold uppercase tracking-[0.2em] text-neon-cyan">Organizer access</p>
+          </div>
+        </header>
+
+        <main className="mx-auto flex min-h-[calc(100vh-73px)] max-w-4xl items-center px-4 py-10 sm:px-6">
+          <section className="glass-panel w-full rounded-[2rem] p-6 text-center sm:p-10">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan">
+              <CalendarDays className="h-8 w-8" />
+            </div>
+            <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-neon-lime">
+              For organizers
+            </p>
+            <h1 className="mx-auto mt-3 max-w-2xl font-heading text-4xl font-black leading-tight sm:text-5xl">
+              Pitch events are for cohorts, competitions, and founder programs.
+            </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-300">
+              Founder accounts should focus on recording pitches, getting feedback, and picking a Best Take.
+              Organizer tools are enabled separately so the app stays simple for founders.
+            </p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href="/?alpha=1&preview=1" className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold">
+                Continue practicing
+              </Link>
+              <LeadCaptureModal
+                type="organizer"
+                triggerLabel="Request organizer access"
+                source="events-new-gate"
+                triggerClassName="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
+              />
+            </div>
+          </section>
+        </main>
       </div>
     );
   }

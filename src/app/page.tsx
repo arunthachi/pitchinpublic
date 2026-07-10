@@ -74,6 +74,7 @@ function HomeContent() {
   });
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [fullProfile, setFullProfile] = useState<Profile | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [showDailyChallenge, setShowDailyChallenge] = useState(false);
@@ -107,6 +108,7 @@ function HomeContent() {
     badgeDescription: string;
   } | null>(null);
   const isGuest = !user;
+  const canManageEvents = userRoles.includes('organizer');
   const urlPreviewAccess = urlAccess.preview || searchParams.get('preview') === '1';
   const urlAlphaAccess = urlAccess.alpha || searchParams.get('alpha') === '1';
   const isAuthHandoff = searchParams.get('auth') === '1';
@@ -128,6 +130,7 @@ function HomeContent() {
     const fetchUserProfile = async () => {
       if (!user) {
         setUserProfile(null);
+        setUserRoles([]);
         return;
       }
 
@@ -136,6 +139,13 @@ function HomeContent() {
 
       try {
         const supabase = createClient();
+
+        const { data: roles } = await supabase
+          .from('profile_roles')
+          .select('role')
+          .eq('user_id', user.id);
+
+        setUserRoles((roles || []).map((item) => item.role));
 
         const { data, error } = await supabase
           .from('profiles')
@@ -157,6 +167,7 @@ function HomeContent() {
         console.error('Error fetching user profile, falling back to auth data:', err);
         // Fall back to auth user data on any error
         setUserProfile(authBasedUser);
+        setUserRoles([]);
         // Profile setup is now on-demand only, triggered by user action, not automatically
       }
     };
@@ -432,6 +443,7 @@ function HomeContent() {
           onSignInClick={promptForRestrictedAction}
           guestActionLabel="Request invite"
           onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
+          canManageEvents={canManageEvents}
         />
       </div>
 

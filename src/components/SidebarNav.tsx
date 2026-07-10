@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, Flame, PanelLeftClose, PanelLeftOpen, Plus, Trophy, Video, Zap } from 'lucide-react';
+import { CalendarDays, Flame, PanelLeftClose, PanelLeftOpen, Plus, Trophy, UserRound, Video, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
@@ -12,6 +12,7 @@ interface SidebarNavProps {
   onSignInClick?: () => void;
   guestActionLabel?: string;
   onChallengeClick?: () => void;
+  canManageEvents?: boolean;
 }
 
 interface Streak {
@@ -58,14 +59,20 @@ export function SidebarNav({
   onSignInClick,
   guestActionLabel = 'Log in',
   onChallengeClick,
+  canManageEvents = false,
 }: SidebarNavProps) {
   const [streak, setStreak] = useState<Streak | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navItems = [
     { label: 'Practice', icon: Video, active: true },
-    { label: 'Pitch event', icon: CalendarDays, href: '/events/new' },
+    { label: 'My pitches', icon: UserRound, href: '/me' },
     { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
   ];
+  const organizerItems = canManageEvents
+    ? [
+        { label: 'Create event', icon: CalendarDays, href: '/events/new' },
+      ]
+    : [];
 
   useEffect(() => {
     setIsCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true');
@@ -185,6 +192,34 @@ export function SidebarNav({
             );
           })}
         </div>
+
+        {organizerItems.length ? (
+          <div className="mt-6 border-t border-white/10 pt-4">
+            <p className={`mb-2 hidden px-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>
+              Organizer
+            </p>
+            <div className="space-y-2">
+              {organizerItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-slate-400 transition-colors hover:bg-white/[0.07] hover:text-slate-100 ${
+                      isCollapsed ? 'lg:justify-center lg:px-3' : 'lg:px-4'
+                    }`}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <Icon className="h-6 w-6 flex-shrink-0" />
+                    <span className={`hidden font-body font-semibold lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>
+                      {item.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
 
         {/* Post Button */}
         <motion.button

@@ -37,6 +37,22 @@ function slugify(value: string) {
     .slice(0, 72);
 }
 
+async function canCreatePitchEvents(supabase: ReturnType<typeof createSupabase>, userId: string) {
+  const { data, error } = await supabase
+    .from('profile_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('role', 'organizer')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking organizer role:', error);
+    return false;
+  }
+
+  return Boolean(data);
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createSupabase(request);
 
@@ -47,6 +63,18 @@ export async function POST(request: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
+
+  const isOrganizer = await canCreatePitchEvents(supabase, user.id);
+
+  if (!isOrganizer) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Organizer access is required to create pitch events. Founders can join events from an invite link.',
+      },
+      { status: 403 }
+    );
   }
 
   const body = await request.json();
