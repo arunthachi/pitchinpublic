@@ -17,6 +17,9 @@ function createSupabase(request: NextRequest) {
   );
 }
 
+const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
+const MANAGER_ROLES = ['organizer', 'admin'];
+
 export async function GET(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
   const supabase = createSupabase(request);
@@ -49,6 +52,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   let userSubmission = null;
   let submissions: any[] = [];
   let participants: any[] = [];
+  let invitations: any[] = [];
+  let announcements: any[] = [];
+  let isTeamMember = false;
+  let canManageEvent = false;
 
   if (user) {
     const { data: participant } = await supabase
@@ -85,9 +92,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
 
     userSubmission = submission;
 
-    const isOrganizer = event.organizer_id === user.id || participant?.role === 'organizer';
+    isTeamMember = event.organizer_id === user.id || TEAM_ROLES.includes(participant?.role);
+    canManageEvent = event.organizer_id === user.id || MANAGER_ROLES.includes(participant?.role);
 
-    if (isOrganizer) {
+    if (isTeamMember) {
       const { data: participantRows } = await supabase
         .from('pitch_event_participants')
         .select(
@@ -142,8 +150,52 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         .eq('event_id', event.id)
         .order('submitted_at', { ascending: false });
 
+      const { data: invitationRows } = await supabase
+        .from('pitch_event_invitations')
+        .select(
+          `
+          *,
+          inviter:invited_by (
+            id,
+            full_name,
+            avatar_url,
+            username
+          ),
+          accepted_profile:accepted_by (
+            id,
+            full_name,
+            avatar_url,
+            username
+          )
+        `
+        )
+        .eq('event_id', event.id)
+        .order('created_at', { ascending: false });
+
       participants = participantRows || [];
       submissions = submissionRows || [];
+      invitations = invitationRows || [];
+    }
+
+    if (participation || isTeamMember) {
+      const { data: announcementRows } = await supabase
+        .from('pitch_event_announcements')
+        .select(
+          `
+          *,
+          author:author_id (
+            id,
+            full_name,
+            avatar_url,
+            username
+          )
+        `
+        )
+        .eq('event_id', event.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      announcements = announcementRows || [];
     }
   }
 
@@ -157,6 +209,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     userSubmission,
     participants,
     submissions,
+    invitations,
+    announcements,
     isOrganizer: Boolean(user && event.organizer_id === user.id),
+    isTeamMember,
+    canManageEvent,
   });
 }

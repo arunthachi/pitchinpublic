@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { ArrowRight, CalendarDays, CheckCircle2, Clock, Lock, Play, Sparkles, Trophy, Video } from 'lucide-react';
+import { useParams, useSearchParams } from 'next/navigation';
+import { ArrowRight, Bell, CalendarDays, CheckCircle2, Clock, Lock, Play, Sparkles, Trophy, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatPitchLength } from '@/lib/duration';
 
 function daysUntil(value: string) {
   const target = new Date(`${value}T12:00:00`);
@@ -15,6 +16,7 @@ function daysUntil(value: string) {
 
 export default function EventPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params.slug as string;
   const { user } = useAuth();
   const [eventState, setEventState] = useState<any>(null);
@@ -24,6 +26,7 @@ export default function EventPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const inviteCode = searchParams.get('invite') || '';
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,6 +40,10 @@ export default function EventPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (inviteCode) setAccessCode(inviteCode);
+  }, [inviteCode]);
 
   useEffect(() => {
     const loadPitches = async () => {
@@ -119,7 +126,7 @@ export default function EventPage() {
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               <InfoCard icon={CalendarDays} label="Pitch day" value={new Date(`${event.event_date}T12:00:00`).toLocaleDateString()} />
               <InfoCard icon={Clock} label="Countdown" value={`${daysUntil(event.event_date)} days`} />
-              <InfoCard icon={Video} label="Pitch length" value={`${event.pitch_length_seconds}s`} />
+              <InfoCard icon={Video} label="Pitch length" value={formatPitchLength(event.pitch_length_seconds)} />
             </div>
           </div>
 
@@ -133,10 +140,20 @@ export default function EventPage() {
                 </div>
               ))}
             </div>
-            <Link href="/?record=1&alpha=1&preview=1" className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
+            <Link href={`/?record=1&alpha=1&preview=1&pitchMax=${event.pitch_length_seconds}`} className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
               Record a practice rep
               <ArrowRight className="h-5 w-5" />
             </Link>
+            {eventState.announcements?.length ? (
+              <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-neon-lime">
+                  <Bell className="h-4 w-4" />
+                  Latest update
+                </div>
+                <h3 className="font-heading text-xl font-bold">{eventState.announcements[0].title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{eventState.announcements[0].body}</p>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -213,9 +230,9 @@ export default function EventPage() {
                 >
                   {saving ? 'Saving...' : eventState.userSubmission ? 'Update final take' : 'Submit final take'}
                 </button>
-                {eventState.isOrganizer && (
+                {eventState.isTeamMember && (
                   <Link href={`/events/${slug}/dashboard`} className="mt-3 inline-flex w-full justify-center rounded-2xl border border-white/10 px-5 py-4 font-heading font-bold text-white">
-                    Open organizer dashboard
+                    Open team dashboard
                   </Link>
                 )}
               </div>

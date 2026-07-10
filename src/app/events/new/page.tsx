@@ -243,8 +243,8 @@ export default function NewEventPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Pitch length">
                 <select value={form.pitchLengthSeconds} onChange={(e) => setForm({ ...form, pitchLengthSeconds: Number(e.target.value) })} className="input-dark">
-                  <option value={60}>60 seconds</option>
-                  <option value={90}>90 seconds</option>
+                  <option value={60}>1 minute</option>
+                  <option value={90}>1.5 minutes</option>
                   <option value={120}>2 minutes</option>
                   <option value={180}>3 minutes</option>
                 </select>

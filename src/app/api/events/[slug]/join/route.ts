@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 const joinSchema = z.object({
   accessCode: z.string().max(64).optional().or(z.literal('')),
+  inviteCode: z.string().max(64).optional().or(z.literal('')),
 });
 
 function createSupabase(request: NextRequest) {
@@ -52,20 +53,36 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
   }
 
-  if (event.access_code) {
+  const providedInviteCode = validation.data.inviteCode?.trim() || validation.data.accessCode?.trim();
+  let invitation = null;
+
+  if (providedInviteCode) {
+    const { data: inviteRow } = await supabase
+      .from('pitch_event_invitations')
+      .select('*')
+      .eq('event_id', event.id)
+      .eq('invite_code', providedInviteCode)
+      .in('status', ['pending', 'accepted'])
+      .maybeSingle();
+
+    invitation = inviteRow;
+  }
+
+  if (event.access_code && !invitation) {
     const providedCode = validation.data.accessCode?.trim();
     if (providedCode !== event.access_code) {
       return NextResponse.json({ success: false, error: 'That invite code does not match this pitch event.' }, { status: 403 });
     }
   }
 
+  const role = event.organizer_id === user.id ? 'organizer' : invitation?.role || 'founder';
   const { data: participant, error } = await supabase
     .from('pitch_event_participants')
     .upsert(
       {
         event_id: event.id,
         user_id: user.id,
-        role: event.organizer_id === user.id ? 'organizer' : 'founder',
+        role,
         status: 'active',
       },
       { onConflict: 'event_id,user_id' }
@@ -76,6 +93,18 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   if (error) {
     console.error('Error joining pitch event:', error);
     return NextResponse.json({ success: false, error: 'Could not join event' }, { status: 500 });
+  }
+
+  if (invitation) {
+    await supabase
+      .from('pitch_event_invitations')
+      .update({
+        status: 'accepted',
+        accepted_by: user.id,
+        accepted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', invitation.id);
   }
 
   return NextResponse.json({ success: true, participant });

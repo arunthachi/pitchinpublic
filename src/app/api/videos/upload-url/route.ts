@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         }
       );
     }
-    const maxDurationSeconds = Math.min(validation.data.maxDurationSeconds, 60);
+    const maxDurationSeconds = Math.min(validation.data.maxDurationSeconds, 180);
 
     const provider = getVideoProvider();
     const uploadUrlResult = await provider.getDirectUploadUrl({ maxDurationSeconds });

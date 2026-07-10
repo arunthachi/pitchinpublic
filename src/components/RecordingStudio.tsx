@@ -7,6 +7,7 @@ import { Step2_AddDetails } from './Step2_AddDetails';
 import { Step3_Publish } from './Step3_Publish';
 import type { PracticePrompt } from '@/lib/practice';
 import { createClient } from '@/lib/supabase/client';
+import { formatPitchLength, formatPitchLengthRange } from '@/lib/duration';
 
 interface RecordingStudioProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface RecordingStudioProps {
   onPitchCreated?: (pitch: any) => void;
   practicePrompt?: PracticePrompt | null;
   practiceGoalId?: string | null;
+  maxDurationSeconds?: number;
 }
 
 type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
@@ -21,7 +23,7 @@ type UploadPhase = 'idle' | 'uploading' | 'processing' | 'ready';
 
 const MAX_VIDEO_FILE_SIZE_BYTES = 200 * 1024 * 1024;
 const MIN_RECORDING_SECONDS = 30;
-const MAX_RECORDING_SECONDS = 60;
+const DEFAULT_MAX_RECORDING_SECONDS = 60;
 const MIN_VERTICAL_ASPECT_RATIO = 0.45; // 9:20 tolerance
 const MAX_VERTICAL_ASPECT_RATIO = 0.82; // 4:5 tolerance
 const LAST_PITCH_DETAILS_KEY = 'pitchinpublic:last-pitch-details';
@@ -49,7 +51,15 @@ interface SavedPitchDetails {
   feedbackAsk?: string;
 }
 
-export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePrompt, practiceGoalId }: RecordingStudioProps) {
+export function RecordingStudio({
+  isOpen,
+  onClose,
+  onPitchCreated,
+  practicePrompt,
+  practiceGoalId,
+  maxDurationSeconds = DEFAULT_MAX_RECORDING_SECONDS,
+}: RecordingStudioProps) {
+  const maxRecordingSeconds = Math.min(180, Math.max(MIN_RECORDING_SECONDS, maxDurationSeconds));
   const [mode, setMode] = useState<Mode>('choose');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -310,7 +320,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
       // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => {
-          if (prev >= MAX_RECORDING_SECONDS) {
+          if (prev >= maxRecordingSeconds) {
             stopRecording();
             return prev;
           }
@@ -320,7 +330,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
         });
       }, 1000);
     }
-  }, [countdown, stopCamera, stopRecording]);
+  }, [countdown, maxRecordingSeconds, stopCamera, stopRecording]);
 
   // Validate and set uploaded file
   const validateAndSetFile = useCallback((file: File) => {
@@ -346,9 +356,9 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
       setVideoDuration(duration);
 
       if (duration < MIN_RECORDING_SECONDS) {
-        setError(`Too short (${duration}s). Need ${MIN_RECORDING_SECONDS}-${MAX_RECORDING_SECONDS} seconds.`);
-      } else if (duration > MAX_RECORDING_SECONDS) {
-        setError(`Too long (${duration}s). Max ${MAX_RECORDING_SECONDS} seconds.`);
+        setError(`Too short (${duration}s). Need ${formatPitchLengthRange(MIN_RECORDING_SECONDS, maxRecordingSeconds)}.`);
+      } else if (duration > maxRecordingSeconds) {
+        setError(`Too long (${duration}s). Max ${formatPitchLength(maxRecordingSeconds)}.`);
       } else if (aspectRatioError) {
         setError(aspectRatioError);
       } else {
@@ -363,7 +373,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
 
     video.onerror = () => setError('Could not read video file');
     video.src = URL.createObjectURL(file);
-  }, []);
+  }, [maxRecordingSeconds]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -386,7 +396,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
       const uploadUrlResponse = await fetch('/api/videos/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ maxDurationSeconds: MAX_RECORDING_SECONDS }),
+        body: JSON.stringify({ maxDurationSeconds: maxRecordingSeconds }),
       });
 
       const uploadUrlData = await uploadUrlResponse.json();
@@ -445,7 +455,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
 
       return providerVideoId;
     },
-    []
+    [maxRecordingSeconds]
   );
 
   const waitForVideoReady = useCallback(
@@ -539,8 +549,8 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
     try {
       const actualDuration = Math.round(uploadedVideo.duration || videoDuration);
 
-      if (actualDuration < MIN_RECORDING_SECONDS || actualDuration > MAX_RECORDING_SECONDS) {
-        throw new Error(`Video duration must be ${MIN_RECORDING_SECONDS}-${MAX_RECORDING_SECONDS} seconds (got ${actualDuration}s)`);
+      if (actualDuration < MIN_RECORDING_SECONDS || actualDuration > maxRecordingSeconds) {
+        throw new Error(`Video duration must be ${formatPitchLengthRange(MIN_RECORDING_SECONDS, maxRecordingSeconds)} (got ${actualDuration}s)`);
       }
 
       const pitchPayload: any = {
@@ -686,7 +696,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const canUploadRecordedClip = videoDuration >= MIN_RECORDING_SECONDS && videoDuration <= MAX_RECORDING_SECONDS;
+  const canUploadRecordedClip = videoDuration >= MIN_RECORDING_SECONDS && videoDuration <= maxRecordingSeconds;
   const canStopForPreview = recordingTime >= MIN_RECORDING_SECONDS;
   const secondsUntilPreview = Math.max(0, MIN_RECORDING_SECONDS - recordingTime);
 
@@ -754,7 +764,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
 	                    <h2 className="text-2xl font-bold text-white mb-1">
                         {practicePrompt ? "Record today's rep" : 'Post your pitch'}
                       </h2>
-	                    <p className="text-slate-400 text-sm">30-60s vertical video, 9:16 preferred, max 200MB</p>
+	                    <p className="text-slate-400 text-sm">{formatPitchLengthRange(MIN_RECORDING_SECONDS, maxRecordingSeconds)} vertical video, 9:16 preferred, max 200MB</p>
                   </div>
 
                   {practicePrompt && (
@@ -863,13 +873,13 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
                           <div className="relative h-2 bg-black/50 rounded-full overflow-hidden">
                             <motion.div
                               className="h-full bg-gradient-to-r from-red-500 to-orange-400"
-                              style={{ width: `${Math.min(100, (recordingTime / MAX_RECORDING_SECONDS) * 100)}%` }}
+                              style={{ width: `${Math.min(100, (recordingTime / maxRecordingSeconds) * 100)}%` }}
                             />
                           </div>
                           <div className="flex justify-between text-xs text-slate-300 mt-2 px-2">
                             <span>0s</span>
                             <span className="font-semibold">{canStopForPreview ? 'Ready' : `${secondsUntilPreview}s to preview`}</span>
-                            <span>{MAX_RECORDING_SECONDS}s</span>
+                            <span>{formatPitchLength(maxRecordingSeconds)}</span>
                           </div>
                         </div>
                       </div>
@@ -957,7 +967,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
                     <div className="mb-4 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
                       {videoDuration < MIN_RECORDING_SECONDS
                         ? `${MIN_RECORDING_SECONDS - videoDuration}s more needed. Retake to publish.`
-                        : `Clip is over ${MAX_RECORDING_SECONDS}s. Retake to publish.`}
+                        : `Clip is over ${formatPitchLength(maxRecordingSeconds)}. Retake to publish.`}
                     </div>
                   )}
 

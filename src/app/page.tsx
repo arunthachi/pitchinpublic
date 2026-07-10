@@ -114,6 +114,8 @@ function HomeContent() {
   const isAuthHandoff = searchParams.get('auth') === '1';
   const effectiveGuestFeedPreview = showGuestFeedPreview || urlPreviewAccess;
   const showAlphaControls = alphaAccessEnabled || urlAlphaAccess || process.env.NODE_ENV === 'development';
+  const pitchMaxParam = Number(searchParams.get('pitchMax'));
+  const recordingMaxDurationSeconds = Number.isFinite(pitchMaxParam) && pitchMaxParam >= 30 && pitchMaxParam <= 180 ? pitchMaxParam : 60;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -650,6 +652,7 @@ function HomeContent() {
           }}
           practicePrompt={practiceToday.prompt}
           practiceGoalId={practiceToday.goal?.id || null}
+          maxDurationSeconds={recordingMaxDurationSeconds}
         />
       )}
 
