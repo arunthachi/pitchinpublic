@@ -645,6 +645,7 @@ function HomeContent() {
             setTimeout(() => {
               fetchPitches();
               fetchPracticeToday();
+              window.dispatchEvent(new Event('pip:pitch-created'));
             }, 1000); // Brief delay to allow database to settle
           }}
           practicePrompt={practiceToday.prompt}

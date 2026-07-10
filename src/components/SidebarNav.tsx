@@ -29,6 +29,34 @@ interface Streak {
 }
 
 const SIDEBAR_COLLAPSED_KEY = 'pip.sidebarCollapsed';
+const PITCH_CREATED_EVENT = 'pip:pitch-created';
+
+function getSevenDayMomentum(streak: Streak) {
+  if (streak.recentDays?.length === 7) {
+    return streak.recentDays.map((day, index) => ({
+      key: day.date || index,
+      active: day.active,
+      isToday: day.isToday,
+      label: day.isToday ? 'Today' : new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short' }),
+    }));
+  }
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const offsetFromToday = 6 - index;
+    const active = streak.isActiveToday
+      ? offsetFromToday < streak.currentStreak
+      : offsetFromToday > 0 && offsetFromToday <= streak.currentStreak;
+    const date = new Date();
+    date.setDate(date.getDate() - offsetFromToday);
+
+    return {
+      key: index,
+      active,
+      isToday: offsetFromToday === 0,
+      label: offsetFromToday === 0 ? 'Today' : date.toLocaleDateString(undefined, { weekday: 'short' }),
+    };
+  });
+}
 
 export function SidebarNav({
   onPostClick,
@@ -83,9 +111,11 @@ export function SidebarNav({
     };
 
     fetchStreak();
+    window.addEventListener(PITCH_CREATED_EVENT, fetchStreak);
 
     return () => {
       cancelled = true;
+      window.removeEventListener(PITCH_CREATED_EVENT, fetchStreak);
     };
   }, [isGuest]);
 
@@ -214,23 +244,43 @@ export function SidebarNav({
 
         {!isGuest && streak && !isCollapsed && (
           <div className="mt-6 hidden lg:block">
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-left">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-neon-cyan/10 text-neon-cyan">
-                  <Flame className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-white">{streak.currentStreak || 0}d run</p>
-                  <p className="text-xs text-slate-500">{streak.pitchReps ?? streak.totalActivities ?? 0} pitch reps</p>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-left">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-neon-cyan/10 text-neon-cyan">
+                    <Flame className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-white">{streak.currentStreak || 0}d run</p>
+                    <p className="text-xs text-slate-500">{streak.pitchReps ?? streak.totalActivities ?? 0} pitch reps</p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={onChallengeClick}
+                  className="rounded-full border border-white/10 bg-white/[0.055] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:border-neon-cyan/40 hover:text-white"
+                >
+                  Plan
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={onChallengeClick}
-                className="rounded-full border border-white/10 bg-white/[0.055] px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:border-neon-cyan/40 hover:text-white"
-              >
-                Goal
-              </button>
+              <div className="grid grid-cols-7 gap-1.5 rounded-2xl border border-white/[0.07] bg-black/20 p-2">
+                {getSevenDayMomentum(streak).map((day) => (
+                  <span
+                    key={day.key}
+                    className={`h-5 rounded-md border transition ${
+                      day.active
+                        ? day.isToday
+                          ? 'border-neon-lime/35 bg-neon-lime/80 shadow-[0_0_14px_rgba(183,255,42,0.18)]'
+                          : 'border-neon-cyan/20 bg-neon-cyan/45'
+                        : day.isToday
+                          ? 'border-white/20 bg-white/[0.08]'
+                          : 'border-white/[0.05] bg-white/[0.04]'
+                    }`}
+                    title={day.active ? `${day.label}: pitch posted` : `${day.label}: no pitch posted`}
+                    aria-label={day.active ? `${day.label}: pitch posted` : `${day.label}: no pitch posted`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}
