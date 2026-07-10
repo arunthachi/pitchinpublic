@@ -306,11 +306,14 @@ export function Step2_AddDetails({
                       setErrors({ ...errors, hook: '' });
                     }
                   }}
-                  placeholder="For [customer], we help [painful problem] so they can [outcome]."
+                  placeholder="Write the version you want founders to react to."
                   className="w-full resize-none rounded-2xl border border-white/10 bg-slate-800/80 px-4 py-3 text-white placeholder-slate-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-neon-cyan"
                   rows={3}
                   maxLength={280}
                 />
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                  Template: For [customer], we help [painful problem] so they can [outcome].
+                </p>
                 <div className="flex justify-between mt-1">
                   <span className={`text-xs ${errors.hook ? 'text-red-400' : 'text-slate-500'}`}>
                     {errors.hook || `${hook.length}/280`}
