@@ -313,6 +313,51 @@ export function MobileHabitNudge({
   );
 }
 
+export function DesktopHabitNudge({
+  prompt,
+  progress,
+  latestRepCreatedAt,
+  onRecord,
+  onOpenGoal,
+}: Pick<PitchHabitPanelProps, 'prompt' | 'progress' | 'latestRepCreatedAt' | 'onRecord' | 'onOpenGoal'>) {
+  const recordedToday = isSameLocalDay(latestRepCreatedAt);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="hidden w-[300px] rounded-full border border-white/10 bg-slate-950/42 px-3 py-2 shadow-[0_18px_46px_rgba(0,0,0,0.28)] backdrop-blur-2xl xl:block"
+    >
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onOpenGoal}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neon-cyan/20 bg-neon-cyan/10 text-neon-cyan"
+          aria-label="Open today's pitch goal"
+        >
+          <Target className="h-4 w-4" />
+        </button>
+        <button type="button" onClick={onOpenGoal} className="min-w-0 flex-1 text-left">
+          <p className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-neon-lime">
+            {recordedToday ? 'Rep complete' : "Today's rep"}
+          </p>
+          <p className="truncate text-sm font-black text-white">{prompt.title}</p>
+          <p className="truncate text-[11px] text-slate-400">
+            {progress.pitchReps} reps - {progress.currentStreak}d run
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={onRecord}
+          className="flex h-9 shrink-0 items-center justify-center rounded-full bg-white/10 px-3 text-xs font-black text-white transition hover:bg-white/15"
+        >
+          Record
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-2.5">

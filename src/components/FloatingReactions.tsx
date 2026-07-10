@@ -61,9 +61,7 @@ export function FloatingReactions({
   React.useEffect(() => {
     const fetchFollowStatus = async () => {
       try {
-        console.log(`Fetching follow status for user: ${pitch.userId}`);
         const response = await fetch(`/api/users/${pitch.userId}/follow`);
-        console.log('Follow status response:', response.status);
 
         if (!response.ok) {
           console.error('Failed to fetch follow status:', response.status);
@@ -71,7 +69,6 @@ export function FloatingReactions({
         }
 
         const data = await response.json();
-        console.log('Follow status data:', data);
         setIsFollowing(data.isFollowing);
       } catch (error) {
         console.error('Error checking follow status:', error);
@@ -96,8 +93,6 @@ export function FloatingReactions({
         method,
       });
 
-      console.log(`Follow ${method} response status:`, response.status);
-
       if (!response.ok) {
         const error = await response.json();
         console.error(`Failed to ${method} follow. Status:`, response.status, 'Error:', error);
@@ -106,7 +101,6 @@ export function FloatingReactions({
       }
 
       const data = await response.json();
-      console.log(`Follow ${method} success response:`, data);
       setIsFollowing(data.isFollowing);
     } catch (error) {
       console.error('Error updating follow status:', error);
@@ -186,21 +180,21 @@ export function FloatingReactions({
           onClick={handleAvatarClick}
           src={pitch.founderAvatar}
           alt={pitch.founderName}
-          className="h-12 w-12 cursor-pointer rounded-full border-2 border-white/70 shadow-lg transition-colors hover:border-neon-cyan"
-          style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.5))' }}
+          className="h-11 w-11 cursor-pointer rounded-full border border-white/65 shadow-lg transition-colors hover:border-neon-cyan"
+          style={{ filter: 'drop-shadow(0 2px 7px rgba(0,0,0,0.45))' }}
         />
         {/* Follow Button */}
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={handleFollowClick}
           disabled={isLoadingFollow}
-          className={`absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center cursor-pointer shadow-lg border transition-all ${
+          className={`absolute -bottom-2 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border shadow-lg transition-all ${
             isFollowing
               ? 'bg-neon-lime border-neon-lime'
               : 'bg-neon-cyan border-white hover:bg-neon-cyan/90'
           } ${isLoadingFollow ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <Plus className={`w-3 h-3 ${isFollowing ? 'text-slate-900' : 'text-slate-900'}`} strokeWidth={3} />
+          <Plus className="h-3 w-3 text-slate-900" strokeWidth={3} />
         </motion.button>
       </div>
 
@@ -218,21 +212,21 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 h-12 w-12 rounded-full bg-roast/10 blur-md"
+            className="absolute inset-0 h-10 w-10 rounded-full bg-roast/5 blur-sm"
             animate={justRoasted ? { scale: [1, 1.22, 1], opacity: [0.35, 0.65, 0.25] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className={`glass-pill relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
+          <div className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 ${
             userReaction === 'roast'
-              ? 'bg-white/[0.18] border-roast/[0.45] ring-1 ring-roast/[0.25]'
-              : 'bg-white/[0.12] border-white/20 hover:border-roast/[0.35] hover:bg-white/[0.18]'
+              ? 'border-roast/[0.45] bg-roast/[0.14]'
+              : 'border-white/15 bg-black/[0.24] hover:border-roast/[0.35] hover:bg-white/[0.12]'
           }`}>
             {/* Icon container - both icons always in DOM for stable click handling */}
             <div className="absolute inset-0 flex items-center justify-center">
               {/* Emoji - shows when roastCount > 0 */}
               <RoastEmoji
-                className={`text-2xl transition-all duration-300 absolute ${
+                className={`absolute text-xl transition-all duration-300 ${
                   pitch.roastCount > 0 ? 'opacity-90' : 'opacity-0 pointer-events-none'
                 } ${
                   userReaction === 'roast'
@@ -243,7 +237,7 @@ export function FloatingReactions({
               />
               {/* Icon - shows when roastCount = 0 */}
               <Flame
-                className={`h-6 w-6 transition-all duration-300 absolute ${
+                className={`absolute h-5 w-5 transition-all duration-300 ${
                   pitch.roastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 } ${
                   userReaction === 'roast'
@@ -257,7 +251,7 @@ export function FloatingReactions({
 
             {/* Comment count badge */}
             {pitch.feedback && pitch.feedback.filter(f => f.type === 'roast').length > 0 && (
-              <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/25 bg-black/55 shadow-lg backdrop-blur-md">
+              <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/25 bg-black/[0.55] shadow-lg backdrop-blur-md">
                 <span className="text-[10px] font-bold text-roast">
                   {pitch.feedback.filter(f => f.type === 'roast').length}
                 </span>
@@ -266,7 +260,7 @@ export function FloatingReactions({
           </div>
         </motion.div>
         <div className="text-center">
-          <span className="text-xs font-bold text-white drop-shadow-md">
+          <span className="text-[11px] font-bold text-white/[0.92] drop-shadow-md">
             {formatNumber(pitch.roastCount)}
           </span>
         </div>
@@ -287,21 +281,21 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 h-12 w-12 rounded-full bg-toast/10 blur-md"
+            className="absolute inset-0 h-10 w-10 rounded-full bg-toast/5 blur-sm"
             animate={justToasted ? { scale: [1, 1.22, 1], opacity: [0.35, 0.65, 0.25] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className={`glass-pill relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm ${
+          <div className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 ${
             userReaction === 'toast'
-              ? 'bg-white/[0.18] border-toast/[0.45] ring-1 ring-toast/[0.25]'
-              : 'bg-white/[0.12] border-white/20 hover:border-toast/[0.35] hover:bg-white/[0.18]'
+              ? 'border-toast/[0.45] bg-toast/[0.14]'
+              : 'border-white/15 bg-black/[0.24] hover:border-toast/[0.35] hover:bg-white/[0.12]'
           }`}>
             {/* Icon container - both icons always in DOM for stable click handling */}
             <div className="absolute inset-0 flex items-center justify-center">
               {/* Emoji - shows when toastCount > 0 */}
               <ToastEmoji
-                className={`text-2xl transition-all duration-300 absolute ${
+                className={`absolute text-xl transition-all duration-300 ${
                   pitch.toastCount > 0 ? 'opacity-90' : 'opacity-0 pointer-events-none'
                 } ${
                   userReaction === 'toast'
@@ -312,7 +306,7 @@ export function FloatingReactions({
               />
               {/* Icon - shows when toastCount = 0 */}
               <Wine
-                className={`h-6 w-6 transition-all duration-300 absolute ${
+                className={`absolute h-5 w-5 transition-all duration-300 ${
                   pitch.toastCount > 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
                 } ${
                   userReaction === 'toast'
@@ -326,7 +320,7 @@ export function FloatingReactions({
 
             {/* Comment count badge */}
             {pitch.feedback && pitch.feedback.filter(f => f.type === 'toast').length > 0 && (
-              <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/25 bg-black/55 shadow-lg backdrop-blur-md">
+              <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/25 bg-black/[0.55] shadow-lg backdrop-blur-md">
                 <span className="text-[10px] font-bold text-toast">
                   {pitch.feedback.filter(f => f.type === 'toast').length}
                 </span>
@@ -335,7 +329,7 @@ export function FloatingReactions({
           </div>
         </motion.div>
         <div className="text-center">
-          <span className="text-xs font-bold text-white drop-shadow-md">
+          <span className="text-[11px] font-bold text-white/[0.92] drop-shadow-md">
             {formatNumber(pitch.toastCount)}
           </span>
         </div>
@@ -350,14 +344,14 @@ export function FloatingReactions({
         className="relative flex flex-col items-center gap-2 group"
         aria-label="Leave detailed feedback"
       >
-        <div className="glass-pill relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full transition-all duration-200 before:absolute before:inset-x-2 before:top-1 before:h-3 before:rounded-full before:bg-white/[0.18] before:blur-sm hover:border-neon-cyan/[0.45] hover:bg-white/[0.18]">
+        <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-black/[0.24] backdrop-blur-xl transition-all duration-200 hover:border-neon-cyan/40 hover:bg-white/[0.12]">
           <MessageSquareText
-            className="relative z-10 h-6 w-6 text-white/90 transition-colors group-hover:text-neon-cyan"
+            className="relative z-10 h-5 w-5 text-white/88 transition-colors group-hover:text-neon-cyan"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
             strokeWidth={1.7}
           />
         </div>
-        <span className="text-xs font-bold text-white drop-shadow-md">
+        <span className="text-[11px] font-bold text-white/[0.92] drop-shadow-md">
           {formatNumber(pitch.feedback?.length || 0)}
         </span>
       </motion.button>
@@ -375,14 +369,14 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 h-12 w-12 bg-neon-cyan/10 rounded-full blur-sm"
+            className="absolute inset-0 h-10 w-10 rounded-full bg-neon-cyan/5 blur-sm"
             animate={bookmarkState ? { scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className="glass-pill relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 hover:border-neon-cyan/[0.45] hover:bg-white/[0.18]">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/[0.24] backdrop-blur-xl transition-all duration-200 hover:border-neon-cyan/40 hover:bg-white/[0.12]">
             <Bookmark
-              className={`h-6 w-6 transition-all duration-300 ${
+              className={`h-5 w-5 transition-all duration-300 ${
                 bookmarkState
                   ? 'text-neon-cyan fill-neon-cyan drop-shadow-[0_0_12px_rgba(0,230,246,0.72)]'
                   : 'text-white group-hover:text-neon-cyan'
@@ -393,7 +387,7 @@ export function FloatingReactions({
           </div>
         </motion.div>
         <div className="text-center">
-          <span className="text-xs font-bold text-white drop-shadow-md">
+          <span className="text-[11px] font-bold text-white/[0.92] drop-shadow-md">
             {formatNumber(bookmarkCount)}
           </span>
         </div>
@@ -406,9 +400,9 @@ export function FloatingReactions({
         whileHover={{ scale: 1.05 }}
         className="relative flex flex-col items-center gap-2 group"
       >
-        <div className="glass-pill relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-200 hover:border-white/[0.35] hover:bg-white/[0.18]">
+        <div className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/[0.24] backdrop-blur-xl transition-all duration-200 hover:border-white/30 hover:bg-white/[0.12]">
           <Share2
-            className="h-6 w-6 text-white/90 transition-all duration-300 group-hover:text-slate-200"
+            className="h-5 w-5 text-white/88 transition-all duration-300 group-hover:text-slate-200"
             style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
             strokeWidth={1.5}
           />

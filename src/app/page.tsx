@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
-import { MobileHabitNudge, PitchHabitPanel } from '@/components/PitchHabitPanel';
+import { DesktopHabitNudge, MobileHabitNudge } from '@/components/PitchHabitPanel';
 import { getPromptForDate, type PracticePrompt } from '@/lib/practice';
 import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
 
@@ -566,9 +566,9 @@ function HomeContent() {
           {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
             <div
-              className="glass-pill absolute rounded-full px-2.5 py-4"
+              className="absolute rounded-full"
               style={{
-                left: 'calc(50% + var(--feed-w) / 2 + 1rem)',
+                left: 'calc(50% + var(--feed-w) / 2 + 0.9rem)',
                 top: 'calc(1rem + (var(--feed-h) / 2))',
                 transform: 'translateY(-50%)',
               }}
@@ -591,18 +591,14 @@ function HomeContent() {
 
           {!isGuest && (
             <div
-              className="absolute bottom-4 top-4 hidden items-center xl:flex"
+              className="absolute top-4 hidden xl:block"
               style={{
-                left: 'calc(50% + var(--feed-w) / 2 + 7.25rem)',
+                left: 'calc(50% + var(--feed-w) / 2 + 5.25rem)',
               }}
             >
-              <PitchHabitPanel
+              <DesktopHabitNudge
                 prompt={practiceToday.prompt}
-                nudge={practiceToday.nudge}
                 progress={practiceToday.progress}
-                readinessLabel={practiceToday.readiness.label}
-                goalName={practiceToday.goal?.name}
-                latestRepNumber={practiceToday.latestRep?.rep_number}
                 latestRepCreatedAt={practiceToday.latestRep?.created_at}
                 onRecord={() => setRecordingStudioOpen(true)}
                 onOpenGoal={() => setShowPitchGoal(true)}
