@@ -6,6 +6,7 @@ import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw } from 'luc
 import { Step2_AddDetails } from './Step2_AddDetails';
 import { Step3_Publish } from './Step3_Publish';
 import type { PracticePrompt } from '@/lib/practice';
+import { createClient } from '@/lib/supabase/client';
 
 interface RecordingStudioProps {
   isOpen: boolean;
@@ -97,18 +98,66 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
     if (loadedSavedDetailsRef.current || typeof window === 'undefined') return;
     loadedSavedDetailsRef.current = true;
 
+    const applySavedDetails = (details: SavedPitchDetails) => {
+      setSavedPitchDetails(details);
+      const savedHook = details.oneLinePitch || details.hook;
+      if (!pitchHookRef.current && savedHook) setPitchHook(savedHook);
+      if (!pitchDescriptionRef.current && details.description) setPitchDescription(details.description);
+    };
+
     try {
       const saved = window.localStorage.getItem(LAST_PITCH_DETAILS_KEY);
-      if (!saved) return;
-
-      const parsed = JSON.parse(saved) as SavedPitchDetails;
-      setSavedPitchDetails(parsed);
-      const savedHook = parsed.oneLinePitch || parsed.hook;
-      if (!pitchHookRef.current && savedHook) setPitchHook(savedHook);
-      if (!pitchDescriptionRef.current && parsed.description) setPitchDescription(parsed.description);
+      if (saved) {
+        applySavedDetails(JSON.parse(saved) as SavedPitchDetails);
+        return;
+      }
     } catch {
       window.localStorage.removeItem(LAST_PITCH_DETAILS_KEY);
     }
+
+    let cancelled = false;
+
+    const fetchStartupDefaults = async () => {
+      try {
+        const supabase = createClient();
+        const { data: userData } = await supabase.auth.getUser();
+        const user = userData.user;
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('companies')
+          .select('name, tagline')
+          .eq('founder_id', user.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        if (error) throw error;
+        if (cancelled) return;
+
+        const startup = data?.[0];
+        if (!startup?.name || !startup?.tagline) return;
+
+        applySavedDetails({
+          hook: startup.tagline,
+          description: [
+            `Startup: ${startup.name}`,
+            'Feedback ask: Focus: Clarity, ICP, Closing ask',
+          ].join('\n'),
+          startupName: startup.name,
+          oneLinePitch: startup.tagline,
+          feedbackAsk: 'Focus: Clarity, ICP, Closing ask',
+        });
+      } catch (error) {
+        console.error('Could not load startup defaults:', error);
+      }
+    };
+
+    fetchStartupDefaults();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   const getSupportedRecordingMimeType = () => {
