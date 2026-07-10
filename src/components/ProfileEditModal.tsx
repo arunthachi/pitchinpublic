@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Loader2, Check, Edit3 } from 'lucide-react';
+import { X, Loader2, Check, Edit3, Building2 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 
@@ -15,6 +15,24 @@ interface ProfileEditModalProps {
   currentLinkedin?: string;
   onComplete: () => void;
 }
+
+interface StartupSnapshot {
+  id: string;
+  name: string;
+  tagline: string;
+  website: string;
+  stage: string;
+}
+
+const LAST_PITCH_DETAILS_KEY = 'pitchinpublic:last-pitch-details';
+const startupStageOptions = [
+  'Idea',
+  'Prototype',
+  'MVP',
+  'Launched',
+  'Revenue',
+  'Scaling',
+];
 
 export function ProfileEditModal({
   isOpen,
@@ -29,10 +47,17 @@ export function ProfileEditModal({
   const [website, setWebsite] = useState(currentWebsite || '');
   const [twitter, setTwitter] = useState(currentTwitter || '');
   const [linkedin, setLinkedin] = useState(currentLinkedin || '');
+  const [startupId, setStartupId] = useState<string | null>(null);
+  const [startupName, setStartupName] = useState('');
+  const [startupPitch, setStartupPitch] = useState('');
+  const [startupWebsite, setStartupWebsite] = useState('');
+  const [startupStage, setStartupStage] = useState('Idea');
+  const [initialStartup, setInitialStartup] = useState<StartupSnapshot | null>(null);
+  const [startupLoading, setStartupLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -41,10 +66,67 @@ export function ProfileEditModal({
       setWebsite(currentWebsite || '');
       setTwitter(currentTwitter || '');
       setLinkedin(currentLinkedin || '');
+      setStartupId(null);
+      setStartupName('');
+      setStartupPitch('');
+      setStartupWebsite('');
+      setStartupStage('Idea');
+      setInitialStartup(null);
       setError(null);
       setCompleted(false);
     }
   }, [isOpen, currentBio, currentWebsite, currentTwitter, currentLinkedin]);
+
+  useEffect(() => {
+    if (!isOpen || !user) return;
+
+    let cancelled = false;
+
+    const fetchStartup = async () => {
+      setStartupLoading(true);
+      try {
+        const { data, error: startupError } = await supabase
+          .from('companies')
+          .select('id, name, tagline, website, stage')
+          .eq('founder_id', user.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        if (startupError) throw startupError;
+        if (cancelled) return;
+
+        const startup = data?.[0];
+        if (!startup) return;
+
+        const snapshot = {
+          id: startup.id,
+          name: startup.name || '',
+          tagline: startup.tagline || '',
+          website: startup.website || '',
+          stage: startup.stage || 'Idea',
+        };
+
+        setStartupId(snapshot.id);
+        setStartupName(snapshot.name);
+        setStartupPitch(snapshot.tagline);
+        setStartupWebsite(snapshot.website);
+        setStartupStage(snapshot.stage);
+        setInitialStartup(snapshot);
+      } catch (err) {
+        console.error('Error loading startup profile:', err);
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load startup profile');
+      } finally {
+        if (!cancelled) setStartupLoading(false);
+      }
+    };
+
+    fetchStartup();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, user, supabase]);
 
   if (!user) return null;
 
@@ -79,6 +161,66 @@ export function ProfileEditModal({
 
       if (profileError) throw profileError;
 
+      const cleanStartupName = startupName.trim();
+      const cleanStartupPitch = startupPitch.trim();
+      const cleanStartupWebsite = startupWebsite.trim();
+      const shouldSaveStartup = cleanStartupName || cleanStartupPitch || cleanStartupWebsite;
+
+      if (shouldSaveStartup) {
+        if (!cleanStartupName) {
+          throw new Error('Startup name is required when saving startup details');
+        }
+        if (!cleanStartupPitch || cleanStartupPitch.length < 10) {
+          throw new Error('One-line pitch must be at least 10 characters');
+        }
+
+        const startupPayload = {
+          founder_id: user.id,
+          name: cleanStartupName,
+          tagline: cleanStartupPitch,
+          description: cleanStartupPitch,
+          website: cleanStartupWebsite || null,
+          industry: 'General',
+          stage: startupStage,
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        };
+
+        const startupResult = startupId
+          ? await supabase
+              .from('companies')
+              .update(startupPayload)
+              .eq('id', startupId)
+              .eq('founder_id', user.id)
+              .select('id')
+              .single()
+          : await supabase
+              .from('companies')
+              .insert({
+                ...startupPayload,
+                created_at: new Date().toISOString(),
+              })
+              .select('id')
+              .single();
+
+        if (startupResult.error) throw startupResult.error;
+        if (startupResult.data?.id) setStartupId(startupResult.data.id);
+
+        window.localStorage.setItem(
+          LAST_PITCH_DETAILS_KEY,
+          JSON.stringify({
+            hook: cleanStartupPitch,
+            description: [
+              `Startup: ${cleanStartupName}`,
+              'Feedback ask: Focus: Clarity, ICP, Closing ask',
+            ].join('\n'),
+            startupName: cleanStartupName,
+            oneLinePitch: cleanStartupPitch,
+            feedbackAsk: 'Focus: Clarity, ICP, Closing ask',
+          })
+        );
+      }
+
       setCompleted(true);
 
       // Delay closing to show success animation
@@ -96,7 +238,11 @@ export function ProfileEditModal({
     bio !== (currentBio || '') ||
     website !== (currentWebsite || '') ||
     twitter !== (currentTwitter || '') ||
-    linkedin !== (currentLinkedin || '');
+    linkedin !== (currentLinkedin || '') ||
+    startupName !== (initialStartup?.name || '') ||
+    startupPitch !== (initialStartup?.tagline || '') ||
+    startupWebsite !== (initialStartup?.website || '') ||
+    startupStage !== (initialStartup?.stage || 'Idea');
 
   return (
     <AnimatePresence>
@@ -118,10 +264,10 @@ export function ProfileEditModal({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-md"
+              className="relative w-full max-w-2xl"
             >
               {/* Glass morphism card */}
-              <div className="relative bg-gradient-to-br from-slate-900/90 to-slate-950/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl overflow-hidden">
+              <div className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto bg-gradient-to-br from-slate-900/90 to-slate-950/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl">
                 {/* Gradient accent */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neon-cyan via-neon-lime to-neon-cyan" />
 
@@ -143,7 +289,7 @@ export function ProfileEditModal({
                           Edit Profile
                         </h2>
                         <p className="text-slate-400 text-sm">
-                          Update your profile information
+                          Update founder and startup details
                         </p>
                       </div>
 
@@ -162,7 +308,105 @@ export function ProfileEditModal({
                       </AnimatePresence>
 
                       {/* Form */}
-                      <div className="space-y-4 mb-6">
+                      <div className="space-y-6 mb-6">
+                        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+                          <div className="mb-4 flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan">
+                              <Building2 className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h3 className="font-heading text-lg font-black text-white">Startup profile</h3>
+                              <p className="text-sm text-slate-500">Used to prefill every pitch upload.</p>
+                            </div>
+                          </div>
+
+                          {startupLoading ? (
+                            <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-slate-800/40 p-5 text-slate-400">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Loading startup...
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-slate-300">
+                                  Startup name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={startupName}
+                                  onChange={(e) => {
+                                    setStartupName(e.target.value);
+                                    if (error) setError(null);
+                                  }}
+                                  placeholder="ReachCopilot"
+                                  maxLength={120}
+                                  className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-4 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20"
+                                  disabled={loading}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="mb-2 block text-sm font-medium text-slate-300">
+                                  One-line pitch
+                                </label>
+                                <textarea
+                                  value={startupPitch}
+                                  onChange={(e) => {
+                                    setStartupPitch(e.target.value);
+                                    if (error) setError(null);
+                                  }}
+                                  placeholder="For [customer], we help [painful problem] so they can [outcome]."
+                                  maxLength={280}
+                                  rows={3}
+                                  className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-4 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20"
+                                  disabled={loading}
+                                />
+                                <p className="mt-1 text-xs text-slate-500">{startupPitch.length}/280 characters</p>
+                              </div>
+
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                                    Startup website <span className="text-xs font-normal text-slate-500">(optional)</span>
+                                  </label>
+                                  <input
+                                    type="url"
+                                    value={startupWebsite}
+                                    onChange={(e) => setStartupWebsite(e.target.value)}
+                                    placeholder="https://company.com"
+                                    className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-4 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20"
+                                    disabled={loading}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                                    Stage
+                                  </label>
+                                  <select
+                                    value={startupStage}
+                                    onChange={(e) => setStartupStage(e.target.value)}
+                                    className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-4 text-base text-white transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20"
+                                    disabled={loading}
+                                  >
+                                    {startupStageOptions.map((stage) => (
+                                      <option key={stage} value={stage}>
+                                        {stage}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </section>
+
+                        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                          <div className="mb-4">
+                            <h3 className="font-heading text-lg font-black text-white">Founder profile</h3>
+                            <p className="text-sm text-slate-500">About you, not the startup.</p>
+                          </div>
+
                         {/* Bio */}
                         <div>
                           <label className="text-sm font-medium text-slate-300 mb-2 block">
@@ -188,7 +432,7 @@ export function ProfileEditModal({
                         {/* Website */}
                         <div>
                           <label className="text-sm font-medium text-slate-300 mb-2 block">
-                            Website{' '}
+                            Personal website{' '}
                             <span className="text-xs text-slate-500 font-normal">(optional)</span>
                           </label>
                           <input
@@ -204,7 +448,7 @@ export function ProfileEditModal({
                         {/* Twitter */}
                         <div>
                           <label className="text-sm font-medium text-slate-300 mb-2 block">
-                            Twitter Handle{' '}
+                            X / Twitter Handle{' '}
                             <span className="text-xs text-slate-500 font-normal">(optional)</span>
                           </label>
                           <input
@@ -235,6 +479,7 @@ export function ProfileEditModal({
                             disabled={loading}
                           />
                         </div>
+                        </section>
                       </div>
 
                       {/* Buttons */}
