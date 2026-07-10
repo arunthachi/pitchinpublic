@@ -40,6 +40,14 @@ interface UploadedVideoMetadata {
   status: 'processing' | 'ready' | 'error';
 }
 
+interface SavedPitchDetails {
+  hook?: string;
+  description?: string;
+  startupName?: string;
+  oneLinePitch?: string;
+  feedbackAsk?: string;
+}
+
 export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePrompt, practiceGoalId }: RecordingStudioProps) {
   const [mode, setMode] = useState<Mode>('choose');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -56,6 +64,7 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
   const [videoId, setVideoId] = useState<string | null>(null);
   const [videoProvider, setVideoProvider] = useState<string | null>(null);
   const [uploadedVideo, setUploadedVideo] = useState<UploadedVideoMetadata | null>(null);
+  const [savedPitchDetails, setSavedPitchDetails] = useState<SavedPitchDetails | null>(null);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -92,8 +101,10 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
       const saved = window.localStorage.getItem(LAST_PITCH_DETAILS_KEY);
       if (!saved) return;
 
-      const parsed = JSON.parse(saved) as { hook?: string; description?: string };
-      if (!pitchHookRef.current && parsed.hook) setPitchHook(parsed.hook);
+      const parsed = JSON.parse(saved) as SavedPitchDetails;
+      setSavedPitchDetails(parsed);
+      const savedHook = parsed.oneLinePitch || parsed.hook;
+      if (!pitchHookRef.current && savedHook) setPitchHook(savedHook);
       if (!pitchDescriptionRef.current && parsed.description) setPitchDescription(parsed.description);
     } catch {
       window.localStorage.removeItem(LAST_PITCH_DETAILS_KEY);
@@ -465,10 +476,15 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
     setPitchHook(data.hook);
     setPitchDescription(data.description);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(
-        LAST_PITCH_DETAILS_KEY,
-        JSON.stringify({ hook: data.hook, description: data.description })
-      );
+      const nextSavedDetails = {
+        hook: data.hook,
+        description: data.description,
+        startupName: data.startupName,
+        oneLinePitch: data.oneLinePitch,
+        feedbackAsk: data.feedbackAsk,
+      };
+      setSavedPitchDetails(nextSavedDetails);
+      window.localStorage.setItem(LAST_PITCH_DETAILS_KEY, JSON.stringify(nextSavedDetails));
     }
 
     try {
@@ -666,6 +682,8 @@ export function RecordingStudio({ isOpen, onClose, onPitchCreated, practicePromp
                   practicePrompt={practicePrompt}
                   initialHook={pitchHook}
                   initialDescription={pitchDescription}
+                  initialStartupName={savedPitchDetails?.startupName || ''}
+                  initialFeedbackAsk={savedPitchDetails?.feedbackAsk || ''}
                 />
               )}
 
