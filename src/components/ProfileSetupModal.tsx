@@ -129,32 +129,32 @@ export function ProfileSetupModal({ isOpen, user, onComplete }: ProfileSetupModa
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-[111] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[111] flex items-start justify-center overflow-y-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-md"
+              className="relative my-auto w-full max-w-md"
             >
               {/* Glass morphism card */}
-              <div className="relative bg-gradient-to-br from-slate-900/90 to-slate-950/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl overflow-hidden">
+              <div className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-900/95 to-slate-950/95 shadow-2xl backdrop-blur-xl sm:max-h-[calc(100dvh-3rem)]">
                 {/* Gradient accent */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neon-cyan via-neon-lime to-neon-cyan" />
 
                 {/* Content */}
-                <div className="p-8 pt-12">
+                <div className="p-5 pt-8 sm:p-8 sm:pt-10">
                   {!completed ? (
                     <>
                       {/* Header */}
-                      <div className="text-center mb-8">
+                      <div className="text-center mb-6">
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-                          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-cyan to-neon-lime mb-6 shadow-lg shadow-neon-cyan/25"
+                          className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-cyan to-neon-lime shadow-lg shadow-neon-cyan/25 sm:h-16 sm:w-16"
                         >
-                          <Sparkles className="w-9 h-9 text-slate-900" />
+                          <Sparkles className="h-8 w-8 text-slate-900 sm:h-9 sm:w-9" />
                         </motion.div>
                         <h2 className="text-2xl font-bold text-white font-heading mb-3">
                           Complete Your Profile

@@ -258,38 +258,38 @@ export function ProfileEditModal({
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-[111] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[111] flex items-start justify-center overflow-y-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-2xl"
+              className="relative my-auto w-full max-w-2xl"
             >
               {/* Glass morphism card */}
-              <div className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto bg-gradient-to-br from-slate-900/90 to-slate-950/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl">
+              <div className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-900/95 to-slate-950/95 shadow-2xl backdrop-blur-xl [scrollbar-width:thin] sm:max-h-[calc(100dvh-3rem)]">
                 {/* Gradient accent */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neon-cyan via-neon-lime to-neon-cyan" />
 
                 {/* Content */}
-                <div className="p-8 pt-12">
+                <div className="p-5 pt-8 sm:p-7 sm:pt-10">
                   {!completed ? (
                     <>
                       {/* Header */}
-                      <div className="text-center mb-8">
+                      <div className="text-center mb-6">
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-                          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-neon-cyan to-neon-lime mb-6 shadow-lg shadow-neon-cyan/25"
+                          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-neon-cyan to-neon-lime shadow-lg shadow-neon-cyan/25 sm:h-14 sm:w-14"
                         >
-                          <Edit3 className="w-9 h-9 text-slate-900" />
+                          <Edit3 className="h-7 w-7 text-slate-900 sm:h-8 sm:w-8" />
                         </motion.div>
-                        <h2 className="text-2xl font-bold text-white font-heading mb-3">
+                        <h2 className="mt-4 font-heading text-2xl font-bold text-white sm:text-3xl">
                           Edit Profile
                         </h2>
-                        <p className="text-slate-400 text-sm">
-                          Update founder and startup details
+                        <p className="mt-2 text-sm text-slate-400">
+                          Update founder details and your primary startup
                         </p>
                       </div>
 
@@ -308,15 +308,15 @@ export function ProfileEditModal({
                       </AnimatePresence>
 
                       {/* Form */}
-                      <div className="space-y-6 mb-6">
+                      <div className="space-y-4 mb-5">
                         <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-                          <div className="mb-4 flex items-center gap-3">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan">
+                          <div className="mb-4 flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan">
                               <Building2 className="h-5 w-5" />
                             </div>
                             <div>
-                              <h3 className="font-heading text-lg font-black text-white">Startup profile</h3>
-                              <p className="text-sm text-slate-500">Used to prefill every pitch upload.</p>
+                              <h3 className="font-heading text-lg font-black text-white">Primary startup</h3>
+                              <p className="text-sm leading-5 text-slate-500">MVP supports one startup. This pre-fills every pitch upload.</p>
                             </div>
                           </div>
 
@@ -340,7 +340,7 @@ export function ProfileEditModal({
                                   }}
                                   placeholder="ReachCopilot"
                                   maxLength={120}
-                                  className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-4 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20"
+                                  className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                                   disabled={loading}
                                 />
                               </div>
@@ -358,7 +358,7 @@ export function ProfileEditModal({
                                   placeholder="For [customer], we help [painful problem] so they can [outcome]."
                                   maxLength={280}
                                   rows={3}
-                                  className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-4 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20"
+                                  className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                                   disabled={loading}
                                 />
                                 <p className="mt-1 text-xs text-slate-500">{startupPitch.length}/280 characters</p>
@@ -374,7 +374,7 @@ export function ProfileEditModal({
                                     value={startupWebsite}
                                     onChange={(e) => setStartupWebsite(e.target.value)}
                                     placeholder="https://company.com"
-                                    className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-4 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20"
+                                    className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                                     disabled={loading}
                                   />
                                 </div>
@@ -386,7 +386,7 @@ export function ProfileEditModal({
                                   <select
                                     value={startupStage}
                                     onChange={(e) => setStartupStage(e.target.value)}
-                                    className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-4 text-base text-white transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20"
+                                    className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                                     disabled={loading}
                                   >
                                     {startupStageOptions.map((stage) => (
@@ -421,7 +421,7 @@ export function ProfileEditModal({
                             placeholder="Tell us about yourself"
                             maxLength={160}
                             rows={3}
-                            className="w-full px-6 py-4 bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-500 rounded-2xl focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20 transition-all text-base resize-none"
+                            className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                             disabled={loading}
                           />
                           <p className="text-xs text-slate-500 mt-1">
@@ -440,7 +440,7 @@ export function ProfileEditModal({
                             value={website}
                             onChange={(e) => setWebsite(e.target.value)}
                             placeholder="https://example.com"
-                            className="w-full px-6 py-4 bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-500 rounded-2xl focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20 transition-all text-base"
+                            className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                             disabled={loading}
                           />
                         </div>
@@ -456,7 +456,7 @@ export function ProfileEditModal({
                             value={twitter}
                             onChange={(e) => setTwitter(e.target.value)}
                             placeholder="@username"
-                            className="w-full px-6 py-4 bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-500 rounded-2xl focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20 transition-all text-base"
+                            className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                             disabled={loading}
                           />
                           <p className="text-xs text-slate-500 mt-1">
@@ -475,7 +475,7 @@ export function ProfileEditModal({
                             value={linkedin}
                             onChange={(e) => setLinkedin(e.target.value)}
                             placeholder="https://linkedin.com/in/username"
-                            className="w-full px-6 py-4 bg-slate-800/50 border border-slate-700 text-white placeholder:text-slate-500 rounded-2xl focus:outline-none focus:border-neon-cyan focus:ring-2 focus:ring-neon-cyan/20 transition-all text-base"
+                            className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
                             disabled={loading}
                           />
                         </div>
@@ -489,7 +489,7 @@ export function ProfileEditModal({
                           whileTap={{ scale: 0.98 }}
                           onClick={handleSave}
                           disabled={loading || !hasChanges}
-                          className="w-full group relative overflow-hidden px-6 py-4 bg-gradient-to-r from-neon-cyan to-neon-lime text-slate-900 font-bold rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-neon-cyan/25 hover:shadow-xl hover:shadow-neon-cyan/40"
+                          className="w-full group relative overflow-hidden rounded-2xl bg-gradient-to-r from-neon-cyan to-neon-lime px-6 py-3.5 font-bold text-slate-900 shadow-lg shadow-neon-cyan/25 transition-all hover:shadow-xl hover:shadow-neon-cyan/40 disabled:cursor-not-allowed disabled:opacity-50 sm:py-4"
                         >
                           <div className="flex items-center justify-center gap-2">
                             {loading ? (
