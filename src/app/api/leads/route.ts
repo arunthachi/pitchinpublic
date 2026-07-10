@@ -109,7 +109,6 @@ export async function POST(request: NextRequest) {
       console.error('Lead capture email is not configured. Missing RESEND_API_KEY.', lead);
       if (leadStored) {
         await updateLeadNotificationStatus(supabase, leadRequestId, 'not_configured');
-        return NextResponse.json({ ok: true, notification: 'not_configured' });
       }
       return NextResponse.json({ error: 'We could not send this request. Please email hello@pitchinpublic.io.' }, { status: 503 });
     }
@@ -167,7 +166,6 @@ export async function POST(request: NextRequest) {
       console.error('Lead capture email failed:', errorText);
       if (leadStored) {
         await updateLeadNotificationStatus(supabase, leadRequestId, 'failed', errorText);
-        return NextResponse.json({ ok: true, notification: 'failed' });
       }
       return NextResponse.json({ error: 'We could not send this request. Please email hello@pitchinpublic.io.' }, { status: 502 });
     }
