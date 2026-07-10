@@ -102,9 +102,12 @@ export function LeadCaptureModal({
         }),
       });
 
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        notification?: 'sent' | 'failed' | 'not_configured';
+      };
 
-      if (!response.ok) {
+      if (!response.ok || payload.notification === 'failed' || payload.notification === 'not_configured') {
         throw new Error(payload.error || 'Something went wrong. Please email hello@pitchinpublic.io.');
       }
 
