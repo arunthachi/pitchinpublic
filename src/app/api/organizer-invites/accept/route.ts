@@ -1,44 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { createRequestSupabase, createServiceSupabase, normalizeEmail } from '@/lib/admin';
 
 const acceptInviteSchema = z.object({
   code: z.string().trim().min(6).max(96),
 });
-
-function createSupabase(request: NextRequest) {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set() {},
-        remove() {},
-      },
-    }
-  );
-}
-
-function createServiceClient() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return null;
-  }
-
-  return createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
-
-function normalizeEmail(email?: string | null) {
-  return (email || '').trim().toLowerCase();
-}
 
 export async function POST(request: NextRequest) {
   const validation = acceptInviteSchema.safeParse(await request.json().catch(() => ({})));
@@ -47,7 +13,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Enter a valid organizer invite code.' }, { status: 400 });
   }
 
-  const supabase = createSupabase(request);
+  const supabase = createRequestSupabase(request);
   const {
     data: { user },
     error: authError,
@@ -57,7 +23,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Sign in before accepting your organizer invite.' }, { status: 401 });
   }
 
-  const adminSupabase = createServiceClient();
+  const adminSupabase = createServiceSupabase();
 
   if (!adminSupabase) {
     return NextResponse.json(
