@@ -114,7 +114,7 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/admin/overview', { cache: 'no-store' });
+      const response = await fetch('/api/pip-super-admin/overview', { cache: 'no-store' });
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -141,7 +141,7 @@ export default function AdminPage() {
     setLastInviteUrl('');
 
     try {
-      const response = await fetch('/api/admin/organizer-invites', {
+      const response = await fetch('/api/pip-super-admin/organizer-invites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -177,7 +177,7 @@ export default function AdminPage() {
     setLastInviteUrl('');
 
     try {
-      const response = await fetch(`/api/admin/organizer-invites/${inviteId}/send`, {
+      const response = await fetch(`/api/pip-super-admin/organizer-invites/${inviteId}/send`, {
         method: 'POST',
       });
       const data = await response.json();
