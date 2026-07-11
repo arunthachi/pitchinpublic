@@ -23,9 +23,28 @@ function createSupabase(request: NextRequest) {
   );
 }
 
+function createAdminSupabase(request: NextRequest) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return createSupabase(request);
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value;
+        },
+        set() {},
+        remove() {},
+      },
+    }
+  );
+}
+
 export async function POST(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
   const supabase = createSupabase(request);
+  const adminSupabase = createAdminSupabase(request);
 
   const {
     data: { user },
@@ -57,7 +76,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   let invitation = null;
 
   if (providedInviteCode) {
-    const { data: inviteRow } = await supabase
+    const { data: inviteRow } = await adminSupabase
       .from('pitch_event_invitations')
       .select('*')
       .eq('event_id', event.id)
@@ -96,7 +115,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   }
 
   if (invitation) {
-    await supabase
+    await adminSupabase
       .from('pitch_event_invitations')
       .update({
         status: 'accepted',
