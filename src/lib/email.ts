@@ -7,6 +7,20 @@ export function escapeHtml(value: string) {
     .replace(/'/g, '&#039;');
 }
 
+function normalizeEmailFrom(value?: string) {
+  const fallback = 'Pitch in Public <onboarding@resend.dev>';
+  const trimmed = (value || fallback).trim();
+
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+
+  return trimmed;
+}
+
 export async function sendEmail({
   to,
   replyTo,
@@ -33,7 +47,7 @@ export async function sendEmail({
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: process.env.LEAD_EMAIL_FROM || 'Pitch in Public <onboarding@resend.dev>',
+      from: normalizeEmailFrom(process.env.LEAD_EMAIL_FROM),
       to,
       reply_to: replyTo,
       subject,
