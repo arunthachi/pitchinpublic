@@ -138,7 +138,7 @@ export default function NewEventPage() {
               <ArrowLeft className="h-4 w-4" />
               Back to practice
             </Link>
-            <p className="font-heading text-sm font-bold uppercase tracking-[0.2em] text-neon-cyan">Organizer access</p>
+            <p className="font-heading text-sm font-bold uppercase tracking-[0.2em] text-neon-cyan">Organizer invite</p>
           </div>
         </header>
 
@@ -155,7 +155,7 @@ export default function NewEventPage() {
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-300">
               Founder accounts should focus on recording pitches, getting feedback, and picking a Best Take.
-              Organizer tools are enabled separately so the app stays simple for founders.
+              Organizer tools are invite-only so the app stays simple for founders and event rooms stay controlled.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href="/?alpha=1&preview=1" className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold">
@@ -163,7 +163,7 @@ export default function NewEventPage() {
               </Link>
               <LeadCaptureModal
                 type="organizer"
-                triggerLabel="Request organizer access"
+                triggerLabel="Request organizer invite"
                 source="events-new-gate"
                 triggerClassName="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
               />

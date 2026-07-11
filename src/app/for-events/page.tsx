@@ -106,7 +106,7 @@ export default function ForEventsPage() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <LeadCaptureModal
                   type="organizer"
-                  triggerLabel="Request organizer access"
+                  triggerLabel="Request organizer invite"
                   source="organizers-hero"
                   triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
                 />
@@ -257,7 +257,7 @@ export default function ForEventsPage() {
           <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-6 rounded-xl border border-neon-cyan/20 bg-neon-cyan/10 p-6 sm:p-8 lg:flex-row lg:items-center">
             <div>
               <p className="font-heading text-sm font-bold uppercase tracking-[0.18em] text-neon-cyan">
-                Organizer access
+                Organizer invite
               </p>
               <h2 className="mt-3 font-heading text-3xl font-bold">
                 Bring Pitch in Public to your next founder room.
@@ -269,7 +269,7 @@ export default function ForEventsPage() {
             </div>
             <LeadCaptureModal
               type="organizer"
-              triggerLabel="Request organizer access"
+              triggerLabel="Request organizer invite"
               source="organizers-bottom"
               triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
             />
