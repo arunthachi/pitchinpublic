@@ -89,5 +89,30 @@ export async function POST(request: NextRequest) {
     emailError = emailResult.ok ? null : emailResult.error;
   }
 
-  return NextResponse.json({ success: true, invitation, inviteUrl, emailStatus, emailError }, { status: 201 });
+  const emailSentAt = emailStatus === 'sent' ? new Date().toISOString() : null;
+  const { data: updatedInvitation, error: updateError } = await admin.adminSupabase
+    .from('organizer_invitations')
+    .update({
+      email_status: emailStatus,
+      email_error: emailError,
+      email_sent_at: emailSentAt,
+    })
+    .eq('id', invitation.id)
+    .select('*')
+    .single();
+
+  if (updateError) {
+    console.error('Organizer invitation email status update failed:', updateError);
+  }
+
+  return NextResponse.json(
+    {
+      success: true,
+      invitation: updatedInvitation || invitation,
+      inviteUrl,
+      emailStatus,
+      emailError,
+    },
+    { status: 201 }
+  );
 }

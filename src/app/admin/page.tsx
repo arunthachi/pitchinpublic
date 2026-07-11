@@ -32,6 +32,9 @@ type AdminOverview = {
     website: string | null;
     invite_code: string;
     status: string;
+    email_status?: string | null;
+    email_error?: string | null;
+    email_sent_at?: string | null;
     created_at: string;
     expires_at: string | null;
     accepted_at: string | null;
@@ -61,6 +64,31 @@ function EmptyState({ text }: { text: string }) {
   return <p className="rounded-2xl border border-white/10 bg-black/20 px-4 py-5 text-sm text-slate-400">{text}</p>;
 }
 
+function formatEmailStatus(status?: string | null) {
+  switch (status) {
+    case 'sent':
+      return 'Email sent';
+    case 'failed':
+      return 'Email failed';
+    case 'not_configured':
+      return 'Email not configured';
+    case 'skipped':
+      return 'Email skipped';
+    case 'unknown':
+    case null:
+    case undefined:
+      return 'Email status unknown';
+    default:
+      return status.replaceAll('_', ' ');
+  }
+}
+
+function emailStatusClass(status?: string | null) {
+  if (status === 'sent') return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200';
+  if (status === 'failed' || status === 'not_configured') return 'border-red-400/30 bg-red-500/10 text-red-200';
+  return 'border-white/10 bg-white/8 text-slate-300';
+}
+
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const [showSignIn, setShowSignIn] = useState(false);
@@ -70,6 +98,7 @@ export default function AdminPage() {
   const [inviteState, setInviteState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [inviteMessage, setInviteMessage] = useState('');
   const [lastInviteUrl, setLastInviteUrl] = useState('');
+  const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
   const [form, setForm] = useState({
     email: '',
     organizationName: '',
@@ -130,13 +159,48 @@ export default function AdminPage() {
           ? 'Invite created and emailed.'
           : data.emailStatus === 'skipped'
             ? 'Invite created. Copy the link below.'
-            : 'Invite created, but email was not sent. Copy the link below.'
+            : data.emailStatus === 'not_configured'
+              ? 'Invite created, but email is not configured in this environment. Copy the link below.'
+              : `Invite created, but email was not sent. ${data.emailError ? `Provider said: ${data.emailError}` : 'Copy the link below.'}`
       );
       setForm({ email: '', organizationName: '', website: '', expiresInDays: 30, sendEmail: true });
       await loadOverview();
     } catch (err) {
       setInviteState('error');
       setInviteMessage(err instanceof Error ? err.message : 'Could not create organizer invite.');
+    }
+  };
+
+  const resendInvite = async (inviteId: string) => {
+    setSendingInviteId(inviteId);
+    setInviteMessage('');
+    setLastInviteUrl('');
+
+    try {
+      const response = await fetch(`/api/admin/organizer-invites/${inviteId}/send`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Could not send organizer invite email.');
+      }
+
+      setInviteState(data.emailStatus === 'sent' ? 'success' : 'error');
+      setLastInviteUrl(data.inviteUrl || '');
+      setInviteMessage(
+        data.emailStatus === 'sent'
+          ? 'Organizer invite email sent.'
+          : data.emailStatus === 'not_configured'
+            ? 'Email is not configured in this environment. Copy the invite link below.'
+            : `Email was not sent. ${data.emailError ? `Provider said: ${data.emailError}` : 'Copy the invite link below.'}`
+      );
+      await loadOverview();
+    } catch (err) {
+      setInviteState('error');
+      setInviteMessage(err instanceof Error ? err.message : 'Could not send organizer invite email.');
+    } finally {
+      setSendingInviteId(null);
     }
   };
 
@@ -291,12 +355,36 @@ export default function AdminPage() {
                       {invite.status}
                     </span>
                   </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${emailStatusClass(invite.email_status)}`}>
+                      {formatEmailStatus(invite.email_status)}
+                    </span>
+                    {invite.email_sent_at ? (
+                      <span className="text-xs text-slate-500">Sent {formatDate(invite.email_sent_at)}</span>
+                    ) : null}
+                  </div>
+                  {invite.email_error ? (
+                    <p className="mt-2 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                      {invite.email_error}
+                    </p>
+                  ) : null}
                   <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2 font-mono text-xs text-slate-400">
                     <span className="truncate">{invite.invite_code}</span>
                     <button onClick={() => navigator.clipboard.writeText(`${window.location.origin}/organizer/invite?code=${invite.invite_code}`)} aria-label="Copy invite link">
                       <Copy className="h-4 w-4 text-neon-cyan" />
                     </button>
                   </div>
+                  {invite.status === 'pending' ? (
+                    <button
+                      type="button"
+                      disabled={sendingInviteId === invite.id}
+                      onClick={() => resendInvite(invite.id)}
+                      className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {sendingInviteId === invite.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4 text-neon-cyan" />}
+                      {invite.email_status === 'sent' ? 'Resend email' : 'Send email'}
+                    </button>
+                  ) : null}
                   <p className="mt-2 text-xs text-slate-500">Created {formatDate(invite.created_at)} · Expires {formatDate(invite.expires_at)}</p>
                 </div>
               )) : <EmptyState text="No organizer invites yet." />}

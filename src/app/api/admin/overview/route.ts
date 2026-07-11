@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       .limit(30),
     supabase
       .from('organizer_invitations')
-      .select('id,email,organization_name,website,invite_code,status,created_at,expires_at,accepted_at,accepted_by')
+      .select('id,email,organization_name,website,invite_code,status,email_status,email_error,email_sent_at,created_at,expires_at,accepted_at,accepted_by')
       .order('created_at', { ascending: false })
       .limit(30),
     supabase
