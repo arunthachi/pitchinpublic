@@ -10,9 +10,10 @@ export function escapeHtml(value: string) {
 }
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const VERIFIED_SENDER = 'Pitch in Public <hello@mail.pitchinpublic.io>';
 
 export function normalizeEmailFrom(value?: string) {
-  const fallback = 'Pitch in Public <onboarding@resend.dev>';
+  const fallback = VERIFIED_SENDER;
   const trimmed = (value || fallback).trim();
 
   const unquoted = (
@@ -73,7 +74,7 @@ export async function sendEmail({
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: normalizeEmailFrom(process.env.LEAD_EMAIL_FROM),
+      from: VERIFIED_SENDER,
       to,
       reply_to: replyTo,
       subject,
