@@ -20,6 +20,21 @@ const focusOptions = [
   'Competition prep',
 ];
 
+const visibilityOptions = {
+  unlisted: {
+    label: 'Invite link',
+    helper: 'Best for pilots. Anyone with the event link can request or join the room.',
+  },
+  private: {
+    label: 'Invite code required',
+    helper: 'Founders need the event link and the access code before they can join.',
+  },
+  public: {
+    label: 'Public listing',
+    helper: 'Useful later for public programs. The room can appear in public event discovery.',
+  },
+} as const;
+
 function openNativeDatePicker(input: HTMLInputElement) {
   try {
     (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
@@ -43,12 +58,12 @@ function NewEventContent() {
     eventDate: '',
     submissionDeadline: '',
     pitchLengthSeconds: 60,
-    focus: focusOptions[0],
-    visibility: 'unlisted',
+    focus: [focusOptions[0]],
+    visibility: 'unlisted' as keyof typeof visibilityOptions,
     accessCode: '',
   });
   const [customFocus, setCustomFocus] = useState('');
-  const isCustomFocus = form.focus === 'custom';
+  const [showCustomFocus, setShowCustomFocus] = useState(false);
   const organizerAccepted = searchParams.get('organizer') === 'accepted';
 
   useEffect(() => {
@@ -130,13 +145,19 @@ function NewEventContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          focus: isCustomFocus ? customFocus.trim() : form.focus,
+          focus: [...form.focus, showCustomFocus ? customFocus.trim() : '']
+            .map((item) => item.trim())
+            .filter(Boolean)
+            .join(', '),
         }),
       });
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Could not create pitch event.');
+        const firstIssue = data.issues
+          ? (Object.values(data.issues).flat().find((issue) => typeof issue === 'string') as string | undefined)
+          : null;
+        throw new Error(firstIssue || data.error || 'Could not create pitch event.');
       }
 
       router.push(`/events/${data.event.slug}/dashboard`);
@@ -345,28 +366,48 @@ function NewEventContent() {
                   <option value={90}>1.5 minutes</option>
                   <option value={120}>2 minutes</option>
                   <option value={180}>3 minutes</option>
+                  <option value={300}>5 minutes</option>
+                  <option value={360}>6 minutes</option>
                 </select>
               </Field>
-              <Field label="Visibility">
-                <select value={form.visibility} onChange={(e) => setForm({ ...form, visibility: e.target.value })} className="input-dark">
-                  <option value="unlisted">Unlisted invite link</option>
-                  <option value="public">Public</option>
+              <Field label="Founder access">
+                <select
+                  value={form.visibility}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      visibility: e.target.value as keyof typeof visibilityOptions,
+                    })
+                  }
+                  className="input-dark"
+                >
+                  {Object.entries(visibilityOptions).map(([value, option]) => (
+                    <option key={value} value={value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
+                <p className="mt-2 text-xs leading-5 text-slate-400">{visibilityOptions[form.visibility].helper}</p>
               </Field>
             </div>
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="block text-sm font-bold text-slate-300">Practice focus</span>
-                <span className="text-xs font-semibold text-slate-500">Pick one</span>
+                <span className="text-xs font-semibold text-slate-500">Pick one or more</span>
               </div>
               <div className="glass-card flex flex-wrap gap-2 rounded-3xl p-3">
                 {focusOptions.map((option) => {
-                  const selected = form.focus === option;
+                  const selected = form.focus.includes(option);
                   return (
                     <button
                       key={option}
                       type="button"
-                      onClick={() => setForm({ ...form, focus: option })}
+                      onClick={() => {
+                        const nextFocus = selected
+                          ? form.focus.filter((item) => item !== option)
+                          : [...form.focus, option];
+                        setForm({ ...form, focus: nextFocus.length > 0 ? nextFocus : [option] });
+                      }}
                       className={`rounded-full border px-3.5 py-2 text-sm font-bold transition ${
                         selected
                           ? 'border-neon-cyan bg-neon-cyan text-slate-950 shadow-lg shadow-neon-cyan/15'
@@ -379,9 +420,9 @@ function NewEventContent() {
                 })}
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, focus: 'custom' })}
+                  onClick={() => setShowCustomFocus((value) => !value)}
                   className={`rounded-full border px-3.5 py-2 text-sm font-bold transition ${
-                    isCustomFocus
+                    showCustomFocus
                       ? 'border-neon-lime bg-neon-lime text-slate-950 shadow-lg shadow-neon-lime/15'
                       : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-neon-lime/45 hover:text-white'
                   }`}
@@ -389,7 +430,7 @@ function NewEventContent() {
                   Custom
                 </button>
               </div>
-              {isCustomFocus && (
+              {showCustomFocus && (
                 <input
                   value={customFocus}
                   onChange={(e) => setCustomFocus(e.target.value)}
