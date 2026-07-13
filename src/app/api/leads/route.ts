@@ -36,7 +36,18 @@ function normalizeEmailFrom(value?: string) {
     : trimmed;
 
   if (!unquoted.includes('@')) return fallback;
-  if (unquoted.includes('<') && unquoted.includes('>')) return unquoted;
+  if (unquoted.includes('<') && unquoted.includes('>')) {
+    const email = unquoted.match(EMAIL_PATTERN)?.[0];
+    if (!email) return fallback;
+
+    const displayName = unquoted
+      .slice(0, unquoted.indexOf('<'))
+      .trim()
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ');
+
+    return displayName ? `${displayName} <${email}>` : email;
+  }
   if (!/\s/.test(unquoted)) return unquoted;
 
   const email = unquoted.match(EMAIL_PATTERN)?.[0];
