@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       .split(',')
       .map((email) => email.trim())
       .filter(Boolean);
-    const from = normalizeEmailFrom(process.env.LEAD_EMAIL_FROM);
+    const from = 'Pitch in Public <hello@mail.pitchinpublic.io>';
     const resendApiKey = process.env.RESEND_API_KEY;
 
     if (!resendApiKey) {
