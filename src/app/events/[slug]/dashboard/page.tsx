@@ -21,6 +21,7 @@ import {
   Video,
 } from 'lucide-react';
 import { formatPitchLength } from '@/lib/duration';
+import { readableEmailError } from '@/lib/email-errors';
 import { announcementEmailStatusLabel, announcementEmailStatusTone } from '@/lib/event-announcements';
 import { getPracticePrompt } from '@/lib/practice';
 
@@ -555,7 +556,7 @@ function AnnouncementList({ announcements }: { announcements: any[] }) {
               <p className="mt-2 leading-6 text-slate-300">{announcement.body}</p>
               {announcement.email_error ? (
                 <p className="mt-2 rounded-xl border border-roast/20 bg-roast/10 px-3 py-2 text-xs leading-5 text-roast">
-                  {announcement.email_error}
+                  {readableEmailError(announcement.email_error)}
                 </p>
               ) : null}
               <p className="mt-3 text-xs text-slate-500">

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { normalizeEmailFrom } from '@/lib/email';
+import { readableEmailError } from '@/lib/email-errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
       .split(',')
       .map((email) => email.trim())
       .filter(Boolean);
-    const from = process.env.LEAD_EMAIL_FROM || 'Pitch in Public <onboarding@resend.dev>';
+    const from = normalizeEmailFrom(process.env.LEAD_EMAIL_FROM);
     const resendApiKey = process.env.RESEND_API_KEY;
 
     if (!resendApiKey) {
@@ -163,9 +165,10 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lead capture email failed:', errorText);
+      const readableError = readableEmailError(errorText);
+      console.error('Lead capture email failed:', readableError);
       if (leadStored) {
-        await updateLeadNotificationStatus(supabase, leadRequestId, 'failed', errorText);
+        await updateLeadNotificationStatus(supabase, leadRequestId, 'failed', readableError);
       }
       return NextResponse.json({ error: 'We could not send this request. Please email hello@pitchinpublic.io.' }, { status: 502 });
     }

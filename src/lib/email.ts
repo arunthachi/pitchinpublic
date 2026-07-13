@@ -1,3 +1,5 @@
+import { readableEmailError } from './email-errors';
+
 export function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -7,18 +9,33 @@ export function escapeHtml(value: string) {
     .replace(/'/g, '&#039;');
 }
 
-function normalizeEmailFrom(value?: string) {
+const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+
+export function normalizeEmailFrom(value?: string) {
   const fallback = 'Pitch in Public <onboarding@resend.dev>';
   const trimmed = (value || fallback).trim();
 
-  if (
+  const unquoted = (
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1).trim();
+  )
+    ? trimmed.slice(1, -1).trim()
+    : trimmed;
+
+  if (!unquoted.includes('@')) {
+    return fallback;
   }
 
-  return trimmed;
+  if (unquoted.includes('<') && unquoted.includes('>')) {
+    return unquoted;
+  }
+
+  if (!/\s/.test(unquoted)) {
+    return unquoted;
+  }
+
+  const email = unquoted.match(EMAIL_PATTERN)?.[0];
+  return email ? `Pitch in Public <${email}>` : fallback;
 }
 
 export async function sendEmail({
@@ -57,7 +74,8 @@ export async function sendEmail({
   });
 
   if (!response.ok) {
-    return { ok: false as const, status: 'failed' as const, error: await response.text() };
+    const error = await response.text();
+    return { ok: false as const, status: 'failed' as const, error: readableEmailError(error) };
   }
 
   return { ok: true as const, status: 'sent' as const };

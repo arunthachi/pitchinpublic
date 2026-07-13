@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { SignInModal } from '@/components/SignInModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { readableEmailError } from '@/lib/email-errors';
 
 type AdminOverview = {
   counts: {
@@ -161,7 +162,7 @@ export default function AdminPage() {
             ? 'Invite created. Copy the link below.'
             : data.emailStatus === 'not_configured'
               ? 'Invite created, but email is not configured in this environment. Copy the link below.'
-              : `Invite created, but email was not sent. ${data.emailError ? `Provider said: ${data.emailError}` : 'Copy the link below.'}`
+              : `Invite created, but email was not sent. ${data.emailError ? readableEmailError(data.emailError) : 'Copy the link below.'}`
       );
       setForm({ email: '', organizationName: '', website: '', expiresInDays: 30, sendEmail: true });
       await loadOverview();
@@ -193,7 +194,7 @@ export default function AdminPage() {
           ? 'Organizer invite email sent.'
           : data.emailStatus === 'not_configured'
             ? 'Email is not configured in this environment. Copy the invite link below.'
-            : `Email was not sent. ${data.emailError ? `Provider said: ${data.emailError}` : 'Copy the invite link below.'}`
+            : `Email was not sent. ${data.emailError ? readableEmailError(data.emailError) : 'Copy the invite link below.'}`
       );
       await loadOverview();
     } catch (err) {
@@ -365,7 +366,7 @@ export default function AdminPage() {
                   </div>
                   {invite.email_error ? (
                     <p className="mt-2 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100">
-                      {invite.email_error}
+                      {readableEmailError(invite.email_error)}
                     </p>
                   ) : null}
                   <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2 font-mono text-xs text-slate-400">
