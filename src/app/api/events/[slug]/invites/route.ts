@@ -28,6 +28,21 @@ function createInviteCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+
+  if (error && typeof error === 'object') {
+    const maybeError = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    const parts = [maybeError.message, maybeError.details, maybeError.hint]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
+
+    if (parts.length > 0) return parts.join(' ');
+    if (typeof maybeError.code === 'string') return `Database error ${maybeError.code}`;
+  }
+
+  return 'Could not create invite.';
+}
+
 async function getEventAndAccess(supabase: ReturnType<typeof createSupabase>, slug: string, userId: string) {
   const { data: event } = await supabase
     .from('pitch_events')
@@ -96,7 +111,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
   if (error) {
     console.error('Error creating event invitation:', error);
-    return NextResponse.json({ success: false, error: 'Could not create invite.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: getErrorMessage(error) }, { status: 500 });
   }
 
   const inviteUrl = `${request.nextUrl.origin}/events/${event.slug}?invite=${inviteCode}`;

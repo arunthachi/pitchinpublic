@@ -74,9 +74,11 @@ export default function EventDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [founderInviteEmail, setFounderInviteEmail] = useState('');
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'founder' });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
   const [actionMessage, setActionMessage] = useState('');
+  const [createdInviteLink, setCreatedInviteLink] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -107,6 +109,8 @@ export default function EventDashboardPage() {
   const announcements = useMemo(() => state?.announcements || [], [state?.announcements]);
   const founderRows = participants.filter((item: any) => item.role === 'founder');
   const teamRows = participants.filter((item: any) => TEAM_ROLES.includes(item.role));
+  const founderInvitations = invitations.filter((item: any) => item.role === 'founder');
+  const teamInvitations = invitations.filter((item: any) => item.role !== 'founder');
   const feedbackCount = submissions.reduce((sum: number, item: any) => sum + (item.pitch?.feedback?.length || 0), 0);
   const inviteUrl = typeof window !== 'undefined' && event ? `${window.location.origin}/events/${event.slug}` : '';
   const practicePrompt = useMemo(() => getPracticePrompt(event?.focus), [event?.focus]);
@@ -134,19 +138,43 @@ export default function EventDashboardPage() {
     event.preventDefault();
     setSaving(true);
     setActionMessage('');
+    setCreatedInviteLink('');
     const response = await fetch(`/api/events/${slug}/invites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(inviteForm),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
     setSaving(false);
-    if (!response.ok || !data.success) {
-      setActionMessage(data.error || 'Could not create invite.');
+    if (!response.ok || !data?.success) {
+      setActionMessage(data?.error || 'Could not create invite.');
       return;
     }
     setInviteForm({ email: '', role: inviteForm.role });
     setActionMessage('Invite created. Copy the link and send it to the right person.');
+    setCreatedInviteLink(data.inviteUrl || '');
+    load();
+  };
+
+  const createFounderInvite = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setActionMessage('');
+    setCreatedInviteLink('');
+    const response = await fetch(`/api/events/${slug}/invites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: founderInviteEmail, role: 'founder' }),
+    });
+    const data = await response.json().catch(() => null);
+    setSaving(false);
+    if (!response.ok || !data?.success) {
+      setActionMessage(data?.error || 'Could not create founder invite.');
+      return;
+    }
+    setFounderInviteEmail('');
+    setActionMessage('Founder invite created. Copy the link and send it to the founder.');
+    setCreatedInviteLink(data.inviteUrl || '');
     load();
   };
 
@@ -253,7 +281,24 @@ export default function EventDashboardPage() {
           </div>
         </div>
 
-        {actionMessage && <p className="mt-4 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm font-semibold text-slate-200">{actionMessage}</p>}
+        {actionMessage && (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm font-semibold text-slate-200">
+            <p>{actionMessage}</p>
+            {createdInviteLink ? (
+              <div className="mt-3 flex flex-col gap-2 rounded-xl bg-black/30 p-2 sm:flex-row sm:items-center">
+                <code className="min-w-0 flex-1 truncate text-xs text-slate-300">{createdInviteLink}</code>
+                <button
+                  type="button"
+                  onClick={() => copyText(createdInviteLink, 'created-invite')}
+                  className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-bold"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  {copied === 'created-invite' ? 'Copied' : 'Copy invite'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
 
         <section className="mt-5">
           {activeTab === 'overview' && (
@@ -284,14 +329,59 @@ export default function EventDashboardPage() {
           )}
 
           {activeTab === 'founders' && (
-            <Panel title="Founder roster" eyebrow="Participants">
-              <div className="grid gap-3 md:grid-cols-2">
-                {founderProgress.map((founder: any) => (
-                  <FounderRow key={founder.id} founder={founder} detailed />
-                ))}
-                {!founderProgress.length && <EmptyState text="No founders have joined this event yet." />}
-              </div>
-            </Panel>
+            <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+              <Panel title="Invite founders" eyebrow={state.canManageEvent ? 'Founder access' : 'Read only'}>
+                {state.canManageEvent ? (
+                  <form onSubmit={createFounderInvite} className="space-y-4">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-slate-300">Founder email</span>
+                      <input
+                        type="email"
+                        value={founderInviteEmail}
+                        onChange={(e) => setFounderInviteEmail(e.target.value)}
+                        className="input-dark"
+                        placeholder="founder@company.com"
+                        required
+                      />
+                    </label>
+                    <button
+                      disabled={saving}
+                      className="cta-primary inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold disabled:opacity-60"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Create founder invite
+                    </button>
+                    <p className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm leading-6 text-slate-300">
+                      This creates a tracked founder invite. Copy the link after creation and send it by email, SMS, Slack, or community DM.
+                    </p>
+                  </form>
+                ) : (
+                  <EmptyState text="Only organizers and admins can invite founders." />
+                )}
+              </Panel>
+
+              <Panel title="Founder roster" eyebrow="Participants">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {founderProgress.map((founder: any) => (
+                    <FounderRow key={founder.id} founder={founder} detailed />
+                  ))}
+                  {!founderProgress.length && <EmptyState text="No founders have joined this event yet." />}
+                </div>
+                <div className="mt-5 space-y-3">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Pending founder invites</p>
+                  {founderInvitations.map((invite: any) => (
+                    <InviteRow
+                      key={invite.id}
+                      invite={invite}
+                      eventSlug={event.slug}
+                      copied={copied}
+                      onCopy={copyText}
+                    />
+                  ))}
+                  {!founderInvitations.length && <EmptyState text="No pending founder invites yet." />}
+                </div>
+              </Panel>
+            </div>
           )}
 
           {activeTab === 'submissions' && (
@@ -348,22 +438,16 @@ export default function EventDashboardPage() {
                 </div>
                 <div className="mt-5 space-y-3">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Pending invites</p>
-                  {invitations.map((invite: any) => {
-                    const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/events/${event.slug}?invite=${invite.invite_code}`;
-                    return (
-                      <div key={invite.id} className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                          <p className="truncate font-bold text-white">{invite.email || `${roleLabel(invite.role)} invite`}</p>
-                          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{roleLabel(invite.role)} · {invite.status}</p>
-                        </div>
-                        <button onClick={() => copyText(link, invite.id)} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
-                          <Copy className="h-4 w-4" />
-                          {copied === invite.id ? 'Copied' : 'Copy link'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {!invitations.length && <EmptyState text="No tracked invites yet." />}
+                  {teamInvitations.map((invite: any) => (
+                    <InviteRow
+                      key={invite.id}
+                      invite={invite}
+                      eventSlug={event.slug}
+                      copied={copied}
+                      onCopy={copyText}
+                    />
+                  ))}
+                  {!teamInvitations.length && <EmptyState text="No pending team invites yet. Founder invites live in the Founders tab." />}
                 </div>
               </Panel>
             </div>
@@ -476,6 +560,39 @@ function PersonCard({ person, role }: { person: any; role: string }) {
         <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{roleLabel(role)}</p>
       </div>
       <CheckCircle2 className="h-5 w-5 text-neon-lime" />
+    </div>
+  );
+}
+
+function InviteRow({
+  invite,
+  eventSlug,
+  copied,
+  onCopy,
+}: {
+  invite: any;
+  eventSlug: string;
+  copied: string;
+  onCopy: (value: string, label: string) => void;
+}) {
+  const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/events/${eventSlug}?invite=${invite.invite_code}`;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="truncate font-bold text-white">{invite.email || `${roleLabel(invite.role)} invite`}</p>
+        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+          {roleLabel(invite.role)} · {invite.status}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onCopy(link, invite.id)}
+        className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold"
+      >
+        <Copy className="h-4 w-4" />
+        {copied === invite.id ? 'Copied' : 'Copy link'}
+      </button>
     </div>
   );
 }
