@@ -27,7 +27,16 @@ export function normalizeEmailFrom(value?: string) {
   }
 
   if (unquoted.includes('<') && unquoted.includes('>')) {
-    return unquoted;
+    const email = unquoted.match(EMAIL_PATTERN)?.[0];
+    if (!email) return fallback;
+
+    const displayName = unquoted
+      .slice(0, unquoted.indexOf('<'))
+      .trim()
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ');
+
+    return displayName ? `${displayName} <${email}>` : email;
   }
 
   if (!/\s/.test(unquoted)) {

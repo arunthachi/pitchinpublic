@@ -10,7 +10,7 @@ export function readableEmailError(error?: string | null) {
   }
 
   if (/Invalid `from` field/i.test(message)) {
-    return 'Email sender is misconfigured. Set LEAD_EMAIL_FROM to Pitch in Public <hello@pitchinpublic.io>.';
+    return 'Email sender is misconfigured. Set LEAD_EMAIL_FROM to Pitch in Public <hello@mail.pitchinpublic.io>.';
   }
 
   if (/not authorized to send emails from/i.test(message)) {
