@@ -7,6 +7,10 @@ const joinSchema = z.object({
   inviteCode: z.string().max(64).optional().or(z.literal('')),
 });
 
+function normalizeEmail(value?: string | null) {
+  return value?.trim().toLowerCase() || '';
+}
+
 function createSupabase(request: NextRequest) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -87,11 +91,43 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     invitation = inviteRow;
   }
 
-  if (event.access_code && !invitation) {
-    const providedCode = validation.data.accessCode?.trim();
-    if (providedCode !== event.access_code) {
-      return NextResponse.json({ success: false, error: 'That invite code does not match this pitch event.' }, { status: 403 });
+  if (event.visibility === 'private' && !invitation && !event.access_code) {
+    return NextResponse.json(
+      { success: false, error: 'This private pitch event requires an invite code.' },
+      { status: 403 }
+    );
+  }
+
+  if (invitation?.email) {
+    const inviteEmail = normalizeEmail(invitation.email);
+    const userEmail = normalizeEmail(user.email);
+
+    if (inviteEmail && inviteEmail !== userEmail) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `This pitch event invite is for ${invitation.email}. Sign in with that email or ask for a new invite.`,
+        },
+        { status: 403 }
+      );
     }
+  }
+
+  if (event.access_code) {
+    const providedCode = validation.data.accessCode?.trim();
+    if (providedCode !== event.access_code && !invitation) {
+      return NextResponse.json(
+        { success: false, error: 'That invite code does not match this pitch event.' },
+        { status: 403 }
+      );
+    }
+  }
+
+  if (!invitation && event.visibility === 'private' && !validation.data.accessCode?.trim()) {
+    return NextResponse.json(
+      { success: false, error: 'This private pitch event requires an invite code.' },
+      { status: 403 }
+    );
   }
 
   const role = event.organizer_id === user.id ? 'organizer' : invitation?.role || 'founder';

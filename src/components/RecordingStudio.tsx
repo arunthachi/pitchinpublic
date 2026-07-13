@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Step2_AddDetails } from './Step2_AddDetails';
 import { Step3_Publish } from './Step3_Publish';
 import type { PracticePrompt } from '@/lib/practice';
@@ -16,6 +17,13 @@ interface RecordingStudioProps {
   practicePrompt?: PracticePrompt | null;
   practiceGoalId?: string | null;
   maxDurationSeconds?: number;
+  eventContext?: {
+    slug: string;
+    name: string;
+    deadline?: string | null;
+    pitchLengthSeconds?: number | null;
+    focus?: string | null;
+  } | null;
 }
 
 type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
@@ -58,7 +66,9 @@ export function RecordingStudio({
   practicePrompt,
   practiceGoalId,
   maxDurationSeconds = DEFAULT_MAX_RECORDING_SECONDS,
+  eventContext = null,
 }: RecordingStudioProps) {
+  const router = useRouter();
   const maxRecordingSeconds = Math.min(180, Math.max(MIN_RECORDING_SECONDS, maxDurationSeconds));
   const [mode, setMode] = useState<Mode>('choose');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -76,6 +86,7 @@ export function RecordingStudio({
   const [videoProvider, setVideoProvider] = useState<string | null>(null);
   const [uploadedVideo, setUploadedVideo] = useState<UploadedVideoMetadata | null>(null);
   const [savedPitchDetails, setSavedPitchDetails] = useState<SavedPitchDetails | null>(null);
+  const [createdPitchId, setCreatedPitchId] = useState<string | null>(null);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -615,6 +626,7 @@ export function RecordingStudio({
 
       const responseData = await response.json();
       const { pitch } = responseData;
+      setCreatedPitchId(pitch.id);
       onPitchCreated?.(pitch);
       setMode('publish');
     } catch (err) {
@@ -651,6 +663,7 @@ export function RecordingStudio({
     setVideoId(null);
     setVideoProvider(null);
     setUploadedVideo(null);
+    setCreatedPitchId(null);
     onClose();
   };
 
@@ -674,6 +687,7 @@ export function RecordingStudio({
     setVideoId(null);
     setVideoProvider(null);
     setUploadedVideo(null);
+    setCreatedPitchId(null);
     setIsRecording(false);
     setRecordingTime(0);
     recordingTimeRef.current = 0;
@@ -743,6 +757,7 @@ export function RecordingStudio({
                   initialDescription={pitchDescription}
                   initialStartupName={savedPitchDetails?.startupName || ''}
                   initialFeedbackAsk={savedPitchDetails?.feedbackAsk || ''}
+                  submissionContext={eventContext}
                 />
               )}
 
@@ -752,8 +767,15 @@ export function RecordingStudio({
                   pitchTitle={pitchHook}
                   previewUrl={previewUrl}
                   videoDuration={videoDuration}
-                  onViewFeed={handleClose}
+                  onViewFeed={() => {
+                    if (eventContext?.slug && createdPitchId) {
+                      router.push(`/events/${eventContext.slug}?pitchId=${createdPitchId}&submitted=1`);
+                      return;
+                    }
+                    handleClose();
+                  }}
                   isLoading={uploading}
+                  primaryActionLabel={eventContext?.slug ? 'Return to event' : 'View Feed'}
                 />
               )}
 

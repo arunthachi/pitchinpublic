@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Building2, Check, ChevronLeft, ChevronRight, Loader2, Pencil, Target } from 'lucide-react';
 import type { PracticePrompt } from '@/lib/practice';
+import { formatPitchLength } from '@/lib/duration';
 import { buildPitchDescription, parsePitchDescription } from '@/lib/pitch-copy';
 
 interface Step2_AddDetailsProps {
@@ -24,6 +25,13 @@ interface Step2_AddDetailsProps {
   initialDescription?: string;
   initialStartupName?: string;
   initialFeedbackAsk?: string;
+  submissionContext?: {
+    slug: string;
+    name: string;
+    deadline?: string | null;
+    pitchLengthSeconds?: number | null;
+    focus?: string | null;
+  } | null;
 }
 
 const feedbackFocusOptions = [
@@ -93,6 +101,7 @@ export function Step2_AddDetails({
   initialDescription = '',
   initialStartupName = '',
   initialFeedbackAsk = '',
+  submissionContext = null,
 }: Step2_AddDetailsProps) {
   const [hook, setHook] = useState(initialHook);
   const [startupName, setStartupName] = useState('');
@@ -116,6 +125,19 @@ export function Step2_AddDetails({
 
   const feedbackAsk = buildFeedbackAsk(feedbackFocus, feedbackNote);
   const hasSavedStartup = startupName.trim().length >= 2 && hook.trim().length >= 10 && !isEditingStartup;
+  const formatFocus = (value?: string | null) => {
+    if (!value) return 'Unspecified';
+    return value
+      .split(/[-_]/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  };
+  const formatDeadline = (value?: string | null) => {
+    if (!value) return 'No deadline set';
+    const date = new Date(`${value}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return 'No deadline set';
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   // Check if form is valid
   const isValid =
@@ -212,6 +234,16 @@ export function Step2_AddDetails({
         <h2 className="text-2xl font-bold text-white mb-1">Confirm this take</h2>
         <p className="text-slate-400 text-sm">Startup details stay saved. Pick what feedback you want on this version.</p>
       </div>
+
+      {submissionContext && (
+        <div className="rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Event submission</p>
+          <p className="mt-2 text-sm font-semibold text-white">{submissionContext.name}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-300">
+            {formatPitchLength(submissionContext.pitchLengthSeconds || 60)} max · {formatDeadline(submissionContext.deadline)} · Goal {formatFocus(submissionContext.focus)}
+          </p>
+        </div>
+      )}
 
       {practicePrompt && (
         <div className="rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">

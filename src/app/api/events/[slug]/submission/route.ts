@@ -54,6 +54,16 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({ success: false, error: 'Submissions are locked for this event.' }, { status: 403 });
   }
 
+  if (event.submission_deadline) {
+    const deadline = new Date(event.submission_deadline);
+    if (!Number.isNaN(deadline.getTime()) && deadline.getTime() < Date.now()) {
+      return NextResponse.json(
+        { success: false, error: 'The submission deadline has passed for this event.' },
+        { status: 403 }
+      );
+    }
+  }
+
   const { data: pitch, error: pitchError } = await supabase
     .from('pitches')
     .select('id, user_id')
@@ -121,6 +131,26 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ sl
 
   if (!event) {
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
+  }
+
+  const { data: eventRow } = await supabase
+    .from('pitch_events')
+    .select('status,submission_deadline')
+    .eq('id', event.id)
+    .single();
+
+  if (eventRow?.status === 'locked') {
+    return NextResponse.json({ success: false, error: 'Submissions are locked for this event.' }, { status: 403 });
+  }
+
+  if (eventRow?.submission_deadline) {
+    const deadline = new Date(eventRow.submission_deadline);
+    if (!Number.isNaN(deadline.getTime()) && deadline.getTime() < Date.now()) {
+      return NextResponse.json(
+        { success: false, error: 'The submission deadline has passed for this event.' },
+        { status: 403 }
+      );
+    }
   }
 
   const { error } = await supabase

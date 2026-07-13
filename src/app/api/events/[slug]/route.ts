@@ -90,6 +90,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
           roast_count,
           toast_count,
           views_count,
+          is_best_take,
+          startup_name,
+          one_line_pitch,
+          feedback_ask,
+          extra_context,
+          take_version,
           created_at
         )
       `
