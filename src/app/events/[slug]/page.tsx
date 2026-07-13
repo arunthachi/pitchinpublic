@@ -14,6 +14,27 @@ function daysUntil(value: string) {
   return Math.max(0, Math.ceil((target.getTime() - today.getTime()) / 86400000));
 }
 
+function splitFocusSummary(value?: string | null) {
+  return (value || '')
+    .split(/[·,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      success: false,
+      error: response.statusText || 'Unexpected response from the event room.',
+    };
+  }
+}
+
 export default function EventPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -31,7 +52,7 @@ export default function EventPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const response = await fetch(`/api/events/${slug}`);
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     setEventState(data);
     setSelectedPitchId(data.userSubmission?.pitch_id || '');
     setLoading(false);
@@ -59,6 +80,7 @@ export default function EventPage() {
   const event = eventState?.event;
   const isJoined = Boolean(eventState?.participation);
   const submittedPitch = pitches.find((pitch) => pitch.id === selectedPitchId);
+  const focusTags = useMemo(() => splitFocusSummary(event?.focus), [event?.focus]);
   const plan = useMemo(() => {
     if (!event) return [];
     const days = daysUntil(event.event_date);
@@ -75,13 +97,13 @@ export default function EventPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accessCode }),
     });
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     setSaving(false);
     if (!response.ok || !data.success) {
-      setMessage(data.error || 'Could not join this pitch event.');
+      setMessage(data.error || 'Could not join this pitch room.');
       return;
     }
-    setMessage('You joined the pitch event.');
+    setMessage('You joined the pitch room.');
     load();
   };
 
@@ -94,7 +116,7 @@ export default function EventPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pitchId: selectedPitchId }),
     });
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     setSaving(false);
     if (!response.ok || !data.success) {
       setMessage(data.error || 'Could not submit final take.');
@@ -105,11 +127,11 @@ export default function EventPage() {
   };
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading pitch event...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading pitch room...</div>;
   }
 
   if (!eventState?.success || !event) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Pitch event not found.</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Pitch room not found.</div>;
   }
 
   return (
@@ -119,7 +141,7 @@ export default function EventPage() {
           <div className="glass-panel rounded-[2rem] p-6 sm:p-8">
             <div className="glass-pill mb-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-lime">
               <Sparkles className="h-4 w-4" />
-              Pitch Event
+              Pitch room
             </div>
             <h1 className="font-heading text-5xl font-black leading-tight sm:text-6xl">{event.name}</h1>
             {event.description && <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">{event.description}</p>}
@@ -127,6 +149,18 @@ export default function EventPage() {
               <InfoCard icon={CalendarDays} label="Pitch day" value={new Date(`${event.event_date}T12:00:00`).toLocaleDateString()} />
               <InfoCard icon={Clock} label="Countdown" value={`${daysUntil(event.event_date)} days`} />
               <InfoCard icon={Video} label="Pitch length" value={formatPitchLength(event.pitch_length_seconds)} />
+            </div>
+            <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Sprint focus</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {focusTags.map((focus) => (
+                  <span key={focus} className="rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-3 py-1.5 text-xs font-bold text-neon-cyan">
+                    {focus}
+                  </span>
+                ))}
+                {!focusTags.length && <span className="text-sm text-slate-400">No focus chips set.</span>}
+              </div>
+              {event.description && <p className="mt-3 text-sm leading-6 text-slate-300">{event.description}</p>}
             </div>
           </div>
 
@@ -160,7 +194,7 @@ export default function EventPage() {
         <section className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
           {!user ? (
             <div className="text-center">
-              <h2 className="font-heading text-3xl font-bold">Sign in to join this pitch event.</h2>
+              <h2 className="font-heading text-3xl font-bold">Sign in to join this pitch room.</h2>
               <p className="mt-2 text-slate-400">Use Google, record reps, and submit your final take.</p>
               <Link href={`/?alpha=1&preview=1&next=/events/${slug}`} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
                 Sign in
@@ -176,7 +210,7 @@ export default function EventPage() {
                 <input value={accessCode} onChange={(e) => setAccessCode(e.target.value)} className="input-dark" placeholder="WESTPORT2026" />
               </label>
               <button onClick={join} disabled={saving} className="cta-primary rounded-xl px-5 py-3 font-heading font-bold disabled:opacity-60">
-                Join pitch event
+                Join pitch room
               </button>
             </div>
           ) : (

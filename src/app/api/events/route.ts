@@ -7,8 +7,9 @@ const createEventSchema = z.object({
   description: z.string().max(1000).optional().or(z.literal('')),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   submissionDeadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
-  pitchLengthSeconds: z.number().min(30).max(180).default(60),
-  focus: z.string().min(2).max(80).default('clarity'),
+  pitchLengthMinutes: z.coerce.number().min(0.5).max(3).default(1),
+  focus: z.string().min(2).max(120).optional(),
+  focuses: z.array(z.string().trim().min(2).max(40)).optional(),
   visibility: z.enum(['private', 'unlisted', 'public']).default('unlisted'),
   accessCode: z.string().min(4).max(32).optional().or(z.literal('')),
 });
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Organizer access is required to create pitch events. Founders can join events from an invite link.',
+        error: 'Organizer access is required to create pitch rooms. Founders can join rooms from an invite link.',
       },
       { status: 403 }
     );
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest) {
   const data = validation.data;
   const baseSlug = slugify(data.name) || 'pitch-sprint';
   const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
+  const selectedFocuses = data.focuses?.map((item) => item.trim()).filter(Boolean) || [];
+  const focusSummary = selectedFocuses.length ? selectedFocuses.join(' · ') : data.focus?.trim() || 'Clarity';
 
   try {
     const { data: event, error } = await supabase
@@ -101,8 +104,8 @@ export async function POST(request: NextRequest) {
         description: data.description || null,
         event_date: data.eventDate,
         submission_deadline: data.submissionDeadline || null,
-        pitch_length_seconds: data.pitchLengthSeconds,
-        focus: data.focus,
+        pitch_length_seconds: Math.round(data.pitchLengthMinutes * 60),
+        focus: focusSummary,
         visibility: data.visibility,
         access_code: data.accessCode || null,
         status: 'active',
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, event }, { status: 201 });
   } catch (error) {
-    console.error('Error creating pitch event:', error);
+    console.error('Error creating pitch room:', error);
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to create event' },
       { status: 500 }
@@ -155,7 +158,7 @@ export async function GET(request: NextRequest) {
     .order('event_date', { ascending: true });
 
   if (error) {
-    console.error('Error fetching pitch events:', error);
+    console.error('Error fetching pitch rooms:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch events' }, { status: 500 });
   }
 
