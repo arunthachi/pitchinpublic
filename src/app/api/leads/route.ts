@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { readableEmailError } from '@/lib/email-errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,26 @@ function escapeHtml(value: string) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+
+function normalizeEmailFrom(value?: string) {
+  const fallback = 'Pitch in Public <onboarding@resend.dev>';
+  const trimmed = (value || fallback).trim();
+  const unquoted = (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  )
+    ? trimmed.slice(1, -1).trim()
+    : trimmed;
+
+  if (!unquoted.includes('@')) return fallback;
+  if (unquoted.includes('<') && unquoted.includes('>')) return unquoted;
+  if (!/\s/.test(unquoted)) return unquoted;
+
+  const email = unquoted.match(EMAIL_PATTERN)?.[0];
+  return email ? `Pitch in Public <${email}>` : fallback;
 }
 
 function createSupabaseClient() {
@@ -102,7 +123,7 @@ export async function POST(request: NextRequest) {
       .split(',')
       .map((email) => email.trim())
       .filter(Boolean);
-    const from = process.env.LEAD_EMAIL_FROM || 'Pitch in Public <onboarding@resend.dev>';
+    const from = normalizeEmailFrom(process.env.LEAD_EMAIL_FROM);
     const resendApiKey = process.env.RESEND_API_KEY;
 
     if (!resendApiKey) {
@@ -163,9 +184,10 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lead capture email failed:', errorText);
+      const readableError = readableEmailError(errorText);
+      console.error('Lead capture email failed:', readableError);
       if (leadStored) {
-        await updateLeadNotificationStatus(supabase, leadRequestId, 'failed', errorText);
+        await updateLeadNotificationStatus(supabase, leadRequestId, 'failed', readableError);
       }
       return NextResponse.json({ error: 'We could not send this request. Please email hello@pitchinpublic.io.' }, { status: 502 });
     }
