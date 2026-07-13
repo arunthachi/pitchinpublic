@@ -51,6 +51,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   let participation = null;
   let userSubmission = null;
   let submissions: any[] = [];
+  let pitches: any[] = [];
   let participants: any[] = [];
   let invitations: any[] = [];
   let announcements: any[] = [];
@@ -79,6 +80,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
           video_url,
           thumbnail_url,
           duration,
+          is_best_take,
           roast_count,
           toast_count,
           views_count,
@@ -175,6 +177,58 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       participants = participantRows || [];
       submissions = submissionRows || [];
       invitations = invitationRows || [];
+
+      const founderIds = (participantRows || [])
+        .filter((row: any) => row.role === 'founder')
+        .map((row: any) => row.user_id);
+
+      if (founderIds.length) {
+        const { data: pitchRows } = await supabase
+          .from('pitches')
+          .select(
+            `
+            id,
+            user_id,
+            hook,
+            description,
+            startup_name,
+            one_line_pitch,
+            feedback_ask,
+            extra_context,
+            take_version,
+            version_number,
+            is_best_take,
+            video_url,
+            thumbnail_url,
+            duration,
+            roast_count,
+            toast_count,
+            views_count,
+            status,
+            created_at,
+            profile:user_id (
+              id,
+              full_name,
+              avatar_url,
+              username,
+              website,
+              linkedin_url
+            ),
+            feedback (
+              id,
+              type,
+              content,
+              created_at
+            )
+          `
+          )
+          .in('user_id', founderIds)
+          .eq('status', 'published')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false });
+
+        pitches = pitchRows || [];
+      }
     }
 
     if (participation || isTeamMember) {
@@ -209,6 +263,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     userSubmission,
     participants,
     submissions,
+    pitches,
     invitations,
     announcements,
     isOrganizer: Boolean(user && event.organizer_id === user.id),
