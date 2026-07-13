@@ -130,6 +130,13 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({
+      success: false,
+      error: 'Events API is not configured in this environment.',
+    });
+  }
+
   const supabase = createSupabase(request);
 
   const {

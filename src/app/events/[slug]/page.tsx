@@ -30,11 +30,22 @@ export default function EventPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const response = await fetch(`/api/events/${slug}`);
-    const data = await response.json();
-    setEventState(data);
-    setSelectedPitchId(data.userSubmission?.pitch_id || '');
-    setLoading(false);
+    try {
+      const response = await fetch(`/api/events/${slug}`);
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        setEventState({ success: false, error: data?.error || 'Unable to load this pitch event.' });
+        setSelectedPitchId('');
+        return;
+      }
+      setEventState(data);
+      setSelectedPitchId(data.userSubmission?.pitch_id || '');
+    } catch {
+      setEventState({ success: false, error: 'Unable to load this pitch event.' });
+      setSelectedPitchId('');
+    } finally {
+      setLoading(false);
+    }
   }, [slug]);
 
   useEffect(() => {
@@ -148,10 +159,13 @@ export default function EventPage() {
               <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-4">
                 <div className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-neon-lime">
                   <Bell className="h-4 w-4" />
-                  Latest update
+                  Founder nudge
                 </div>
                 <h3 className="font-heading text-xl font-bold">{eventState.announcements[0].title}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-300">{eventState.announcements[0].body}</p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Keep the next take concrete: customer first, one problem, one ask.
+                </p>
               </div>
             ) : null}
           </div>

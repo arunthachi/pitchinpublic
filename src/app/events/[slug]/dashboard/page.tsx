@@ -21,6 +21,8 @@ import {
   Video,
 } from 'lucide-react';
 import { formatPitchLength } from '@/lib/duration';
+import { announcementEmailStatusLabel, announcementEmailStatusTone } from '@/lib/event-announcements';
+import { getPracticePrompt } from '@/lib/practice';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLES = ['founder', 'admin', 'coach', 'mentor', 'judge'];
@@ -72,16 +74,25 @@ export default function EventDashboardPage() {
   const [copied, setCopied] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'founder' });
-  const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '', audience: 'all' });
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
   const [actionMessage, setActionMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const response = await fetch(`/api/events/${slug}`);
-    const data = await response.json();
-    setState(data);
-    setLoading(false);
+    try {
+      const response = await fetch(`/api/events/${slug}`);
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data) {
+        setState({ success: false, error: data?.error || 'Unable to load this event room.' });
+        return;
+      }
+      setState(data);
+    } catch {
+      setState({ success: false, error: 'Unable to load this event room.' });
+    } finally {
+      setLoading(false);
+    }
   }, [slug]);
 
   useEffect(() => {
@@ -97,6 +108,7 @@ export default function EventDashboardPage() {
   const teamRows = participants.filter((item: any) => TEAM_ROLES.includes(item.role));
   const feedbackCount = submissions.reduce((sum: number, item: any) => sum + (item.pitch?.feedback?.length || 0), 0);
   const inviteUrl = typeof window !== 'undefined' && event ? `${window.location.origin}/events/${event.slug}` : '';
+  const practicePrompt = useMemo(() => getPracticePrompt(event?.focus), [event?.focus]);
   const sortedSubmissions = useMemo(
     () => [...submissions].sort((a, b) => readinessFromSubmission(b) - readinessFromSubmission(a)),
     [submissions]
@@ -152,8 +164,18 @@ export default function EventDashboardPage() {
       setActionMessage(data.error || 'Could not post announcement.');
       return;
     }
-    setAnnouncementForm({ title: '', body: '', audience: 'all' });
-    setActionMessage('Announcement posted.');
+    setAnnouncementForm({ title: '', body: '' });
+    setActionMessage(
+      data.emailStatus === 'sent'
+        ? `Announcement posted and emailed to ${data.recipientCount || 0} founders.`
+        : data.emailStatus === 'skipped'
+          ? `Announcement posted, but email was skipped. ${data.emailError || 'No founder emails were available.'}`
+          : data.emailStatus === 'not_configured'
+            ? 'Announcement posted. Email is not configured in this environment.'
+            : data.emailStatus === 'failed'
+              ? `Announcement posted, but email failed. ${data.emailError || 'Check the provider response.'}`
+              : 'Announcement posted.'
+    );
     load();
   };
 
@@ -250,6 +272,11 @@ export default function EventDashboardPage() {
               </Panel>
 
               <Panel title="Latest announcements" eyebrow="Comms">
+                <div className="mb-4 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Suggested founder nudge</p>
+                  <h3 className="mt-2 font-heading text-lg font-bold text-white">{practicePrompt.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{practicePrompt.prompt}</p>
+                </div>
                 <AnnouncementList announcements={announcements.slice(0, 4)} />
               </Panel>
             </div>
@@ -343,7 +370,7 @@ export default function EventDashboardPage() {
 
           {activeTab === 'announcements' && (
             <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-              <Panel title="Post announcement" eyebrow="Team comms">
+              <Panel title="Post founder nudge" eyebrow="Organizer/Admin">
                 <form onSubmit={createAnnouncement} className="space-y-4">
                   <label className="block">
                     <span className="mb-2 block text-sm font-bold text-slate-300">Title</span>
@@ -351,7 +378,7 @@ export default function EventDashboardPage() {
                       value={announcementForm.title}
                       onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
                       className="input-dark"
-                      placeholder="This week: sharpen the ask"
+                      placeholder="Before Friday: sharpen sentence one"
                       required
                     />
                   </label>
@@ -361,22 +388,13 @@ export default function EventDashboardPage() {
                       value={announcementForm.body}
                       onChange={(e) => setAnnouncementForm({ ...announcementForm, body: e.target.value })}
                       className="input-dark min-h-32 resize-y"
-                      placeholder="Record one new take by Friday. Ask for feedback on clarity and confidence."
+                      placeholder="Record one 60-second rep today. Start with the customer, cut the filler, and end with one specific ask."
                       required
                     />
                   </label>
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-bold text-slate-300">Audience</span>
-                    <select
-                      value={announcementForm.audience}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, audience: e.target.value })}
-                      className="input-dark"
-                    >
-                      <option value="all">Everyone</option>
-                      <option value="founders">Founders</option>
-                      <option value="team">Team only</option>
-                    </select>
-                  </label>
+                  <p className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm leading-6 text-slate-300">
+                    This posts a simple founder announcement and emails the active founders in the room when Resend is configured.
+                  </p>
                   <button disabled={saving} className="cta-primary inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold disabled:opacity-60">
                     <Send className="h-4 w-4" />
                     Post announcement
@@ -528,10 +546,18 @@ function AnnouncementList({ announcements }: { announcements: any[] }) {
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-heading text-lg font-bold text-white">{announcement.title}</h3>
                 <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
-                  {announcement.audience}
+                  {announcement.audience === 'founders' ? 'Founders' : announcement.audience}
+                </span>
+                <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${announcementEmailStatusTone(announcement.email_status)}`}>
+                  {announcementEmailStatusLabel(announcement.email_status)}
                 </span>
               </div>
               <p className="mt-2 leading-6 text-slate-300">{announcement.body}</p>
+              {announcement.email_error ? (
+                <p className="mt-2 rounded-xl border border-roast/20 bg-roast/10 px-3 py-2 text-xs leading-5 text-roast">
+                  {announcement.email_error}
+                </p>
+              ) : null}
               <p className="mt-3 text-xs text-slate-500">
                 <Mail className="mr-1 inline h-3.5 w-3.5" />
                 {announcement.author?.full_name || 'Event team'} · {new Date(announcement.created_at).toLocaleDateString()}
