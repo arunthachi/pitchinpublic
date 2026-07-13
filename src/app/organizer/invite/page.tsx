@@ -16,6 +16,7 @@ function OrganizerInviteContent() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [state, setState] = useState<AcceptState>('idle');
   const [message, setMessage] = useState('');
+  const [acceptedInvite, setAcceptedInvite] = useState<{ email: string | null; organizationName: string | null } | null>(null);
   const code = useMemo(() => (searchParams.get('code') || '').trim(), [searchParams]);
 
   useEffect(() => {
@@ -43,6 +44,19 @@ function OrganizerInviteContent() {
         }
 
         setState('accepted');
+        setAcceptedInvite({
+          email: data.organizerInvite?.email || user.email || null,
+          organizationName: data.organizerInvite?.organizationName || null,
+        });
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(
+            'pip.organizer-invite-accepted',
+            JSON.stringify({
+              email: data.organizerInvite?.email || user.email || null,
+              organizationName: data.organizerInvite?.organizationName || null,
+            })
+          );
+        }
         setMessage(data.message || 'Organizer access enabled.');
         window.setTimeout(() => {
           router.replace(data.redirectTo || '/events/new?organizer=accepted');
@@ -106,6 +120,58 @@ function OrganizerInviteContent() {
             </div>
           </div>
 
+          <div className="mx-auto mt-6 grid max-w-4xl gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-4 text-left sm:p-5">
+              <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Invite status
+              </p>
+              <div className="mt-4 space-y-3">
+                <StatusLine label="Signed in" value={user?.email || (loading ? 'Checking session...' : 'Not signed in')} />
+                <StatusLine
+                  label="Invite"
+                  value={code ? `Code ${code.slice(0, 6)}…` : 'Open the invite link you received'}
+                />
+                <StatusLine
+                  label="Organizer mode"
+                  value={state === 'accepted' ? 'Enabled' : state === 'accepting' ? 'Enabling now' : 'Locked until invite is accepted'}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-[1.75rem] border border-white/10 bg-black/25 p-4 text-left sm:p-5">
+              <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-neon-lime">
+                What happens next
+              </p>
+              <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+                <p>1. Sign in with the email that received the invite.</p>
+                <p>2. We attach organizer access to that account, not to your founder feed.</p>
+                <p>3. You land in event setup and can create rooms, invite founders, and manage submissions.</p>
+              </div>
+            </div>
+          </div>
+
+          {state === 'accepted' ? (
+            <div className="mx-auto mt-6 max-w-4xl rounded-[1.75rem] border border-emerald-400/20 bg-emerald-500/10 p-4 text-left sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-200">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
+                    Organizer access enabled
+                  </p>
+                  <h2 className="mt-2 font-heading text-2xl font-black text-white sm:text-3xl">
+                    {acceptedInvite?.organizationName || 'Your organizer room'} is ready on this account.
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/80 sm:text-base">
+                    Signed in as {acceptedInvite?.email || user?.email || 'this user'}.
+                    Founder practice stays in the main app. Organizer tools start in event setup.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             {!user ? (
               <button
@@ -162,5 +228,14 @@ export default function OrganizerInvitePage() {
     <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background text-white">Loading invite...</div>}>
       <OrganizerInviteContent />
     </Suspense>
+  );
+}
+
+function StatusLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+      <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{label}</span>
+      <span className="max-w-[60%] text-right text-sm font-semibold text-white">{value}</span>
+    </div>
   );
 }

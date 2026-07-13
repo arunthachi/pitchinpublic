@@ -47,6 +47,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'That organizer invite code was not found.' }, { status: 404 });
   }
 
+  if (invitation.status === 'accepted' && invitation.accepted_by === user.id) {
+    return NextResponse.json({
+      success: true,
+      message: 'Organizer access is already enabled for this account.',
+      redirectTo: '/events/new?organizer=accepted',
+      organizerInvite: {
+        email: invitation.email,
+        organizationName: invitation.organization_name,
+      },
+    });
+  }
+
   if (invitation.status !== 'pending') {
     const error = invitation.status === 'accepted'
       ? 'That organizer invite has already been used.'
@@ -107,7 +119,11 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    message: 'Organizer access enabled.',
+    message: 'Organizer access enabled for this account.',
     redirectTo: '/events/new?organizer=accepted',
+    organizerInvite: {
+      email: invitation.email,
+      organizationName: invitation.organization_name,
+    },
   });
 }

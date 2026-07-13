@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, CalendarDays, Lock, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { LeadCaptureModal } from '@/components/LeadCaptureModal';
@@ -27,13 +28,15 @@ function openNativeDatePicker(input: HTMLInputElement) {
   }
 }
 
-export default function NewEventPage() {
+function NewEventContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const [roleLoading, setRoleLoading] = useState(true);
   const [canManageEvents, setCanManageEvents] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [acceptedInvite, setAcceptedInvite] = useState<{ organizationName: string | null; email: string | null } | null>(null);
   const [form, setForm] = useState({
     name: 'Local Shark Tank Pitch Event',
     description: 'Practice reps and final-take submissions for founders preparing for pitch day.',
@@ -46,6 +49,26 @@ export default function NewEventPage() {
   });
   const [customFocus, setCustomFocus] = useState('');
   const isCustomFocus = form.focus === 'custom';
+  const organizerAccepted = searchParams.get('organizer') === 'accepted';
+
+  useEffect(() => {
+    if (!organizerAccepted || typeof window === 'undefined') return;
+
+    const raw = window.sessionStorage.getItem('pip.organizer-invite-accepted');
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as { organizationName?: string | null; email?: string | null };
+      setAcceptedInvite({
+        organizationName: parsed.organizationName || null,
+        email: parsed.email || null,
+      });
+    } catch (error) {
+      console.warn('Could not parse accepted organizer invite context:', error);
+    } finally {
+      window.sessionStorage.removeItem('pip.organizer-invite-accepted');
+    }
+  }, [organizerAccepted]);
 
   useEffect(() => {
     if (loading) return;
@@ -61,15 +84,25 @@ export default function NewEventPage() {
     const checkOrganizerAccess = async () => {
       try {
         const supabase = createClient();
-        const { data } = await supabase
-          .from('profile_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', 'organizer')
-          .maybeSingle();
+        let hasAccess = false;
+        const attempts = organizerAccepted ? 2 : 1;
+
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+          const { data } = await supabase
+            .from('profile_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'organizer')
+            .maybeSingle();
+
+          hasAccess = Boolean(data);
+          if (hasAccess || attempt === attempts - 1) break;
+
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+        }
 
         if (!cancelled) {
-          setCanManageEvents(Boolean(data));
+          setCanManageEvents(hasAccess);
         }
       } catch (error) {
         console.error('Could not check organizer access:', error);
@@ -84,7 +117,7 @@ export default function NewEventPage() {
     return () => {
       cancelled = true;
     };
-  }, [loading, user]);
+  }, [loading, organizerAccepted, user]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -156,17 +189,50 @@ export default function NewEventPage() {
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-slate-300">
               Founder accounts should focus on recording pitches, getting feedback, and picking a Best Take.
               Organizer tools are invite-only so the app stays simple for founders and event rooms stay controlled.
+              {organizerAccepted ? ' We accepted your invite and are checking access for this account.' : ''}
             </p>
+            {organizerAccepted ? (
+              <div className="mx-auto mt-6 max-w-2xl rounded-3xl border border-neon-cyan/20 bg-neon-cyan/10 p-4 text-left">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">
+                      Invite accepted
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-200">
+                      {acceptedInvite?.organizationName
+                        ? `${acceptedInvite.organizationName} is linked to this organizer account.`
+                        : 'This organizer invite is linked to your signed-in account.'}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">
+                      If the room setup does not unlock in a moment, refresh once or sign out and back in with the invited email.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link href="/?alpha=1&preview=1" className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold">
                 Continue practicing
               </Link>
-              <LeadCaptureModal
-                type="organizer"
-                triggerLabel="Request organizer invite"
-                source="events-new-gate"
-                triggerClassName="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
-              />
+              {organizerAccepted ? (
+                <button
+                  type="button"
+                  onClick={() => router.refresh()}
+                  className="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
+                >
+                  Check access again
+                </button>
+              ) : (
+                <LeadCaptureModal
+                  type="organizer"
+                  triggerLabel="Request organizer invite"
+                  source="events-new-gate"
+                  triggerClassName="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
+                />
+              )}
             </div>
           </section>
         </main>
@@ -195,6 +261,7 @@ export default function NewEventPage() {
           <h1 className="font-heading text-5xl font-black leading-tight">Create the room founders practice toward.</h1>
           <p className="mt-5 max-w-xl text-lg leading-8 text-slate-300">
             Keep the event setup focused: deadline, pitch length, invite code, and the one thing founders should improve before pitch day.
+            Founder pitches still live in the main app, while organizer tools stay here.
           </p>
           <div className="glass-card mt-6 rounded-3xl p-5">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Event defaults</p>
@@ -208,6 +275,37 @@ export default function NewEventPage() {
                 <p className="font-bold">Invite link or code</p>
               </div>
             </div>
+          </div>
+
+          {organizerAccepted ? (
+            <div className="mt-6 rounded-[1.75rem] border border-neon-cyan/20 bg-neon-cyan/10 p-5">
+              <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">
+                Invite accepted
+              </p>
+              <h2 className="mt-2 font-heading text-2xl font-black text-white">
+                {acceptedInvite?.organizationName || 'This organizer room'} is linked to this account.
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-200">
+                Signed in as {acceptedInvite?.email || user?.email || 'this user'}.
+                Founder practice stays in the main app, and organizer setup happens here.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5">
+            <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              Organizer account
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <MiniStat label="Signed in" value={user?.email || 'Unknown email'} />
+              <MiniStat
+                label="Role"
+                value={canManageEvents ? 'Organizer enabled' : organizerAccepted ? 'Syncing access' : 'Checking access'}
+              />
+            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-300">
+              This account can create pitch rooms, invite founders, and manage submissions.
+            </p>
           </div>
         </section>
 
@@ -318,11 +416,28 @@ export default function NewEventPage() {
   );
 }
 
+export default function NewEventPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background text-white">Loading organizer setup...</div>}>
+      <NewEventContent />
+    </Suspense>
+  );
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-bold text-slate-300">{label}</span>
       {children}
     </label>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-white">{value}</p>
+    </div>
   );
 }
