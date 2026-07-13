@@ -12,12 +12,24 @@ type AcceptState = 'idle' | 'accepting' | 'accepted' | 'error';
 function OrganizerInviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const [showSignIn, setShowSignIn] = useState(false);
   const [state, setState] = useState<AcceptState>('idle');
   const [message, setMessage] = useState('');
   const [acceptedInvite, setAcceptedInvite] = useState<{ email: string | null; organizationName: string | null } | null>(null);
   const code = useMemo(() => (searchParams.get('code') || '').trim(), [searchParams]);
+  const invitedEmail = useMemo(() => {
+    const match = message.match(/invite is for (.+?)\. Sign/i);
+    return match?.[1]?.replace(/[,.]$/, '') || '';
+  }, [message]);
+  const isEmailMismatch = state === 'error' && Boolean(invitedEmail);
+
+  const switchAccount = async () => {
+    await signOut();
+    setState('idle');
+    setMessage('');
+    setShowSignIn(true);
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -82,11 +94,11 @@ function OrganizerInviteContent() {
             Invite-only organizer access
           </p>
           <h1 className="mx-auto mt-3 max-w-2xl font-heading text-4xl font-black leading-tight sm:text-5xl">
-            Create pitch rooms only after an invite.
+            Accept your organizer invite.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-            Organizer accounts can create events, invite founders and judges, review submissions, and post announcements.
-            This access is gated so founder practice stays simple.
+            Sign in with the invited email, enable organizer access, then create pitch rooms, invite founders and judges,
+            review submissions, and post announcements.
           </p>
 
           <div className="mx-auto mt-7 max-w-xl rounded-3xl border border-white/10 bg-black/20 p-4 text-left">
@@ -112,7 +124,9 @@ function OrganizerInviteContent() {
                           ? 'Enabling organizer access...'
                           : state === 'accepted'
                             ? 'Organizer access is enabled. Redirecting...'
-                            : state === 'error'
+                            : isEmailMismatch
+                              ? `You are signed in as ${user?.email || 'another account'}. This invite belongs to ${invitedEmail}.`
+                              : state === 'error'
                               ? message
                               : 'Ready to enable organizer access.'}
                 </p>
@@ -126,10 +140,15 @@ function OrganizerInviteContent() {
                 Invite status
               </p>
               <div className="mt-4 space-y-3">
-                <StatusLine label="Signed in" value={user?.email || (loading ? 'Checking session...' : 'Not signed in')} />
                 <StatusLine
-                  label="Invite"
-                  value={code ? `Code ${code.slice(0, 6)}…` : 'Open the invite link you received'}
+                  label="Signed in"
+                  value={user?.email || (loading ? 'Checking session...' : 'Not signed in')}
+                  tone={isEmailMismatch ? 'warning' : undefined}
+                />
+                <StatusLine
+                  label={invitedEmail ? 'Invited email' : 'Invite'}
+                  value={invitedEmail || (code ? `Code ${code.slice(0, 6)}…` : 'Open the invite link you received')}
+                  tone={isEmailMismatch ? 'success' : undefined}
                 />
                 <StatusLine
                   label="Organizer mode"
@@ -143,12 +162,33 @@ function OrganizerInviteContent() {
                 What happens next
               </p>
               <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
-                <p>1. Sign in with the email that received the invite.</p>
-                <p>2. We attach organizer access to that account, not to your founder feed.</p>
-                <p>3. You land in event setup and can create rooms, invite founders, and manage submissions.</p>
+                <p>1. Use the email that received this invite.</p>
+                <p>2. We attach organizer access to that account.</p>
+                <p>3. You land in event setup to create rooms, invite founders, and manage submissions.</p>
               </div>
             </div>
           </div>
+
+          {isEmailMismatch ? (
+            <div className="mx-auto mt-6 max-w-4xl rounded-[1.75rem] border border-amber-300/20 bg-amber-400/10 p-4 text-left sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-100">
+                  <XCircle className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-amber-100">
+                    Different account needed
+                  </p>
+                  <h2 className="mt-2 font-heading text-2xl font-black text-white sm:text-3xl">
+                    This invite is locked to {invitedEmail}.
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-50/80 sm:text-base">
+                    You are currently signed in as {user?.email}. Switch accounts to accept the invite and unlock organizer tools.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {state === 'accepted' ? (
             <div className="mx-auto mt-6 max-w-4xl rounded-[1.75rem] border border-emerald-400/20 bg-emerald-500/10 p-4 text-left sm:p-5">
@@ -182,6 +222,15 @@ function OrganizerInviteContent() {
                 Sign in to accept
                 <ArrowRight className="h-5 w-5" />
               </button>
+            ) : isEmailMismatch ? (
+              <button
+                type="button"
+                onClick={switchAccount}
+                className="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
+              >
+                Sign in as invited email
+                <ArrowRight className="h-5 w-5" />
+              </button>
             ) : state === 'accepting' ? (
               <button
                 type="button"
@@ -200,12 +249,25 @@ function OrganizerInviteContent() {
                 <ArrowRight className="h-5 w-5" />
               </Link>
             ) : (
-              <Link
-                href="/for-events"
-                className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold"
-              >
-                Request a new invite
-              </Link>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setState('idle');
+                    setMessage('');
+                  }}
+                  className="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
+                >
+                  Try accepting again
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+                <Link
+                  href="/for-events"
+                  className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold"
+                >
+                  Request a new invite
+                </Link>
+              </div>
             )}
 
             <Link
@@ -231,9 +293,17 @@ export default function OrganizerInvitePage() {
   );
 }
 
-function StatusLine({ label, value }: { label: string; value: string }) {
+function StatusLine({ label, value, tone }: { label: string; value: string; tone?: 'warning' | 'success' }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+    <div
+      className={`flex items-start justify-between gap-4 rounded-2xl border px-4 py-3 ${
+        tone === 'warning'
+          ? 'border-amber-300/25 bg-amber-400/10'
+          : tone === 'success'
+            ? 'border-emerald-300/20 bg-emerald-400/10'
+            : 'border-white/10 bg-black/20'
+      }`}
+    >
       <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{label}</span>
       <span className="max-w-[60%] text-right text-sm font-semibold text-white">{value}</span>
     </div>
