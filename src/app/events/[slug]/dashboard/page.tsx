@@ -29,7 +29,18 @@ import { announcementEmailStatusLabel, announcementEmailStatusTone } from '@/lib
 import { getPracticePrompt } from '@/lib/practice';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
-const INVITE_ROLES = ['founder', 'admin', 'coach', 'mentor', 'judge'];
+const INVITE_ROLE_GROUPS = [
+  {
+    label: 'Founders',
+    helper: 'Invite the people who will join the room and submit their best take.',
+    roles: ['founder'],
+  },
+  {
+    label: 'Team',
+    helper: 'Invite organizers, admins, coaches, mentors, and judges who can help review the room.',
+    roles: ['organizer', 'admin', 'coach', 'mentor', 'judge'],
+  },
+] as const;
 const TABS = ['overview', 'founders', 'submissions', 'team', 'announcements'] as const;
 
 type Tab = (typeof TABS)[number];
@@ -70,6 +81,27 @@ function roleLabel(role: string) {
   return 'Founder';
 }
 
+function splitFocusSummary(value?: string | null) {
+  return (value || '')
+    .split(/[·,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      success: false,
+      error: response.statusText || 'Unexpected response from the event dashboard.',
+    };
+  }
+}
+
 export default function EventDashboardPage() {
   const params = useParams();
   const router = useRouter();
@@ -82,6 +114,7 @@ export default function EventDashboardPage() {
   const [founderInviteEmail, setFounderInviteEmail] = useState('');
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'founder' });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
+  const [lastInvite, setLastInvite] = useState<{ url: string; role: string; email: string } | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const [createdInviteLink, setCreatedInviteLink] = useState('');
   const [saving, setSaving] = useState(false);
@@ -90,7 +123,7 @@ export default function EventDashboardPage() {
     setLoading(true);
     try {
       const response = await fetch(`/api/events/${slug}`);
-      const data = await response.json().catch(() => null);
+      const data = await readJsonResponse(response);
       if (!response.ok || !data) {
         setState({ success: false, error: data?.error || 'Unable to load this event room.' });
         return;
@@ -108,6 +141,7 @@ export default function EventDashboardPage() {
   }, [load]);
 
   const event = state?.event;
+  const focusTags = useMemo(() => splitFocusSummary(event?.focus), [event?.focus]);
   const participants = useMemo(() => state?.participants || [], [state?.participants]);
   const submissions = useMemo(() => state?.submissions || [], [state?.submissions]);
   const invitations = useMemo(() => state?.invitations || [], [state?.invitations]);
@@ -159,13 +193,18 @@ export default function EventDashboardPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(inviteForm),
     });
-    const data = await response.json().catch(() => null);
+    const data = await readJsonResponse(response);
     setSaving(false);
     if (!response.ok || !data?.success) {
       setActionMessage(data?.error || 'Could not create invite.');
       return;
     }
     setInviteForm({ email: '', role: inviteForm.role });
+    setLastInvite({
+      url: data.inviteUrl || '',
+      role: data.invitation?.role || inviteForm.role,
+      email: data.invitation?.email || inviteForm.email,
+    });
     setActionMessage('Invite created. Copy the link and send it to the right person.');
     setCreatedInviteLink(data.inviteUrl || '');
     load();
@@ -202,7 +241,7 @@ export default function EventDashboardPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(announcementForm),
     });
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     setSaving(false);
     if (!response.ok || !data.success) {
       setActionMessage(data.error || 'Could not post announcement.');
@@ -298,6 +337,18 @@ export default function EventDashboardPage() {
               <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">
                 Team workspace for invite tracking, final takes, feedback coverage, and founder announcements.
               </p>
+              <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Sprint focus</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {focusTags.map((focus) => (
+                    <span key={focus} className="rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-3 py-1.5 text-xs font-bold text-neon-cyan">
+                      {focus}
+                    </span>
+                  ))}
+                  {!focusTags.length && <span className="text-sm text-slate-400">No focus chips set.</span>}
+                </div>
+                {event.description && <p className="mt-3 text-sm leading-6 text-slate-300">{event.description}</p>}
+              </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <button onClick={() => copyText(inviteUrl, 'event')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
@@ -463,19 +514,44 @@ export default function EventDashboardPage() {
                         value={inviteForm.email}
                         onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                         className="input-dark"
-                        placeholder="founder@company.com"
+                        placeholder="founder@company.com or leave blank for a copyable link"
                       />
+                      <p className="mt-2 text-xs leading-5 text-slate-500">Email is optional. You can copy the invite link after creating it.</p>
                     </label>
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-bold text-slate-300">Role</span>
-                      <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })} className="input-dark">
-                        {INVITE_ROLES.map((role) => (
-                          <option key={role} value={role}>
-                            {roleLabel(role)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <div className="space-y-4">
+                      {INVITE_ROLE_GROUPS.map((group) => (
+                        <div key={group.label} className="rounded-3xl border border-white/10 bg-black/25 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-500">{group.label}</p>
+                              <p className="mt-1 text-xs leading-5 text-slate-400">{group.helper}</p>
+                            </div>
+                            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-slate-300">
+                              {group.roles.length} role{group.roles.length > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {group.roles.map((role) => {
+                              const selected = inviteForm.role === role;
+                              return (
+                                <button
+                                  key={role}
+                                  type="button"
+                                  onClick={() => setInviteForm({ ...inviteForm, role })}
+                                  className={`rounded-full border px-3.5 py-2 text-sm font-bold transition ${
+                                    selected
+                                      ? 'border-neon-cyan bg-neon-cyan text-slate-950 shadow-lg shadow-neon-cyan/15'
+                                      : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-neon-cyan/45 hover:text-white'
+                                  }`}
+                                >
+                                  {roleLabel(role)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                     <button disabled={saving} className="cta-primary inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold disabled:opacity-60">
                       <UserPlus className="h-4 w-4" />
                       Create invite
@@ -492,6 +568,23 @@ export default function EventDashboardPage() {
                     <PersonCard key={member.id} person={member} role={member.role} />
                   ))}
                 </div>
+                {lastInvite && (
+                  <div className="mt-5 rounded-3xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Latest invite</p>
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-bold text-white">{roleLabel(lastInvite.role)} invite ready</p>
+                        <p className="text-sm leading-6 text-slate-300">
+                          {lastInvite.email ? `Sent to ${lastInvite.email}.` : 'Copy the link and send it to the right person.'}
+                        </p>
+                      </div>
+                      <button onClick={() => copyText(lastInvite.url, 'latest-invite')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
+                        <Copy className="h-4 w-4" />
+                        {copied === 'latest-invite' ? 'Copied' : 'Copy link'}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="mt-5 space-y-3">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Pending invites</p>
                   {teamInvitations.map((invite: any) => (

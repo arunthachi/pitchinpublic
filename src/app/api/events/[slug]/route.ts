@@ -24,10 +24,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   const params = await props.params;
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return NextResponse.json({
-      success: false,
-      error: 'Events API is not configured in this environment.',
-    });
+    return NextResponse.json(
+      { success: false, error: 'Event room data is unavailable in this environment.' },
+      { status: 503 }
+    );
   }
 
   const supabase = createSupabase(request);
