@@ -3,23 +3,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Bell,
   CalendarDays,
   CheckCircle2,
   Copy,
   ExternalLink,
+  LogOut,
   Mail,
   MessageSquareText,
   Play,
   Send,
   Sparkles,
   Trophy,
+  UserCircle2,
   UserPlus,
   Users,
   Video,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatPitchLength } from '@/lib/duration';
 import { readableEmailError } from '@/lib/email-errors';
 import { announcementEmailStatusLabel, announcementEmailStatusTone } from '@/lib/event-announcements';
@@ -69,6 +72,8 @@ function roleLabel(role: string) {
 
 export default function EventDashboardPage() {
   const params = useParams();
+  const router = useRouter();
+  const { user, signOut } = useAuth();
   const slug = params.slug as string;
   const [state, setState] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +123,16 @@ export default function EventDashboardPage() {
     () => [...submissions].sort((a, b) => readinessFromSubmission(b) - readinessFromSubmission(a)),
     [submissions]
   );
+  const organizerName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split('@')[0] ||
+    'Organizer';
+  const organizerEmail = user?.email || '';
+  const organizerAvatar =
+    user?.user_metadata?.avatar_url ||
+    user?.user_metadata?.picture ||
+    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(organizerName)}`;
 
   const founderProgress = useMemo(() => {
     const submittedByUser = new Set(submissions.map((item: any) => item.user_id));
@@ -208,6 +223,11 @@ export default function EventDashboardPage() {
     load();
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  };
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center bg-black text-white">Loading room control...</div>;
   }
@@ -231,6 +251,42 @@ export default function EventDashboardPage() {
   return (
     <div className="min-h-screen bg-background text-white">
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Link
+            href="/?alpha=1&preview=1"
+            className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold text-slate-200 sm:w-auto"
+          >
+            <Video className="h-4 w-4 text-neon-cyan" />
+            Founder app
+          </Link>
+
+          <div className="glass-card flex items-center justify-between gap-3 rounded-full p-2 pl-2.5 sm:justify-end">
+            <Link href="/me" className="flex min-w-0 items-center gap-3 rounded-full pr-1 transition hover:opacity-85">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={organizerAvatar} alt="" className="h-10 w-10 shrink-0 rounded-full border border-white/15 object-cover" />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-heading font-black text-white">{organizerName}</span>
+                {organizerEmail ? <span className="block truncate text-xs font-semibold text-slate-400">{organizerEmail}</span> : null}
+              </span>
+            </Link>
+            <Link
+              href="/me"
+              className="btn-glass hidden items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold text-slate-200 sm:inline-flex"
+            >
+              <UserCircle2 className="h-4 w-4" />
+              Profile
+            </Link>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold text-slate-200"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Log out</span>
+            </button>
+          </div>
+        </div>
+
         <section className="glass-panel rounded-[2rem] p-5 sm:p-7">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div>
