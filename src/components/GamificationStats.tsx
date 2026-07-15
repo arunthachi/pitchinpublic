@@ -9,7 +9,13 @@ interface Streak {
   bestStreak: number;
   lastActivityDate: string | null;
   totalActivities: number;
+  pitchReps?: number;
   isActiveToday: boolean;
+  recentDays?: Array<{
+    date: string;
+    active: boolean;
+    isToday: boolean;
+  }>;
 }
 
 interface Achievement {
@@ -87,7 +93,7 @@ export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
 
   const momentumScore = Math.min(
     100,
-    (streak.currentStreak || 0) * 12 + (streak.totalActivities || 0) * 3 + (streak.isActiveToday ? 10 : 0)
+    (streak.currentStreak || 0) * 12 + ((streak.pitchReps || streak.totalActivities || 0) * 3) + (streak.isActiveToday ? 10 : 0)
   );
   const loopLabel = streak.isActiveToday ? 'Loop closed today' : 'One rep unlocks today';
   const momentumTone = momentumScore >= 70 ? 'text-neon-lime' : momentumScore >= 35 ? 'text-neon-cyan' : 'text-slate-300';
@@ -116,7 +122,7 @@ export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
           </div>
         </div>
 
-        <div className="mb-4 h-2 overflow-hidden rounded-full bg-white/10">
+      <div className="mb-4 h-2 overflow-hidden rounded-full bg-white/10">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${momentumScore}%` }}
@@ -138,7 +144,7 @@ export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
               <Repeat2 className="h-3.5 w-3.5" />
               <span className="text-[10px] font-bold uppercase tracking-[0.14em]">Reps</span>
             </div>
-            <p className="text-xl font-black text-white">{streak.totalActivities || 0}</p>
+            <p className="text-xl font-black text-white">{streak.pitchReps || streak.totalActivities || 0}</p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.05] p-3">
             <div className="mb-2 flex items-center gap-1.5 text-toast">
@@ -148,6 +154,35 @@ export function GamificationStats({ onOpenChallenge }: GamificationStatsProps) {
             <p className="text-xl font-black text-white">{streak.bestStreak || 0}d</p>
           </div>
         </div>
+
+        {streak.recentDays?.length === 7 ? (
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">This week</p>
+              <p className="text-[10px] font-semibold text-slate-500">
+                {streak.recentDays.some((day) => day.active) ? 'Pitch days are lighting up' : 'No pitch days yet'}
+              </p>
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
+              {streak.recentDays.map((day) => (
+                <span
+                  key={day.date}
+                  className={`h-4 rounded-md border ${
+                    day.active
+                      ? day.isToday
+                        ? 'border-neon-lime/35 bg-neon-lime/80 shadow-[0_0_12px_rgba(183,255,42,0.18)]'
+                        : 'border-neon-cyan/20 bg-neon-cyan/45'
+                      : day.isToday
+                        ? 'border-white/20 bg-white/[0.08]'
+                        : 'border-white/[0.05] bg-white/[0.04]'
+                  }`}
+                  title={day.active ? `${day.date}: pitch posted` : `${day.date}: no pitch posted`}
+                  aria-label={day.active ? `${day.date}: pitch posted` : `${day.date}: no pitch posted`}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-white/10 bg-black/20 p-3">
           <Zap className="mt-0.5 h-4 w-4 shrink-0 text-neon-lime" />

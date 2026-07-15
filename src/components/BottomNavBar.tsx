@@ -33,7 +33,9 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
         {/* Create Button (Center, prominent) */}
         <button
           onClick={onCreateClick}
-          className="relative -mt-2"
+          className="relative -mt-2 flex flex-col items-center gap-1 px-2 py-1"
+          aria-label="Record pitch"
+          title="Record pitch"
         >
           <div className="cta-primary flex h-12 w-14 items-center justify-center rounded-2xl">
             <div className="flex h-11 w-[52px] items-center justify-center rounded-[0.9rem] bg-graphite-dark/90">
@@ -42,6 +44,7 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
               </svg>
             </div>
           </div>
+          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white">Record</span>
         </button>
 
         {/* Challenge */}
