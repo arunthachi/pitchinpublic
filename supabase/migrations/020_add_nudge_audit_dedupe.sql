@@ -1,4 +1,4 @@
--- Migration 019: Add nudge audit dedupe support
+-- Migration 020: Add nudge audit dedupe support
 -- Supports production-safe daily founder prompts and event deadline reminders.
 
 ALTER TABLE nudge_events
@@ -19,4 +19,3 @@ COMMENT ON COLUMN nudge_events.event_id IS
 
 COMMENT ON COLUMN nudge_events.dedupe_key IS
   'Unique key used to prevent duplicate automated nudge sends.';
-

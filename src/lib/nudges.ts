@@ -20,6 +20,12 @@ export function getNotificationPreferencesUrl() {
   return `${getAppUrl()}${PREFERENCES_PATH}`;
 }
 
+export function getEventRoomUrl(slug?: string | null) {
+  const normalizedSlug = (slug || '').trim();
+  if (!normalizedSlug) return getPitchHomeUrl();
+  return `${getAppUrl()}/events/${encodeURIComponent(normalizedSlug)}`;
+}
+
 export function formatPitchLength(seconds?: number | null) {
   if (!seconds || Number.isNaN(seconds)) return '60 seconds';
   if (seconds < 60) return `${seconds} seconds`;
@@ -230,6 +236,7 @@ export function buildDailyPitchNudgeEmail({
 export function buildEventDeadlineNudgeEmail({
   founderName,
   eventName,
+  eventSlug,
   focusPrompt,
   pitchLengthSeconds,
   submissionDeadline,
@@ -237,13 +244,14 @@ export function buildEventDeadlineNudgeEmail({
 }: {
   founderName?: string | null;
   eventName: string;
+  eventSlug?: string | null;
   focusPrompt: PracticePrompt;
   pitchLengthSeconds?: number | null;
   submissionDeadline?: string | null;
   eventDate?: string | null;
 }) {
   const greeting = founderName ? `Hi ${founderName},` : 'Hi founder,';
-  const eventUrl = getPitchHomeUrl();
+  const eventUrl = getEventRoomUrl(eventSlug);
   const preferencesUrl = getNotificationPreferencesUrl();
   const deadlineLabel = formatDeadlineLabel(submissionDeadline);
   const pitchLengthLabel = formatPitchLength(pitchLengthSeconds);

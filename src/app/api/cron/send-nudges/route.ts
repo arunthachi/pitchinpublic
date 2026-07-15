@@ -409,6 +409,7 @@ async function runNudgeSweep(request: NextRequest) {
       const email = buildEventDeadlineNudgeEmail({
         founderName: profile.full_name,
         eventName: event.name,
+        eventSlug: event.slug,
         focusPrompt: prompt,
         pitchLengthSeconds: event.pitch_length_seconds,
         submissionDeadline: event.submission_deadline,

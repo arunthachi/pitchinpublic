@@ -64,6 +64,15 @@ async function loadSessionUser(request: NextRequest): Promise<SessionResult> {
   }
 
   const supabase = createRequestSupabase(request);
+
+  if (!supabase) {
+    return {
+      supabase: null as unknown as ReturnType<typeof createRequestSupabase>,
+      user: null,
+      error: 'Supabase is not configured in this environment.',
+    };
+  }
+
   const {
     data: { user },
     error,
@@ -145,11 +154,24 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const { data: existingPreferences, error: existingError } = await session.supabase
+    .from('notification_preferences')
+    .select('email_enabled,daily_nudge_time,timezone')
+    .eq('user_id', session.user.id)
+    .maybeSingle();
+
+  if (existingError) {
+    return NextResponse.json(
+      { success: false, error: existingError.message || 'Could not load preferences before saving.' },
+      { status: 500 }
+    );
+  }
+
   const payload = {
     user_id: session.user.id,
-    email_enabled: validation.data.emailEnabled ?? true,
-    daily_nudge_time: validation.data.dailyNudgeTime || '09:00:00',
-    timezone: validation.data.timezone || 'America/New_York',
+    email_enabled: validation.data.emailEnabled ?? existingPreferences?.email_enabled ?? true,
+    daily_nudge_time: validation.data.dailyNudgeTime || existingPreferences?.daily_nudge_time || '09:00:00',
+    timezone: validation.data.timezone || existingPreferences?.timezone || 'America/New_York',
     updated_at: new Date().toISOString(),
   };
 
