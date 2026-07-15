@@ -24,7 +24,7 @@ export default function MePage() {
         .single();
 
       const handle = data?.public_handle || data?.username;
-      router.replace(handle ? `/profile/${encodeURIComponent(handle)}` : '/?alpha=1&preview=1');
+      router.replace(handle ? `/profile/${encodeURIComponent(handle)}` : '/');
     };
 
     openOwnProfile();
@@ -37,7 +37,7 @@ export default function MePage() {
         <p className="mt-3 max-w-md text-slate-400">
           Your profile becomes the home for practice reps, final takes, and feedback signals.
         </p>
-        <Link href="/?alpha=1&preview=1" className="mt-6 rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
+        <Link href="/" className="mt-6 rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
           Go to app
         </Link>
       </div>

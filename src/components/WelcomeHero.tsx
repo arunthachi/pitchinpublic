@@ -23,7 +23,6 @@ import { LeadCaptureModal } from './LeadCaptureModal';
 interface WelcomeHeroProps {
   showAlphaSignIn?: boolean;
   onAlphaSignIn?: () => void;
-  onAlphaPreview?: () => void;
 }
 
 const pitchLoop = [
@@ -121,7 +120,7 @@ const practiceSignals = [
     title: 'What is the ask?',
     focus: 'Ask',
     prompt: 'End with the next action you want from the listener.',
-    sample: 'Give feedback, join the beta, or introduce one founder who needs this.',
+    sample: 'Give feedback, join early access, or introduce one founder who needs this.',
     founderName: 'Ava is refining',
     businessName: 'Founder of BuildLoop',
     imageUrl: '/images/landing/pitch-ask.webp',
@@ -143,7 +142,7 @@ const practiceSignals = [
   },
 ];
 
-export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPreview }: WelcomeHeroProps) {
+export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeHeroProps) {
   const [activeSignal, setActiveSignal] = useState(practiceSignals[0]);
   const [waitlistEmail, setWaitlistEmail] = useState('');
 
@@ -174,21 +173,19 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
             </Link>
             {showAlphaSignIn && (
               <>
-                <Link
-                  href="/?alpha=1&preview=1"
-                  onClick={() => {
-                    onAlphaPreview?.();
-                  }}
+                <button
+                  type="button"
+                  onClick={onAlphaSignIn}
                   className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
-                  Preview
-                </Link>
+                  Sign in
+                </button>
                 <button
                   type="button"
                   onClick={onAlphaSignIn}
                   className="cta-primary px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
-                  Founder alpha
+                  Start pitching
                 </button>
               </>
             )}
@@ -208,7 +205,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 className="mb-6 inline-flex w-fit items-center gap-2 rounded-lg border border-neon-lime/30 bg-neon-lime/10 px-3 py-2 text-sm font-semibold text-neon-lime"
               >
                 <Zap className="h-4 w-4" aria-hidden="true" />
-                Early access opens soon at pitchinpublic.io
+                Invite-only MVP for founder pitch practice
               </motion.div>
 
               <motion.h1
@@ -237,6 +234,25 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                 transition={{ delay: 0.24, duration: 0.4 }}
                 className="mt-8 max-w-xl"
               >
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={onAlphaSignIn}
+                    className="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  >
+                    Start pitching
+                    <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  <Link
+                    href="/for-events"
+                    className="btn-glass inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 font-heading font-bold transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  >
+                    Organizer access
+                  </Link>
+                </div>
+                <p className="mb-4 text-sm leading-6 text-slate-400">
+                  Founders sign in with Google or email code. Organizer teams use an invite link.
+                </p>
                   <div className="rounded-xl border border-white/10 bg-black/45 p-2 shadow-2xl shadow-black/25 backdrop-blur">
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <label htmlFor="waitlist-email" className="sr-only">
@@ -259,7 +275,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                       </div>
                       <LeadCaptureModal
                         type="founder"
-                        triggerLabel="Request invite"
+                        triggerLabel="Request access"
                         initialEmail={waitlistEmail}
                         source="landing-hero"
                         triggerClassName="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
@@ -268,7 +284,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
                   </div>
 
                 <div className="mt-3 text-sm text-slate-400">
-                  <p>Email first. Startup details open in a quick in-app form.</p>
+                  <p>Need founder access? Leave your email and startup name.</p>
                   <p className="mt-2">
                     Questions or founder access?{' '}
                     <a
@@ -579,7 +595,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn, onAlphaPre
             </div>
             <LeadCaptureModal
               type="founder"
-              triggerLabel="Request invite"
+              triggerLabel="Request access"
               source="landing-bottom"
               triggerClassName="cta-primary inline-flex shrink-0 items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             />

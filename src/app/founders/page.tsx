@@ -49,14 +49,14 @@ export default function FoundersPage() {
           </Link>
           <div className="flex items-center gap-2">
             <Link
-              href="/?alpha=1&preview=1"
+              href="/"
               className="hidden rounded-full border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan sm:inline-flex"
             >
               Open app
             </Link>
             <LeadCaptureModal
               type="founder"
-              triggerLabel="Request invite"
+              triggerLabel="Request access"
               source="founders-header"
               triggerClassName="inline-flex items-center gap-2 rounded-full bg-neon-cyan px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300"
             />
@@ -88,10 +88,10 @@ export default function FoundersPage() {
                   triggerClassName="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
                 />
                 <Link
-                  href="/?alpha=1&preview=1"
+                  href="/"
                   className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold"
                 >
-                  Preview the practice room
+                  Open the practice room
                 </Link>
               </div>
               <p className="mt-4 flex max-w-xl items-start gap-2 text-sm leading-6 text-slate-400">

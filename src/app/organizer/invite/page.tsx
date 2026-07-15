@@ -271,10 +271,10 @@ function OrganizerInviteContent() {
             )}
 
             <Link
-              href="/?alpha=1&preview=1"
+              href="/"
               className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold"
             >
-              Back to founder app
+              Open founder app
             </Link>
           </div>
         </section>

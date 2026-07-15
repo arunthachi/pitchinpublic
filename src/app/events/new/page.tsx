@@ -23,7 +23,7 @@ const focusOptions = [
 const visibilityOptions = {
   unlisted: {
     label: 'Invite link',
-    helper: 'Best for pilots. Anyone with the event link can request or join the room.',
+    helper: 'Best for private event rooms. Anyone with the event link can request or join.',
   },
   private: {
     label: 'Invite code required',
@@ -176,7 +176,7 @@ function NewEventContent() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center text-white">
         <h1 className="font-heading text-4xl font-bold">Sign in to create a pitch event.</h1>
-        <Link href="/?alpha=1&preview=1" className="cta-primary mt-6 rounded-xl px-5 py-3 font-heading font-bold">
+        <Link href="/" className="cta-primary mt-6 rounded-xl px-5 py-3 font-heading font-bold">
           Go to app
         </Link>
       </div>
@@ -188,9 +188,9 @@ function NewEventContent() {
       <div className="min-h-screen bg-background text-white">
         <header className="border-b border-white/10 bg-graphite-dark/80 backdrop-blur-xl">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-            <Link href="/?alpha=1&preview=1" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white">
+            <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white">
               <ArrowLeft className="h-4 w-4" />
-              Back to practice
+              Open practice
             </Link>
             <p className="font-heading text-sm font-bold uppercase tracking-[0.2em] text-neon-cyan">Organizer invite</p>
           </div>
@@ -235,7 +235,7 @@ function NewEventContent() {
               </div>
             ) : null}
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href="/?alpha=1&preview=1" className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold">
+              <Link href="/" className="btn-glass inline-flex items-center justify-center rounded-full px-6 py-4 font-heading font-bold">
                 Continue practicing
               </Link>
               {organizerAccepted ? (
