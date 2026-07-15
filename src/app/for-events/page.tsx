@@ -111,10 +111,10 @@ export default function ForEventsPage() {
                   triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-neon-cyan px-6 py-3 font-heading font-bold text-slate-950 transition-transform hover:scale-[1.02]"
                 />
                 <Link
-                  href="/?alpha=1&preview=1"
+                  href="/"
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/[0.04] px-6 py-3 font-heading font-bold text-white transition hover:border-neon-cyan hover:text-neon-cyan"
                 >
-                  Preview founder app
+                  Open founder app
                 </Link>
               </div>
             </div>

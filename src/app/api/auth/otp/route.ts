@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     const { email, phone, next } = body;
     const nextPath = typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')
       ? next
-      : '/?alpha=1&preview=1&auth=1';
+      : '/?auth=1';
     const callbackUrl = new URL('/auth/callback', request.nextUrl.origin);
     callbackUrl.searchParams.set('next', nextPath);
 

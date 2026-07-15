@@ -21,6 +21,18 @@ const getFriendlyAuthError = (error: unknown) => {
   return error instanceof Error ? error.message : 'Something went wrong. Try again.';
 };
 
+const getSafeNextPath = () => {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const next = params.get('next');
+
+  if (next && next.startsWith('/') && !next.startsWith('//')) {
+    return next;
+  }
+
+  return null;
+};
+
 export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +46,6 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     if (!isOpen || typeof window === 'undefined') return;
 
     const url = new URL(window.location.origin);
-    url.searchParams.set('alpha', '1');
-    url.searchParams.set('preview', '1');
     url.searchParams.set('record', '1');
     setMobileRecordUrl(url.toString());
   }, [isOpen]);
@@ -60,7 +70,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setError(null);
 
       const supabase = createClient();
-      const fallbackNext = `${window.location.pathname}${window.location.search}` || '/';
+      const fallbackNext = getSafeNextPath() || `${window.location.pathname}${window.location.search}` || '/';
       const next = nextPath || fallbackNext;
       const callbackUrl = new URL('/auth/callback', window.location.origin);
       callbackUrl.searchParams.set('next', next);
@@ -97,10 +107,11 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setLoading('email');
       setError(null);
       const nextPath = (() => {
+        const explicitNext = getSafeNextPath();
+        if (explicitNext) return explicitNext;
+
         const path = `${window.location.pathname}${window.location.search}` || '/';
         const url = new URL(path, window.location.origin);
-        url.searchParams.set('alpha', '1');
-        url.searchParams.set('preview', '1');
         url.searchParams.set('auth', '1');
         return `${url.pathname}${url.search}`;
       })();
@@ -148,6 +159,12 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       });
 
       if (error) throw error;
+      const explicitNext = getSafeNextPath();
+      if (explicitNext) {
+        window.location.assign(explicitNext);
+        return;
+      }
+
       handleClose();
     } catch (err) {
       console.error('Email OTP verification error:', err);

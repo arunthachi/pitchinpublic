@@ -241,7 +241,7 @@ export default function AdminPage() {
               <RefreshCcw className="h-4 w-4" />
               Refresh
             </button>
-            <Link href="/?alpha=1&preview=1" className="btn-glass inline-flex items-center gap-2 rounded-full px-4 py-3 font-heading font-bold">
+            <Link href="/" className="btn-glass inline-flex items-center gap-2 rounded-full px-4 py-3 font-heading font-bold">
               Founder app
               <ArrowRight className="h-4 w-4" />
             </Link>

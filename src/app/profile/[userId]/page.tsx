@@ -330,7 +330,7 @@ export default function UserProfilePage() {
           </p>
           <div className="flex items-center gap-2">
             <Link
-              href="/?alpha=1&preview=1"
+              href="/"
               className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-300 transition hover:text-white"
             >
               Practice
@@ -464,8 +464,8 @@ export default function UserProfilePage() {
             <p className="mt-3 max-w-2xl leading-7 text-slate-400">
               Record practice reps, collect feedback, and mark one Best Take. If an organizer invites you to an event, your submitted take will show here.
             </p>
-            <Link href="/?alpha=1&preview=1" className="mt-5 inline-flex rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
-              Back to practice
+            <Link href="/" className="mt-5 inline-flex rounded-xl bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
+              Open practice
             </Link>
           </section>
         ) : visiblePitches.length ? (

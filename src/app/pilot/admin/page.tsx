@@ -224,7 +224,7 @@ export default async function FounderAccessAdminPage() {
         <EmptyGate
           title="Sign in required"
           body="Open the founder app and sign in, then come back to this admin dashboard."
-          ctaHref="/?alpha=1&preview=1"
+          ctaHref="/"
           ctaLabel="Open app"
         />
       </AdminShell>

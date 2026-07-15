@@ -65,10 +65,7 @@ function HomeContent() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
-  const [alphaAccessEnabled, setAlphaAccessEnabled] = useState(false);
-  const [showGuestFeedPreview, setShowGuestFeedPreview] = useState(false);
   const [urlAccess, setUrlAccess] = useState({
-    alpha: false,
     preview: false,
     checked: false,
   });
@@ -110,10 +107,9 @@ function HomeContent() {
   const isGuest = !user;
   const canManageEvents = userRoles.includes('organizer');
   const urlPreviewAccess = urlAccess.preview || searchParams.get('preview') === '1';
-  const urlAlphaAccess = urlAccess.alpha || searchParams.get('alpha') === '1';
   const isAuthHandoff = searchParams.get('auth') === '1';
-  const effectiveGuestFeedPreview = showGuestFeedPreview || urlPreviewAccess;
-  const showAlphaControls = alphaAccessEnabled || urlAlphaAccess || process.env.NODE_ENV === 'development';
+  const effectiveGuestFeedPreview = urlPreviewAccess;
+  const showPublicSignIn = true;
   const pitchMaxParam = Number(searchParams.get('pitchMax'));
   const recordingMaxDurationSeconds = Number.isFinite(pitchMaxParam) && pitchMaxParam >= 30 && pitchMaxParam <= 180 ? pitchMaxParam : 60;
   const eventContext = searchParams.get('eventSlug')
@@ -130,7 +126,6 @@ function HomeContent() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     setUrlAccess({
-      alpha: params.get('alpha') === '1',
       preview: params.get('preview') === '1',
       checked: true,
     });
@@ -330,24 +325,9 @@ function HomeContent() {
     setHandlers(newHandlers);
   }, []);
 
-  const returnToInvitePage = useCallback(() => {
-    setShowGuestFeedPreview(false);
-    setSignInModalOpen(false);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('preview');
-      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
-    }
-  }, []);
-
   const promptForRestrictedAction = useCallback(() => {
-    if (showAlphaControls) {
-      setSignInModalOpen(true);
-      return;
-    }
-
-    returnToInvitePage();
-  }, [returnToInvitePage, showAlphaControls]);
+    setSignInModalOpen(true);
+  }, []);
 
   const handleSignOut = useCallback(async () => {
     setAccountMenuOpen(false);
@@ -369,21 +349,33 @@ function HomeContent() {
       return;
     }
 
-    if (showAlphaControls) {
+    setSignInModalOpen(true);
+  }, [loading, searchParams, user]);
+
+  useEffect(() => {
+    if (loading || user) return;
+
+    const next = searchParams.get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//')) {
       setSignInModalOpen(true);
     }
-  }, [loading, searchParams, showAlphaControls, user]);
+  }, [loading, searchParams, user]);
 
-  // The public prelaunch landing should not wait on Supabase auth initialization.
+  // The public landing should not wait on Supabase auth initialization.
   // Authenticated users may see the landing briefly while their session resolves,
   // which is better than blocking first paint for every anonymous visitor.
-  if (!urlAccess.checked && !urlPreviewAccess && !urlAlphaAccess) {
+  if (!urlAccess.checked && !urlPreviewAccess) {
     return (
-      <WelcomeHero
-        showAlphaSignIn={showAlphaControls}
-        onAlphaSignIn={() => setSignInModalOpen(true)}
-        onAlphaPreview={() => setShowGuestFeedPreview(true)}
-      />
+      <>
+        <WelcomeHero
+          showAlphaSignIn={showPublicSignIn}
+          onAlphaSignIn={() => setSignInModalOpen(true)}
+        />
+        <SignInModal
+          isOpen={signInModalOpen}
+          onClose={() => setSignInModalOpen(false)}
+        />
+      </>
     );
   }
 
@@ -403,16 +395,13 @@ function HomeContent() {
     return (
       <>
         <WelcomeHero
-          showAlphaSignIn={showAlphaControls}
+          showAlphaSignIn={showPublicSignIn}
           onAlphaSignIn={() => setSignInModalOpen(true)}
-          onAlphaPreview={() => setShowGuestFeedPreview(true)}
         />
-        {showAlphaControls && (
-          <SignInModal
-            isOpen={signInModalOpen}
-            onClose={() => setSignInModalOpen(false)}
-          />
-        )}
+        <SignInModal
+          isOpen={signInModalOpen}
+          onClose={() => setSignInModalOpen(false)}
+        />
       </>
     );
   }
@@ -432,16 +421,13 @@ function HomeContent() {
     return (
       <>
         <WelcomeHero
-          showAlphaSignIn={showAlphaControls}
+          showAlphaSignIn={showPublicSignIn}
           onAlphaSignIn={() => setSignInModalOpen(true)}
-          onAlphaPreview={() => setShowGuestFeedPreview(true)}
         />
-        {showAlphaControls && (
-          <SignInModal
-            isOpen={signInModalOpen}
-            onClose={() => setSignInModalOpen(false)}
-          />
-        )}
+        <SignInModal
+          isOpen={signInModalOpen}
+          onClose={() => setSignInModalOpen(false)}
+        />
       </>
     );
   }
@@ -454,7 +440,7 @@ function HomeContent() {
           onPostClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
           isGuest={isGuest}
           onSignInClick={promptForRestrictedAction}
-          guestActionLabel="Request invite"
+          guestActionLabel="Sign in"
           onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
           canManageEvents={canManageEvents}
         />
@@ -479,11 +465,11 @@ function HomeContent() {
       {isGuest ? (
         <button
           onClick={() => {
-            window.location.assign('/');
+            setSignInModalOpen(true);
           }}
           className="btn-glass fixed right-4 top-4 z-50 hidden px-6 py-2.5 text-sm font-semibold hover:border-neon-cyan hover:text-neon-cyan lg:block"
         >
-          Back to landing
+          Sign in
         </button>
       ) : (
         <div className="fixed right-4 top-4 z-50 hidden lg:block">

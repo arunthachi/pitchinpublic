@@ -32,8 +32,6 @@ function formatDeadline(value?: string | null) {
 function buildRecordHref(event: any) {
   const params = new URLSearchParams({
     record: '1',
-    alpha: '1',
-    preview: '1',
     pitchMax: String(event.pitch_length_seconds || 60),
     eventSlug: event.slug,
     eventName: event.name,
@@ -293,7 +291,7 @@ export default function EventPage() {
             <div className="text-center">
               <h2 className="font-heading text-3xl font-bold">Sign in to join this pitch room.</h2>
               <p className="mt-2 text-slate-400">Use Google, record reps, and submit your final take.</p>
-              <Link href={`/?alpha=1&preview=1&next=/events/${slug}`} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
+              <Link href={`/?next=/events/${slug}`} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
                 Sign in
               </Link>
             </div>

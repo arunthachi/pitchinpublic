@@ -405,7 +405,7 @@ export default function EventDashboardPage() {
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link
-            href="/?alpha=1&preview=1"
+            href="/"
             className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold text-slate-200 sm:w-auto"
           >
             <Video className="h-4 w-4 text-neon-cyan" />
