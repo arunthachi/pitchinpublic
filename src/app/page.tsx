@@ -81,7 +81,7 @@ function HomeContent() {
     const prompt = getPromptForDate();
     return {
       prompt,
-      nudge: `Today's pitch task: ${prompt.prompt} Record a 60-second take and see if it beats your best one.`,
+      nudge: `Today’s pitch task: make the customer obvious in sentence one. Record a 60-sec take. ${prompt.prompt}`,
       goal: null,
       progress: {
         practiceDays: 0,

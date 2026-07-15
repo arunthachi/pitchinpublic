@@ -101,5 +101,5 @@ export function readinessLabel(readiness?: number | null) {
 }
 
 export function nudgeCopy(prompt: PracticePrompt) {
-  return `Today's pitch task: ${prompt.prompt} Record a 60-second take and see if it beats your best one.`;
+  return `Today’s pitch task: make the customer obvious in sentence one. Record a 60-sec take. ${prompt.prompt}`;
 }
