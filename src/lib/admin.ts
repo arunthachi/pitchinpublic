@@ -3,9 +3,13 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 
 export function createRequestSupabase(request: NextRequest) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return null;
+  }
+
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         get(name: string) {
@@ -37,6 +41,11 @@ export function normalizeEmail(email?: string | null) {
 
 export async function requirePlatformAdmin(request: NextRequest) {
   const supabase = createRequestSupabase(request);
+
+  if (!supabase) {
+    return { ok: false as const, status: 503, error: 'Platform admin is not configured in this environment.' };
+  }
+
   const {
     data: { user },
     error,

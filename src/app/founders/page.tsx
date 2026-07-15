@@ -83,7 +83,7 @@ export default function FoundersPage() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <LeadCaptureModal
                   type="founder"
-                  triggerLabel="Request founder invite"
+                  triggerLabel="Request access"
                   source="founders-hero"
                   triggerClassName="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-heading font-black"
                 />

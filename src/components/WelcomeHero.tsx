@@ -7,7 +7,6 @@ import {
   ArrowRight,
   CalendarCheck,
   Flame,
-  Mail,
   MessageSquareText,
   Mic,
   Repeat2,
@@ -144,7 +143,6 @@ const practiceSignals = [
 
 export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeHeroProps) {
   const [activeSignal, setActiveSignal] = useState(practiceSignals[0]);
-  const [waitlistEmail, setWaitlistEmail] = useState('');
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -171,23 +169,21 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
             >
               For organizers
             </Link>
-            {showAlphaSignIn && (
-              <>
-                <button
-                  type="button"
-                  onClick={onAlphaSignIn}
-                  className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  onClick={onAlphaSignIn}
-                  className="cta-primary px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                >
-                  Start pitching
-                </button>
-              </>
+            {showAlphaSignIn ? (
+              <button
+                type="button"
+                onClick={onAlphaSignIn}
+                className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              >
+                Sign in
+              </button>
+            ) : (
+              <Link
+                href="/?record=1"
+                className="cta-primary inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              >
+                Start posting pitches
+              </Link>
             )}
           </div>
         </div>
@@ -234,66 +230,46 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
                 transition={{ delay: 0.24, duration: 0.4 }}
                 className="mt-8 max-w-xl"
               >
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={onAlphaSignIn}
-                    className="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                  >
-                    Start pitching
-                    <ArrowRight className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                  <Link
-                    href="/for-events"
-                    className="btn-glass inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 font-heading font-bold transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                  >
-                    Organizer access
-                  </Link>
-                </div>
-                <p className="mb-4 text-sm leading-6 text-slate-400">
-                  Founders sign in with Google or email code. Organizer teams use an invite link.
-                </p>
-                  <div className="rounded-xl border border-white/10 bg-black/45 p-2 shadow-2xl shadow-black/25 backdrop-blur">
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <label htmlFor="waitlist-email" className="sr-only">
-                        Email address
-                      </label>
-                      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 focus-within:border-neon-cyan/70 focus-within:ring-2 focus-within:ring-neon-cyan/20">
-                        <Mail className="h-5 w-5 shrink-0 text-slate-400" aria-hidden="true" />
-                        <input
-                          id="waitlist-email"
-                          type="email"
-                          value={waitlistEmail}
-                          onChange={(event) => {
-                            setWaitlistEmail(event.target.value);
-                          }}
-                          placeholder="you@company.com"
-                          autoComplete="email"
-                          className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-500"
-                          required
-                        />
-                      </div>
+                {showAlphaSignIn ? (
+                  <>
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={onAlphaSignIn}
+                        className="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                      >
+                        Sign in
+                        <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                      </button>
                       <LeadCaptureModal
                         type="founder"
                         triggerLabel="Request access"
-                        initialEmail={waitlistEmail}
                         source="landing-hero"
-                        triggerClassName="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                        triggerClassName="btn-glass inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 font-heading font-bold transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                       />
                     </div>
-                  </div>
-
-                <div className="mt-3 text-sm text-slate-400">
-                  <p>Need founder access? Leave your email and startup name.</p>
-                  <p className="mt-2">
-                    Questions or founder access?{' '}
-                    <a
-                      href="mailto:hello@pitchinpublic.io"
-                      className="font-semibold text-neon-cyan transition hover:text-white"
-                    >
-                      hello@pitchinpublic.io
-                    </a>
-                  </p>
+                    <p className="mb-4 text-sm leading-6 text-slate-400">
+                      Founders sign in with Google or email code. If you are not in yet, request access and we will follow up.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+                      <Link
+                        href="/?record=1"
+                        className="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                      >
+                        Start posting pitches
+                        <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                      </Link>
+                    </div>
+                    <p className="mb-4 text-sm leading-6 text-slate-400">
+                      You are signed in. Open the app and record the next pitch take.
+                    </p>
+                  </>
+                )}
+                <div className="rounded-xl border border-white/10 bg-black/45 p-4 text-sm leading-6 text-slate-400 shadow-2xl shadow-black/25 backdrop-blur">
+                  <p>Need founder access? Request it here or email hello@pitchinpublic.io.</p>
                 </div>
               </motion.div>
 
