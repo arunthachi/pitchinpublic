@@ -8,7 +8,6 @@ import {
   AlertCircle,
   Bell,
   CalendarDays,
-  CheckCircle2,
   Copy,
   ExternalLink,
   LogOut,
@@ -27,6 +26,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPitchLength } from '@/lib/duration';
 import { readableEmailError } from '@/lib/email-errors';
+import { inviteEmailStatusLabel, inviteEmailStatusTone } from '@/lib/email';
 import { announcementEmailStatusLabel, announcementEmailStatusTone } from '@/lib/event-announcements';
 import { getTakeLabelFromFields } from '@/lib/pitch-copy';
 import { getPracticePrompt } from '@/lib/practice';
@@ -61,6 +61,7 @@ type FounderSummary = {
   hasBestTake: boolean;
   readiness: number;
   repeatedSignals: Array<{ label: string; count: number }>;
+  status: string;
 };
 
 function parseFeedbackContent(item: any) {
@@ -127,10 +128,12 @@ function buildFounderSummary(participant: any, pitches: any[], submissions: any[
     hasBestTake: Boolean(founderPitches.some((pitch) => pitch.is_best_take) || submittedPitch?.pitch?.is_best_take),
     readiness,
     repeatedSignals,
+    status: participant.status || 'active',
   };
 }
 
 function getFounderStatus(founder: FounderSummary) {
+  if (founder.status === 'removed') return { label: 'Removed', tone: 'danger' };
   if (!founder.recorded) return { label: 'Joined', tone: 'neutral' };
   if (!founder.feedbackCount) return { label: 'Recorded', tone: 'neutral' };
   if (!founder.submitted) return { label: 'Needs submission', tone: 'warn' };
@@ -139,11 +142,24 @@ function getFounderStatus(founder: FounderSummary) {
 }
 
 function getFounderProgressLabel(founder: FounderSummary) {
+  if (founder.status === 'removed') return 'Removed from this room.';
   if (!founder.recorded) return 'Joined, waiting for a first recording.';
   if (!founder.feedbackCount) return 'Recorded, but still waiting on feedback.';
   if (!founder.submitted) return 'Has feedback and still needs a final submission.';
   if (!founder.hasBestTake) return 'Submitted, but no Best Take is marked yet.';
   return 'Submitted Best Take and ready for review.';
+}
+
+function participantStatusLabel(status?: string | null) {
+  if (status === 'removed') return 'Removed';
+  if (status === 'invited') return 'Invited';
+  return 'Active';
+}
+
+function participantStatusTone(status?: string | null) {
+  if (status === 'removed') return 'bg-roast/15 text-roast';
+  if (status === 'invited') return 'bg-amber-400/15 text-amber-300';
+  return 'bg-neon-lime/15 text-neon-lime';
 }
 
 function formatDate(value?: string) {
@@ -194,12 +210,13 @@ export default function EventDashboardPage() {
   const [copied, setCopied] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [founderInviteEmail, setFounderInviteEmail] = useState('');
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'founder' });
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'founder', sendEmail: true });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
-  const [lastInvite, setLastInvite] = useState<{ url: string; role: string; email: string } | null>(null);
+  const [lastInvite, setLastInvite] = useState<{ url: string; role: string; email: string; emailStatus?: string | null; emailError?: string | null } | null>(null);
   const [actionMessage, setActionMessage] = useState('');
   const [createdInviteLink, setCreatedInviteLink] = useState('');
   const [saving, setSaving] = useState(false);
+  const [busyAction, setBusyAction] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -234,8 +251,14 @@ export default function EventDashboardPage() {
   const announcements = useMemo(() => state?.announcements || [], [state?.announcements]);
   const founderRows = useMemo(() => participants.filter((item: any) => item.role === 'founder'), [participants]);
   const teamRows = useMemo(() => participants.filter((item: any) => TEAM_ROLES.includes(item.role)), [participants]);
-  const founderInvitations = useMemo(() => invitations.filter((item: any) => item.role === 'founder'), [invitations]);
-  const teamInvitations = useMemo(() => invitations.filter((item: any) => item.role !== 'founder'), [invitations]);
+  const founderInvitations = useMemo(
+    () => invitations.filter((item: any) => item.role === 'founder' && item.status === 'pending'),
+    [invitations]
+  );
+  const teamInvitations = useMemo(
+    () => invitations.filter((item: any) => item.role !== 'founder' && item.status === 'pending'),
+    [invitations]
+  );
   const founderSummaries = useMemo<FounderSummary[]>(
     () => founderRows.map((participant: any) => buildFounderSummary(participant, pitches, submissions)),
     [founderRows, pitches, submissions]
@@ -280,6 +303,75 @@ export default function EventDashboardPage() {
     setTimeout(() => setCopied(''), 1600);
   };
 
+  const runInviteMutation = async (inviteId: string, action: 'resend' | 'clear_delivery' | 'revoke') => {
+    setBusyAction(`invite:${inviteId}:${action}`);
+    setActionMessage('');
+    setCreatedInviteLink('');
+    try {
+      const response = await fetch(`/api/events/${slug}/invites`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteId, action }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || 'Could not update the invite.');
+      }
+
+      if (action === 'resend') {
+        setActionMessage(
+          data.emailStatus === 'sent'
+            ? 'Invite email sent.'
+            : data.emailStatus === 'not_configured'
+              ? 'Invite saved, but email is not configured.'
+              : data.emailStatus === 'failed'
+                ? `Invite saved, but email failed. ${data.emailError || 'Check the provider response.'}`
+                : 'Invite email cleared and ready to resend.'
+        );
+      } else if (action === 'clear_delivery') {
+        setActionMessage('Invite delivery status cleared.');
+      } else {
+        setActionMessage('Invite revoked.');
+      }
+
+      load();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not update the invite.');
+    } finally {
+      setBusyAction('');
+    }
+  };
+
+  const runParticipantMutation = async (participantId: string, patch: { role?: string; status?: 'active' | 'removed' }) => {
+    setBusyAction(`participant:${participantId}`);
+    setActionMessage('');
+    setCreatedInviteLink('');
+    try {
+      const response = await fetch(`/api/events/${slug}/participants`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId, ...patch }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || 'Could not update the participant.');
+      }
+
+      setActionMessage(
+        patch.status === 'removed'
+          ? 'Participant removed from the room.'
+          : patch.status === 'active'
+            ? 'Participant restored.'
+            : 'Participant updated.'
+      );
+      load();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not update the participant.');
+    } finally {
+      setBusyAction('');
+    }
+  };
+
   const createInvite = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -288,7 +380,10 @@ export default function EventDashboardPage() {
     const response = await fetch(`/api/events/${slug}/invites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(inviteForm),
+      body: JSON.stringify({
+        ...inviteForm,
+        sendEmail: inviteForm.sendEmail && Boolean(inviteForm.email.trim()),
+      }),
     });
     const data = await readJsonResponse(response);
     setSaving(false);
@@ -296,13 +391,23 @@ export default function EventDashboardPage() {
       setActionMessage(data?.error || 'Could not create invite.');
       return;
     }
-    setInviteForm({ email: '', role: inviteForm.role });
+    setInviteForm({ email: '', role: inviteForm.role, sendEmail: inviteForm.sendEmail });
     setLastInvite({
       url: data.inviteUrl || '',
       role: data.invitation?.role || inviteForm.role,
-      email: data.invitation?.email || inviteForm.email,
+      email: data.invitation?.email || inviteForm.email.trim(),
+      emailStatus: data.emailStatus || data.invitation?.email_status || null,
+      emailError: data.emailError || data.invitation?.email_error || null,
     });
-    setActionMessage('Invite created. Copy the link and send it to the right person.');
+    setActionMessage(
+      data.emailStatus === 'sent'
+        ? 'Invite emailed and link ready.'
+        : data.emailStatus === 'not_configured'
+          ? 'Invite created. Email is not configured, so only the link is ready.'
+          : data.emailStatus === 'failed'
+            ? `Invite created, but email failed. ${data.emailError || 'Check the provider response.'}`
+            : 'Invite created. Copy the link or email it later.'
+    );
     setCreatedInviteLink(data.inviteUrl || '');
     load();
   };
@@ -315,17 +420,32 @@ export default function EventDashboardPage() {
     const response = await fetch(`/api/events/${slug}/invites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: founderInviteEmail, role: 'founder' }),
+      body: JSON.stringify({ email: founderInviteEmail, role: 'founder', sendEmail: true }),
     });
-    const data = await response.json().catch(() => null);
+    const data = await readJsonResponse(response);
     setSaving(false);
     if (!response.ok || !data?.success) {
       setActionMessage(data?.error || 'Could not create founder invite.');
       return;
     }
     setFounderInviteEmail('');
-    setActionMessage('Founder invite created. Copy the link and send it to the founder.');
+    setActionMessage(
+      data.emailStatus === 'sent'
+        ? 'Founder invite emailed and link ready.'
+        : data.emailStatus === 'not_configured'
+          ? 'Founder invite created, but email is not configured.'
+          : data.emailStatus === 'failed'
+            ? `Founder invite created, but email failed. ${data.emailError || 'Check the provider response.'}`
+            : 'Founder invite created. Copy the link if you need to send it another way.'
+    );
     setCreatedInviteLink(data.inviteUrl || '');
+    setLastInvite({
+      url: data.inviteUrl || '',
+      role: 'founder',
+      email: data.invitation?.email || founderInviteEmail.trim(),
+      emailStatus: data.emailStatus || data.invitation?.email_status || null,
+      emailError: data.emailError || data.invitation?.email_error || null,
+    });
     load();
   };
 
@@ -333,6 +453,7 @@ export default function EventDashboardPage() {
     event.preventDefault();
     setSaving(true);
     setActionMessage('');
+    setCreatedInviteLink('');
     const response = await fetch(`/api/events/${slug}/announcements`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -586,6 +707,7 @@ export default function EventDashboardPage() {
                         placeholder="founder@company.com"
                         required
                       />
+                      <p className="mt-2 text-xs leading-5 text-slate-500">We email the invite by default and still give you a copyable link after creation.</p>
                     </label>
                     <button
                       disabled={saving}
@@ -595,7 +717,7 @@ export default function EventDashboardPage() {
                       Create founder invite
                     </button>
                     <p className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm leading-6 text-slate-300">
-                      This creates a tracked founder invite. Copy the link after creation and send it by email, SMS, Slack, or community DM.
+                      This creates a tracked founder invite and sends the email when possible. The invite link stays available for follow-up.
                     </p>
                   </form>
                 ) : (
@@ -606,12 +728,19 @@ export default function EventDashboardPage() {
               <Panel title="Founder roster" eyebrow="Participants">
                 <div className="grid gap-3 md:grid-cols-2">
                   {founderSummaries.map((founder) => (
-                    <FounderRow key={founder.participant.id} founder={founder} detailed />
+                    <FounderRow
+                      key={founder.participant.id}
+                      founder={founder}
+                      detailed
+                      canManage={state.canManageEvent && founder.participant.user_id !== event.organizer_id}
+                      busyAction={busyAction}
+                      onUpdateParticipant={runParticipantMutation}
+                    />
                   ))}
                   {!founderSummaries.length && <EmptyState text="No founders have joined this event yet." />}
                 </div>
                 <div className="mt-5 space-y-3">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Pending founder invites</p>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Founder invites</p>
                   {founderInvitations.map((invite: any) => (
                     <InviteRow
                       key={invite.id}
@@ -619,6 +748,11 @@ export default function EventDashboardPage() {
                       eventSlug={event.slug}
                       copied={copied}
                       onCopy={copyText}
+                      canManage={state.canManageEvent}
+                      busyAction={busyAction}
+                      onResend={() => runInviteMutation(invite.id, 'resend')}
+                      onClear={() => runInviteMutation(invite.id, 'clear_delivery')}
+                      onRevoke={() => runInviteMutation(invite.id, 'revoke')}
                     />
                   ))}
                   {!founderInvitations.length && <EmptyState text="No pending founder invites yet." />}
@@ -658,7 +792,16 @@ export default function EventDashboardPage() {
                         className="input-dark"
                         placeholder="founder@company.com or leave blank for a copyable link"
                       />
-                      <p className="mt-2 text-xs leading-5 text-slate-500">Email is optional. You can copy the invite link after creating it.</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">Leave blank for link-only access or add an email to send the invite now.</p>
+                    </label>
+                    <label className="flex min-h-[56px] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={inviteForm.sendEmail}
+                        onChange={(e) => setInviteForm({ ...inviteForm, sendEmail: e.target.checked })}
+                        className="h-5 w-5 accent-neon-cyan"
+                      />
+                      <span className="text-sm font-bold text-slate-200">Email invite when an address is set</span>
                     </label>
                     <div className="space-y-4">
                       {INVITE_ROLE_GROUPS.map((group) => (
@@ -707,7 +850,14 @@ export default function EventDashboardPage() {
               <Panel title="Team and invites" eyebrow="Access">
                 <div className="grid gap-3 md:grid-cols-2">
                   {teamRows.map((member: any) => (
-                    <PersonCard key={member.id} person={member} role={member.role} />
+                    <PersonCard
+                      key={member.id}
+                      person={member}
+                      role={member.role}
+                      canManage={state.canManageEvent && member.user_id !== event.organizer_id}
+                      busyAction={busyAction}
+                      onUpdateParticipant={runParticipantMutation}
+                    />
                   ))}
                 </div>
                 {lastInvite && (
@@ -717,18 +867,31 @@ export default function EventDashboardPage() {
                       <div>
                         <p className="font-bold text-white">{roleLabel(lastInvite.role)} invite ready</p>
                         <p className="text-sm leading-6 text-slate-300">
-                          {lastInvite.email ? `Sent to ${lastInvite.email}.` : 'Copy the link and send it to the right person.'}
+                          {lastInvite.emailStatus === 'sent'
+                            ? `Sent to ${lastInvite.email}.`
+                            : lastInvite.emailStatus === 'failed'
+                              ? `Email failed. ${readableEmailError(lastInvite.emailError || '')}`
+                              : lastInvite.emailStatus === 'not_configured'
+                                ? 'Email is not configured, so only the link is ready.'
+                                : lastInvite.email
+                                  ? `Ready for ${lastInvite.email}.`
+                                  : 'Copy the link and send it to the right person.'}
                         </p>
                       </div>
-                      <button onClick={() => copyText(lastInvite.url, 'latest-invite')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
-                        <Copy className="h-4 w-4" />
-                        {copied === 'latest-invite' ? 'Copied' : 'Copy link'}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => copyText(lastInvite.url, 'latest-invite')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
+                          <Copy className="h-4 w-4" />
+                          {copied === 'latest-invite' ? 'Copied' : 'Copy link'}
+                        </button>
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${inviteEmailStatusTone(lastInvite.emailStatus)}`}>
+                          {inviteEmailStatusLabel(lastInvite.emailStatus)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
                 <div className="mt-5 space-y-3">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Pending invites</p>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Pending team invites</p>
                   {teamInvitations.map((invite: any) => (
                     <InviteRow
                       key={invite.id}
@@ -736,6 +899,11 @@ export default function EventDashboardPage() {
                       eventSlug={event.slug}
                       copied={copied}
                       onCopy={copyText}
+                      canManage={state.canManageEvent}
+                      busyAction={busyAction}
+                      onResend={() => runInviteMutation(invite.id, 'resend')}
+                      onClear={() => runInviteMutation(invite.id, 'clear_delivery')}
+                      onRevoke={() => runInviteMutation(invite.id, 'revoke')}
                     />
                   ))}
                   {!teamInvitations.length && <EmptyState text="No pending team invites yet. Founder invites live in the Founders tab." />}
@@ -827,9 +995,24 @@ function MetaPill({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function FounderRow({ founder, detailed = false }: { founder: FounderSummary; detailed?: boolean }) {
+function FounderRow({
+  founder,
+  detailed = false,
+  canManage = false,
+  busyAction = '',
+  onUpdateParticipant,
+}: {
+  founder: FounderSummary;
+  detailed?: boolean;
+  canManage?: boolean;
+  busyAction?: string;
+  onUpdateParticipant?: (participantId: string, patch: { role?: string; status?: 'active' | 'removed' }) => void;
+}) {
   const status = getFounderStatus(founder);
   const latestPitch = founder.latestPitch || founder.submittedPitch?.pitch || null;
+  const participantActionBusy = busyAction === `participant:${founder.participant.id}`;
+  const participantStatus = participantStatusLabel(founder.participant.status);
+  const isRemoved = founder.participant.status === 'removed';
 
   return (
     <article className="rounded-2xl border border-white/10 bg-black/25 p-4">
@@ -844,17 +1027,34 @@ function FounderRow({ founder, detailed = false }: { founder: FounderSummary; de
           <p className="text-sm text-slate-400">{getFounderProgressLabel(founder)}</p>
           <p className="mt-1 text-xs text-slate-500">Joined {formatDate(founder.joinedAt)}</p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-black ${
-            status.tone === 'ready'
-              ? 'bg-neon-lime text-slate-950'
-              : status.tone === 'warn'
-                ? 'bg-roast/15 text-roast'
-                : 'bg-white/10 text-slate-300'
-          }`}
-        >
-          {status.label}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-black ${
+              status.tone === 'ready'
+                ? 'bg-neon-lime text-slate-950'
+                : status.tone === 'warn'
+                  ? 'bg-roast/15 text-roast'
+                  : status.tone === 'danger'
+                    ? 'bg-roast/15 text-roast'
+                    : 'bg-white/10 text-slate-300'
+            }`}
+          >
+            {status.label}
+          </span>
+          <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${participantStatusTone(founder.participant.status)}`}>
+            {participantStatus}
+          </span>
+          {canManage && onUpdateParticipant ? (
+            <button
+              type="button"
+              disabled={participantActionBusy}
+              onClick={() => onUpdateParticipant(founder.participant.id, { status: isRemoved ? 'active' : 'removed' })}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold text-slate-200 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+            >
+              {participantActionBusy ? 'Working...' : isRemoved ? 'Restore' : 'Deactivate'}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -901,52 +1101,165 @@ function FounderRow({ founder, detailed = false }: { founder: FounderSummary; de
   );
 }
 
-function PersonCard({ person, role }: { person: any; role: string }) {
+function PersonCard({
+  person,
+  role,
+  canManage = false,
+  busyAction = '',
+  onUpdateParticipant,
+}: {
+  person: any;
+  role: string;
+  canManage?: boolean;
+  busyAction?: string;
+  onUpdateParticipant?: (participantId: string, patch: { role?: string; status?: 'active' | 'removed' }) => void;
+}) {
+  const participantActionBusy = busyAction === `participant:${person.id}`;
+  const isRemoved = person.status === 'removed';
+  const editableRoles = ['organizer', 'admin', 'coach', 'mentor', 'judge'] as const;
+
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-4">
-      <img
-        src={person.profile?.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP'}
-        alt={person.profile?.full_name || role}
-        className="h-11 w-11 rounded-full object-cover"
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-bold text-white">{person.profile?.full_name || roleLabel(role)}</p>
-        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{roleLabel(role)}</p>
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+      <div className="flex items-start gap-3">
+        <img
+          src={person.profile?.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP'}
+          alt={person.profile?.full_name || role}
+          className="h-11 w-11 rounded-full object-cover"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-bold text-white">{person.profile?.full_name || roleLabel(role)}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{roleLabel(role)}</p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${participantStatusTone(person.status)}`}>
+            {participantStatusLabel(person.status)}
+          </span>
+          {canManage && onUpdateParticipant ? (
+            <button
+              type="button"
+              disabled={participantActionBusy}
+              onClick={() => onUpdateParticipant(person.id, { status: isRemoved ? 'active' : 'removed' })}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-bold text-slate-200 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+            >
+              {participantActionBusy ? 'Working...' : isRemoved ? 'Restore' : 'Deactivate'}
+            </button>
+          ) : null}
+        </div>
       </div>
-      <CheckCircle2 className="h-5 w-5 text-neon-lime" />
+
+      {canManage && onUpdateParticipant ? (
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="min-w-0 flex-1">
+            <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-slate-500">Role</span>
+            <select
+              value={role}
+              onChange={(e) => onUpdateParticipant(person.id, { role: e.target.value })}
+              disabled={participantActionBusy || isRemoved}
+              className="input-dark"
+            >
+              {editableRoles.map((editableRole) => (
+                <option key={editableRole} value={editableRole}>
+                  {roleLabel(editableRole)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function InviteRow({
   invite,
-  eventSlug,
   copied,
   onCopy,
+  canManage = false,
+  busyAction = '',
+  onResend,
+  onClear,
+  onRevoke,
+  eventSlug,
 }: {
   invite: any;
-  eventSlug: string;
   copied: string;
   onCopy: (value: string, label: string) => void;
+  canManage?: boolean;
+  busyAction?: string;
+  onResend?: () => void;
+  onClear?: () => void;
+  onRevoke?: () => void;
+  eventSlug?: string;
 }) {
   const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/events/${eventSlug}?invite=${invite.invite_code}`;
+  const hasEmail = Boolean(invite.email);
+  const resendBusy = busyAction === `invite:${invite.id}:resend`;
+  const clearBusy = busyAction === `invite:${invite.id}:clear_delivery`;
+  const revokeBusy = busyAction === `invite:${invite.id}:revoke`;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/25 p-4">
       <div className="min-w-0">
         <p className="truncate font-bold text-white">{invite.email || `${roleLabel(invite.role)} invite`}</p>
-        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
-          {roleLabel(invite.role)} · {invite.status}
-        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-300">
+            {roleLabel(invite.role)}
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-300">
+            {invite.status}
+          </span>
+          <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${inviteEmailStatusTone(invite.email_status)}`}>
+            {inviteEmailStatusLabel(invite.email_status)}
+          </span>
+          {invite.email_sent_at ? (
+            <span className="text-[11px] font-semibold text-slate-500">Sent {formatDate(invite.email_sent_at)}</span>
+          ) : null}
+        </div>
+        {invite.email_error ? <p className="mt-3 rounded-xl border border-roast/20 bg-roast/10 px-3 py-2 text-xs leading-5 text-roast">{readableEmailError(invite.email_error)}</p> : null}
       </div>
-      <button
-        type="button"
-        onClick={() => onCopy(link, invite.id)}
-        className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold"
-      >
-        <Copy className="h-4 w-4" />
-        {copied === invite.id ? 'Copied' : 'Copy link'}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onCopy(link, invite.id)}
+          className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold"
+        >
+          <Copy className="h-4 w-4" />
+          {copied === invite.id ? 'Copied' : 'Copy link'}
+        </button>
+        {canManage && onResend && hasEmail && invite.status === 'pending' ? (
+          <button
+            type="button"
+            disabled={resendBusy}
+            onClick={onResend}
+            className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold disabled:cursor-wait disabled:opacity-60"
+          >
+            <Send className="h-4 w-4" />
+            {resendBusy ? 'Sending...' : invite.email_status === 'sent' ? 'Resend' : 'Send email'}
+          </button>
+        ) : null}
+        {canManage && onClear && invite.status === 'pending' && (invite.email_status !== 'unknown' || invite.email_error) ? (
+          <button
+            type="button"
+            disabled={clearBusy}
+            onClick={onClear}
+            className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold disabled:cursor-wait disabled:opacity-60"
+          >
+            <RefreshCw className="h-4 w-4" />
+            {clearBusy ? 'Clearing...' : 'Clear status'}
+          </button>
+        ) : null}
+        {canManage && onRevoke && invite.status === 'pending' ? (
+          <button
+            type="button"
+            disabled={revokeBusy}
+            onClick={onRevoke}
+            className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold disabled:cursor-wait disabled:opacity-60"
+          >
+            <LogOut className="h-4 w-4" />
+            {revokeBusy ? 'Revoking...' : 'Revoke'}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

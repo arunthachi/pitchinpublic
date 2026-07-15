@@ -107,8 +107,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
 
     userSubmission = submission;
 
-    isTeamMember = event.organizer_id === user.id || TEAM_ROLES.includes(participant?.role);
-    canManageEvent = event.organizer_id === user.id || MANAGER_ROLES.includes(participant?.role);
+    isTeamMember = event.organizer_id === user.id || (participant?.status === 'active' && TEAM_ROLES.includes(participant.role));
+    canManageEvent = event.organizer_id === user.id || (participant?.status === 'active' && MANAGER_ROLES.includes(participant.role));
 
     if (isTeamMember) {
       const { data: participantRows } = await supabase

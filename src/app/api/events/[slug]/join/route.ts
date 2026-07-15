@@ -46,6 +46,13 @@ function createAdminSupabase(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json(
+      { success: false, error: 'Event join is not configured in this environment.' },
+      { status: 503 }
+    );
+  }
+
   const params = await props.params;
   const supabase = createSupabase(request);
   const adminSupabase = createAdminSupabase(request);
@@ -74,6 +81,23 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
   if (eventError || !event) {
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
+  }
+
+  const { data: existingParticipant } = await supabase
+    .from('pitch_event_participants')
+    .select('status,role')
+    .eq('event_id', event.id)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (existingParticipant?.status === 'removed' && event.organizer_id !== user.id) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'You were removed from this pitch room. Ask the organizer for a new invite or restored access.',
+      },
+      { status: 403 }
+    );
   }
 
   const providedInviteCode = validation.data.inviteCode?.trim() || validation.data.accessCode?.trim();
