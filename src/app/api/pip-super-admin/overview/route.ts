@@ -43,9 +43,9 @@ export async function GET(request: NextRequest) {
       .limit(20),
     supabase
       .from('lead_requests')
-      .select('id,type,email,name,website,notification_status,created_at')
+      .select('id,type,email,name,website,source,status,notification_status,notification_error,confirmation_status,confirmation_error,created_at')
       .order('created_at', { ascending: false })
-      .limit(20),
+      .limit(100),
     supabase
       .from('organizer_invitations')
       .select('id', { count: 'exact', head: true })
@@ -71,6 +71,56 @@ export async function GET(request: NextRequest) {
     ...(Array.isArray(row.profiles) ? row.profiles[0] : row.profiles),
   }));
 
+  const leadRows = leadsResult.data || [];
+  const leadTotals = leadRows.reduce(
+    (acc: any, lead: any) => {
+      const source = (lead.source || 'unknown').trim() || 'unknown';
+      acc.total += 1;
+      if (lead.type === 'founder') acc.founderRequests += 1;
+      if (lead.type === 'organizer') acc.organizerRequests += 1;
+      if (lead.status === 'new') acc.newRequests += 1;
+      if (lead.status === 'reviewing') acc.reviewingRequests += 1;
+      if (lead.status === 'approved') acc.approvedRequests += 1;
+      if (lead.status === 'declined') acc.declinedRequests += 1;
+      if (lead.confirmation_status === 'sent') acc.confirmationSent += 1;
+      if (lead.confirmation_status === 'failed') acc.confirmationFailed += 1;
+      if (lead.confirmation_status === 'not_configured') acc.confirmationNotConfigured += 1;
+      if (lead.confirmation_status === 'skipped') acc.confirmationSkipped += 1;
+      if (lead.notification_status === 'sent') acc.notificationSent += 1;
+      if (lead.notification_status === 'failed') acc.notificationFailed += 1;
+      if (lead.notification_status === 'not_configured') acc.notificationNotConfigured += 1;
+      if (lead.notification_status === 'skipped') acc.notificationSkipped += 1;
+      acc.sources.set(source, (acc.sources.get(source) || 0) + 1);
+      return acc;
+    },
+    {
+      total: 0,
+      founderRequests: 0,
+      organizerRequests: 0,
+      newRequests: 0,
+      reviewingRequests: 0,
+      approvedRequests: 0,
+      declinedRequests: 0,
+      confirmationSent: 0,
+      confirmationFailed: 0,
+      confirmationNotConfigured: 0,
+      confirmationSkipped: 0,
+      notificationSent: 0,
+      notificationFailed: 0,
+      notificationNotConfigured: 0,
+      notificationSkipped: 0,
+      sources: new Map<string, number>(),
+    }
+  );
+
+  const topSources = Array.from(leadTotals.sources.entries() as Iterable<[string, number]>)
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
+  const leadMetrics = { ...leadTotals };
+  delete leadMetrics.sources;
+
   return NextResponse.json({
     success: true,
     counts: {
@@ -78,11 +128,16 @@ export async function GET(request: NextRequest) {
       organizers: organizersResult.count || organizers.length,
       events: eventsResult.count || 0,
       pendingOrganizerInvites: pendingInvitesResult.count || 0,
+      leadRequests: leadsResult.count || leadRows.length,
     },
     founders: profilesResult.data || [],
     organizers,
     organizerInvitations: invitationsResult.data || [],
     events: eventsResult.data || [],
-    leads: leadsResult.data || [],
+    leads: leadRows,
+    leadMetrics: {
+      ...leadMetrics,
+      topSources,
+    },
   });
 }

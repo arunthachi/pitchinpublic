@@ -14,6 +14,12 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createRequestSupabase(request);
+  if (!supabase) {
+    return NextResponse.json(
+      { success: false, error: 'Organizer invite sign-in is not configured in this environment.' },
+      { status: 503 }
+    );
+  }
   const {
     data: { user },
     error: authError,

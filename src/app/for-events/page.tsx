@@ -78,7 +78,7 @@ export default function ForEventsPage() {
             </Link>
             <LeadCaptureModal
               type="organizer"
-              triggerLabel="Early access"
+              triggerLabel="Request invite"
               source="organizers-header"
               triggerClassName="inline-flex items-center gap-2 rounded-lg bg-neon-cyan px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-950 transition hover:bg-cyan-300"
             />

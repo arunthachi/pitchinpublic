@@ -23,6 +23,7 @@ type AdminOverview = {
     organizers: number;
     events: number;
     pendingOrganizerInvites: number;
+    leadRequests: number;
   };
   founders: Array<{ id: string; email: string; full_name: string | null; created_at: string; pitches_count: number; companies_count: number }>;
   organizers: Array<{ id: string; email: string; full_name: string | null; created_at: string; roleCreatedAt: string; pitches_count: number; companies_count: number }>;
@@ -41,7 +42,38 @@ type AdminOverview = {
     accepted_at: string | null;
   }>;
   events: Array<{ id: string; name: string; slug: string; status: string; event_date: string; created_at: string }>;
-  leads: Array<{ id: string; type: string; email: string; name: string; website: string | null; notification_status: string; created_at: string }>;
+  leads: Array<{
+    id: string;
+    type: string;
+    email: string;
+    name: string;
+    website: string | null;
+    source: string | null;
+    status: string;
+    notification_status: string;
+    notification_error?: string | null;
+    confirmation_status: string;
+    confirmation_error?: string | null;
+    created_at: string;
+  }>;
+  leadMetrics?: {
+    total: number;
+    founderRequests: number;
+    organizerRequests: number;
+    newRequests: number;
+    reviewingRequests: number;
+    approvedRequests: number;
+    declinedRequests: number;
+    confirmationSent: number;
+    confirmationFailed: number;
+    confirmationNotConfigured: number;
+    confirmationSkipped: number;
+    notificationSent: number;
+    notificationFailed: number;
+    notificationNotConfigured: number;
+    notificationSkipped: number;
+    topSources: Array<{ source: string; count: number }>;
+  };
 };
 
 function formatDate(value?: string | null) {
@@ -88,6 +120,18 @@ function emailStatusClass(status?: string | null) {
   if (status === 'sent') return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200';
   if (status === 'failed' || status === 'not_configured') return 'border-red-400/30 bg-red-500/10 text-red-200';
   return 'border-white/10 bg-white/8 text-slate-300';
+}
+
+function requestStatusClass(status?: string | null) {
+  if (status === 'approved') return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200';
+  if (status === 'reviewing') return 'border-cyan-400/30 bg-cyan-500/10 text-cyan-100';
+  if (status === 'declined') return 'border-red-400/30 bg-red-500/10 text-red-200';
+  return 'border-white/10 bg-white/8 text-slate-300';
+}
+
+function requestStatusLabel(status?: string | null) {
+  if (!status) return 'unknown';
+  return status.replaceAll('_', ' ');
 }
 
 export default function AdminPage() {
@@ -257,6 +301,13 @@ export default function AdminPage() {
           <StatCard label="Pending invites" value={overview?.counts.pendingOrganizerInvites || 0} icon={Mail} />
         </section>
 
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Lead requests" value={overview?.counts.leadRequests || 0} icon={Sparkles} />
+          <StatCard label="Founder requests" value={overview?.leadMetrics?.founderRequests || 0} icon={Users} />
+          <StatCard label="Organizer requests" value={overview?.leadMetrics?.organizerRequests || 0} icon={ShieldCheck} />
+          <StatCard label="Confirmation emails" value={overview?.leadMetrics?.confirmationSent || 0} icon={Mail} />
+        </section>
+
         <section className="mt-6 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <form onSubmit={createInvite} className="glass-panel rounded-[2rem] p-5 sm:p-6">
             <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-neon-lime">Organizer invite</p>
@@ -410,8 +461,29 @@ export default function AdminPage() {
             )) : <EmptyState text="No events yet." />}
           </Panel>
           <Panel title="Access requests">
+            {overview?.leadMetrics ? (
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <MiniMetric label="New" value={overview.leadMetrics.newRequests} />
+                  <MiniMetric label="Reviewing" value={overview.leadMetrics.reviewingRequests} />
+                  <MiniMetric label="Approved" value={overview.leadMetrics.approvedRequests} />
+                  <MiniMetric label="Declined" value={overview.leadMetrics.declinedRequests} />
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Top sources</p>
+                  <div className="mt-3 space-y-2">
+                    {overview.leadMetrics.topSources.length ? overview.leadMetrics.topSources.map((source) => (
+                      <div key={source.source} className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.04] px-3 py-2">
+                        <span className="truncate text-sm text-slate-200">{source.source}</span>
+                        <span className="text-sm font-black text-neon-cyan">{source.count}</span>
+                      </div>
+                    )) : <p className="text-sm text-slate-500">No source data yet.</p>}
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {overview?.leads.length ? overview.leads.map((lead) => (
-              <PersonRow key={lead.id} name={`${lead.name} (${lead.type})`} email={lead.email} meta={`${lead.notification_status} · ${formatDate(lead.created_at)}`} />
+              <LeadRow key={lead.id} lead={lead} />
             )) : <EmptyState text="No access requests yet." />}
           </Panel>
         </section>
@@ -435,6 +507,77 @@ function PersonRow({ name, email, meta }: { name: string; email: string; meta: s
       <p className="font-heading text-lg font-black text-white">{name}</p>
       <p className="mt-1 truncate text-sm text-slate-400">{email}</p>
       <p className="mt-2 text-xs text-slate-500">{meta}</p>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className="mt-2 font-heading text-2xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function LeadRow({
+  lead,
+}: {
+  lead: {
+    id: string;
+    type: string;
+    email: string;
+    name: string;
+    website: string | null;
+    source: string | null;
+    status: string;
+    notification_status: string;
+    notification_error?: string | null;
+    confirmation_status: string;
+    confirmation_error?: string | null;
+    created_at: string;
+  };
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-heading text-lg font-black text-white">{lead.name}</p>
+          <p className="mt-1 truncate text-sm text-slate-400">{lead.email}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${requestStatusClass(lead.status)}`}>
+            {requestStatusLabel(lead.status)}
+          </span>
+          <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${lead.type === 'founder' ? 'border-neon-lime/25 bg-neon-lime/10 text-neon-lime' : 'border-neon-cyan/25 bg-neon-cyan/10 text-neon-cyan'}`}>
+            {lead.type}
+          </span>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${emailStatusClass(lead.confirmation_status)}`}>
+          Confirmation {lead.confirmation_status.replaceAll('_', ' ')}
+        </span>
+        <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${emailStatusClass(lead.notification_status)}`}>
+          Team {lead.notification_status.replaceAll('_', ' ')}
+        </span>
+      </div>
+      <p className="mt-3 text-xs text-slate-500">
+        Source: {lead.source || 'unknown'} · {formatDate(lead.created_at)}
+      </p>
+      {lead.confirmation_error ? (
+        <p className="mt-2 rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          Confirmation: {readableEmailError(lead.confirmation_error)}
+        </p>
+      ) : null}
+      {lead.notification_error ? (
+        <p className="mt-2 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+          Team email: {readableEmailError(lead.notification_error)}
+        </p>
+      ) : null}
+      {lead.website ? (
+        <p className="mt-2 truncate text-xs text-slate-500">{lead.website}</p>
+      ) : null}
     </div>
   );
 }

@@ -21,14 +21,14 @@ type SubmitState = 'idle' | 'loading' | 'success' | 'error';
 
 const copyByType: Record<LeadType, { title: string; subtitle: string; nameLabel: string; namePlaceholder: string }> = {
   founder: {
-    title: 'Request founder invite',
-    subtitle: 'Tell us where to send access and what you are building.',
+    title: 'Request founder access',
+    subtitle: 'Leave your email and startup name. We will follow up with the next step.',
     nameLabel: 'Startup name',
     namePlaceholder: 'ReachCopilot',
   },
   organizer: {
     title: 'Request organizer invite',
-    subtitle: 'Share the program, event, or cohort where founders need better pitch practice.',
+    subtitle: 'Share the program, event, or cohort. Organizer access stays invite-only.',
     nameLabel: 'Organization name',
     namePlaceholder: 'Startup Westport',
   },
@@ -50,6 +50,7 @@ export function LeadCaptureModal({
   const [website, setWebsite] = useState('');
   const [state, setState] = useState<SubmitState>('idle');
   const [message, setMessage] = useState('');
+  const [warning, setWarning] = useState('');
   const [mounted, setMounted] = useState(false);
   const titleId = useId();
   const modalCopy = copyByType[type];
@@ -82,12 +83,14 @@ export function LeadCaptureModal({
     setOpen(false);
     setState('idle');
     setMessage('');
+    setWarning('');
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setState('loading');
     setMessage('');
+    setWarning('');
 
     try {
       const response = await fetch('/api/leads', {
@@ -103,21 +106,25 @@ export function LeadCaptureModal({
       });
 
       const payload = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
         error?: string;
-        notification?: 'sent' | 'failed' | 'not_configured';
+        message?: string;
+        warning?: string | null;
       };
 
-      if (!response.ok || payload.notification === 'failed' || payload.notification === 'not_configured') {
+      if (!response.ok || !payload.success) {
         throw new Error(payload.error || 'Something went wrong. Please email hello@pitchinpublic.io.');
       }
 
       setState('success');
-      setMessage('You are in. We will follow up by email.');
+      setMessage(payload.message || 'Request received. We will follow up by email.');
+      setWarning(payload.warning || '');
       setName('');
       setWebsite('');
     } catch (error) {
       setState('error');
       setMessage(error instanceof Error ? error.message : 'Something went wrong. Please email hello@pitchinpublic.io.');
+      setWarning('');
     }
   };
 
@@ -152,7 +159,7 @@ export function LeadCaptureModal({
           />
           <div className="relative my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-[2rem] border border-white/18 bg-[#08111f]/98 shadow-2xl shadow-black/60 backdrop-blur-2xl [scrollbar-width:thin] sm:max-h-[calc(100dvh-3rem)]">
             <div className="absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_18%_0%,rgba(0,230,246,0.26),transparent_20rem),radial-gradient(circle_at_82%_0%,rgba(183,255,42,0.18),transparent_18rem)]" />
-            <div className="relative border-b border-white/10 p-6 sm:p-7">
+          <div className="relative border-b border-white/10 p-6 sm:p-7">
               <button
                 type="button"
                 aria-label="Close lead form"
@@ -178,6 +185,11 @@ export function LeadCaptureModal({
                   </span>
                   <h3 className="mt-5 font-heading text-2xl font-black text-white">Request received</h3>
                   <p className="mt-3 leading-7 text-slate-300">{message}</p>
+                  {warning ? (
+                    <p className="mt-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                      {warning}
+                    </p>
+                  ) : null}
                   <button
                     type="button"
                     onClick={resetAndClose}
@@ -239,6 +251,11 @@ export function LeadCaptureModal({
                 {message ? (
                   <p className={`text-sm ${state === 'error' ? 'text-red-300' : 'text-slate-300'}`}>{message}</p>
                 ) : null}
+                {warning ? (
+                  <p className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                    {warning}
+                  </p>
+                ) : null}
 
                 <button
                   type="submit"
@@ -246,7 +263,7 @@ export function LeadCaptureModal({
                   className="cta-primary inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-4 font-heading font-black disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {state === 'loading' ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : null}
-                  {state === 'loading' ? 'Sending...' : type === 'founder' ? 'Request founder invite' : 'Request organizer invite'}
+                  {state === 'loading' ? 'Sending...' : type === 'founder' ? 'Request founder access' : 'Request organizer invite'}
                 </button>
 
               </form>

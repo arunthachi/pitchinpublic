@@ -109,7 +109,7 @@ function HomeContent() {
   const urlPreviewAccess = urlAccess.preview || searchParams.get('preview') === '1';
   const isAuthHandoff = searchParams.get('auth') === '1';
   const effectiveGuestFeedPreview = urlPreviewAccess;
-  const showPublicSignIn = true;
+  const showPublicSignIn = isGuest;
   const pitchMaxParam = Number(searchParams.get('pitchMax'));
   const recordingMaxDurationSeconds = Number.isFinite(pitchMaxParam) && pitchMaxParam >= 30 && pitchMaxParam <= 180 ? pitchMaxParam : 60;
   const eventContext = searchParams.get('eventSlug')
