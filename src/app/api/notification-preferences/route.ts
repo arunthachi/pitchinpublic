@@ -18,19 +18,21 @@ function hasSupabaseConfig() {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
+type RequestSupabaseClient = NonNullable<ReturnType<typeof createRequestSupabase>>;
+
 type SessionResult =
   | {
-      supabase: ReturnType<typeof createRequestSupabase>;
+      supabase: RequestSupabaseClient;
       user: User;
       error: null;
     }
   | {
-      supabase: ReturnType<typeof createRequestSupabase>;
+      supabase: null;
       user: null;
       error: string;
     };
 
-async function ensureProfile(supabase: ReturnType<typeof createRequestSupabase>, user: Pick<User, 'id' | 'email' | 'user_metadata'>) {
+async function ensureProfile(supabase: RequestSupabaseClient, user: Pick<User, 'id' | 'email' | 'user_metadata'>) {
   const email = user.email || `${user.id}@pitchinpublic.local`;
   const fullName =
     user.user_metadata?.full_name ||
@@ -57,7 +59,7 @@ async function ensureProfile(supabase: ReturnType<typeof createRequestSupabase>,
 async function loadSessionUser(request: NextRequest): Promise<SessionResult> {
   if (!hasSupabaseConfig()) {
     return {
-      supabase: null as unknown as ReturnType<typeof createRequestSupabase>,
+      supabase: null,
       user: null,
       error: 'Supabase is not configured in this environment.',
     };
@@ -67,7 +69,7 @@ async function loadSessionUser(request: NextRequest): Promise<SessionResult> {
 
   if (!supabase) {
     return {
-      supabase: null as unknown as ReturnType<typeof createRequestSupabase>,
+      supabase: null,
       user: null,
       error: 'Supabase is not configured in this environment.',
     };
