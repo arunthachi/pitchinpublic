@@ -8,9 +8,9 @@ import { GoogleTagManager } from "@/components/GoogleTagManager";
 const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://app.pitchinpublic.io").replace(/\/$/, "");
 const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 const siteName = "Pitch in Public";
-const siteTitle = "Pitch in Public | Sharpen Your Pitch";
+const siteTitle = "Pitch in Public | Daily pitch practice";
 const siteDescription =
-  "Daily 60-second pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your message.";
+  "Mobile-first pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your best take.";
 const brandKeywords = [
   "pitch practice",
   "founder pitch",
@@ -42,6 +42,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  viewportFit: "cover",
   themeColor: "#05070A",
 };
 
@@ -81,11 +82,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/icons/app-icon.svg", type: "image/svg+xml" },
     ],
     shortcut: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/icons/app-icon.svg" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     type: "website",

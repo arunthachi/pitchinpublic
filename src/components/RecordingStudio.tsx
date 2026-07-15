@@ -41,6 +41,7 @@ const RECORDING_MIME_TYPES = [
   'video/webm',
   'video/mp4',
 ];
+const RETRYABLE_VIDEO_STATUS_CODES = new Set([404, 425, 429, 500, 502, 503, 504]);
 
 interface UploadedVideoMetadata {
   playbackUrl: string;
@@ -233,7 +234,19 @@ export function RecordingStudio({
       setMode('record');
       setError('');
     } catch (err) {
-      setError('Could not access camera. Please allow camera permissions.');
+      if (err instanceof DOMException) {
+        if (err.name === 'NotAllowedError') {
+          setError('Camera and microphone access is blocked. Allow permissions, then try again.');
+        } else if (err.name === 'NotFoundError') {
+          setError('No camera or microphone was found on this device.');
+        } else if (err.name === 'NotReadableError') {
+          setError('Another app may be using the camera. Close it and try again.');
+        } else {
+          setError('Could not access camera. Allow permissions or upload a video instead.');
+        }
+      } else {
+        setError('Could not access camera. Allow permissions or upload a video instead.');
+      }
       console.error('Camera error:', err);
     }
   }, []);
@@ -481,13 +494,22 @@ export function RecordingStudio({
         const data = await response.json();
 
         if (!response.ok || !data.success) {
+          if (RETRYABLE_VIDEO_STATUS_CODES.has(response.status)) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            continue;
+          }
+
+          if (response.status === 401 || response.status === 403) {
+            throw new Error('Your session expired while the video was processing. Sign in again and retry the upload.');
+          }
+
           throw new Error(data.error || 'Failed to fetch video processing status');
         }
 
         lastMetadata = data.data;
 
         if (lastMetadata?.status === 'error') {
-          throw new Error('Video processing failed. Please try another file or record again.');
+          throw new Error('Cloudflare could not finish the video yet. Try another file or record again.');
         }
 
         if (lastMetadata?.status === 'ready' && lastMetadata.playbackUrl) {
@@ -503,7 +525,7 @@ export function RecordingStudio({
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
-      throw new Error('Video is still processing. Please try again in a moment.');
+      throw new Error('Cloudflare is still preparing your video. Please try again in a minute.');
     },
     [videoDuration]
   );
@@ -717,7 +739,7 @@ export function RecordingStudio({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain p-3 sm:p-6">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain p-2 sm:p-6">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -733,7 +755,7 @@ export function RecordingStudio({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative my-auto w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+            className="relative my-auto flex w-full max-w-md max-h-[calc(100dvh-1rem)] flex-col overflow-hidden rounded-[1.75rem] border border-slate-700 bg-slate-900 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
           >
             {/* Close Button */}
             <button
@@ -743,7 +765,7 @@ export function RecordingStudio({
               <X className="w-4 h-4 text-slate-400" />
             </button>
 
-            <div className="p-4 sm:p-6">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:p-6">
               {/* Details Mode */}
               {mode === 'details' && previewUrl && (
                 <Step2_AddDetails

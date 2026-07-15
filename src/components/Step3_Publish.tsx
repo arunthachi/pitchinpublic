@@ -116,7 +116,7 @@ export function Step3_Publish({
         transition={{ delay: 0.4 }}
         className="space-y-3"
       >
-        <div className="relative mx-auto aspect-[9/16] max-h-[min(32dvh,340px)] overflow-hidden rounded-2xl border border-white/10 bg-black">
+        <div className="relative mx-auto aspect-[9/16] max-h-[min(30dvh,320px)] overflow-hidden rounded-2xl border border-white/10 bg-black">
           <video
             src={previewUrl}
             controls

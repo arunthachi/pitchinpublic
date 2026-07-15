@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   const safeNext = next && next.startsWith('/') && !next.startsWith('//')
     ? next
-    : '/?auth=1';
+    : '/';
 
   return NextResponse.redirect(`${origin}${safeNext}`);
 }

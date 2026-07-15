@@ -253,7 +253,7 @@ export function Step2_AddDetails({
       )}
 
       {/* Video Preview */}
-      <div className="relative aspect-[9/16] max-h-[40vh] mx-auto bg-black rounded-xl overflow-hidden mb-4">
+      <div className="relative aspect-[9/16] max-h-[34vh] mx-auto mb-4 overflow-hidden rounded-xl bg-black">
         <video
           src={previewUrl}
           controls

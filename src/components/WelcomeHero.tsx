@@ -21,8 +21,8 @@ import { BrandMark } from './BrandMark';
 import { LeadCaptureModal } from './LeadCaptureModal';
 
 interface WelcomeHeroProps {
-  showAlphaSignIn?: boolean;
-  onAlphaSignIn?: () => void;
+  showSignIn?: boolean;
+  onSignIn?: () => void;
 }
 
 const pitchLoop = [
@@ -142,7 +142,7 @@ const practiceSignals = [
   },
 ];
 
-export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeHeroProps) {
+export function WelcomeHero({ showSignIn = false, onSignIn }: WelcomeHeroProps) {
   const [activeSignal, setActiveSignal] = useState(practiceSignals[0]);
   const [waitlistEmail, setWaitlistEmail] = useState('');
 
@@ -171,18 +171,18 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
             >
               For organizers
             </Link>
-            {showAlphaSignIn && (
+            {showSignIn && (
               <>
                 <button
                   type="button"
-                  onClick={onAlphaSignIn}
+                  onClick={onSignIn}
                   className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-200 transition hover:border-neon-cyan hover:text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   Sign in
                 </button>
                 <button
                   type="button"
-                  onClick={onAlphaSignIn}
+                  onClick={onSignIn}
                   className="cta-primary px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   Start pitching
@@ -237,7 +237,7 @@ export function WelcomeHero({ showAlphaSignIn = false, onAlphaSignIn }: WelcomeH
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row">
                   <button
                     type="button"
-                    onClick={onAlphaSignIn}
+                    onClick={onSignIn}
                     className="cta-primary inline-flex items-center justify-center gap-2 px-6 py-3 font-heading font-bold transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                   >
                     Start pitching
