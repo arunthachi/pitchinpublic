@@ -20,17 +20,11 @@ function hasSupabaseConfig() {
 
 type RequestSupabaseClient = NonNullable<ReturnType<typeof createRequestSupabase>>;
 
-type SessionResult =
-  | {
-      supabase: RequestSupabaseClient;
-      user: User;
-      error: null;
-    }
-  | {
-      supabase: RequestSupabaseClient | null;
-      user: null;
-      error: string;
-    };
+type SessionResult = {
+  supabase: RequestSupabaseClient | null;
+  user: User | null;
+  error: string | null;
+};
 
 async function ensureProfile(supabase: RequestSupabaseClient, user: Pick<User, 'id' | 'email' | 'user_metadata'>) {
   const email = user.email || `${user.id}@pitchinpublic.local`;
@@ -97,16 +91,18 @@ export async function GET(request: NextRequest) {
 
   const session = await loadSessionUser(request);
 
-  if (!session.user) {
+  if (!session.user || !session.supabase) {
     return NextResponse.json({ success: false, error: session.error }, { status: 401 });
   }
 
-  await ensureProfile(session.supabase, session.user);
+  const { supabase, user } = session;
 
-  const { data, error } = await session.supabase
+  await ensureProfile(supabase, user);
+
+  const { data, error } = await supabase
     .from('notification_preferences')
     .select('user_id,email_enabled,daily_nudge_time,timezone,created_at,updated_at')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (error) {
@@ -116,7 +112,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     preferences: data || {
-      user_id: session.user.id,
+      user_id: user.id,
       email_enabled: true,
       daily_nudge_time: '09:00:00',
       timezone: 'America/New_York',
@@ -136,11 +132,13 @@ export async function PATCH(request: NextRequest) {
 
   const session = await loadSessionUser(request);
 
-  if (!session.user) {
+  if (!session.user || !session.supabase) {
     return NextResponse.json({ success: false, error: session.error }, { status: 401 });
   }
 
-  await ensureProfile(session.supabase, session.user);
+  const { supabase, user } = session;
+
+  await ensureProfile(supabase, user);
 
   const body = await request.json().catch(() => ({}));
   const validation = updateSchema.safeParse(body);
@@ -156,10 +154,10 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const { data: existingPreferences, error: existingError } = await session.supabase
+  const { data: existingPreferences, error: existingError } = await supabase
     .from('notification_preferences')
     .select('email_enabled,daily_nudge_time,timezone')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (existingError) {
@@ -170,14 +168,14 @@ export async function PATCH(request: NextRequest) {
   }
 
   const payload = {
-    user_id: session.user.id,
+    user_id: user.id,
     email_enabled: validation.data.emailEnabled ?? existingPreferences?.email_enabled ?? true,
     daily_nudge_time: validation.data.dailyNudgeTime || existingPreferences?.daily_nudge_time || '09:00:00',
     timezone: validation.data.timezone || existingPreferences?.timezone || 'America/New_York',
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await session.supabase
+  const { data, error } = await supabase
     .from('notification_preferences')
     .upsert(payload, { onConflict: 'user_id' })
     .select('user_id,email_enabled,daily_nudge_time,timezone,created_at,updated_at')
