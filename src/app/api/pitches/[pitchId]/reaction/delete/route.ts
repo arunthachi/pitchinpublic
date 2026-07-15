@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
+import { createServiceSupabase } from '@/lib/admin';
 
 /**
  * DELETE /api/pitches/[pitchId]/reaction/delete
@@ -52,6 +53,20 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ pi
       },
     }
   );
+  const mutationSupabase = createServiceSupabase() || supabase;
+
+  async function getPitchCounts() {
+    const { data } = await mutationSupabase
+      .from('pitches')
+      .select('roast_count, toast_count')
+      .eq('id', params.pitchId)
+      .single();
+
+    return {
+      roastCount: data?.roast_count || 0,
+      toastCount: data?.toast_count || 0,
+    };
+  }
 
   try {
     // Get current user
@@ -79,76 +94,40 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ pi
       .select('id, type')
       .eq('pitch_id', params.pitchId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (fetchError || !userReaction) {
-      // No reaction to delete
-      const { data: pitch } = await supabase
-        .from('pitches')
-        .select('roast_count, toast_count')
-        .eq('id', params.pitchId)
-        .single();
-
+      const counts = await getPitchCounts();
       return NextResponse.json(
         {
           success: true,
-          counts: {
-            roastCount: pitch?.roast_count || 0,
-            toastCount: pitch?.toast_count || 0,
-          },
+          counts,
         },
         { headers: formatRateLimitHeaders(result) }
       );
     }
 
-    const reactionType = userReaction.type;
-
     // Delete the reaction
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await mutationSupabase
       .from('reactions')
       .delete()
-      .eq('id', userReaction.id);
+      .eq('id', userReaction.id)
+      .eq('pitch_id', params.pitchId)
+      .eq('user_id', user.id);
 
     if (deleteError) {
       throw deleteError;
     }
 
-    // Decrement pitch counter
-    const { data: pitch, error: fetchPitchError } = await supabase
-      .from('pitches')
-      .select('roast_count, toast_count')
-      .eq('id', params.pitchId)
-      .single();
-
-    if (!pitch || fetchPitchError) {
-      throw new Error('Could not fetch pitch');
-    }
-
-    const updateData: Record<string, number> = {};
-    if (reactionType === 'roast') {
-      updateData.roast_count = Math.max(0, pitch.roast_count - 1);
-    } else {
-      updateData.toast_count = Math.max(0, pitch.toast_count - 1);
-    }
-
-    const { data: updatedPitch, error: updateError } = await supabase
-      .from('pitches')
-      .update(updateData)
-      .eq('id', params.pitchId)
-      .select('roast_count, toast_count')
-      .single();
-
-    if (updateError) {
-      throw updateError;
-    }
+    // Reaction counters are maintained by database triggers. Manual updates from
+    // the reacting user are intentionally avoided because pitch ownership RLS
+    // would reject reactions on other founders' pitches.
+    const counts = await getPitchCounts();
 
     return NextResponse.json(
       {
         success: true,
-        counts: {
-          roastCount: updatedPitch?.roast_count || pitch.roast_count,
-          toastCount: updatedPitch?.toast_count || pitch.toast_count,
-        },
+        counts,
       },
       { headers: formatRateLimitHeaders(result) }
     );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
+import { createServiceSupabase } from '@/lib/admin';
 
 /**
  * POST /api/pitches/[pitchId]/reaction
@@ -64,6 +65,20 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
       },
     }
   );
+  const mutationSupabase = createServiceSupabase() || supabase;
+
+  async function getPitchCounts() {
+    const { data } = await mutationSupabase
+      .from('pitches')
+      .select('roast_count, toast_count')
+      .eq('id', params.pitchId)
+      .single();
+
+    return {
+      roastCount: data?.roast_count || 0,
+      toastCount: data?.toast_count || 0,
+    };
+  }
 
   try {
     // Check if user is authenticated
@@ -88,7 +103,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     // Validate pitch exists
     const { data: pitch, error: pitchError } = await supabase
       .from('pitches')
-      .select('id, roast_count, toast_count')
+      .select('id')
       .eq('id', params.pitchId)
       .single();
 
@@ -122,32 +137,50 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
       );
     }
 
-    // Check if user already reacted with same type
+    // Check if user already reacted. The table enforces one reaction per user per pitch,
+    // so switching from Toast to Roast must replace the existing row.
     const { data: existingReaction, error: checkError } = await supabase
       .from('reactions')
-      .select('id')
+      .select('id,type')
       .eq('pitch_id', params.pitchId)
       .eq('user_id', user.id)
-      .eq('type', type)
-      .single();
+      .maybeSingle();
 
-    if (!checkError && existingReaction) {
-      // User already has this reaction type, skip creation
+    if (checkError) {
+      throw checkError;
+    }
+
+    if (existingReaction && existingReaction.type === type) {
+      const counts = await getPitchCounts();
       return NextResponse.json(
         {
           success: true,
-          reaction: null,
-          counts: {
-            roastCount: pitch.roast_count,
-            toastCount: pitch.toast_count,
+          reaction: {
+            id: existingReaction.id,
+            type: existingReaction.type,
+            createdAt: null,
           },
+          counts,
         },
         { headers: formatRateLimitHeaders(result) }
       );
     }
 
+    if (existingReaction) {
+      const { error: deleteExistingError } = await mutationSupabase
+        .from('reactions')
+        .delete()
+        .eq('id', existingReaction.id)
+        .eq('pitch_id', params.pitchId)
+        .eq('user_id', user.id);
+
+      if (deleteExistingError) {
+        throw deleteExistingError;
+      }
+    }
+
     // Insert reaction
-    const { data: reaction, error: insertError } = await supabase
+    const { data: reaction, error: insertError } = await mutationSupabase
       .from('reactions')
       .insert({
         pitch_id: params.pitchId,
@@ -158,45 +191,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
       .single();
 
     if (insertError) {
-      // Handle unique constraint error (user already reacted)
-      if (insertError.code === '23505') {
-        return NextResponse.json(
-          {
-            success: true,
-            reaction: null,
-            counts: {
-              roastCount: pitch.roast_count,
-              toastCount: pitch.toast_count,
-            },
-          },
-          { headers: formatRateLimitHeaders(result) }
-        );
-      }
       throw insertError;
     }
 
-    // Update pitch counters based on reaction type
-    const updateData: Record<string, number> = {};
-    if (type === 'roast') {
-      updateData.roast_count = pitch.roast_count + 1;
-    } else {
-      updateData.toast_count = pitch.toast_count + 1;
-    }
-
-    const { error: updateError } = await supabase
-      .from('pitches')
-      .update(updateData)
-      .eq('id', params.pitchId);
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    // Calculate updated counts
-    const updatedCounts = {
-      roastCount: type === 'roast' ? pitch.roast_count + 1 : pitch.roast_count,
-      toastCount: type === 'toast' ? pitch.toast_count + 1 : pitch.toast_count,
-    };
+    // Reaction counters are maintained by database triggers. Manual updates from
+    // the reacting user are intentionally avoided because pitch ownership RLS
+    // would reject reactions on other founders' pitches.
+    const updatedCounts = await getPitchCounts();
 
     // Update streak (any activity counts toward streak)
     try {

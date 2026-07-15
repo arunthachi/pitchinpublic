@@ -155,7 +155,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   }
 
   const role = event.organizer_id === user.id ? 'organizer' : invitation?.role || 'founder';
-  const { data: participant, error } = await supabase
+  const { data: participant, error } = await adminSupabase
     .from('pitch_event_participants')
     .upsert(
       {
