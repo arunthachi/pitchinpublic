@@ -41,15 +41,20 @@ interface PracticeToday {
   prompt: PracticePrompt;
   nudge: string;
   goal: any | null;
-  progress: {
-    practiceDays: number;
-    pitchReps: number;
-    currentStreak: number;
-    bestStreak: number;
-    clarityDelta: number;
-    bestTakeId: string | null;
-    deadlineDaysLeft: number | null;
-  };
+    progress: {
+      practiceDays: number;
+      pitchReps: number;
+      currentStreak: number;
+      bestStreak: number;
+      clarityDelta: number;
+      bestTakeId: string | null;
+      deadlineDaysLeft: number | null;
+      recentDays?: Array<{
+        date: string;
+        active: boolean;
+        isToday: boolean;
+      }>;
+    };
   latestRep: any | null;
   readiness: {
     value: number | null;
@@ -80,15 +85,16 @@ function HomeContent() {
       prompt,
       nudge: `Today’s pitch task: make the customer obvious in sentence one. Record a 60-sec take. ${prompt.prompt}`,
       goal: null,
-      progress: {
-        practiceDays: 0,
-        pitchReps: 0,
-        currentStreak: 0,
-        bestStreak: 0,
-        clarityDelta: 0,
-        bestTakeId: null,
-        deadlineDaysLeft: null,
-      },
+    progress: {
+      practiceDays: 0,
+      pitchReps: 0,
+      currentStreak: 0,
+      bestStreak: 0,
+      clarityDelta: 0,
+      bestTakeId: null,
+      deadlineDaysLeft: null,
+      recentDays: [],
+    },
       latestRep: null,
       readiness: {
         value: null,

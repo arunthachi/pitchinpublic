@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { daysUntil, getPromptForDate, getPracticePrompt, nudgeCopy, readinessLabel } from '@/lib/practice';
+import { buildRecentMomentumDays, toUtcDateKey } from '@/lib/momentum';
 
 function createSupabase(request: NextRequest) {
   return createServerClient(
@@ -34,6 +35,7 @@ function fallbackPractice() {
       clarityDelta: 0,
       bestTakeId: null,
       deadlineDaysLeft: null,
+      recentDays: [],
     },
     latestRep: null,
     bestTake: null,
@@ -123,8 +125,7 @@ export async function GET(request: NextRequest) {
           )
         `)
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(30),
+        .order('created_at', { ascending: false }),
       supabase
         .from('user_streaks')
         .select('current_streak,best_streak,total_activities,last_activity_date')
@@ -133,10 +134,11 @@ export async function GET(request: NextRequest) {
     ]);
 
     const repRows = reps || [];
-    const practiceDates = new Set(repRows.map((rep: any) => String(rep.created_at).slice(0, 10)));
+    const practiceDates = new Set(repRows.map((rep: any) => toUtcDateKey(rep.created_at)).filter(Boolean));
     const bestRep = repRows.find((rep: any) => rep.is_best_take || rep.pitches?.is_best_take) || null;
     const latestRep = repRows[0] || null;
     const latestReadiness = latestRep?.readiness || null;
+    const recentDays = buildRecentMomentumDays(practiceDates, 7);
 
     return NextResponse.json({
       success: true,
@@ -151,6 +153,7 @@ export async function GET(request: NextRequest) {
         clarityDelta: repRows.reduce((total: number, rep: any) => total + (rep.clarity_delta || 0), 0),
         bestTakeId: goal?.best_pitch_id || bestRep?.pitch_id || null,
         deadlineDaysLeft: daysUntil(goal?.target_date),
+        recentDays,
       },
       latestRep,
       bestTake: bestRep,

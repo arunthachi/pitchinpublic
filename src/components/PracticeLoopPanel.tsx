@@ -4,6 +4,7 @@ import type React from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, ChevronRight, Gauge, Repeat2, Sparkles, Target, Trophy, Video, Zap } from 'lucide-react';
 import { PracticePrompt } from '@/lib/practice';
+import type { MomentumDay } from '@/lib/momentum';
 
 interface PracticeLoopPanelProps {
   prompt: PracticePrompt;
@@ -16,6 +17,7 @@ interface PracticeLoopPanelProps {
     clarityDelta: number;
     bestTakeId: string | null;
     deadlineDaysLeft: number | null;
+    recentDays?: MomentumDay[];
   };
   readinessLabel: string;
   goalName?: string | null;
@@ -36,6 +38,7 @@ export function PracticeLoopPanel({
 }: PracticeLoopPanelProps) {
   const hasBestTake = Boolean(progress.bestTakeId);
   const loopProgress = Math.min(100, progress.pitchReps * 12 + progress.practiceDays * 8 + (hasBestTake ? 18 : 0));
+  const hasRecentDays = progress.recentDays?.length === 7;
 
   return (
     <motion.aside
@@ -75,8 +78,12 @@ export function PracticeLoopPanel({
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-3.5 font-heading text-base font-black text-slate-950 shadow-[0_18px_46px_rgba(0,230,246,0.18)] transition hover:scale-[1.01]"
         >
           <Video className="h-5 w-5" />
-          Record today&apos;s rep
+          {progress.pitchReps > 0 ? 'Record another take' : 'Record pitch'}
         </button>
+
+        {hasRecentDays ? (
+          <MomentumStrip days={progress.recentDays} />
+        ) : null}
 
         <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3">
           <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-neon-lime">
@@ -141,6 +148,34 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
         <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{label}</span>
       </div>
       <p className="font-heading text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function MomentumStrip({ days }: { days?: MomentumDay[] }) {
+  if (!days?.length) return null;
+
+  return (
+    <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">This week</p>
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((day) => (
+          <span
+            key={day.date}
+            className={`h-4 rounded-md border ${
+              day.active
+                ? day.isToday
+                  ? 'border-neon-lime/35 bg-neon-lime/80'
+                  : 'border-neon-cyan/20 bg-neon-cyan/45'
+                : day.isToday
+                  ? 'border-white/20 bg-white/[0.08]'
+                  : 'border-white/[0.05] bg-white/[0.04]'
+            }`}
+            title={day.active ? `${day.date}: pitch posted` : `${day.date}: no pitch posted`}
+            aria-label={day.active ? `${day.date}: pitch posted` : `${day.date}: no pitch posted`}
+          />
+        ))}
+      </div>
     </div>
   );
 }

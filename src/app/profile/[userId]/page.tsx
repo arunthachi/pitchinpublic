@@ -27,6 +27,7 @@ import {
   getPitchStartupNameFromFields,
   getTakeLabel,
 } from '@/lib/pitch-copy';
+import { addUtcDays, startOfUtcDay, toUtcDateKey } from '@/lib/momentum';
 import { isUuidLike, pitchPath } from '@/lib/public-routes';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
@@ -112,30 +113,13 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(value));
 }
 
-function toDateKey(value: Date | string) {
-  const date = typeof value === 'string' ? new Date(value) : value;
-  return date.toISOString().slice(0, 10);
-}
-
-function startOfDay(value: Date) {
-  const date = new Date(value);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function addDays(value: Date, days: number) {
-  const date = new Date(value);
-  date.setDate(date.getDate() + days);
-  return date;
-}
-
 function buildPitchMomentumDays(pitches: LegacyPitch[], finalPitchIds: Set<string>) {
-  const today = startOfDay(new Date());
-  const start = addDays(today, -111);
+  const today = startOfUtcDay(new Date());
+  const start = addUtcDays(today, -111);
   const activityByDate = new Map<string, { pitchCount: number; feedbackCount: number; finalCount: number }>();
 
   pitches.forEach((pitch) => {
-    const pitchKey = toDateKey(pitch.createdAt);
+    const pitchKey = toUtcDateKey(pitch.createdAt);
     const current = activityByDate.get(pitchKey) || { pitchCount: 0, feedbackCount: 0, finalCount: 0 };
     current.pitchCount += 1;
     if (finalPitchIds.has(pitch.id)) current.finalCount += 1;
@@ -143,7 +127,7 @@ function buildPitchMomentumDays(pitches: LegacyPitch[], finalPitchIds: Set<strin
 
     (pitch.feedback || []).forEach((feedback) => {
       if (!feedback.createdAt) return;
-      const feedbackKey = toDateKey(feedback.createdAt);
+      const feedbackKey = toUtcDateKey(feedback.createdAt);
       const feedbackDay = activityByDate.get(feedbackKey) || { pitchCount: 0, feedbackCount: 0, finalCount: 0 };
       feedbackDay.feedbackCount += 1;
       activityByDate.set(feedbackKey, feedbackDay);
@@ -151,8 +135,8 @@ function buildPitchMomentumDays(pitches: LegacyPitch[], finalPitchIds: Set<strin
   });
 
   return Array.from({ length: 112 }, (_, index) => {
-    const date = addDays(start, index);
-    const key = toDateKey(date);
+    const date = addUtcDays(start, index);
+    const key = toUtcDateKey(date);
     const activity = activityByDate.get(key) || { pitchCount: 0, feedbackCount: 0, finalCount: 0 };
     const score = activity.pitchCount * 2 + activity.feedbackCount + activity.finalCount * 2;
 
@@ -167,13 +151,13 @@ function buildPitchMomentumDays(pitches: LegacyPitch[], finalPitchIds: Set<strin
 
 function getStreakStats(days: PitchMomentumDay[]) {
   const activeKeys = new Set(days.filter((day) => day.level > 0).map((day) => day.key));
-  const today = startOfDay(new Date());
+  const today = startOfUtcDay(new Date());
   let current = 0;
   let cursor = today;
 
-  while (activeKeys.has(toDateKey(cursor))) {
+  while (activeKeys.has(toUtcDateKey(cursor))) {
     current += 1;
-    cursor = addDays(cursor, -1);
+    cursor = addUtcDays(cursor, -1);
   }
 
   let longest = 0;

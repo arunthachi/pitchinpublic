@@ -17,10 +17,14 @@ export function FloatingPitchInfo({ pitch, reserveActionRail = true }: FloatingP
   const isGenericStartup = !pitch.companyName || ['startup', 'practice pitch'].includes(pitch.companyName.trim().toLowerCase());
   const oneLine = pitch.hook?.trim();
   const feedbackAsk = pitch.feedbackAsk?.trim();
+  const normalizedCompany = pitch.companyName?.trim().toLowerCase() || '';
+  const normalizedHook = oneLine?.toLowerCase() || '';
+  const normalizedAsk = feedbackAsk?.toLowerCase() || '';
   const collapsedTitle = isGenericStartup ? oneLine || 'Pitch take' : pitch.companyName;
   const collapsedMeta = [
     getTakeLabel(pitch.versionNumber, pitch.isBestTake),
-    feedbackAsk ? `Ask: ${feedbackAsk}` : oneLine,
+    feedbackAsk && normalizedAsk !== normalizedHook ? `Ask: ${feedbackAsk}` : null,
+    oneLine && normalizedHook !== normalizedCompany && normalizedHook !== normalizedAsk ? oneLine : null,
   ].filter(Boolean).join(' · ');
   const shouldRenderCollapsed = Boolean(collapsedTitle || collapsedMeta);
 

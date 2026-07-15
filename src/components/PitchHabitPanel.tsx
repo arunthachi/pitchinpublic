@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { PracticePrompt } from '@/lib/practice';
+import type { MomentumDay } from '@/lib/momentum';
 
 interface HabitProgress {
   practiceDays: number;
@@ -28,6 +29,7 @@ interface HabitProgress {
   clarityDelta: number;
   bestTakeId: string | null;
   deadlineDaysLeft: number | null;
+  recentDays?: MomentumDay[];
 }
 
 interface PitchHabitPanelProps {
@@ -75,6 +77,8 @@ export function PitchHabitPanel({
   const recordedToday = isSameLocalDay(latestRepCreatedAt);
   const pathIndex = Math.min(progress.pitchReps, pathSteps.length - 1);
   const loopProgress = Math.min(100, progress.pitchReps * 11 + progress.practiceDays * 7 + (hasBestTake ? 20 : 0));
+  const hasRecentDays = progress.recentDays?.length === 7;
+  const hasRecentActivity = Boolean(progress.recentDays?.some((day) => day.active));
 
   const quests = [
     {
@@ -146,8 +150,10 @@ export function PitchHabitPanel({
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-neon-cyan to-neon-lime px-5 py-3.5 font-heading text-base font-black text-slate-950 shadow-[0_18px_46px_rgba(0,230,246,0.18)] transition hover:scale-[1.01]"
             >
               <Video className="h-5 w-5" />
-              {recordedToday ? 'Record another rep' : "Record today's rep"}
+              {recordedToday ? 'Record another take' : 'Record pitch'}
             </button>
+
+            {hasRecentDays ? <MomentumStrip days={progress.recentDays} active={hasRecentActivity} /> : null}
           </div>
 
           <div className="p-4">
@@ -455,6 +461,39 @@ function AchievementRow({
           <div className="h-full rounded-full bg-gradient-to-r from-neon-cyan to-neon-lime" style={{ width: `${width}%` }} />
         </div>
         <p className="truncate text-xs text-slate-400">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function MomentumStrip({ days, active }: { days?: MomentumDay[]; active: boolean }) {
+  if (!days?.length) return null;
+
+  return (
+    <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">This week</p>
+        <p className="text-[10px] font-semibold text-slate-500">
+          {active ? 'Activity lights up your run' : 'No rep yet this week'}
+        </p>
+      </div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((day) => (
+          <span
+            key={day.date}
+            className={`h-5 rounded-md border transition ${
+              day.active
+                ? day.isToday
+                  ? 'border-neon-lime/35 bg-neon-lime/80 shadow-[0_0_14px_rgba(183,255,42,0.18)]'
+                  : 'border-neon-cyan/20 bg-neon-cyan/45'
+                : day.isToday
+                  ? 'border-white/20 bg-white/[0.08]'
+                  : 'border-white/[0.05] bg-white/[0.04]'
+            }`}
+            title={day.active ? `${day.date}: pitch posted` : `${day.date}: no pitch posted`}
+            aria-label={day.active ? `${day.date}: pitch posted` : `${day.date}: no pitch posted`}
+          />
+        ))}
       </div>
     </div>
   );
