@@ -478,10 +478,10 @@ function HomeContent() {
       {/* Top Right Button - Desktop Only */}
       {isGuest ? (
         <button
-          onClick={() => setShowGuestFeedPreview(false)}
+          onClick={() => router.push('/')}
           className="btn-glass fixed right-4 top-4 z-50 hidden px-6 py-2.5 text-sm font-semibold hover:border-neon-cyan hover:text-neon-cyan lg:block"
         >
-          Back to invite page
+          Back to landing
         </button>
       ) : (
         <div className="fixed right-4 top-4 z-50 hidden lg:block">
