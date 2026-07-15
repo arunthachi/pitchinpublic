@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
+import { pitchPath, profilePath } from '@/lib/public-routes';
 
 interface PitchCardProps {
   pitch: LegacyPitch;
@@ -21,8 +22,10 @@ export function PitchCard({ pitch, index = 0 }: PitchCardProps) {
   const handleAvatarClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push(`/profile/${pitch.userId}`);
+    const href = profilePath(pitch.founderHandle);
+    if (href) router.push(href);
   };
+  const href = pitchPath(pitch.publicId, pitch.id) || '/';
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -31,7 +34,7 @@ export function PitchCard({ pitch, index = 0 }: PitchCardProps) {
       whileHover={{ scale: 1.02 }}
       className="h-full"
     >
-      <Link href={`/pitch/${pitch.id}`}>
+      <Link href={href}>
         <Card className="h-full overflow-hidden border-slate-800 hover:border-neon-cyan/50 transition-all duration-300 group cursor-pointer bg-slate-900/80 backdrop-blur-md">
           {/* Video Thumbnail */}
           <div className="relative aspect-video overflow-hidden bg-slate-800">

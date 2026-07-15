@@ -4,6 +4,7 @@ import { pitchSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { getPromptForDate } from '@/lib/practice';
 import { parsePitchDescription } from '@/lib/pitch-copy';
+import { createPublicPitchId } from '@/lib/public-routes';
 
 /**
  * POST /api/pitches
@@ -235,6 +236,7 @@ export async function POST(request: NextRequest) {
 
     // Insert pitch into database
     const insertPayload = {
+      public_id: createPublicPitchId(),
       user_id: user.id,
       company_id: companyId,
       hook: pitchData.hook,
@@ -266,8 +268,9 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (insertResult.error && /company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(insertResult.error.message)) {
+    if (insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(insertResult.error.message)) {
       const {
+        public_id: _publicId,
         company_id: _companyId,
         startup_name: _startupName,
         one_line_pitch: _oneLinePitch,
@@ -334,6 +337,7 @@ export async function POST(request: NextRequest) {
         success: true,
         pitch: {
           id: pitch.id,
+          publicId: pitch.public_id || null,
           hook: pitch.hook,
           description: pitch.description,
           startupName: pitch.startup_name || startupName || null,
@@ -411,6 +415,8 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
     const userId = searchParams.get('userId');
     const videoId = searchParams.get('videoId');
+    const publicId = searchParams.get('publicId');
+    const pitchId = searchParams.get('pitchId');
 
     const offset = (page - 1) * limit;
 
@@ -423,6 +429,7 @@ export async function GET(request: NextRequest) {
 
     const fullSelect = `
         id,
+        public_id,
         hook,
         description,
         startup_name,
@@ -449,7 +456,8 @@ export async function GET(request: NextRequest) {
           id,
           full_name,
           avatar_url,
-          username
+          username,
+          public_handle
         ),
         feedback (
           id,
@@ -504,6 +512,14 @@ export async function GET(request: NextRequest) {
         query = query.eq('video_id', videoId);
       }
 
+      if (publicId) {
+        query = query.eq('public_id', publicId);
+      }
+
+      if (pitchId) {
+        query = query.eq('id', pitchId);
+      }
+
       return query;
     };
 
@@ -518,6 +534,14 @@ export async function GET(request: NextRequest) {
       countQuery = countQuery.eq('video_id', videoId);
     }
 
+    if (publicId) {
+      countQuery = countQuery.eq('public_id', publicId);
+    }
+
+    if (pitchId) {
+      countQuery = countQuery.eq('id', pitchId);
+    }
+
     // Get total count (exclude deleted pitches)
     const { count } = await countQuery;
 
@@ -526,7 +550,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error && /startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(error.message)) {
+    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(error.message)) {
       const fallbackResult = await buildDataQuery(fallbackSelect)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);

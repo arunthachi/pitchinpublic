@@ -27,7 +27,7 @@ const copyByType: Record<LeadType, { title: string; subtitle: string; nameLabel:
     namePlaceholder: 'ReachCopilot',
   },
   organizer: {
-    title: 'Request organizer access',
+    title: 'Request organizer invite',
     subtitle: 'Share the program, event, or cohort where founders need better pitch practice.',
     nameLabel: 'Organization name',
     namePlaceholder: 'Startup Westport',
@@ -162,7 +162,7 @@ export function LeadCaptureModal({
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
               <p className="text-xs font-black uppercase tracking-[0.22em] text-neon-cyan">
-                {type === 'founder' ? 'Founder access' : 'Organizer access'}
+                {type === 'founder' ? 'Founder access' : 'Organizer invite'}
               </p>
               <h2 id={titleId} className="mt-3 max-w-sm font-heading text-3xl font-black leading-tight text-white">
                 {title || modalCopy.title}
@@ -246,7 +246,7 @@ export function LeadCaptureModal({
                   className="cta-primary inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-4 font-heading font-black disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {state === 'loading' ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : null}
-                  {state === 'loading' ? 'Sending...' : type === 'founder' ? 'Request founder invite' : 'Request organizer access'}
+                  {state === 'loading' ? 'Sending...' : type === 'founder' ? 'Request founder invite' : 'Request organizer invite'}
                 </button>
 
               </form>

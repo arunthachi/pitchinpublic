@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
-import { PracticeLoopPanel } from '@/components/PracticeLoopPanel';
+import { DesktopHabitNudge, MobileHabitNudge } from '@/components/PitchHabitPanel';
 import { getPromptForDate, type PracticePrompt } from '@/lib/practice';
 import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
 
@@ -114,6 +114,17 @@ function HomeContent() {
   const isAuthHandoff = searchParams.get('auth') === '1';
   const effectiveGuestFeedPreview = showGuestFeedPreview || urlPreviewAccess;
   const showAlphaControls = alphaAccessEnabled || urlAlphaAccess || process.env.NODE_ENV === 'development';
+  const pitchMaxParam = Number(searchParams.get('pitchMax'));
+  const recordingMaxDurationSeconds = Number.isFinite(pitchMaxParam) && pitchMaxParam >= 30 && pitchMaxParam <= 180 ? pitchMaxParam : 60;
+  const eventContext = searchParams.get('eventSlug')
+    ? {
+        slug: searchParams.get('eventSlug') || '',
+        name: searchParams.get('eventName') || 'Pitch event',
+        deadline: searchParams.get('eventDeadline') || null,
+        pitchLengthSeconds: recordingMaxDurationSeconds,
+        focus: searchParams.get('eventFocus') || null,
+      }
+    : null;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -233,7 +244,9 @@ function HomeContent() {
 
         return {
           id: pitch.id,
+          publicId: pitch.public_id || null,
           userId: pitch.user_id,
+          founderHandle: pitch.profiles?.public_handle || pitch.profiles?.username || null,
           founderName: pitch.profiles?.full_name || 'Anonymous',
           founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
           companyName: getPitchStartupNameFromFields(pitch, 'Startup'),
@@ -566,9 +579,9 @@ function HomeContent() {
           {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
             <div
-              className="glass-pill absolute rounded-full px-2.5 py-4"
+              className="absolute rounded-full"
               style={{
-                left: 'calc(50% + var(--feed-w) / 2 + 1rem)',
+                left: 'calc(50% + var(--feed-w) / 2 + 0.9rem)',
                 top: 'calc(1rem + (var(--feed-h) / 2))',
                 transform: 'translateY(-50%)',
               }}
@@ -591,18 +604,15 @@ function HomeContent() {
 
           {!isGuest && (
             <div
-              className="absolute bottom-4 top-4 hidden items-center xl:flex"
+              className="absolute top-4 hidden xl:block"
               style={{
-                left: 'calc(50% + var(--feed-w) / 2 + 7.25rem)',
+                left: 'calc(50% + var(--feed-w) / 2 + 5.25rem)',
               }}
             >
-              <PracticeLoopPanel
+              <DesktopHabitNudge
                 prompt={practiceToday.prompt}
-                nudge={practiceToday.nudge}
                 progress={practiceToday.progress}
-                readinessLabel={practiceToday.readiness.label}
-                goalName={practiceToday.goal?.name}
-                latestRepNumber={practiceToday.latestRep?.rep_number}
+                latestRepCreatedAt={practiceToday.latestRep?.created_at}
                 onRecord={() => setRecordingStudioOpen(true)}
                 onOpenGoal={() => setShowPitchGoal(true)}
               />
@@ -620,6 +630,15 @@ function HomeContent() {
             isGuest={isGuest}
             onSignInClick={promptForRestrictedAction}
           />
+          {!isGuest && (
+            <MobileHabitNudge
+              prompt={practiceToday.prompt}
+              progress={practiceToday.progress}
+              latestRepCreatedAt={practiceToday.latestRep?.created_at}
+              onRecord={() => setRecordingStudioOpen(true)}
+              onOpenGoal={() => setShowPitchGoal(true)}
+            />
+          )}
         </div>
       </main>
 
@@ -639,10 +658,13 @@ function HomeContent() {
             setTimeout(() => {
               fetchPitches();
               fetchPracticeToday();
+              window.dispatchEvent(new Event('pip:pitch-created'));
             }, 1000); // Brief delay to allow database to settle
           }}
           practicePrompt={practiceToday.prompt}
           practiceGoalId={practiceToday.goal?.id || null}
+          maxDurationSeconds={recordingMaxDurationSeconds}
+          eventContext={eventContext}
         />
       )}
 

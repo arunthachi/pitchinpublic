@@ -110,7 +110,7 @@ export const videoUploadSchema = z.object({
   maxDurationSeconds: z
     .number()
     .min(1, 'Duration must be at least 1 second')
-    .max(60, 'Pitch videos must be at most 60 seconds')
+    .max(180, 'Pitch videos must be at most 3 minutes')
     .default(60),
 });
 
@@ -160,7 +160,7 @@ export const pitchSchema = z.object({
   playbackUrl: z.string().url('Invalid playback URL'),
   videoProvider: z.string().min(1, 'Video provider is required').trim().optional(),
   thumbnailUrl: z.string().url('Invalid thumbnail URL').optional().or(z.literal('')),
-  duration: z.number().min(30, 'Video must be at least 30 seconds').max(60, 'Video must be at most 60 seconds'),
+  duration: z.number().min(30, 'Video must be at least 30 seconds').max(180, 'Video must be at most 3 minutes'),
   practiceGoalId: z.string().uuid('Invalid practice goal ID').optional().nullable(),
   promptKey: z.string().min(2).max(80).optional(),
   promptText: z.string().min(2).max(500).optional(),

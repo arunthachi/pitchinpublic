@@ -1,9 +1,11 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
+import { isUuidLike } from '@/lib/public-routes';
 
 /**
  * GET /api/users/[userId]/profile
  * Fetch another user's public profile information
+ * userId may be a legacy UUID or a public handle.
  *
  * Response:
  * {
@@ -48,6 +50,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
         `
         id,
         full_name,
+        username,
+        public_handle,
         avatar_url,
         bio,
         website,
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
         email
       `
       )
-      .eq('id', params.userId)
+      .eq(isUuidLike(params.userId) ? 'id' : 'public_handle', params.userId)
       .single();
 
     // Handle errors - PGRST116 means no rows found (user doesn't exist)
@@ -102,6 +106,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
       success: true,
       user: {
         id: profile.id,
+        publicHandle: profile.public_handle || profile.username || profile.id,
         name: profile.full_name || 'Unknown User',
         email: profile.email || '',
         avatar: profile.avatar_url || '',

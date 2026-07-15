@@ -66,7 +66,7 @@ export function getPitchStartupName(description?: string | null, fallback = 'Sta
 }
 
 export function getPitchFeedbackAsk(description?: string | null) {
-  return parsePitchDescription(description).feedbackAsk || 'Help sharpen ICP, clarity, and closing ask.';
+  return parsePitchDescription(description).feedbackAsk;
 }
 
 export function getPitchContext(description?: string | null) {

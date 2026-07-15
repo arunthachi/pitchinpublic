@@ -10,6 +10,7 @@ interface Step3_PublishProps {
   videoDuration: number;
   onViewFeed: () => void;
   onShare?: () => void;
+  primaryActionLabel?: string;
   isLoading?: boolean;
 }
 
@@ -34,6 +35,7 @@ export function Step3_Publish({
   videoDuration,
   onViewFeed,
   onShare,
+  primaryActionLabel = 'View Feed',
   isLoading = false,
 }: Step3_PublishProps) {
   const formatTime = (seconds: number) => {
@@ -173,7 +175,7 @@ export function Step3_Publish({
               Opening feed...
             </span>
           ) : (
-            'View Feed'
+            primaryActionLabel
           )}
         </button>
       </motion.div>

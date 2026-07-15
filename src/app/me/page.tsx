@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/lib/supabase/client';
 
 export default function MePage() {
   const router = useRouter();
@@ -12,7 +13,21 @@ export default function MePage() {
   useEffect(() => {
     if (loading) return;
 
-    if (user) router.replace(`/profile/${user.id}`);
+    const openOwnProfile = async () => {
+      if (!user) return;
+
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('profiles')
+        .select('public_handle, username')
+        .eq('id', user.id)
+        .single();
+
+      const handle = data?.public_handle || data?.username;
+      router.replace(handle ? `/profile/${encodeURIComponent(handle)}` : '/?alpha=1&preview=1');
+    };
+
+    openOwnProfile();
   }, [loading, router, user]);
 
   if (!loading && !user) {

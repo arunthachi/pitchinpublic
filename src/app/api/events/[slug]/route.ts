@@ -17,8 +17,19 @@ function createSupabase(request: NextRequest) {
   );
 }
 
+const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
+const MANAGER_ROLES = ['organizer', 'admin'];
+
 export async function GET(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json(
+      { success: false, error: 'Event room data is unavailable in this environment.' },
+      { status: 503 }
+    );
+  }
+
   const supabase = createSupabase(request);
 
   const {
@@ -48,7 +59,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   let participation = null;
   let userSubmission = null;
   let submissions: any[] = [];
+  let pitches: any[] = [];
   let participants: any[] = [];
+  let invitations: any[] = [];
+  let announcements: any[] = [];
+  let isTeamMember = false;
+  let canManageEvent = false;
 
   if (user) {
     const { data: participant } = await supabase
@@ -72,9 +88,15 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
           video_url,
           thumbnail_url,
           duration,
+          is_best_take,
           roast_count,
           toast_count,
           views_count,
+          startup_name,
+          one_line_pitch,
+          feedback_ask,
+          extra_context,
+          take_version,
           created_at
         )
       `
@@ -85,9 +107,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
 
     userSubmission = submission;
 
-    const isOrganizer = event.organizer_id === user.id || participant?.role === 'organizer';
+    isTeamMember = event.organizer_id === user.id || TEAM_ROLES.includes(participant?.role);
+    canManageEvent = event.organizer_id === user.id || MANAGER_ROLES.includes(participant?.role);
 
-    if (isOrganizer) {
+    if (isTeamMember) {
       const { data: participantRows } = await supabase
         .from('pitch_event_participants')
         .select(
@@ -98,6 +121,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
             full_name,
             avatar_url,
             username,
+            public_handle,
             website,
             linkedin_url
           )
@@ -116,11 +140,13 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
             full_name,
             avatar_url,
             username,
+            public_handle,
             website,
             linkedin_url
           ),
           pitch:pitch_id (
             id,
+            public_id,
             hook,
             description,
             video_url,
@@ -142,8 +168,108 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         .eq('event_id', event.id)
         .order('submitted_at', { ascending: false });
 
+      const { data: invitationRows } = await supabase
+        .from('pitch_event_invitations')
+        .select(
+          `
+          *,
+          inviter:invited_by (
+            id,
+            full_name,
+            avatar_url,
+            username,
+            public_handle
+          ),
+          accepted_profile:accepted_by (
+            id,
+            full_name,
+            avatar_url,
+            username,
+            public_handle
+          )
+        `
+        )
+        .eq('event_id', event.id)
+        .order('created_at', { ascending: false });
+
       participants = participantRows || [];
       submissions = submissionRows || [];
+      invitations = invitationRows || [];
+
+      const founderIds = (participantRows || [])
+        .filter((row: any) => row.role === 'founder')
+        .map((row: any) => row.user_id);
+
+      if (founderIds.length) {
+        const { data: pitchRows } = await supabase
+          .from('pitches')
+          .select(
+            `
+            id,
+            public_id,
+            user_id,
+            hook,
+            description,
+            startup_name,
+            one_line_pitch,
+            feedback_ask,
+            extra_context,
+            take_version,
+            version_number,
+            is_best_take,
+            video_url,
+            thumbnail_url,
+            duration,
+            roast_count,
+            toast_count,
+            views_count,
+            status,
+            created_at,
+            profile:user_id (
+              id,
+              full_name,
+              avatar_url,
+              username,
+              public_handle,
+              website,
+              linkedin_url
+            ),
+            feedback (
+              id,
+              type,
+              content,
+              created_at
+            )
+          `
+          )
+          .in('user_id', founderIds)
+          .eq('status', 'published')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false });
+
+        pitches = pitchRows || [];
+      }
+    }
+
+    if (participation || isTeamMember) {
+      const { data: announcementRows } = await supabase
+        .from('pitch_event_announcements')
+        .select(
+          `
+          *,
+          author:author_id (
+            id,
+            full_name,
+            avatar_url,
+            username
+          )
+        `
+        )
+        .eq('event_id', event.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      announcements = announcementRows || [];
     }
   }
 
@@ -157,6 +283,11 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     userSubmission,
     participants,
     submissions,
+    pitches,
+    invitations,
+    announcements,
     isOrganizer: Boolean(user && event.organizer_id === user.id),
+    isTeamMember,
+    canManageEvent,
   });
 }

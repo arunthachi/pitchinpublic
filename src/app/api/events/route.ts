@@ -7,8 +7,10 @@ const createEventSchema = z.object({
   description: z.string().max(1000).optional().or(z.literal('')),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   submissionDeadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
-  pitchLengthSeconds: z.number().min(30).max(180).default(60),
-  focus: z.string().min(2).max(80).default('clarity'),
+  pitchLengthSeconds: z.coerce.number().min(30).max(360).optional(),
+  pitchLengthMinutes: z.coerce.number().min(0.5).max(6).optional(),
+  focus: z.string().min(2).max(160).optional(),
+  focuses: z.array(z.string().trim().min(2).max(40)).optional(),
   visibility: z.enum(['private', 'unlisted', 'public']).default('unlisted'),
   accessCode: z.string().min(4).max(32).optional().or(z.literal('')),
 });
@@ -35,6 +37,21 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 72);
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+
+  if (error && typeof error === 'object') {
+    const maybeError = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    const parts = [maybeError.message, maybeError.details, maybeError.hint]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
+
+    if (parts.length > 0) return parts.join(' ');
+    if (typeof maybeError.code === 'string') return `Database error ${maybeError.code}`;
+  }
+
+  return 'Failed to create event';
 }
 
 async function canCreatePitchEvents(supabase: ReturnType<typeof createSupabase>, userId: string) {
@@ -71,7 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Organizer access is required to create pitch events. Founders can join events from an invite link.',
+        error: 'Organizer access is required to create pitch rooms. Founders can join rooms from an invite link.',
       },
       { status: 403 }
     );
@@ -90,6 +107,9 @@ export async function POST(request: NextRequest) {
   const data = validation.data;
   const baseSlug = slugify(data.name) || 'pitch-sprint';
   const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
+  const selectedFocuses = data.focuses?.map((item) => item.trim()).filter(Boolean) || [];
+  const focusSummary = selectedFocuses.length ? selectedFocuses.join(' · ') : data.focus?.trim() || 'Clarity';
+  const pitchLengthSeconds = data.pitchLengthSeconds ?? Math.round((data.pitchLengthMinutes ?? 1) * 60);
 
   try {
     const { data: event, error } = await supabase
@@ -101,8 +121,8 @@ export async function POST(request: NextRequest) {
         description: data.description || null,
         event_date: data.eventDate,
         submission_deadline: data.submissionDeadline || null,
-        pitch_length_seconds: data.pitchLengthSeconds,
-        focus: data.focus,
+        pitch_length_seconds: pitchLengthSeconds,
+        focus: focusSummary,
         visibility: data.visibility,
         access_code: data.accessCode || null,
         status: 'active',
@@ -112,24 +132,33 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    await supabase.from('pitch_event_participants').upsert({
+    const { error: participantError } = await supabase.from('pitch_event_participants').upsert({
       event_id: event.id,
       user_id: user.id,
       role: 'organizer',
       status: 'active',
     });
 
+    if (participantError) throw participantError;
+
     return NextResponse.json({ success: true, event }, { status: 201 });
   } catch (error) {
-    console.error('Error creating pitch event:', error);
+    console.error('Error creating pitch room:', error);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to create event' },
+      { success: false, error: getErrorMessage(error) },
       { status: 500 }
     );
   }
 }
 
 export async function GET(request: NextRequest) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({
+      success: false,
+      error: 'Events API is not configured in this environment.',
+    });
+  }
+
   const supabase = createSupabase(request);
 
   const {
@@ -155,7 +184,7 @@ export async function GET(request: NextRequest) {
     .order('event_date', { ascending: true });
 
   if (error) {
-    console.error('Error fetching pitch events:', error);
+    console.error('Error fetching pitch rooms:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch events' }, { status: 500 });
   }
 
