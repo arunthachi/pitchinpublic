@@ -478,7 +478,9 @@ function HomeContent() {
       {/* Top Right Button - Desktop Only */}
       {isGuest ? (
         <button
-          onClick={() => router.push('/')}
+          onClick={() => {
+            window.location.assign('/');
+          }}
           className="btn-glass fixed right-4 top-4 z-50 hidden px-6 py-2.5 text-sm font-semibold hover:border-neon-cyan hover:text-neon-cyan lg:block"
         >
           Back to landing
