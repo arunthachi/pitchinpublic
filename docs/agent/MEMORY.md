@@ -259,6 +259,12 @@ Important user preference:
 
 - The 7-day pitch momentum heatmap in the sidebar was liked. Preserve or restore it when simplifying UI.
 
+Automated notification preference decision:
+
+- Email nudges are the MVP channel for founder practice reminders.
+- Daily prompt emails and event deadline reminders should respect founder opt-out state.
+- Manual organizer announcements remain separate from automated nudges.
+
 ## Design Decisions
 
 ### Video Must Stay Primary

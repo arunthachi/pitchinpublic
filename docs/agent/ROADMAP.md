@@ -213,6 +213,12 @@ Potential work:
 - Desktop-to-phone QR record handoff.
 - Native app only if web proves retention.
 
+Current shipped slice:
+
+- Email nudges now exist for daily founder prompts and event deadline reminders.
+- Founder preference management is exposed through an in-app route.
+- Push notifications and SMS remain deferred until retention proves out.
+
 Nudge example:
 
 ```text

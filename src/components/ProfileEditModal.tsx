@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Check, Edit3, Building2 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
@@ -487,6 +488,13 @@ export function ProfileEditModal({
 
                       {/* Buttons */}
                       <div className="space-y-3 mb-2">
+                        <Link
+                          href="/notifications/preferences"
+                          className="block w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-center text-sm font-medium text-slate-200 transition hover:border-neon-cyan/40 hover:bg-white/[0.07] hover:text-white"
+                        >
+                          Manage email nudges
+                        </Link>
+
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
