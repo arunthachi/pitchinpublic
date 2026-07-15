@@ -27,7 +27,7 @@ type SessionResult =
       error: null;
     }
   | {
-      supabase: null;
+      supabase: RequestSupabaseClient | null;
       user: null;
       error: string;
     };
