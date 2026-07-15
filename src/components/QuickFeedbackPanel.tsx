@@ -39,18 +39,20 @@ function usePhoneFrameSheetStyle(isOpen: boolean): React.CSSProperties {
       const source = rect && rect.width > 0 && rect.height > 0
         ? rect
         : ({ left: 0, top: 0, right: viewportWidth, bottom: viewportHeight, width: viewportWidth, height: viewportHeight } as DOMRect);
-      const margin = source.width < 520 ? 18 : 24;
-      const topReveal = source.width < 620 ? Math.max(72, Math.round(source.height * 0.14)) : 24;
+      const margin = source.width < 520 ? 16 : 24;
+      const topReveal = source.width < 620 ? Math.max(56, Math.round(source.height * 0.1)) : 24;
       const left = Math.max(12, source.left + margin);
       const right = Math.min(viewportWidth - 12, source.right - margin);
       const top = Math.max(12, source.top + topReveal);
       const bottom = Math.min(viewportHeight - 12, source.bottom - margin);
+      const availableHeight = Math.max(320, bottom - top);
 
       setStyle({
         left,
         top,
         width: Math.max(280, right - left),
-        maxHeight: Math.max(360, bottom - top),
+        height: availableHeight,
+        maxHeight: availableHeight,
       });
     };
 
@@ -164,18 +166,20 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ type: 'spring', damping: 28, stiffness: 260 }}
             onPointerDown={stopPanelEvent}
-            onTouchMove={stopPanelEvent}
-            onWheel={stopPanelEvent}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-feedback-title"
+            data-feedback-panel="quick"
             className="glass-panel fixed z-[90] flex flex-col overflow-hidden rounded-[2rem] ring-1 ring-white/10"
-            style={{ ...sheetStyle, touchAction: 'pan-y' }}
+            style={{ ...sheetStyle, touchAction: 'pan-y', minHeight: 0 }}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-5 py-4 sm:px-6">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 bg-white/[0.045] px-5 py-4 sm:px-6">
               {/* Header */}
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">
                   Builder feedback
                 </p>
-                <h2 className="mt-1 text-2xl font-heading font-black leading-tight text-white">
+                <h2 id="quick-feedback-title" className="mt-1 text-2xl font-heading font-black leading-tight text-white">
                   Help sharpen this pitch
                 </h2>
               </div>
@@ -189,6 +193,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             </div>
 
             <div
+              data-feedback-panel-body="quick"
               className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
@@ -295,8 +300,6 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   onPointerDown={stopPanelEvent}
-                  onTouchStart={stopPanelEvent}
-                  onWheel={stopPanelEvent}
                   placeholder={
                     isRoast
                       ? 'What is unclear, weak, or missing? Be specific and constructive.'
@@ -308,11 +311,11 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               </div>
             </div>
 
-            <div className="border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
+            <div className="shrink-0 border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className={`w-full rounded-full py-6 text-base font-heading font-bold ${
+                className={`w-full rounded-full py-4 text-base font-heading font-bold sm:py-5 ${
                   isRoast
                     ? 'bg-roast text-white hover:bg-roast/90'
                     : 'bg-toast text-slate-950 hover:bg-toast/90'
