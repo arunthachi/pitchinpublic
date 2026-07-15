@@ -1,4 +1,4 @@
--- Migration 019: Extend lead requests into a lightweight application workflow
+-- Migration 021: Extend lead requests into a lightweight application workflow
 -- Adds a request status plus requester confirmation delivery tracking.
 
 ALTER TABLE lead_requests
