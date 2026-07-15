@@ -225,7 +225,6 @@ export function ActionDrawer({
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleRoastClick}
-                onDoubleClick={() => onOpenFeedback('roast')}
                 className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all border ${
                   userReaction === 'roast'
                     ? 'bg-roast/20 border-roast/60'
@@ -237,14 +236,12 @@ export function ActionDrawer({
                   <div className="text-white font-semibold">{formatNumber(pitch.roastCount)}</div>
                   <div className="text-xs text-white/60">Roasts</div>
                 </div>
-                <span className="text-xs text-white/60 font-mono">Double tap for feedback</span>
               </motion.button>
 
               {/* Toast */}
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleToastClick}
-                onDoubleClick={() => onOpenFeedback('toast')}
                 className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all border ${
                   userReaction === 'toast'
                     ? 'bg-toast/20 border-toast/60'
@@ -256,7 +253,6 @@ export function ActionDrawer({
                   <div className="text-white font-semibold">{formatNumber(pitch.toastCount)}</div>
                   <div className="text-xs text-white/60">Toasts</div>
                 </div>
-                <span className="text-xs text-white/60 font-mono">Double tap for feedback</span>
               </motion.button>
 
               {/* Views */}

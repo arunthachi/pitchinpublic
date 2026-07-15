@@ -20,6 +20,8 @@ interface FullScreenVideoFeedProps {
     onOpenFeedbackList: () => void;
     onShare: () => void;
     onBookmark: (isBookmarked: boolean) => Promise<boolean>;
+    userReaction: 'roast' | 'toast' | null;
+    reactionPending: boolean;
   }) => void;
   hideReactions?: boolean;
   isGuest?: boolean;
@@ -155,8 +157,10 @@ export function FullScreenVideoFeed({
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [hasTrackedView, setHasTrackedView] = useState(false);
   const [reactionBurst, setReactionBurst] = useState<{ type: ReactionBurstType; id: number } | null>(null);
+  const [reactionPending, setReactionPending] = useState(false);
   const wheelLockRef = useRef(false);
   const reactionBurstTimeoutRef = useRef<number | null>(null);
+  const reactionPendingRef = useRef(false);
 
   const triggerReactionBurst = useCallback((type: ReactionBurstType) => {
     if (reactionBurstTimeoutRef.current) {
@@ -203,6 +207,8 @@ export function FullScreenVideoFeed({
     setUserReaction(null);
     setBookmarkState(false);
     setBookmarkCount(0);
+    setReactionPending(false);
+    reactionPendingRef.current = false;
   }, [currentPitch?.id]);
 
   // Fetch user's reaction and increment views when pitch changes
@@ -355,214 +361,147 @@ export function FullScreenVideoFeed({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [feedbackPanelOpen, goToNext, goToPrev]);
 
-  const handleRoast = async () => {
-    if (!currentPitch) return;
+  const handleReaction = async (type: ReactionBurstType) => {
+    if (!currentPitch || reactionPendingRef.current) return;
+
+    const previousPitch = currentPitch;
+    const previousReaction = userReaction;
+    const oppositeType = type === 'roast' ? 'toast' : 'roast';
+
+    reactionPendingRef.current = true;
+    setReactionPending(true);
 
     try {
-      // If user already roasted, toggle off (delete)
-      if (userReaction === 'roast') {
-        const deleteResponse = await fetch(
-          `/api/pitches/${currentPitch.id}/reaction/delete`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
+      if (previousReaction === type) {
+        setUserReaction(null);
+        setLocalPitches((prevPitches) =>
+          prevPitches.map((p) =>
+            p.id === currentPitch.id
+              ? {
+                  ...p,
+                  roastCount: type === 'roast' ? Math.max(0, p.roastCount - 1) : p.roastCount,
+                  toastCount: type === 'toast' ? Math.max(0, p.toastCount - 1) : p.toastCount,
+                }
+              : p
+          )
         );
 
-        if (deleteResponse.ok) {
-          const data = await deleteResponse.json();
-          const finalPitch = {
-            ...currentPitch,
-            roastCount: data.counts.roastCount,
-            toastCount: data.counts.toastCount,
-          };
+        const deleteResponse = await fetch(`/api/pitches/${currentPitch.id}/reaction/delete`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!deleteResponse.ok) {
           setLocalPitches((prevPitches) =>
-            prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
+            prevPitches.map((p) => (p.id === previousPitch.id ? previousPitch : p))
           );
-          setUserReaction(null);
+          setUserReaction(previousReaction);
+          return;
         }
+
+        const data = await deleteResponse.json();
+        setLocalPitches((prevPitches) =>
+          prevPitches.map((p) =>
+            p.id === currentPitch.id
+              ? {
+                  ...p,
+                  roastCount: data.counts.roastCount,
+                  toastCount: data.counts.toastCount,
+                }
+              : p
+          )
+        );
         return;
       }
 
-      // If user has toast, delete it first before adding roast
-      let counts = { roastCount: currentPitch.roastCount, toastCount: currentPitch.toastCount };
-
-      if (userReaction === 'toast') {
-        const deleteResponse = await fetch(
-          `/api/pitches/${currentPitch.id}/reaction/delete`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (deleteResponse.ok) {
-          const data = await deleteResponse.json();
-          counts = data.counts;
-        } else {
-          throw new Error('Failed to remove previous reaction');
-        }
-      }
-
-      // Optimistic update - update UI immediately
-      const updatedPitch = {
-        ...currentPitch,
-        roastCount: counts.roastCount + 1,
-        toastCount: counts.toastCount,
+      let counts = {
+        roastCount: currentPitch.roastCount,
+        toastCount: currentPitch.toastCount,
       };
 
-      // Update local state
+      if (previousReaction === oppositeType) {
+        const deleteResponse = await fetch(`/api/pitches/${currentPitch.id}/reaction/delete`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!deleteResponse.ok) {
+          throw new Error('Failed to remove previous reaction');
+        }
+
+        const data = await deleteResponse.json();
+        counts = data.counts;
+      }
+
+      const updatedPitch = {
+        ...currentPitch,
+        roastCount: type === 'roast' ? counts.roastCount + 1 : counts.roastCount,
+        toastCount: type === 'toast' ? counts.toastCount + 1 : counts.toastCount,
+      };
+
+      setUserReaction(type);
       setLocalPitches((prevPitches) =>
         prevPitches.map((p) => (p.id === currentPitch.id ? updatedPitch : p))
       );
+      triggerReactionBurst(type);
 
-      // API call in background
       const response = await fetch(`/api/pitches/${currentPitch.id}/reaction`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ type: 'roast' }),
+        body: JSON.stringify({ type }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        console.error('Failed to create roast. Status:', response.status, 'Error:', error);
-        // Revert optimistic update on error
+        console.error(`Failed to create ${type}. Status:`, response.status, 'Error:', error);
         setLocalPitches((prevPitches) =>
-          prevPitches.map((p) => (p.id === currentPitch.id ? currentPitch : p))
+          prevPitches.map((p) => (p.id === previousPitch.id ? previousPitch : p))
+        );
+        setUserReaction(previousReaction);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.counts) {
+        setLocalPitches((prevPitches) =>
+          prevPitches.map((p) =>
+            p.id === currentPitch.id
+              ? {
+                  ...p,
+                  roastCount: data.counts.roastCount,
+                  toastCount: data.counts.toastCount,
+                }
+              : p
+          )
         );
       } else {
-        const data = await response.json();
-        // Update with actual counts from server
-        if (data.counts) {
-          const finalPitch = {
-            ...updatedPitch,
-            roastCount: data.counts.roastCount,
-            toastCount: data.counts.toastCount,
-          };
-          setLocalPitches((prevPitches) =>
-            prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
-          );
-          setUserReaction('roast');
-          triggerReactionBurst('roast');
-        } else {
-          console.error('CRITICAL: No counts in response. Response data:', data);
-          console.error('Response.ok was true but counts missing. This indicates API response format issue.');
-        }
+        console.error('CRITICAL: No counts in response. Response data:', data);
+        console.error('Response.ok was true but counts missing. This indicates API response format issue.');
       }
     } catch (error) {
-      console.error('Error roasting pitch:', error);
+      console.error(`Error saving ${type} reaction:`, error);
+      setLocalPitches((prevPitches) =>
+        prevPitches.map((p) => (p.id === previousPitch.id ? previousPitch : p))
+      );
+      setUserReaction(previousReaction);
+    } finally {
+      reactionPendingRef.current = false;
+      setReactionPending(false);
     }
   };
 
+  const handleRoast = async () => {
+    await handleReaction('roast');
+  };
+
   const handleToast = async () => {
-    if (!currentPitch) return;
-
-    try {
-      // If user already toasted, toggle off (delete)
-      if (userReaction === 'toast') {
-        const deleteResponse = await fetch(
-          `/api/pitches/${currentPitch.id}/reaction/delete`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (deleteResponse.ok) {
-          const data = await deleteResponse.json();
-          const finalPitch = {
-            ...currentPitch,
-            roastCount: data.counts.roastCount,
-            toastCount: data.counts.toastCount,
-          };
-          setLocalPitches((prevPitches) =>
-            prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
-          );
-          setUserReaction(null);
-        }
-        return;
-      }
-
-      // If user has roast, delete it first before adding toast
-      let counts = { roastCount: currentPitch.roastCount, toastCount: currentPitch.toastCount };
-
-      if (userReaction === 'roast') {
-        const deleteResponse = await fetch(
-          `/api/pitches/${currentPitch.id}/reaction/delete`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (deleteResponse.ok) {
-          const data = await deleteResponse.json();
-          counts = data.counts;
-        } else {
-          throw new Error('Failed to remove previous reaction');
-        }
-      }
-
-      // Optimistic update - update UI immediately
-      const updatedPitch = {
-        ...currentPitch,
-        toastCount: counts.toastCount + 1,
-        roastCount: counts.roastCount,
-      };
-
-      // Update local state
-      setLocalPitches((prevPitches) =>
-        prevPitches.map((p) => (p.id === currentPitch.id ? updatedPitch : p))
-      );
-
-      // API call in background
-      const response = await fetch(`/api/pitches/${currentPitch.id}/reaction`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ type: 'toast' }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('Failed to create toast. Status:', response.status, 'Error:', error);
-        // Revert optimistic update on error
-        setLocalPitches((prevPitches) =>
-          prevPitches.map((p) => (p.id === currentPitch.id ? currentPitch : p))
-        );
-      } else {
-        const data = await response.json();
-        // Update with actual counts from server
-        if (data.counts) {
-          const finalPitch = {
-            ...updatedPitch,
-            roastCount: data.counts.roastCount,
-            toastCount: data.counts.toastCount,
-          };
-          setLocalPitches((prevPitches) =>
-            prevPitches.map((p) => (p.id === currentPitch.id ? finalPitch : p))
-          );
-          setUserReaction('toast');
-          triggerReactionBurst('toast');
-        } else {
-          console.error('CRITICAL: No counts in response. Response data:', data);
-          console.error('Response.ok was true but counts missing. This indicates API response format issue.');
-        }
-      }
-    } catch (error) {
-      console.error('Error toasting pitch:', error);
-    }
+    await handleReaction('toast');
   };
 
   const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
@@ -730,9 +669,11 @@ export function FullScreenVideoFeed({
         onOpenFeedbackList: openFeedbackList,
         onShare: handleShare,
         onBookmark: handleBookmark,
+        userReaction,
+        reactionPending,
       });
     }
-  }, [currentPitch, onCurrentPitchChange]);
+  }, [currentPitch, onCurrentPitchChange, reactionPending, userReaction]);
 
   if (!currentPitch) {
     return (
@@ -793,7 +734,7 @@ export function FullScreenVideoFeed({
 
           {/* Floating Reactions - positioned on right side like TikTok */}
           {!hideReactions && (
-            <div className="absolute bottom-24 right-2 z-40 sm:bottom-32 sm:right-3">
+            <div className="absolute bottom-24 right-2 z-[60] sm:bottom-32 sm:right-3">
               <FloatingReactions
                 pitch={currentPitch}
                 onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
@@ -805,6 +746,7 @@ export function FullScreenVideoFeed({
                 isGuest={isGuest}
                 onSignInClick={onSignInClick}
                 userReaction={userReaction}
+                reactionPending={reactionPending}
                 isBookmarked={currentPitch.isBookmarked ?? bookmarkState}
                 bookmarkCount={currentPitch.bookmarkCount ?? bookmarkCount}
               />

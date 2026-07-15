@@ -199,6 +199,8 @@ function HomeContent() {
     onOpenFeedbackList: () => void;
     onShare: () => void;
     onBookmark: (isBookmarked: boolean) => Promise<boolean>;
+    userReaction: 'roast' | 'toast' | null;
+    reactionPending: boolean;
   } | null>(null);
 
   // Fetch pitches from API
@@ -534,7 +536,7 @@ function HomeContent() {
           {/* Reactions - Outside video (desktop only) */}
           {handlers && currentPitch && (
             <div
-              className="absolute rounded-full"
+              className="absolute z-[60] rounded-full"
               style={{
                 left: 'calc(50% + var(--feed-w) / 2 + 0.9rem)',
                 top: 'calc(1rem + (var(--feed-h) / 2))',
@@ -553,6 +555,8 @@ function HomeContent() {
                 onSignInClick={promptForRestrictedAction}
                 isBookmarked={currentPitch.isBookmarked}
                 bookmarkCount={currentPitch.bookmarkCount || 0}
+                userReaction={handlers.userReaction}
+                reactionPending={handlers.reactionPending}
               />
             </div>
           )}

@@ -31,6 +31,7 @@ interface FloatingReactionsProps {
   isBookmarked?: boolean;
   bookmarkCount?: number;
   userReaction?: 'roast' | 'toast' | null;
+  reactionPending?: boolean;
 }
 
 export function FloatingReactions({
@@ -46,6 +47,7 @@ export function FloatingReactions({
   isBookmarked = false,
   bookmarkCount = 0,
   userReaction = null,
+  reactionPending = false,
 }: FloatingReactionsProps) {
   const router = useRouter();
   const [justRoasted, setJustRoasted] = useState(false);
@@ -111,6 +113,8 @@ export function FloatingReactions({
   };
 
   const handleRoastClick = () => {
+    if (reactionPending) return;
+
     if (isGuest) {
       onRoast();
       return;
@@ -121,11 +125,9 @@ export function FloatingReactions({
     setTimeout(() => setJustRoasted(false), 1000);
   };
 
-  const handleRoastLongPress = () => {
-    onOpenFeedback('roast');
-  };
-
   const handleToastClick = () => {
+    if (reactionPending) return;
+
     if (isGuest) {
       onToast();
       return;
@@ -134,10 +136,6 @@ export function FloatingReactions({
     setJustToasted(true);
     onToast();
     setTimeout(() => setJustToasted(false), 1000);
-  };
-
-  const handleToastLongPress = () => {
-    onOpenFeedback('toast');
   };
 
   const handleDetailedFeedbackClick = () => {
@@ -200,13 +198,18 @@ export function FloatingReactions({
         </motion.button>
       </div>
 
-      {/* Roast Button - Tap for quick roast, hold for detailed feedback */}
+      {/* Roast Button - quick reaction */}
       <motion.button
+        type="button"
         onClick={handleRoastClick}
-        onDoubleClick={handleRoastLongPress}
+        disabled={reactionPending}
         whileTap={{ scale: 0.85 }}
         whileHover={{ scale: 1.05 }}
-        className="relative flex flex-col items-center gap-2 group"
+        className={`relative flex touch-manipulation flex-col items-center gap-2 group ${
+          reactionPending ? 'cursor-wait opacity-75' : ''
+        }`}
+        aria-label="Roast this pitch"
+        aria-pressed={userReaction === 'roast'}
       >
         <motion.div
           animate={justRoasted ? { scale: [1, 1.2, 1] } : {}}
@@ -214,12 +217,12 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 h-10 w-10 rounded-full bg-roast/5 blur-sm"
+            className="absolute inset-0 h-11 w-11 rounded-full bg-roast/5 blur-sm"
             animate={justRoasted ? { scale: [1, 1.22, 1], opacity: [0.35, 0.65, 0.25] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 ${
+          <div className={`relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 ${
             userReaction === 'roast'
               ? 'border-roast/[0.45] bg-roast/[0.14]'
               : 'border-white/15 bg-black/[0.24] hover:border-roast/[0.35] hover:bg-white/[0.12]'
@@ -269,13 +272,18 @@ export function FloatingReactions({
 
       </motion.button>
 
-      {/* Toast Button - Tap for quick toast, hold for detailed feedback */}
+      {/* Toast Button - quick reaction */}
       <motion.button
+        type="button"
         onClick={handleToastClick}
-        onDoubleClick={handleToastLongPress}
+        disabled={reactionPending}
         whileTap={{ scale: 0.85 }}
         whileHover={{ scale: 1.05 }}
-        className="relative flex flex-col items-center gap-2 group"
+        className={`relative flex touch-manipulation flex-col items-center gap-2 group ${
+          reactionPending ? 'cursor-wait opacity-75' : ''
+        }`}
+        aria-label="Toast this pitch"
+        aria-pressed={userReaction === 'toast'}
       >
         <motion.div
           animate={justToasted ? { scale: [1, 1.2, 1] } : {}}
@@ -283,12 +291,12 @@ export function FloatingReactions({
         >
           {/* Circular background */}
           <motion.div
-            className="absolute inset-0 h-10 w-10 rounded-full bg-toast/5 blur-sm"
+            className="absolute inset-0 h-11 w-11 rounded-full bg-toast/5 blur-sm"
             animate={justToasted ? { scale: [1, 1.22, 1], opacity: [0.35, 0.65, 0.25] } : {}}
           />
 
           {/* Main circular button background */}
-          <div className={`relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 ${
+          <div className={`relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border backdrop-blur-xl transition-all duration-200 ${
             userReaction === 'toast'
               ? 'border-toast/[0.45] bg-toast/[0.14]'
               : 'border-white/15 bg-black/[0.24] hover:border-toast/[0.35] hover:bg-white/[0.12]'
