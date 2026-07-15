@@ -704,8 +704,8 @@ export function FullScreenVideoFeed({
   };
 
   const openFeedback = (type: 'roast' | 'toast') => {
-    setFeedbackListOpen(false);
     setFeedbackType(type);
+    setFeedbackListOpen(false);
     setFeedbackPanelOpen(true);
   };
 
@@ -842,19 +842,19 @@ export function FullScreenVideoFeed({
         </motion.div>
       </AnimatePresence>
 
-      {/* Quick Feedback Panel */}
-      <QuickFeedbackPanel
-        isOpen={feedbackPanelOpen}
-        onClose={() => setFeedbackPanelOpen(false)}
-        onSubmit={handleFeedbackSubmit}
-        initialType={feedbackType}
-      />
-
       <FeedbackThreadPanel
         isOpen={feedbackListOpen}
         feedback={currentPitch.feedback || []}
         onClose={() => setFeedbackListOpen(false)}
         onAddFeedback={isGuest && onSignInClick ? promptForFeedbackSignIn : openFeedback}
+      />
+
+      {/* Quick Feedback Panel renders after the thread panel so the first Toast/Roast tap brings it above the closing thread sheet. */}
+      <QuickFeedbackPanel
+        isOpen={feedbackPanelOpen}
+        onClose={() => setFeedbackPanelOpen(false)}
+        onSubmit={handleFeedbackSubmit}
+        initialType={feedbackType}
       />
 
     </div>

@@ -13,7 +13,7 @@ interface FeedbackThreadPanelProps {
   onAddFeedback: (type: 'roast' | 'toast') => void;
 }
 
-function usePhoneFrameSheetStyle(isOpen: boolean): React.CSSProperties {
+function usePhoneFrameSheetStyle(isOpen: boolean, compact = false): React.CSSProperties {
   const [style, setStyle] = React.useState<React.CSSProperties>({});
 
   React.useEffect(() => {
@@ -34,13 +34,14 @@ function usePhoneFrameSheetStyle(isOpen: boolean): React.CSSProperties {
       const top = Math.max(12, source.top + topReveal);
       const bottom = Math.min(viewportHeight - 12, source.bottom - margin);
       const availableHeight = Math.max(300, bottom - top);
+      const compactHeight = Math.min(availableHeight, source.width < 520 ? 430 : 460);
 
       setStyle({
         left,
         top,
         width: Math.max(280, right - left),
-        height: availableHeight,
-        maxHeight: availableHeight,
+        height: compact ? compactHeight : availableHeight,
+        maxHeight: compact ? compactHeight : availableHeight,
       });
     };
 
@@ -51,7 +52,7 @@ function usePhoneFrameSheetStyle(isOpen: boolean): React.CSSProperties {
       window.removeEventListener('resize', update);
       window.removeEventListener('orientationchange', update);
     };
-  }, [isOpen]);
+  }, [compact, isOpen]);
 
   return style;
 }
@@ -87,7 +88,8 @@ function getSignals(feedback: LegacyFeedback) {
 
 export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }: FeedbackThreadPanelProps) {
   const [portalNode, setPortalNode] = React.useState<HTMLElement | null>(null);
-  const sheetStyle = usePhoneFrameSheetStyle(isOpen);
+  const hasFeedback = feedback.length > 0;
+  const sheetStyle = usePhoneFrameSheetStyle(isOpen, !hasFeedback);
   const stopPanelEvent = (event: React.SyntheticEvent) => {
     event.stopPropagation();
   };
@@ -96,7 +98,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
     setPortalNode(document.body);
   }, []);
 
-  const avgReadiness = feedback.length
+  const avgReadiness = hasFeedback
     ? Math.round((feedback.reduce((sum, item) => sum + averageScore(item), 0) / feedback.length) * 10) / 10
     : 0;
   const topSignal = getMostCommonSignal(feedback);
@@ -134,7 +136,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                   Founder feedback
                 </p>
                 <h2 id="feedback-thread-title" className="mt-1 truncate text-2xl font-heading font-black text-white">
-                  {feedback.length ? `${feedback.length} response${feedback.length === 1 ? '' : 's'}` : 'No feedback yet'}
+                  {hasFeedback ? `${feedback.length} response${feedback.length === 1 ? '' : 's'}` : 'No feedback yet'}
                 </h2>
               </div>
               <button
@@ -151,15 +153,36 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
               className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
-              {feedback.length === 0 ? (
-                <div className="glass-card rounded-3xl p-5 text-center">
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neon-cyan/15 text-neon-cyan">
-                    <MessageSquareText className="h-6 w-6" />
+              {!hasFeedback ? (
+                <div className="space-y-4">
+                  <div className="glass-card rounded-3xl p-5 text-center">
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neon-cyan/15 text-neon-cyan">
+                      <MessageSquareText className="h-6 w-6" />
+                    </div>
+                    <h3 className="font-heading text-lg font-bold text-white">Be the first useful signal</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      Pick Toast or Roast to give this founder a focused signal.
+                    </p>
                   </div>
-                  <h3 className="font-heading text-lg font-bold text-white">Be the first useful signal</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Leave a short toast or roast so the founder knows what to sharpen next.
-                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => onAddFeedback('roast')}
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-roast/30 bg-roast/15 px-4 py-3 text-sm font-black text-roast transition-colors hover:bg-roast/20"
+                    >
+                      <Flame className="h-4 w-4" />
+                      Roast
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onAddFeedback('toast')}
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-toast/30 bg-toast/15 px-4 py-3 text-sm font-black text-toast transition-colors hover:bg-toast/20"
+                    >
+                      <Wine className="h-4 w-4" />
+                      Toast
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -237,8 +260,10 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
               )}
             </div>
 
-            <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
+            {hasFeedback && (
+              <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <button
+                type="button"
                 onClick={() => onAddFeedback('roast')}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-roast/30 bg-roast/15 px-4 py-3 text-sm font-black text-roast transition-colors hover:bg-roast/20"
               >
@@ -246,13 +271,15 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                 Roast
               </button>
               <button
+                type="button"
                 onClick={() => onAddFeedback('toast')}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-toast/30 bg-toast/15 px-4 py-3 text-sm font-black text-toast transition-colors hover:bg-toast/20"
               >
                 <Wine className="h-4 w-4" />
                 Toast
               </button>
-            </div>
+              </div>
+            )}
           </motion.div>
         </>
       )}
