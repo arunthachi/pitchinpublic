@@ -82,6 +82,7 @@ export default function EventPage() {
   const [saving, setSaving] = useState(false);
   const inviteCode = searchParams.get('invite') || '';
   const submittedPitchId = searchParams.get('pitchId') || '';
+  const submittedPitchPublicId = searchParams.get('pitchPublicId') || '';
   const submittedFromPublish = searchParams.get('submitted') === '1';
 
   const load = useCallback(async () => {
@@ -123,6 +124,12 @@ export default function EventPage() {
     loadPitches();
   }, [user]);
 
+  useEffect(() => {
+    if (!submittedPitchPublicId || !pitches.length) return;
+    const matchedPitch = pitches.find((pitch) => pitch.public_id === submittedPitchPublicId);
+    if (matchedPitch?.id) setSelectedPitchId(matchedPitch.id);
+  }, [pitches, submittedPitchPublicId]);
+
   const event = eventState?.event;
   const isJoined = Boolean(eventState?.participation);
   const selectedPitch = pitches.find((pitch) => pitch.id === selectedPitchId);
@@ -139,11 +146,11 @@ export default function EventPage() {
   const recordHref = event ? buildRecordHref(event) : '/';
 
   useEffect(() => {
-    if (!submittedFromPublish || !submittedPitchId || !isJoined) return;
+    if (!submittedFromPublish || (!submittedPitchId && !submittedPitchPublicId) || !isJoined) return;
     if (!message) {
       setMessage('Your new take is loaded. Submit it or mark it as your Best Take.');
     }
-  }, [isJoined, message, submittedFromPublish, submittedPitchId]);
+  }, [isJoined, message, submittedFromPublish, submittedPitchId, submittedPitchPublicId]);
 
   const join = async () => {
     setSaving(true);

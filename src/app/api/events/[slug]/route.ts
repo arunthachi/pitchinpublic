@@ -121,6 +121,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
             full_name,
             avatar_url,
             username,
+            public_handle,
             website,
             linkedin_url
           )
@@ -139,11 +140,13 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
             full_name,
             avatar_url,
             username,
+            public_handle,
             website,
             linkedin_url
           ),
           pitch:pitch_id (
             id,
+            public_id,
             hook,
             description,
             video_url,
@@ -174,13 +177,15 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
             id,
             full_name,
             avatar_url,
-            username
+            username,
+            public_handle
           ),
           accepted_profile:accepted_by (
             id,
             full_name,
             avatar_url,
-            username
+            username,
+            public_handle
           )
         `
         )
@@ -201,6 +206,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
           .select(
             `
             id,
+            public_id,
             user_id,
             hook,
             description,
@@ -224,6 +230,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
               full_name,
               avatar_url,
               username,
+              public_handle,
               website,
               linkedin_url
             ),

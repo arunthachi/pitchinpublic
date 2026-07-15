@@ -3,7 +3,10 @@ import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 
 const submissionSchema = z.object({
-  pitchId: z.string().uuid(),
+  pitchId: z.string().uuid().optional(),
+  pitchPublicId: z.string().min(3).max(80).optional(),
+}).refine((value) => value.pitchId || value.pitchPublicId, {
+  message: 'Choose a valid pitch before submitting.',
 });
 
 function createSupabase(request: NextRequest) {
@@ -64,13 +67,17 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     }
   }
 
-  const { data: pitch, error: pitchError } = await supabase
+  let pitchQuery = supabase
     .from('pitches')
     .select('id, user_id')
-    .eq('id', validation.data.pitchId)
     .eq('user_id', user.id)
-    .is('deleted_at', null)
-    .single();
+    .is('deleted_at', null);
+
+  pitchQuery = validation.data.pitchId
+    ? pitchQuery.eq('id', validation.data.pitchId)
+    : pitchQuery.eq('public_id', validation.data.pitchPublicId);
+
+  const { data: pitch, error: pitchError } = await pitchQuery.single();
 
   if (pitchError || !pitch) {
     return NextResponse.json({ success: false, error: 'You can only submit one of your own active pitches.' }, { status: 403 });
@@ -93,7 +100,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
       {
         event_id: event.id,
         user_id: user.id,
-        pitch_id: validation.data.pitchId,
+        pitch_id: pitch.id,
         status: 'submitted',
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

@@ -27,6 +27,7 @@ import {
   getPitchStartupNameFromFields,
   getTakeLabel,
 } from '@/lib/pitch-copy';
+import { isUuidLike, pitchPath } from '@/lib/public-routes';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
 
@@ -79,7 +80,9 @@ function convertApiPitchToLegacy(pitch: any): LegacyPitch {
   const profile = pitch.profiles || {};
   return {
     id: pitch.id,
+    publicId: pitch.public_id || null,
     userId: pitch.user_id,
+    founderHandle: profile.public_handle || profile.username || null,
     founderName: profile.full_name || 'Founder',
     founderAvatar: profile.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP',
     companyName: getPitchStartupNameFromFields(pitch, 'Practice pitch'),
@@ -201,7 +204,7 @@ function readinessLabel(value: number) {
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
-  const userId = params.userId as string;
+  const profileKey = params.userId as string;
   const { user: currentUser, signOut } = useAuth();
 
   const [profile, setProfile] = useState<User | null>(null);
@@ -211,21 +214,27 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const isOwnProfile = currentUser?.id === userId;
+  const isOwnProfile = Boolean(currentUser?.id && profile?.id === currentUser.id);
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
         setLoading(true);
-        const [profileRes, pitchesRes, finalTakesRes] = await Promise.all([
-          fetch(`/api/users/${userId}/profile`),
-          fetch(`/api/pitches?userId=${userId}&limit=100`),
-          fetch(`/api/users/${userId}/submissions`),
-        ]);
-
+        const profileRes = await fetch(`/api/users/${encodeURIComponent(profileKey)}/profile`);
         if (!profileRes.ok) throw new Error('Could not load profile.');
         const profileData = await profileRes.json();
-        setProfile(profileData.user);
+        const resolvedProfile = profileData.user;
+        setProfile(resolvedProfile);
+
+        if (isUuidLike(profileKey) && resolvedProfile.publicHandle) {
+          router.replace(`/profile/${encodeURIComponent(resolvedProfile.publicHandle)}`);
+          return;
+        }
+
+        const [pitchesRes, finalTakesRes] = await Promise.all([
+          fetch(`/api/pitches?userId=${resolvedProfile.id}&limit=100`),
+          fetch(`/api/users/${resolvedProfile.id}/submissions`),
+        ]);
 
         if (pitchesRes.ok) {
           const pitchData = await pitchesRes.json();
@@ -243,8 +252,8 @@ export default function UserProfilePage() {
       }
     };
 
-    if (userId) loadProfile();
-  }, [userId]);
+    if (profileKey) loadProfile();
+  }, [profileKey, router]);
 
   const finalPitchIds = useMemo(() => new Set(finalTakes.map((take) => take.pitch_id)), [finalTakes]);
   const allFeedback = pitches.flatMap((pitch) => pitch.feedback || []);
@@ -469,7 +478,7 @@ export default function UserProfilePage() {
                 transition={{ delay: Math.min(index * 0.03, 0.3) }}
               >
                 <article className="group relative aspect-[9/16] overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-lg shadow-black/25 transition hover:-translate-y-1 hover:border-neon-cyan/60">
-                  <Link href={`/pitch/${pitch.id}`} className="absolute inset-0">
+                  <Link href={pitchPath(pitch.publicId, pitch.id) || '/'} className="absolute inset-0">
                     <span className="sr-only">Open pitch</span>
                   </Link>
                   {pitch.thumbnailUrl ? (

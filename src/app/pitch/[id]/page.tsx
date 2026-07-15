@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -19,8 +19,10 @@ import { PivotHistory } from '@/components/PivotHistory';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FeedbackFormData } from '@/types';
+import { FeedbackFormData, LegacyPitch } from '@/types';
 import { formatNumber, formatDate } from '@/lib/utils';
+import { isUuidLike } from '@/lib/public-routes';
+import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
 
 function readinessLabel(value?: number) {
   if (!value) return 'Getting there';
@@ -35,12 +37,111 @@ function readinessFromScores(scores: FeedbackFormData['scores']) {
   return Math.max(1, Math.min(4, Math.round(average / 2.5)));
 }
 
+function parseFeedback(rawFeedback: any[] | undefined) {
+  return (rawFeedback || []).map((item) => {
+    let parsedContent: any = {};
+    try {
+      parsedContent = item.content ? JSON.parse(item.content) : {};
+    } catch {
+      parsedContent = { notes: item.content || '' };
+    }
+
+    return {
+      id: item.id,
+      authorName: 'Builder',
+      authorRole: 'Founder',
+      type: item.type,
+      signal: parsedContent.signal,
+      signals: parsedContent.signals || (parsedContent.signal ? [parsedContent.signal] : undefined),
+      readiness: parsedContent.readiness,
+      scores: parsedContent.scores || {
+        clarity: 5,
+        solution: 5,
+        market: 5,
+        presentation: 5,
+      },
+      notes: parsedContent.notes || '',
+      createdAt: item.created_at,
+    };
+  });
+}
+
+function convertApiPitchToLegacy(pitch: any): LegacyPitch {
+  const profile = pitch.profiles || {};
+  return {
+    id: pitch.id,
+    publicId: pitch.public_id || null,
+    userId: pitch.user_id,
+    founderHandle: profile.public_handle || profile.username || null,
+    founderName: profile.full_name || 'Founder',
+    founderAvatar: profile.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP',
+    companyName: getPitchStartupNameFromFields(pitch, 'Practice pitch'),
+    hook: pitch.hook,
+    description: pitch.description || getPitchFeedbackAskFromFields(pitch),
+    feedbackAsk: getPitchFeedbackAskFromFields(pitch),
+    videoUrl: pitch.video_url,
+    thumbnailUrl: pitch.thumbnail_url || '',
+    industry: 'SaaS',
+    stage: 'Pre-Seed',
+    views: pitch.views_count || 0,
+    interestScore: pitch.interest_score || 0,
+    roastCount: pitch.roast_count || 0,
+    toastCount: pitch.toast_count || 0,
+    createdAt: pitch.created_at,
+    duration: pitch.duration || undefined,
+    versionNumber: pitch.take_version || pitch.version_number,
+    practiceGoalId: pitch.practice_goal_id || null,
+    promptKey: pitch.prompt_key || null,
+    promptText: pitch.prompt_text || null,
+    isBestTake: Boolean(pitch.is_best_take),
+    feedback: parseFeedback(pitch.feedback),
+  };
+}
+
 export default function PitchDetailPage() {
   const params = useParams();
   const router = useRouter();
   const pitchId = params.id as string;
-  const pitch = getLegacyPitchById(pitchId);
-  const [localFeedback, setLocalFeedback] = useState(pitch?.feedback || []);
+  const mockPitch = getLegacyPitchById(pitchId);
+  const [remotePitch, setRemotePitch] = useState<LegacyPitch | null>(null);
+  const [loadingPitch, setLoadingPitch] = useState(!mockPitch);
+  const pitch = mockPitch || remotePitch;
+  const [localFeedback, setLocalFeedback] = useState(mockPitch?.feedback || []);
+
+  useEffect(() => {
+    if (mockPitch) return;
+
+    const loadPitch = async () => {
+      try {
+        setLoadingPitch(true);
+        const queryKey = isUuidLike(pitchId) ? 'pitchId' : 'publicId';
+        const response = await fetch(`/api/pitches?${queryKey}=${encodeURIComponent(pitchId)}&limit=1`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const apiPitch = data.pitches?.[0];
+        if (!apiPitch) return;
+        if (isUuidLike(pitchId) && apiPitch.public_id) {
+          router.replace(`/pitch/${encodeURIComponent(apiPitch.public_id)}`);
+          return;
+        }
+        const converted = convertApiPitchToLegacy(apiPitch);
+        setRemotePitch(converted);
+        setLocalFeedback(converted.feedback || []);
+      } finally {
+        setLoadingPitch(false);
+      }
+    };
+
+    loadPitch();
+  }, [mockPitch, pitchId, router]);
+
+  if (loadingPitch) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!pitch) {
     return (

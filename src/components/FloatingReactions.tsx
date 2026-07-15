@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Flame, Wine, Share2, Plus, Bookmark, MessageSquareText } from 'lucide-react';
 import { LegacyPitch } from '@/types';
 import { formatNumber } from '@/lib/utils';
+import { profilePath } from '@/lib/public-routes';
 
 // Roast emoji for filled state
 const RoastEmoji = ({ className }: any) => (
@@ -168,7 +169,8 @@ export function FloatingReactions({
   };
 
   const handleAvatarClick = () => {
-    router.push(`/profile/${pitch.userId}`);
+    const href = profilePath(pitch.founderHandle);
+    if (href) router.push(href);
   };
 
   return (

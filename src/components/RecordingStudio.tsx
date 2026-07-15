@@ -626,7 +626,7 @@ export function RecordingStudio({
 
       const responseData = await response.json();
       const { pitch } = responseData;
-      setCreatedPitchId(pitch.id);
+      setCreatedPitchId(pitch.publicId || pitch.id);
       onPitchCreated?.(pitch);
       setMode('publish');
     } catch (err) {
@@ -769,7 +769,7 @@ export function RecordingStudio({
                   videoDuration={videoDuration}
                   onViewFeed={() => {
                     if (eventContext?.slug && createdPitchId) {
-                      router.push(`/events/${eventContext.slug}?pitchId=${createdPitchId}&submitted=1`);
+                      router.push(`/events/${eventContext.slug}?pitchPublicId=${encodeURIComponent(createdPitchId)}&submitted=1`);
                       return;
                     }
                     handleClose();

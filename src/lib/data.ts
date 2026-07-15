@@ -535,6 +535,7 @@ export function getProfileByUsername(username: string): Profile | undefined {
 export function profileToUser(profile: Profile): User {
   return {
     id: profile.id,
+    publicHandle: profile.public_handle || profile.username || null,
     name: profile.full_name,
     email: profile.email,
     avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(profile.full_name)}`,

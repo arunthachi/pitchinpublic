@@ -8,6 +8,7 @@ import {
   getPitchStartupNameFromFields,
   getTakeLabelFromFields,
 } from '@/lib/pitch-copy';
+import { profilePath } from '@/lib/public-routes';
 
 export const metadata: Metadata = {
   title: 'Founder Access Admin | Pitch in Public',
@@ -37,6 +38,7 @@ interface PitchRow {
     email?: string | null;
     avatar_url?: string | null;
     username?: string | null;
+    public_handle?: string | null;
       }
     | Array<{
         id: string;
@@ -44,6 +46,7 @@ interface PitchRow {
         email?: string | null;
         avatar_url?: string | null;
         username?: string | null;
+        public_handle?: string | null;
       }>
     | null;
   feedback?: Array<{
@@ -58,6 +61,7 @@ interface FounderSummary {
   name: string;
   email: string;
   avatar: string;
+  publicHandle: string | null;
   pitches: PitchRow[];
   feedbackCount: number;
   hasBestTake: boolean;
@@ -86,6 +90,7 @@ function groupByFounder(pitches: PitchRow[]) {
       name: profile?.full_name || 'Founder',
       email: profile?.email || '',
       avatar: profile?.avatar_url || '',
+      publicHandle: profile?.public_handle || profile?.username || null,
       pitches: [],
       feedbackCount: 0,
       hasBestTake: false,
@@ -151,7 +156,8 @@ async function loadPitches() {
         full_name,
         email,
         avatar_url,
-        username
+        username,
+        public_handle
       ),
       feedback (
         id,
@@ -186,7 +192,8 @@ async function loadPitches() {
           full_name,
           email,
           avatar_url,
-          username
+          username,
+          public_handle
         ),
         feedback (
           id,
@@ -304,7 +311,7 @@ export default async function FounderAccessAdminPage() {
                       className="h-12 w-12 rounded-2xl border border-white/10 object-cover"
                     />
                     <div className="min-w-0">
-                      <Link href={`/profile/${founder.userId}`} className="truncate font-heading text-lg font-bold text-white hover:text-neon-cyan">
+                      <Link href={profilePath(founder.publicHandle) || '#'} className="truncate font-heading text-lg font-bold text-white hover:text-neon-cyan">
                         {founder.name}
                       </Link>
                       <p className="truncate text-xs text-slate-500">{founder.email || founder.userId}</p>

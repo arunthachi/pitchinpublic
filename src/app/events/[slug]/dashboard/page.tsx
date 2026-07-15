@@ -30,6 +30,7 @@ import { readableEmailError } from '@/lib/email-errors';
 import { announcementEmailStatusLabel, announcementEmailStatusTone } from '@/lib/event-announcements';
 import { getTakeLabelFromFields } from '@/lib/pitch-copy';
 import { getPracticePrompt } from '@/lib/practice';
+import { pitchPath } from '@/lib/public-routes';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLE_GROUPS = [
@@ -957,7 +958,7 @@ function SubmissionCard({ submission }: { submission: any }) {
 
   return (
     <article className="overflow-hidden rounded-3xl border border-white/10 bg-black/35">
-      <Link href={`/pitch/${submission.pitch_id}`} className="group relative block aspect-[9/16] bg-slate-950">
+      <Link href={pitchPath(submission.pitch?.public_id, submission.pitch_id) || '#'} className="group relative block aspect-[9/16] bg-slate-950">
         {submission.pitch?.thumbnail_url ? (
           <img src={submission.pitch.thumbnail_url} alt={submission.pitch.hook} className="h-full w-full object-cover transition group-hover:scale-105" />
         ) : (

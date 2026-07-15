@@ -11,6 +11,7 @@ export interface Profile {
   email: string;
   full_name: string;
   username: string | null;
+  public_handle?: string | null;
   avatar_url: string | null;
   bio: string | null;
   website: string | null;
@@ -49,6 +50,7 @@ export interface Company {
 
 export interface Pitch {
   id: string;
+  public_id?: string | null;
   user_id: string;
   company_id: string | null;
   hook: string;
@@ -138,7 +140,9 @@ export interface LegacyFeedback {
 // Legacy interface for backwards compatibility with existing components
 export interface LegacyPitch {
   id: string;
+  publicId?: string;
   userId: string;
+  founderHandle?: string | null;
   founderName: string;
   founderAvatar: string;
   companyName: string;
@@ -226,6 +230,7 @@ export interface Notification {
 // Legacy User type for backwards compatibility
 export interface User {
   id: string;
+  publicHandle?: string | null;
   name: string;
   email: string;
   avatar: string;

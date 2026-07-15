@@ -18,6 +18,7 @@ export interface Database {
           email: string
           full_name: string
           username: string | null
+          public_handle: string
           avatar_url: string | null
           bio: string | null
           website: string | null
@@ -35,6 +36,7 @@ export interface Database {
           email: string
           full_name: string
           username?: string | null
+          public_handle?: string
           avatar_url?: string | null
           bio?: string | null
           website?: string | null
@@ -52,6 +54,7 @@ export interface Database {
           email?: string
           full_name?: string
           username?: string | null
+          public_handle?: string
           avatar_url?: string | null
           bio?: string | null
           website?: string | null
@@ -130,6 +133,7 @@ export interface Database {
       pitches: {
         Row: {
           id: string
+          public_id: string
           user_id: string
           company_id: string | null
           hook: string
@@ -157,6 +161,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          public_id?: string
           user_id: string
           company_id?: string | null
           hook: string
@@ -184,6 +189,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          public_id?: string
           user_id?: string
           company_id?: string | null
           hook?: string

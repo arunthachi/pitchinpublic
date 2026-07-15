@@ -244,7 +244,9 @@ function HomeContent() {
 
         return {
           id: pitch.id,
+          publicId: pitch.public_id || null,
           userId: pitch.user_id,
+          founderHandle: pitch.profiles?.public_handle || pitch.profiles?.username || null,
           founderName: pitch.profiles?.full_name || 'Anonymous',
           founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
           companyName: getPitchStartupNameFromFields(pitch, 'Startup'),
