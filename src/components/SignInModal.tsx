@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Loader2, LockKeyhole, Mail, QrCode, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
+import { markAuthPending, clearAuthPending } from '@/lib/auth-pending';
 
 type OAuthProvider = 'google';
 
@@ -60,6 +61,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   };
 
   const handleClose = () => {
+    clearAuthPending();
     resetModal();
     onClose();
   };
@@ -68,6 +70,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     try {
       setLoading(provider);
       setError(null);
+      markAuthPending();
 
       const supabase = createClient();
       const fallbackNext = getSafeNextPath() || `${window.location.pathname}${window.location.search}` || '/';
@@ -84,6 +87,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       if (error) throw error;
       if (data?.url) window.location.href = data.url;
     } catch (err) {
+      clearAuthPending();
       console.error('Sign in error:', err);
       setError(getFriendlyAuthError(err));
       setLoading(null);
@@ -110,10 +114,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
         const explicitNext = getSafeNextPath();
         if (explicitNext) return explicitNext;
 
-        const path = `${window.location.pathname}${window.location.search}` || '/';
-        const url = new URL(path, window.location.origin);
-        url.searchParams.set('auth', '1');
-        return `${url.pathname}${url.search}`;
+        return `${window.location.pathname}${window.location.search}` || '/';
       })();
 
       const response = await fetch('/api/auth/otp', {
@@ -130,6 +131,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       setSentTo(trimmedEmail);
       setAuthStep('email-code');
       setOtpCode('');
+      markAuthPending();
     } catch (err) {
       console.error('Email OTP error:', err);
       setError(getFriendlyAuthError(err));
@@ -159,6 +161,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       });
 
       if (error) throw error;
+      clearAuthPending();
       const explicitNext = getSafeNextPath();
       if (explicitNext) {
         window.location.assign(explicitNext);

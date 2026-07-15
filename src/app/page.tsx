@@ -12,12 +12,14 @@ import { FloatingReactions } from '@/components/FloatingReactions';
 import { UserProfile } from '@/components/UserProfile';
 import { SignInModal } from '@/components/SignInModal';
 import { WelcomeHero } from '@/components/WelcomeHero';
+import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
 import { getLegacyPitches, mockUser, profileToUser, authUserToUser } from '@/lib/data';
 import { LegacyPitch, User, Profile } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { clearAuthPending, readAuthPending } from '@/lib/auth-pending';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { ProfileEditModal } from '@/components/ProfileEditModal';
 import { DesktopHabitNudge, MobileHabitNudge } from '@/components/PitchHabitPanel';
@@ -34,8 +36,6 @@ const PitchGoalPanel = dynamic(() => import('@/components/PitchGoalPanel').then(
 const AchievementUnlock = dynamic(() => import('@/components/AchievementUnlock').then(mod => ({ default: mod.AchievementUnlock })), {
   ssr: false,
 });
-
-const PRELAUNCH_PREVIEW_VIDEO_ID = '095d0785cea145007372cff7878fb46f';
 
 interface PracticeToday {
   prompt: PracticePrompt;
@@ -65,10 +65,7 @@ function HomeContent() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
-  const [urlAccess, setUrlAccess] = useState({
-    preview: false,
-    checked: false,
-  });
+  const [authPending, setAuthPending] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [fullProfile, setFullProfile] = useState<Profile | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
@@ -106,9 +103,6 @@ function HomeContent() {
   } | null>(null);
   const isGuest = !user;
   const canManageEvents = userRoles.includes('organizer');
-  const urlPreviewAccess = urlAccess.preview || searchParams.get('preview') === '1';
-  const isAuthHandoff = searchParams.get('auth') === '1';
-  const effectiveGuestFeedPreview = urlPreviewAccess;
   const showPublicSignIn = isGuest;
   const pitchMaxParam = Number(searchParams.get('pitchMax'));
   const recordingMaxDurationSeconds = Number.isFinite(pitchMaxParam) && pitchMaxParam >= 30 && pitchMaxParam <= 180 ? pitchMaxParam : 60;
@@ -123,13 +117,20 @@ function HomeContent() {
     : null;
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    setUrlAccess({
-      preview: params.get('preview') === '1',
-      checked: true,
-    });
+    setAuthPending(readAuthPending());
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      clearAuthPending();
+      setAuthPending(false);
+      return;
+    }
+
+    if (!loading) {
+      setAuthPending(readAuthPending());
+    }
+  }, [loading, user]);
 
   // Fetch user profile from Supabase when user logs in
   useEffect(() => {
@@ -199,9 +200,6 @@ function HomeContent() {
     try {
       setPitchesLoading(true);
       const params = new URLSearchParams({ limit: '100' });
-      if (isGuest && effectiveGuestFeedPreview) {
-        params.set('videoId', PRELAUNCH_PREVIEW_VIDEO_ID);
-      }
 
       const response = await fetch(`/api/pitches?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch pitches');
@@ -268,21 +266,17 @@ function HomeContent() {
       });
 
       setLegacyPitches(converted);
-      if (converted.length > 0 && !currentPitch) {
-        setCurrentPitch(converted[0]);
-      }
+      setCurrentPitch((current) => current ?? converted[0] ?? null);
     } catch (error) {
       console.error('Failed to fetch pitches:', error);
       // Fall back to mock data on error
       const mockPitches = getLegacyPitches();
       setLegacyPitches(mockPitches);
-      if (mockPitches.length > 0 && !currentPitch) {
-        setCurrentPitch(mockPitches[0]);
-      }
+      setCurrentPitch((current) => current ?? mockPitches[0] ?? null);
     } finally {
       setPitchesLoading(false);
     }
-  }, [isGuest, effectiveGuestFeedPreview]);
+  }, []);
 
   const fetchPracticeToday = useCallback(async () => {
     if (!user) return;
@@ -306,13 +300,13 @@ function HomeContent() {
 
   // Fetch pitches once the feed is visible. The marketing landing should stay lightweight.
   useEffect(() => {
-    if (isGuest && !effectiveGuestFeedPreview) {
+    if (!user) {
       setPitchesLoading(false);
       return;
     }
 
     fetchPitches();
-  }, [fetchPitches, isGuest, effectiveGuestFeedPreview]);
+  }, [fetchPitches, user]);
 
   // Filter user's own pitches using the fetched profile
   // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
@@ -361,25 +355,7 @@ function HomeContent() {
     }
   }, [loading, searchParams, user]);
 
-  // The public landing should not wait on Supabase auth initialization.
-  // Authenticated users may see the landing briefly while their session resolves,
-  // which is better than blocking first paint for every anonymous visitor.
-  if (!urlAccess.checked && !urlPreviewAccess) {
-    return (
-      <>
-        <WelcomeHero
-          showAlphaSignIn={showPublicSignIn}
-          onAlphaSignIn={() => setSignInModalOpen(true)}
-        />
-        <SignInModal
-          isOpen={signInModalOpen}
-          onClose={() => setSignInModalOpen(false)}
-        />
-      </>
-    );
-  }
-
-  if (loading && isGuest && isAuthHandoff) {
+  if (loading && isGuest && authPending) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="glass-panel rounded-3xl px-6 py-5 text-center">
@@ -388,21 +364,6 @@ function HomeContent() {
           <p className="mt-1 text-sm text-slate-400">Opening your pitch practice feed.</p>
         </div>
       </div>
-    );
-  }
-
-  if (loading && isGuest && !effectiveGuestFeedPreview) {
-    return (
-      <>
-        <WelcomeHero
-          showAlphaSignIn={showPublicSignIn}
-          onAlphaSignIn={() => setSignInModalOpen(true)}
-        />
-        <SignInModal
-          isOpen={signInModalOpen}
-          onClose={() => setSignInModalOpen(false)}
-        />
-      </>
     );
   }
 
@@ -415,15 +376,15 @@ function HomeContent() {
     );
   }
 
-  // Show main app for both authenticated and non-authenticated users
-  // Non-authenticated users see the feed but can't interact without signing in
-  if (isGuest && !effectiveGuestFeedPreview) {
+  // Guests stay on the marketing landing; signed-in users see the app shell.
+  if (isGuest) {
     return (
       <>
         <WelcomeHero
-          showAlphaSignIn={showPublicSignIn}
-          onAlphaSignIn={() => setSignInModalOpen(true)}
+          showSignIn={showPublicSignIn}
+          onSignIn={() => setSignInModalOpen(true)}
         />
+        <PwaInstallPrompt dockToBottomNav={false} />
         <SignInModal
           isOpen={signInModalOpen}
           onClose={() => setSignInModalOpen(false)}
@@ -635,6 +596,8 @@ function HomeContent() {
         isOpen={signInModalOpen}
         onClose={() => setSignInModalOpen(false)}
       />
+
+      <PwaInstallPrompt dockToBottomNav={!isGuest} />
 
       {/* Recording Studio Modal - Only for authenticated users */}
       {!isGuest && (
