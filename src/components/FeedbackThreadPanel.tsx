@@ -123,6 +123,8 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ type: 'spring', damping: 28, stiffness: 260 }}
             onPointerDown={stopPanelEvent}
+            onWheel={stopPanelEvent}
+            onTouchMove={stopPanelEvent}
             role="dialog"
             aria-modal="true"
             aria-labelledby="feedback-thread-title"
@@ -140,6 +142,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                 </h2>
               </div>
               <button
+                type="button"
                 onClick={onClose}
                 className="glass-pill flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/[0.16]"
                 aria-label="Close feedback"
@@ -163,25 +166,6 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                     <p className="mt-2 text-sm leading-6 text-slate-400">
                       Pick Toast or Roast to give this founder a focused signal.
                     </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => onAddFeedback('roast')}
-                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-roast/30 bg-roast/15 px-4 py-3 text-sm font-black text-roast transition-colors hover:bg-roast/20"
-                    >
-                      <Flame className="h-4 w-4" />
-                      Roast
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onAddFeedback('toast')}
-                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-toast/30 bg-toast/15 px-4 py-3 text-sm font-black text-toast transition-colors hover:bg-toast/20"
-                    >
-                      <Wine className="h-4 w-4" />
-                      Toast
-                    </button>
                   </div>
                 </div>
               ) : (
@@ -260,8 +244,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
               )}
             </div>
 
-            {hasFeedback && (
-              <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
+            <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <button
                 type="button"
                 onClick={() => onAddFeedback('roast')}
@@ -278,8 +261,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                 <Wine className="h-4 w-4" />
                 Toast
               </button>
-              </div>
-            )}
+            </div>
           </motion.div>
         </>
       )}

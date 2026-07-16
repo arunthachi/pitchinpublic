@@ -166,6 +166,8 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ type: 'spring', damping: 28, stiffness: 260 }}
             onPointerDown={stopPanelEvent}
+            onWheel={stopPanelEvent}
+            onTouchMove={stopPanelEvent}
             role="dialog"
             aria-modal="true"
             aria-labelledby="quick-feedback-title"
@@ -184,6 +186,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 </h2>
               </div>
               <button
+                type="button"
                 onClick={onClose}
                 className="glass-pill flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/[0.16]"
                 aria-label="Close feedback panel"
@@ -201,6 +204,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               {/* Roast/Toast Toggle */}
               <div className="glass-card grid grid-cols-2 gap-2 rounded-3xl p-1">
                 <button
+                  type="button"
                   onClick={() => {
                     setFeedbackType('roast');
                     setSignals([roastSignals[0]]);
@@ -215,6 +219,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                   ROAST
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setFeedbackType('toast');
                     setSignals([toastSignals[0]]);
@@ -313,6 +318,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
 
             <div className="shrink-0 border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <Button
+                type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
                 className={`w-full rounded-full py-4 text-base font-heading font-bold sm:py-5 ${

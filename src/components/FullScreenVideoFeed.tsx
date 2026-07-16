@@ -304,8 +304,10 @@ export function FullScreenVideoFeed({
     });
   }, []);
 
+  const isFeedbackOverlayOpen = feedbackPanelOpen || feedbackListOpen;
+
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    if (feedbackPanelOpen) return;
+    if (isFeedbackOverlayOpen) return;
     if (Math.abs(event.deltaY) < 24 || wheelLockRef.current) return;
 
     wheelLockRef.current = true;
@@ -318,12 +320,12 @@ export function FullScreenVideoFeed({
     window.setTimeout(() => {
       wheelLockRef.current = false;
     }, 650);
-  }, [feedbackPanelOpen, goToNext, goToPrev]);
+  }, [isFeedbackOverlayOpen, goToNext, goToPrev]);
 
   // Gesture handling
   const bind = useGesture({
     onDrag: ({ movement: [, my], direction: [, dy], velocity: [, vy], cancel }) => {
-      if (feedbackPanelOpen) {
+      if (isFeedbackOverlayOpen) {
         cancel();
         return;
       }
@@ -344,7 +346,7 @@ export function FullScreenVideoFeed({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (feedbackPanelOpen) return;
+      if (isFeedbackOverlayOpen) return;
       const activeElement = document.activeElement;
       if (
         activeElement instanceof HTMLInputElement ||
@@ -359,7 +361,7 @@ export function FullScreenVideoFeed({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [feedbackPanelOpen, goToNext, goToPrev]);
+  }, [isFeedbackOverlayOpen, goToNext, goToPrev]);
 
   const handleReaction = async (type: ReactionBurstType) => {
     if (!currentPitch || reactionPendingRef.current) return;
@@ -703,7 +705,7 @@ export function FullScreenVideoFeed({
       data-feed-frame="true"
       className="relative h-full w-full touch-none overflow-hidden bg-black"
       onWheel={handleWheel}
-      {...(feedbackPanelOpen ? {} : bind())}
+      {...(isFeedbackOverlayOpen ? {} : bind())}
     >
       <AnimatePresence initial={false} custom={direction}>
         <motion.div
