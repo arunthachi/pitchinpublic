@@ -120,7 +120,10 @@ export function shouldSendDailyNudge({
 }) {
   const local = getZonedDateParts(now, timeZone || DEFAULT_TIME_ZONE);
   const scheduled = parseNudgeTime(dailyNudgeTime);
-  return local.hour === scheduled.hour && local.minute >= scheduled.minute;
+  const currentMinutes = local.hour * 60 + local.minute;
+  const scheduledMinutes = scheduled.hour * 60 + scheduled.minute;
+
+  return currentMinutes >= scheduledMinutes;
 }
 
 export function shouldSendEventReminder({

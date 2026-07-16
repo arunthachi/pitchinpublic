@@ -15,6 +15,32 @@ type Preferences = {
   timezone: string;
 };
 
+const TIME_OPTIONS = Array.from({ length: 34 }, (_, index) => {
+  const totalMinutes = 6 * 60 + index * 30;
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+
+  return {
+    value: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`,
+    label: `${hour12}:${String(minute).padStart(2, '0')} ${period}`,
+  };
+});
+
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'Eastern Time' },
+  { value: 'America/Chicago', label: 'Central Time' },
+  { value: 'America/Denver', label: 'Mountain Time' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time' },
+];
+
+function normalizeTimeValue(value?: string | null) {
+  if (!value) return '09:00:00';
+  const [hour = '09', minute = '00'] = value.split(':');
+  return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`;
+}
+
 export default function NotificationPreferencesPage() {
   const { user, loading } = useAuth();
   const [preferences, setPreferences] = useState<Preferences | null>(null);
@@ -57,6 +83,15 @@ export default function NotificationPreferencesPage() {
   const handleToggle = async (nextValue: boolean) => {
     if (!preferences) return;
 
+    await savePreferences({ emailEnabled: nextValue }, nextValue ? 'Automated nudges are on.' : 'Automated nudges are off.');
+  };
+
+  const savePreferences = async (
+    patch: { emailEnabled?: boolean; dailyNudgeTime?: string; timezone?: string },
+    successMessage: string
+  ) => {
+    if (!preferences) return;
+
     setSaving(true);
     setError('');
     setStatus('');
@@ -65,7 +100,7 @@ export default function NotificationPreferencesPage() {
       const response = await fetch('/api/notification-preferences', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailEnabled: nextValue }),
+        body: JSON.stringify(patch),
       });
 
       const data = await response.json();
@@ -74,7 +109,7 @@ export default function NotificationPreferencesPage() {
       }
 
       setPreferences(data.preferences);
-      setStatus(nextValue ? 'Automated nudges are on.' : 'Automated nudges are off.');
+      setStatus(successMessage);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Could not save preferences.');
     } finally {
@@ -83,6 +118,8 @@ export default function NotificationPreferencesPage() {
   };
 
   const emailEnabled = preferences?.email_enabled ?? false;
+  const selectedTime = normalizeTimeValue(preferences?.daily_nudge_time);
+  const selectedTimezone = preferences?.timezone || 'America/New_York';
 
   if (!loading && !user) {
     return (
@@ -157,13 +194,49 @@ export default function NotificationPreferencesPage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <InfoPill label="Send time" value={preferences?.daily_nudge_time?.slice(0, 5) || '09:00'} />
-                    <InfoPill label="Timezone" value={preferences?.timezone || 'America/New_York'} />
+                    <label className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                        Send around
+                      </span>
+                      <select
+                        value={selectedTime}
+                        disabled={saving || !preferences}
+                        onChange={(event) => savePreferences({ dailyNudgeTime: event.target.value }, 'Daily nudge time saved.')}
+                        className="mt-2 w-full appearance-none bg-transparent font-heading text-lg font-black text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label="Daily nudge send time"
+                      >
+                        {TIME_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value} className="bg-slate-950 text-white">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="block rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                        Timezone
+                      </span>
+                      <select
+                        value={selectedTimezone}
+                        disabled={saving || !preferences}
+                        onChange={(event) => savePreferences({ timezone: event.target.value }, 'Timezone saved.')}
+                        className="mt-2 w-full appearance-none bg-transparent font-heading text-lg font-black text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label="Daily nudge timezone"
+                      >
+                        {TIMEZONE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value} className="bg-slate-950 text-white">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
 
                   <p className="mt-4 text-sm leading-6 text-slate-400">
-                    <strong className="text-slate-200">Copy note:</strong> automated emails start with{' '}
-                    <span className="text-neon-cyan">Today&apos;s pitch task: make the customer obvious in sentence one. Record a 60-sec take.</span>
+                    <strong className="text-slate-200">What you&apos;ll get:</strong>{' '}
+                    <span className="text-neon-cyan">one daily pitch task email after your chosen time.</span>{' '}
+                    You can turn it off here anytime.
                   </p>
                 </div>
               </div>
@@ -180,21 +253,12 @@ export default function NotificationPreferencesPage() {
 
               <div className="flex items-center gap-2 text-sm text-slate-400">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                <span>{saving ? 'Saving changes' : 'Switch changes save immediately'}</span>
+                <span>{saving ? 'Saving changes' : 'Changes save immediately'}</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
     </main>
-  );
-}
-
-function InfoPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-medium text-white">{value}</p>
-    </div>
   );
 }
