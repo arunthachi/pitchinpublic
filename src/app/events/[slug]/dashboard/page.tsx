@@ -275,7 +275,7 @@ export default function EventDashboardPage() {
         .slice(0, 4),
     [pitches]
   );
-  const inviteUrl = typeof window !== 'undefined' && event ? `${window.location.origin}/events/${event.slug}` : '';
+  const roomUrl = typeof window !== 'undefined' && event ? `${window.location.origin}/events/${event.slug}` : '';
   const practicePrompt = useMemo(() => getPracticePrompt(event?.focus), [event?.focus]);
   const sortedSubmissions = useMemo(
     () =>
@@ -585,9 +585,9 @@ export default function EventDashboardPage() {
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <button onClick={() => copyText(inviteUrl, 'event')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
+              <button onClick={() => copyText(roomUrl, 'event')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
                 <Copy className="h-4 w-4" />
-                {copied === 'event' ? 'Copied' : 'Copy founder link'}
+                {copied === 'event' ? 'Copied' : 'Copy room page'}
               </button>
               <Link href={`/events/${slug}`} className="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold">
                 Founder view

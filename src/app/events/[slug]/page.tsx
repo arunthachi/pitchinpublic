@@ -78,7 +78,7 @@ export default function EventPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const inviteCode = searchParams.get('invite') || '';
+  const inviteCode = searchParams.get('invite') || searchParams.get('code') || '';
   const submittedPitchId = searchParams.get('pitchId') || '';
   const submittedPitchPublicId = searchParams.get('pitchPublicId') || '';
   const submittedFromPublish = searchParams.get('submitted') === '1';
@@ -313,9 +313,11 @@ export default function EventPage() {
                 Join pitch room
               </button>
               <p className="sm:col-span-2 text-sm leading-6 text-slate-400">
-                {event.visibility === 'private'
-                  ? 'Private events need an invite code before you can join, record, or submit.'
-                  : 'Use the invite code if you received one; otherwise this event can be joined with the shared link.'}
+                {inviteCode
+                  ? 'Your invite link filled the code for you. Join once, then this room will stay in Pitch rooms.'
+                  : event.visibility === 'private'
+                    ? 'Private events need an invite code before you can join, record, or submit.'
+                    : 'Use the invite code if you received one; otherwise this event can be joined with the shared link.'}
               </p>
             </div>
           ) : (

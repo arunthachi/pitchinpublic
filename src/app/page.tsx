@@ -108,10 +108,10 @@ function HomeContent() {
     badgeDescription: string;
   } | null>(null);
   const isGuest = !user;
-  const canManageEvents = userRoles.includes('organizer');
+  const canManageEvents = userRoles.includes('organizer') || userRoles.includes('admin');
   const showPublicSignIn = isGuest;
   const pitchMaxParam = Number(searchParams.get('pitchMax'));
-  const recordingMaxDurationSeconds = Number.isFinite(pitchMaxParam) && pitchMaxParam >= 30 && pitchMaxParam <= 180 ? pitchMaxParam : 60;
+  const recordingMaxDurationSeconds = Number.isFinite(pitchMaxParam) && pitchMaxParam >= 30 && pitchMaxParam <= 360 ? pitchMaxParam : 60;
   const eventContext = searchParams.get('eventSlug')
     ? {
         slug: searchParams.get('eventSlug') || '',

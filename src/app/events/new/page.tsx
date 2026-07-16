@@ -107,10 +107,9 @@ function NewEventContent() {
             .from('profile_roles')
             .select('role')
             .eq('user_id', user.id)
-            .eq('role', 'organizer')
-            .maybeSingle();
+            .in('role', ['organizer', 'admin']);
 
-          hasAccess = Boolean(data);
+          hasAccess = Boolean(data?.length);
           if (hasAccess || attempt === attempts - 1) break;
 
           await new Promise((resolve) => window.setTimeout(resolve, 500));

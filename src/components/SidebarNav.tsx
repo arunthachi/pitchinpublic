@@ -71,10 +71,12 @@ export function SidebarNav({
   const navItems = [
     { label: 'Practice', icon: Video, active: true },
     { label: 'My pitches', icon: UserRound, href: '/me' },
+    { label: 'Pitch rooms', icon: CalendarDays, href: '/events' },
     { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
   ];
   const organizerItems = canManageEvents
     ? [
+        { label: 'My rooms', icon: CalendarDays, href: '/events' },
         { label: 'Create event', icon: CalendarDays, href: '/events/new' },
       ]
     : [];

@@ -59,15 +59,15 @@ async function canCreatePitchEvents(supabase: ReturnType<typeof createSupabase>,
     .from('profile_roles')
     .select('role')
     .eq('user_id', userId)
-    .eq('role', 'organizer')
-    .maybeSingle();
+    .in('role', ['organizer', 'admin'])
+    .limit(1);
 
   if (error) {
     console.error('Error checking organizer role:', error);
     return false;
   }
 
-  return Boolean(data);
+  return Boolean(data?.length);
 }
 
 export async function POST(request: NextRequest) {
@@ -166,8 +166,10 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ success: true, events: [] });
+    return NextResponse.json({ success: true, events: [], canCreateEvents: false });
   }
+
+  const canCreateEvents = await canCreatePitchEvents(supabase, user.id);
 
   const { data, error } = await supabase
     .from('pitch_events')
@@ -188,5 +190,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to fetch events' }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, events: data || [] });
+  const events = (data || []).map((event) => {
+    const safeEvent = { ...event } as Record<string, unknown>;
+    delete safeEvent.access_code;
+    return safeEvent;
+  });
+
+  return NextResponse.json({ success: true, events, canCreateEvents });
 }
