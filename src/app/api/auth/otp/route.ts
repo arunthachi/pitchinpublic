@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { emailSchema, phoneSchema } from '@/lib/validation';
+import { INVITE_ONLY_MESSAGE, isEmailAllowedForPilot } from '@/lib/pilot-access';
 
 /**
  * POST /api/auth/otp
@@ -121,6 +122,35 @@ export async function POST(request: NextRequest) {
         },
         {
           status: 503,
+          headers: formatRateLimitHeaders(result),
+        }
+      );
+    }
+
+    if (method === 'email') {
+      const isAllowed = await isEmailAllowedForPilot(destination);
+      if (!isAllowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: INVITE_ONLY_MESSAGE,
+            code: 'invite_required',
+          },
+          {
+            status: 403,
+            headers: formatRateLimitHeaders(result),
+          }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Phone sign in is not available during the invite-only pilot. Use your invited email instead.',
+          code: 'phone_invite_not_supported',
+        },
+        {
+          status: 403,
           headers: formatRateLimitHeaders(result),
         }
       );

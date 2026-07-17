@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { isUserAllowedForPilot } from '@/lib/pilot-access';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -23,6 +24,21 @@ export async function GET(request: Request) {
   const safeNext = next && next.startsWith('/') && !next.startsWith('//')
     ? next
     : '/';
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const isAllowed = await isUserAllowedForPilot(user);
+    if (!isAllowed) {
+      await supabase.auth.signOut();
+      const blockedUrl = new URL('/', origin);
+      blockedUrl.searchParams.set('auth', 'invite_required');
+      blockedUrl.searchParams.set('next', safeNext);
+      return NextResponse.redirect(blockedUrl);
+    }
+  }
 
   return NextResponse.redirect(`${origin}${safeNext}`);
 }

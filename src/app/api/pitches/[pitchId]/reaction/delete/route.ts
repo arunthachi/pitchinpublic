@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { createServiceSupabase } from '@/lib/admin';
+import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 
 /**
  * DELETE /api/pitches/[pitchId]/reaction/delete
@@ -83,6 +84,20 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ pi
         },
         {
           status: 401,
+          headers: formatRateLimitHeaders(result),
+        }
+      );
+    }
+
+    if (!(await isUserAllowedForPilot(user))) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: INVITE_ONLY_MESSAGE,
+          code: 'invite_required',
+        },
+        {
+          status: 403,
           headers: formatRateLimitHeaders(result),
         }
       );

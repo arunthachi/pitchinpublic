@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getVideoProvider } from '@/lib/video-providers';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
+import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 
 /**
  * GET /api/pitches/upload-url
@@ -68,6 +69,20 @@ export async function GET(request: NextRequest) {
         },
         {
           status: 401,
+          headers: formatRateLimitHeaders(result),
+        }
+      );
+    }
+
+    if (!(await isUserAllowedForPilot(user))) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: INVITE_ONLY_MESSAGE,
+          code: 'invite_required',
+        },
+        {
+          status: 403,
           headers: formatRateLimitHeaders(result),
         }
       );

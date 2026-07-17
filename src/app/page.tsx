@@ -79,6 +79,7 @@ function HomeContent() {
   const [showDailyChallenge, setShowDailyChallenge] = useState(false);
   const [showPitchGoal, setShowPitchGoal] = useState(false);
   const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
+  const [inviteOnlyNotice, setInviteOnlyNotice] = useState(false);
   const [practiceToday, setPracticeToday] = useState<PracticeToday>(() => {
     const prompt = getPromptForDate();
     return {
@@ -363,6 +364,40 @@ function HomeContent() {
     }
   }, [loading, searchParams, user]);
 
+  useEffect(() => {
+    if (loading || user) return;
+
+    if (searchParams.get('auth') === 'invite_required') {
+      setInviteOnlyNotice(true);
+      setSignInModalOpen(true);
+    }
+  }, [loading, searchParams, user]);
+
+  useEffect(() => {
+    if (loading || !user) return;
+
+    let cancelled = false;
+
+    const verifyPilotAccess = async () => {
+      try {
+        const response = await fetch('/api/auth/access', { cache: 'no-store' });
+
+        if (!cancelled && response.status === 403) {
+          await signOut();
+          router.replace('/?auth=invite_required');
+        }
+      } catch (error) {
+        console.error('Pilot access check failed:', error);
+      }
+    };
+
+    verifyPilotAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, router, signOut, user]);
+
   if (loading && isGuest && authPending) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -392,6 +427,21 @@ function HomeContent() {
           showSignIn={showPublicSignIn}
           onSignIn={() => setSignInModalOpen(true)}
         />
+        {inviteOnlyNotice && (
+          <div className="fixed inset-x-4 top-24 z-[90] mx-auto max-w-xl rounded-3xl border border-neon-lime/30 bg-slate-950/85 p-4 text-center shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+            <p className="font-heading text-lg font-black text-white">Pitch in Public is invite-only right now.</p>
+            <p className="mt-1 text-sm text-slate-300">
+              Use the email that received an invite, or request access for the founding cohort.
+            </p>
+            <button
+              type="button"
+              onClick={() => setInviteOnlyNotice(false)}
+              className="mt-3 rounded-full border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-300 transition hover:border-neon-cyan hover:text-white"
+            >
+              Got it
+            </button>
+          </div>
+        )}
         <PwaInstallPrompt dockToBottomNav={false} />
         <SignInModal
           isOpen={signInModalOpen}

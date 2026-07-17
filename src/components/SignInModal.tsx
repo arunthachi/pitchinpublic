@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Loader2, LockKeyhole, Mail, QrCode, X } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { ArrowLeft, Loader2, LockKeyhole, Mail, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { markAuthPending, clearAuthPending } from '@/lib/auth-pending';
+import { INVITE_ONLY_MESSAGE } from '@/lib/access-copy';
 
 type OAuthProvider = 'google';
 
@@ -15,6 +15,10 @@ interface SignInModalProps {
 }
 
 const getFriendlyAuthError = (error: unknown) => {
+  if (error instanceof Error && error.message.includes('invite-only')) {
+    return error.message;
+  }
+
   if (error instanceof Error && error.message.includes('Supabase client is not configured')) {
     return 'Sign in is not available in this environment yet.';
   }
@@ -41,14 +45,14 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [sentTo, setSentTo] = useState('');
-  const [mobileRecordUrl, setMobileRecordUrl] = useState('');
 
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
 
-    const url = new URL(window.location.origin);
-    url.searchParams.set('record', '1');
-    setMobileRecordUrl(url.toString());
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auth') === 'invite_required') {
+      setError(INVITE_ONLY_MESSAGE);
+    }
   }, [isOpen]);
 
   const resetModal = () => {
@@ -210,9 +214,6 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
 
                 <div className="relative p-6 pt-10 sm:p-8 sm:pt-11">
                   <div className="mb-7">
-                    <div className="glass-pill mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl text-neon-cyan">
-                      <QrCode className="h-7 w-7" />
-                    </div>
                     <h2 className="font-heading text-3xl font-bold tracking-normal text-white sm:text-4xl">
                       {authStep === 'email-code' ? 'Enter your code.' : 'Sign in. Start pitching.'}
                     </h2>
@@ -222,7 +223,6 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                       ) : (
                         <>
                           Google is fastest. Email code works when you want access without another social account.
-                          <span className="hidden sm:inline"> Scan the code if you want to record from your phone camera.</span>
                         </>
                       )}
                     </p>
@@ -339,22 +339,6 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
                         </div>
                       </form>
                     )}
-
-                    <section className="hidden rounded-3xl border border-white/15 bg-white/[0.06] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-2xl sm:block">
-                      <div className="grid grid-cols-[116px_1fr] gap-4">
-                        <div className="rounded-2xl border border-white/15 bg-white p-2">
-                          {mobileRecordUrl ? (
-                            <QRCodeSVG value={mobileRecordUrl} size={100} bgColor="#ffffff" fgColor="#020617" />
-                          ) : null}
-                        </div>
-                        <div className="flex flex-col justify-center">
-                          <p className="text-sm font-bold text-white">Record from your phone</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-400">
-                            Scan to open PIP on mobile and continue with Google into the recording flow.
-                          </p>
-                        </div>
-                      </div>
-                    </section>
 
                   </div>
 

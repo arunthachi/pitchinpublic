@@ -118,7 +118,7 @@ export function PitchHabitPanel({
     <motion.aside
       initial={{ opacity: 0, x: 18 }}
       animate={{ opacity: 1, x: 0 }}
-      className="hidden h-full max-h-[calc(100dvh-2rem)] w-[360px] overflow-y-auto pr-1 [scrollbar-width:none] xl:block [&::-webkit-scrollbar]:hidden"
+      className="scrollbar-hidden hidden h-full max-h-[calc(100dvh-2rem)] w-[360px] overflow-y-auto overscroll-contain xl:block"
     >
       <div className="space-y-3">
         <section className="glass-card overflow-hidden rounded-[1.7rem] border-white/12 bg-white/[0.055] shadow-[0_24px_80px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
