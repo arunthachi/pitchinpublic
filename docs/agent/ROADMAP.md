@@ -1,6 +1,6 @@
 # Pitch in Public Roadmap
 
-Last updated: 2026-07-13
+Last updated: 2026-07-17
 
 This roadmap exists to keep future builds focused on the product wedge:
 
@@ -131,8 +131,40 @@ Success metrics:
 - 8+ submit first pitch.
 - 5+ submit second version.
 - 3+ feedback responses per pitch.
+- 3+ useful feedback responses per active pitch.
+- Median time to first useful review under 24 hours during pilot.
 - 3+ founders would invite another founder.
 - 3+ founders would pay for a 4-week sprint.
+
+## Phase 3A - Review Marketplace
+
+Status: planned.
+
+Detailed specs:
+
+- [REVIEW_MARKETPLACE_SPEC.md](REVIEW_MARKETPLACE_SPEC.md)
+- [REVIEW_MARKETPLACE_IMPLEMENTATION_PLAN.md](REVIEW_MARKETPLACE_IMPLEMENTATION_PLAN.md)
+
+Goal:
+
+Turn feedback from an optional social action into a reliable supply system.
+
+Must-have:
+
+- Assigned review queue.
+- Event-scoped review coverage.
+- Feedback usefulness ratings.
+- Soft review credits.
+- Reviewer role labels.
+- Pitch-hour readiness metrics.
+
+Done when:
+
+- Active founders know exactly which pitches to review.
+- Submitted feedback updates assignment state.
+- Pitch owners can rate feedback quality.
+- Organizers can see which founders need more feedback.
+- The pilot can measure useful reviews per active pitch.
 
 ## Phase 4 - Paid Pitch Without Fear Sprint
 

@@ -1,6 +1,6 @@
 # Pitch in Public Project Memory
 
-Last updated: 2026-07-13
+Last updated: 2026-07-17
 
 This file captures decisions already made in conversation so future agents do not reopen settled issues without a good reason.
 
@@ -173,6 +173,95 @@ Can today's take beat your current best?
 Founders should be able to mark/select the strongest pitch version.
 
 ## Feedback System Decisions
+
+### Feedback Is the Marketplace Liquidity Event
+
+Pitch in Public should treat useful feedback as the core marketplace transaction.
+
+Model:
+
+```text
+Pitchers = demand
+Reviewers = supply
+Useful feedback = liquidity
+Better next take = retained behavior
+```
+
+The product should optimize for useful feedback density before optimizing for broad discovery, public virality, or creator-style engagement.
+
+### Assigned Review Queue Beats Open Feed
+
+An open feed creates diffusion of responsibility. A founder seeing "40 pitches available to review" will usually review none.
+
+Preferred:
+
+```text
+3 pitches are waiting for your signal today.
+```
+
+Assigned review queues should prioritize:
+
+- Same event or room.
+- Pitches with low feedback coverage.
+- Recent active founders.
+- Relevant feedback focus.
+- Avoiding self-review.
+
+### Reviewing Should Earn Reviewing
+
+Reviewing should be framed as pitch training, not charity.
+
+Direction:
+
+- Founders earn the right to receive more feedback by giving useful feedback.
+- Start with soft review credits during the pilot.
+- Enforce only after the ritual is understood.
+- Organizer/admin override remains available.
+
+### Feedback Must Be Fast
+
+Median review time should target about 45 seconds.
+
+Preferred inputs:
+
+- Toast/Roast.
+- Multiple signal chips.
+- Readiness.
+- Optional timestamp.
+- Optional short note.
+
+Do not force reviewers into a blank long comment box.
+
+### Rate the Raters
+
+Pitch owners should be able to mark received feedback:
+
+- Useful.
+- Generic.
+- Not helpful.
+
+This protects the system from low-effort review farming and creates the dataset for future reviewer reputation.
+
+### Reviewer Roles Are Not Equivalent
+
+Do not conflate:
+
+- Peer founders.
+- Experienced reviewers.
+- Organizer team members.
+- Public reviewers.
+
+Each has different motivation and should eventually have different UX and permissions.
+
+### Anonymous-to-Crowd, Accountable-to-System
+
+Named peer feedback can become too polite. The direction to test is:
+
+```text
+Anonymous-to-the-crowd, accountable-to-the-system.
+```
+
+Public display can use role labels, but admin/system data must always preserve accountability.
 
 ### Toast/Roast Alone Is Not Enough
 

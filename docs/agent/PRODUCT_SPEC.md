@@ -1,6 +1,6 @@
 # Pitch in Public Product Spec
 
-Last updated: 2026-07-13
+Last updated: 2026-07-17
 
 ## One-Line Product Definition
 
@@ -25,6 +25,8 @@ Record a take -> receive useful feedback -> identify the next improvement -> rec
 Supporting loops:
 
 - Give feedback to unlock more useful feedback.
+- Complete assigned review queue to earn review credits.
+- Rate received feedback so useful reviewers rise and generic feedback is filtered.
 - Join an event/cohort and submit best take.
 - See daily momentum and return tomorrow.
 - Organizer sees founder progress and nudges the room.
@@ -208,8 +210,9 @@ The feedback form should be fast:
 1. Choose Toast or Roast.
 2. Select one or more signal chips.
 3. Choose readiness.
-4. Optional note.
-5. Submit.
+4. Optional timestamp signal.
+5. Optional note.
+6. Submit.
 
 No required long text note for basic signal feedback.
 
@@ -258,6 +261,44 @@ Per pitch, show:
 - Suggested next improvement.
 
 The founder should never wonder where feedback went after submission.
+
+## Review Marketplace
+
+Detailed spec:
+
+```text
+docs/agent/REVIEW_MARKETPLACE_SPEC.md
+```
+
+The feedback system is a two-sided marketplace:
+
+```text
+Pitchers = demand
+Reviewers = supply
+Useful feedback = liquidity
+```
+
+Core direction:
+
+- Assign reviews instead of relying on open feed browsing.
+- Show founders a small daily queue of pitches waiting for their signal.
+- Use review credits as a soft reciprocity economy during pilot.
+- Let pitch owners rate feedback as useful, generic, or not helpful.
+- Preserve reviewer accountability in system/admin data.
+- Allow public display to use role labels when appropriate.
+- Give organizers coverage dashboards so every founder gets useful feedback.
+
+Review roles:
+
+- Peer founder.
+- Coach.
+- Mentor.
+- Judge.
+- Organizer.
+- Experienced reviewer.
+- Public reviewer.
+
+Do not build broad public reviewing or paid expert review marketplaces until assigned review density works for private pilots and organizer rooms.
 
 ## Practice Habit System
 
