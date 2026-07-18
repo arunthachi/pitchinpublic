@@ -106,7 +106,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   let invitation = null;
 
   if (providedInviteCode) {
-    const { data: inviteRow } = await adminSupabase
+    const { data: inviteRow, error: inviteError } = await adminSupabase
       .from('pitch_event_invitations')
       .select('*')
       .eq('event_id', event.id)
@@ -114,12 +114,58 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
       .in('status', ['pending', 'accepted'])
       .maybeSingle();
 
+    if (inviteError) {
+      console.error('Error resolving pitch event invitation:', inviteError);
+      return NextResponse.json(
+        { success: false, error: 'Could not verify this event invite. Please try again.' },
+        { status: 500 }
+      );
+    }
+
     invitation = inviteRow;
   }
 
-  if (event.visibility === 'private' && !invitation && !event.access_code) {
+  const suppliedAccessCodeMatches = Boolean(
+    event.access_code && validation.data.accessCode?.trim() === event.access_code
+  );
+  const isExistingMember = Boolean(
+    existingParticipant && existingParticipant.status !== 'removed'
+  );
+  const isOrganizer = event.organizer_id === user.id;
+  const isInviteOnly = event.visibility === 'private' || event.visibility === 'unlisted';
+
+  // Never ignore a supplied but invalid bearer code. Otherwise an unlisted URL
+  // can accidentally turn a typo, expired invite, or guessed code into access.
+  if (providedInviteCode && !invitation && !suppliedAccessCodeMatches) {
     return NextResponse.json(
-      { success: false, error: 'This private pitch event requires an invite code.' },
+      { success: false, error: 'That invite is invalid, expired, or already used.' },
+      { status: 403 }
+    );
+  }
+
+  if (
+    isInviteOnly &&
+    !isOrganizer &&
+    !isExistingMember &&
+    !invitation &&
+    !suppliedAccessCodeMatches
+  ) {
+    return NextResponse.json(
+      { success: false, error: 'This pitch event requires an invitation.' },
+      { status: 403 }
+    );
+  }
+
+  if (invitation?.expires_at && new Date(invitation.expires_at).getTime() <= Date.now()) {
+    return NextResponse.json(
+      { success: false, error: 'This pitch event invite has expired.' },
+      { status: 403 }
+    );
+  }
+
+  if (invitation?.status === 'accepted' && invitation.accepted_by !== user.id) {
+    return NextResponse.json(
+      { success: false, error: 'This pitch event invite has already been used.' },
       { status: 403 }
     );
   }
@@ -137,23 +183,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
         { status: 403 }
       );
     }
-  }
-
-  if (event.access_code) {
-    const providedCode = validation.data.accessCode?.trim();
-    if (providedCode !== event.access_code && !invitation) {
-      return NextResponse.json(
-        { success: false, error: 'That invite code does not match this pitch event.' },
-        { status: 403 }
-      );
-    }
-  }
-
-  if (!invitation && event.visibility === 'private' && !validation.data.accessCode?.trim()) {
-    return NextResponse.json(
-      { success: false, error: 'This private pitch event requires an invite code.' },
-      { status: 403 }
-    );
   }
 
   const role = event.organizer_id === user.id ? 'organizer' : invitation?.role || 'founder';
