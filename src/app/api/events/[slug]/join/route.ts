@@ -178,7 +178,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
   if (invitation) {
     const acceptedEmail = normalizeEmail(invitation.email) || normalizeEmail(user.email);
-    await adminSupabase
+    const { error: invitationError } = await adminSupabase
       .from('pitch_event_invitations')
       .update({
         email: acceptedEmail || null,
@@ -187,7 +187,32 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
         accepted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', invitation.id);
+      .eq('id', invitation.id)
+      .select('id')
+      .single();
+
+    if (invitationError) {
+      console.error('Error consuming pitch event invitation:', invitationError);
+
+      // Do not leave a newly-created membership behind while its bearer link
+      // remains reusable. Existing members are preserved.
+      if (!existingParticipant) {
+        const { error: rollbackError } = await adminSupabase
+          .from('pitch_event_participants')
+          .delete()
+          .eq('event_id', event.id)
+          .eq('user_id', user.id);
+
+        if (rollbackError) {
+          console.error('Error rolling back partial event join:', rollbackError);
+        }
+      }
+
+      return NextResponse.json(
+        { success: false, error: 'Could not accept this event invite. Please try again.' },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ success: true, participant });
