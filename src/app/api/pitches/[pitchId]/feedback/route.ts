@@ -4,10 +4,9 @@ import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/l
 import { z } from 'zod';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import {
-  reconcileReviewCredits,
   reviewerRoleLabel,
   reviewerRoleSnapshot,
-} from '@/lib/review-marketplace';
+} from '@/lib/review-marketplace-server';
 
 /**
  * POST /api/pitches/[pitchId]/feedback
@@ -289,12 +288,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
       if (assignmentError) {
         console.warn('Feedback saved, but assignment completion failed:', assignmentError);
       }
-    }
-
-    try {
-      await reconcileReviewCredits(supabase, user.id);
-    } catch (error) {
-      console.warn('Feedback saved, but credit projection could not be refreshed:', error);
     }
 
     // Update streak (feedback counts toward streak)

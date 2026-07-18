@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMarketplaceClient, getMarketplaceUser } from '@/lib/review-marketplace';
+import { createMarketplaceClient, getMarketplaceUser } from '@/lib/review-marketplace-server';
 
 export async function GET(request: NextRequest) {
   const supabase = createMarketplaceClient(request);
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const requestedLimit = Number.parseInt(searchParams.get('limit') || '3', 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(10, Math.max(1, requestedLimit)) : 3;
 
-  const [{ data, error }, { data: creditRow, error: creditError }] = await Promise.all([
+  const loadAssignments = () =>
     supabase
       .from('review_assignments')
       .select(`
@@ -46,13 +46,30 @@ export async function GET(request: NextRequest) {
       .neq('pitch.user_id', auth.user.id)
       .order('due_at', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
-      .limit(limit),
+      .limit(limit);
+
+  let [{ data, error }, { data: creditRow, error: creditError }] = await Promise.all([
+    loadAssignments(),
     supabase
       .from('review_credits')
       .select('balance,pending_balance,earned_count,spent_count')
       .eq('user_id', auth.user.id)
       .maybeSingle(),
   ]);
+
+  if (!error && !data?.length) {
+    const { error: claimError } = await supabase.rpc('claim_global_review_assignments', {
+      target_count: limit,
+    });
+
+    if (claimError) {
+      console.warn('Review queue could not claim additional pitches:', claimError);
+    } else {
+      const refreshed = await loadAssignments();
+      data = refreshed.data;
+      error = refreshed.error;
+    }
+  }
 
   if (error) {
     console.error('Error fetching review queue:', error);

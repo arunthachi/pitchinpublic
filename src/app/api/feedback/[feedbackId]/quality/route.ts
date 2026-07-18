@@ -3,8 +3,7 @@ import { z } from 'zod';
 import {
   createMarketplaceClient,
   getMarketplaceUser,
-  reconcileReviewCredits,
-} from '@/lib/review-marketplace';
+} from '@/lib/review-marketplace-server';
 
 const qualitySchema = z.object({
   rating: z.enum(['useful', 'generic', 'not_helpful']),
@@ -68,12 +67,6 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ feedb
   if (voteError) {
     console.error('Error rating feedback:', voteError);
     return NextResponse.json({ success: false, error: 'Could not save feedback rating' }, { status: 500 });
-  }
-
-  try {
-    await reconcileReviewCredits(supabase, feedback.user_id);
-  } catch (error) {
-    console.warn('Feedback rating saved, but credit projection could not be refreshed:', error);
   }
 
   const { count: usefulCount } = await supabase

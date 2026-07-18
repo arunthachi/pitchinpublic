@@ -12,11 +12,34 @@ SECURITY DEFINER
 SET search_path = public
 STABLE
 AS $$
-  SELECT auth.role() = 'service_role' OR EXISTS (
+  SELECT EXISTS (
     SELECT 1
     FROM public.platform_admins
     WHERE LOWER(email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
   );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_pilot_user()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT public.is_platform_admin()
+    OR EXISTS (
+      SELECT 1
+      FROM public.organizer_invitations
+      WHERE LOWER(email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        AND status IN ('pending', 'accepted')
+        AND (expires_at IS NULL OR expires_at >= now())
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.pitch_event_invitations
+      WHERE LOWER(email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+        AND status IN ('pending', 'accepted')
+    );
 $$;
 
 CREATE OR REPLACE FUNCTION public.can_manage_review_event(target_event_id uuid)
@@ -47,9 +70,11 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION public.is_platform_admin() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_pilot_user() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.can_manage_review_event(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.is_feedback_reviewer(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_platform_admin() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_pilot_user() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.can_manage_review_event(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.is_feedback_reviewer(uuid) TO authenticated, service_role;
 
@@ -338,10 +363,24 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  pitch_owner_id uuid;
 BEGIN
   IF TG_OP = 'UPDATE' THEN
     NEW.reviewer_role := OLD.reviewer_role;
     RETURN NEW;
+  END IF;
+
+  SELECT user_id INTO pitch_owner_id
+  FROM public.pitches
+  WHERE id = NEW.pitch_id AND deleted_at IS NULL;
+
+  IF pitch_owner_id IS NULL THEN
+    RAISE EXCEPTION 'Feedback pitch must exist and be active';
+  END IF;
+
+  IF pitch_owner_id = NEW.user_id THEN
+    RAISE EXCEPTION 'A reviewer cannot leave feedback on their own pitch';
   END IF;
 
   SELECT reviewer_role INTO NEW.reviewer_role
@@ -622,6 +661,75 @@ $$;
 REVOKE ALL ON FUNCTION public.generate_review_assignments(uuid, integer, timestamp with time zone) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.generate_review_assignments(uuid, integer, timestamp with time zone)
   TO authenticated, service_role;
+
+-- Claim a small global queue for invited pilot users who are not currently in
+-- an event review cycle. Candidates with the least feedback are assigned first.
+CREATE OR REPLACE FUNCTION public.claim_global_review_assignments(
+  target_count integer DEFAULT 3,
+  target_due_at timestamp with time zone DEFAULT (now() + interval '24 hours')
+)
+RETURNS SETOF public.review_assignments
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  role_snapshot text;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_pilot_user() THEN
+    RAISE EXCEPTION 'Invite-only pilot access is required';
+  END IF;
+
+  IF target_count NOT BETWEEN 1 AND 10 THEN
+    RAISE EXCEPTION 'target_count must be between 1 and 10';
+  END IF;
+
+  role_snapshot := CASE
+    WHEN EXISTS (SELECT 1 FROM public.pitches WHERE user_id = auth.uid())
+      THEN 'peer_founder'
+    ELSE 'public_reviewer'
+  END;
+
+  RETURN QUERY
+  WITH current_queue AS (
+    SELECT COUNT(*)::integer AS count
+    FROM public.review_assignments
+    WHERE reviewer_user_id = auth.uid()
+      AND status IN ('pending', 'started')
+  ), candidates AS (
+    SELECT p.id AS pitch_id
+    FROM public.pitches p
+    WHERE p.user_id <> auth.uid()
+      AND p.status = 'published'
+      AND p.deleted_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.review_assignments existing
+        WHERE existing.pitch_id = p.id
+          AND existing.reviewer_user_id = auth.uid()
+      )
+    ORDER BY (
+      SELECT COUNT(*)
+      FROM public.feedback f
+      WHERE f.pitch_id = p.id
+    ), p.created_at DESC, p.id
+    LIMIT GREATEST(target_count - (SELECT count FROM current_queue), 0)
+  )
+  INSERT INTO public.review_assignments (
+    pitch_id, reviewer_user_id, reviewer_role, assignment_reason,
+    due_at, assigned_by
+  )
+  SELECT pitch_id, auth.uid(), role_snapshot, 'platform_coverage',
+    target_due_at, auth.uid()
+  FROM candidates
+  ON CONFLICT DO NOTHING
+  RETURNING *;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.claim_global_review_assignments(integer, timestamp with time zone) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.claim_global_review_assignments(integer, timestamp with time zone)
+  TO authenticated;
 
 -- Admin-only soft-credit adjustments for live pilot overrides.
 CREATE OR REPLACE FUNCTION public.adjust_review_credits(
