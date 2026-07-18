@@ -791,6 +791,7 @@ export function FullScreenVideoFeed({
         feedback={currentPitch.feedback || []}
         onClose={() => setFeedbackListOpen(false)}
         onAddFeedback={isGuest && onSignInClick ? promptForFeedbackSignIn : openFeedback}
+        canRateQuality={Boolean(currentPitch.isOwnedByViewer)}
       />
 
       {/* Quick Feedback Panel renders after the thread panel so the first Toast/Roast tap brings it above the closing thread sheet. */}

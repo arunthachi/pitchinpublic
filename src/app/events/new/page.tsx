@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Lock, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock3, Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { LeadCaptureModal } from '@/components/LeadCaptureModal';
@@ -61,6 +61,9 @@ function NewEventContent() {
     focus: [focusOptions[0]],
     visibility: 'unlisted' as keyof typeof visibilityOptions,
     accessCode: '',
+    reviewTarget: 3,
+    pitchHourStartsAt: '',
+    pitchHourDurationMinutes: 45,
   });
   const [customFocus, setCustomFocus] = useState('');
   const [showCustomFocus, setShowCustomFocus] = useState(false);
@@ -144,6 +147,14 @@ function NewEventContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          pitchHourStartsAt: form.pitchHourStartsAt
+            ? new Date(form.pitchHourStartsAt).toISOString()
+            : '',
+          pitchHourEndsAt: form.pitchHourStartsAt
+            ? new Date(
+                new Date(form.pitchHourStartsAt).getTime() + form.pitchHourDurationMinutes * 60_000
+              ).toISOString()
+            : '',
           focus: [...form.focus, showCustomFocus ? customFocus.trim() : '']
             .map((item) => item.trim())
             .filter(Boolean)
@@ -442,6 +453,53 @@ function NewEventContent() {
             <Field label="Optional access code">
               <input value={form.accessCode} onChange={(e) => setForm({ ...form, accessCode: e.target.value })} className="input-dark" placeholder="WESTPORT2026" />
             </Field>
+            <div className="rounded-3xl border border-white/10 bg-black/20 p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-neon-cyan/10 text-neon-cyan">
+                  <Clock3 className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Pitch Hour <span className="font-normal text-slate-500">(optional)</span></p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">Schedule one focused review window so founders know when the room will be active.</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_10rem]">
+                <Field label="Starts">
+                  <input
+                    type="datetime-local"
+                    value={form.pitchHourStartsAt}
+                    onChange={(e) => setForm({ ...form, pitchHourStartsAt: e.target.value })}
+                    className="input-dark cursor-pointer"
+                  />
+                </Field>
+                <Field label="Duration">
+                  <select
+                    value={form.pitchHourDurationMinutes}
+                    onChange={(e) => setForm({ ...form, pitchHourDurationMinutes: Number(e.target.value) })}
+                    className="input-dark"
+                    disabled={!form.pitchHourStartsAt}
+                  >
+                    <option value={30}>30 minutes</option>
+                    <option value={45}>45 minutes</option>
+                    <option value={60}>1 hour</option>
+                  </select>
+                </Field>
+              </div>
+              <div className="mt-4 max-w-[12rem]">
+                <Field label="Reviews in each queue">
+                  <select
+                    value={form.reviewTarget}
+                    onChange={(e) => setForm({ ...form, reviewTarget: Number(e.target.value) })}
+                    className="input-dark"
+                  >
+                    <option value={2}>2 pitches</option>
+                    <option value={3}>3 pitches</option>
+                    <option value={4}>4 pitches</option>
+                    <option value={5}>5 pitches</option>
+                  </select>
+                </Field>
+              </div>
+            </div>
           </div>
 
           {error && <p className="mt-4 rounded-xl border border-roast/25 bg-roast/10 px-4 py-3 text-sm font-semibold text-roast">{error}</p>}

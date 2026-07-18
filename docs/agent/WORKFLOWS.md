@@ -1,6 +1,6 @@
 # Pitch in Public Agent Workflows
 
-Last updated: 2026-07-13
+Last updated: 2026-07-17
 
 ## Before Building
 
@@ -9,9 +9,10 @@ For non-trivial work:
 1. Read [CONTEXT.md](CONTEXT.md).
 2. Read [MEMORY.md](MEMORY.md).
 3. Read the relevant section of [PRODUCT_SPEC.md](PRODUCT_SPEC.md).
-4. Inspect current code before assuming implementation details.
-5. Make a short implementation plan.
-6. If the work affects product strategy, UX, auth, DB, video, or organizer workflow, be explicit about tradeoffs before editing.
+4. If the work touches feedback supply, review quality, assigned queues, credits, or reviewer roles, read [REVIEW_MARKETPLACE_SPEC.md](REVIEW_MARKETPLACE_SPEC.md) and [REVIEW_MARKETPLACE_IMPLEMENTATION_PLAN.md](REVIEW_MARKETPLACE_IMPLEMENTATION_PLAN.md).
+5. Inspect current code before assuming implementation details.
+6. Make a short implementation plan.
+7. If the work affects product strategy, UX, auth, DB, video, or organizer workflow, be explicit about tradeoffs before editing.
 
 For trivial fixes:
 
@@ -130,6 +131,10 @@ Test:
 - Readiness.
 - Submit without required long text if signal exists.
 - Feedback appears on pitch.
+- Optional timestamp signal works when present.
+- Pitch owner can rate feedback quality when enabled.
+- Assigned review queue updates after feedback when enabled.
+- Review credit state updates after feedback when enabled.
 - Counts update.
 - Confetti/animation does not block next action.
 

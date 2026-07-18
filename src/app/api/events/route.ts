@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
+import { createServiceSupabase } from '@/lib/admin';
 
 const createEventSchema = z.object({
   name: z.string().min(3).max(120).trim(),
@@ -13,6 +14,16 @@ const createEventSchema = z.object({
   focuses: z.array(z.string().trim().min(2).max(40)).optional(),
   visibility: z.enum(['private', 'unlisted', 'public']).default('unlisted'),
   accessCode: z.string().min(4).max(32).optional().or(z.literal('')),
+  reviewTarget: z.coerce.number().int().min(1).max(10).default(3),
+  pitchHourStartsAt: z.string().datetime().optional().or(z.literal('')),
+  pitchHourEndsAt: z.string().datetime().optional().or(z.literal('')),
+}).superRefine((value, ctx) => {
+  if (Boolean(value.pitchHourStartsAt) !== Boolean(value.pitchHourEndsAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pitchHourStartsAt'], message: 'Choose both a start and end for Pitch Hour.' });
+  }
+  if (value.pitchHourStartsAt && value.pitchHourEndsAt && new Date(value.pitchHourEndsAt) <= new Date(value.pitchHourStartsAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pitchHourEndsAt'], message: 'Pitch Hour must end after it starts.' });
+  }
 });
 
 function createSupabase(request: NextRequest) {
@@ -125,6 +136,9 @@ export async function POST(request: NextRequest) {
         focus: focusSummary,
         visibility: data.visibility,
         access_code: data.accessCode || null,
+        review_target: data.reviewTarget,
+        pitch_hour_starts_at: data.pitchHourStartsAt || null,
+        pitch_hour_ends_at: data.pitchHourEndsAt || null,
         status: 'active',
       })
       .select('*')
@@ -132,14 +146,31 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    const { error: participantError } = await supabase.from('pitch_event_participants').upsert({
+    const adminSupabase = createServiceSupabase();
+    if (!adminSupabase) {
+      throw new Error('Event participant setup is not configured in this environment.');
+    }
+
+    const { error: participantError } = await adminSupabase.from('pitch_event_participants').upsert({
       event_id: event.id,
       user_id: user.id,
       role: 'organizer',
       status: 'active',
     });
 
-    if (participantError) throw participantError;
+    if (participantError) {
+      const { error: rollbackError } = await adminSupabase
+        .from('pitch_events')
+        .delete()
+        .eq('id', event.id)
+        .eq('organizer_id', user.id);
+
+      if (rollbackError) {
+        console.error('Could not roll back incomplete pitch room:', rollbackError);
+      }
+
+      throw participantError;
+    }
 
     return NextResponse.json({ success: true, event }, { status: 201 });
   } catch (error) {

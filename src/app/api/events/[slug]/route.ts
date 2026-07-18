@@ -63,6 +63,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   let participants: any[] = [];
   let invitations: any[] = [];
   let announcements: any[] = [];
+  let reviewCoverage = null;
   let isTeamMember = false;
   let canManageEvent = false;
 
@@ -196,6 +197,46 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       submissions = submissionRows || [];
       invitations = invitationRows || [];
 
+      const { data: assignmentRows } = await supabase
+        .from('review_assignments')
+        .select('id,pitch_id,status,completed_feedback_id,completed_at')
+        .eq('event_id', event.id);
+
+      const { data: qualitySummaryRows } = await supabase
+        .rpc('get_event_review_quality_summary', { target_event_id: event.id });
+      const qualitySummary = Array.isArray(qualitySummaryRows) ? qualitySummaryRows[0] : qualitySummaryRows;
+
+      const submittedPitchIds = new Set((submissionRows || []).map((row: any) => row.pitch_id).filter(Boolean));
+      const completedAssignments = (assignmentRows || []).filter((row: any) => row.status === 'submitted');
+      const pitchesWithFeedback = new Set(completedAssignments.map((row: any) => row.pitch_id));
+      const firstReviewMinutes = (submissionRows || []).flatMap((row: any) => {
+        const submittedAt = new Date(row.submitted_at || 0).getTime();
+        const feedbackTimes = completedAssignments
+          .filter((item: any) => item.pitch_id === row.pitch_id)
+          .map((item: any) => new Date(item.completed_at || 0).getTime())
+          .filter((time: number) => Number.isFinite(time) && time >= submittedAt)
+          .sort((a: number, b: number) => a - b);
+        return submittedAt > 0 && feedbackTimes.length
+          ? [(feedbackTimes[0] - submittedAt) / 60000]
+          : [];
+      });
+
+      reviewCoverage = {
+        pitchesSubmitted: submittedPitchIds.size,
+        reviewsAssigned: (assignmentRows || []).length,
+        reviewsCompleted: completedAssignments.length,
+        usefulReviews: Number(qualitySummary?.useful_reviews || 0),
+        pitchesWithFeedback: pitchesWithFeedback.size,
+        pitchesWithoutFeedback: Math.max(0, submittedPitchIds.size - pitchesWithFeedback.size),
+        foundersWithoutUsefulFeedback: Math.max(0, submittedPitchIds.size - Number(qualitySummary?.pitches_with_useful_feedback || 0)),
+        completionRate: (assignmentRows || []).length
+          ? Math.round((completedAssignments.length / (assignmentRows || []).length) * 100)
+          : 0,
+        averageTimeToFirstReviewMinutes: firstReviewMinutes.length
+          ? Math.round(firstReviewMinutes.reduce((sum: number, value: number) => sum + value, 0) / firstReviewMinutes.length)
+          : null,
+      };
+
       const founderIds = (participantRows || [])
         .filter((row: any) => row.role === 'founder')
         .map((row: any) => row.user_id);
@@ -289,5 +330,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     isOrganizer: Boolean(user && event.organizer_id === user.id),
     isTeamMember,
     canManageEvent,
+    reviewCoverage,
   });
 }

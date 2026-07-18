@@ -6,11 +6,13 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
+  BarChart3,
   Bell,
   CalendarDays,
   Copy,
   ExternalLink,
   LogOut,
+  ListChecks,
   Mail,
   MessageSquareText,
   Play,
@@ -31,6 +33,8 @@ import { announcementEmailStatusLabel, announcementEmailStatusTone } from '@/lib
 import { getTakeLabelFromFields } from '@/lib/pitch-copy';
 import { getPracticePrompt } from '@/lib/practice';
 import { pitchPath } from '@/lib/public-routes';
+import { normalizeEventReviewCoverage } from '@/lib/review-marketplace';
+import type { EventReviewCoverage } from '@/types';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLE_GROUPS = [
@@ -249,6 +253,7 @@ export default function EventDashboardPage() {
   const pitches = useMemo(() => state?.pitches || [], [state?.pitches]);
   const invitations = useMemo(() => state?.invitations || [], [state?.invitations]);
   const announcements = useMemo(() => state?.announcements || [], [state?.announcements]);
+  const reviewCoverage = useMemo(() => normalizeEventReviewCoverage(state), [state]);
   const founderRows = useMemo(() => participants.filter((item: any) => item.role === 'founder'), [participants]);
   const teamRows = useMemo(() => participants.filter((item: any) => TEAM_ROLES.includes(item.role)), [participants]);
   const founderInvitations = useMemo(
@@ -480,6 +485,32 @@ export default function EventDashboardPage() {
     load();
   };
 
+  const assignReviews = async () => {
+    setBusyAction('assign-reviews');
+    setActionMessage('');
+    try {
+      const response = await fetch(`/api/events/${slug}/review-assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewsPerPitch: event.review_target || 3 }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || 'Could not assign reviews.');
+      }
+      setActionMessage(
+        data.created > 0
+          ? `${data.created} review assignment${data.created === 1 ? '' : 's'} added to participant queues.`
+          : 'Review queues are already covered or need at least two active participants and a submitted pitch.'
+      );
+      await load();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not assign reviews.');
+    } finally {
+      setBusyAction('');
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     router.push('/');
@@ -602,6 +633,21 @@ export default function EventDashboardPage() {
             <Metric icon={MessageSquareText} label="Feedback" value={feedbackCount} />
             <Metric icon={Video} label="Pitch length" value={formatPitchLength(event.pitch_length_seconds)} />
             <Metric icon={CalendarDays} label="Pitch day" value={formatDate(event.event_date)} />
+          </div>
+          {event.pitch_hour_starts_at ? <PitchHourPanel event={event} /> : null}
+          <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            {reviewCoverage ? <ReviewCoverageStrip coverage={reviewCoverage} /> : <div />}
+            {state.canManageEvent ? (
+              <button
+                type="button"
+                onClick={assignReviews}
+                disabled={busyAction === 'assign-reviews' || submissions.length === 0}
+                className="btn-glass inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <ListChecks className="h-4 w-4 text-neon-cyan" />
+                {busyAction === 'assign-reviews' ? 'Assigning...' : 'Assign pitch reviews'}
+              </button>
+            ) : null}
           </div>
         </section>
 
@@ -1333,6 +1379,83 @@ function Mini({ label, value }: { label: string; value: number }) {
     <div className="rounded-xl bg-white/[0.05] p-2">
       <p className="font-heading text-lg font-black text-white">{value}</p>
       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+function ReviewCoverageStrip({ coverage }: { coverage: EventReviewCoverage }) {
+  const completionRate = coverage.completionRate ?? (
+    coverage.reviewsAssigned > 0 ? Math.round((coverage.reviewsCompleted / coverage.reviewsAssigned) * 100) : 0
+  );
+  const firstReview = coverage.averageTimeToFirstReviewMinutes;
+  const firstReviewLabel = firstReview === null || typeof firstReview === 'undefined'
+    ? 'Not available'
+    : firstReview < 60
+      ? `${Math.round(firstReview)} min`
+      : `${Math.round(firstReview / 6) / 10} hr`;
+
+  const items = [
+    { label: 'Assigned', value: coverage.reviewsAssigned },
+    { label: 'Completed', value: coverage.reviewsCompleted },
+    { label: 'Uncovered pitches', value: coverage.pitchesWithoutFeedback, alert: coverage.pitchesWithoutFeedback > 0 },
+    ...(coverage.usefulReviews === null || typeof coverage.usefulReviews === 'undefined' ? [] : [{ label: 'Useful reviews', value: coverage.usefulReviews }]),
+    { label: 'First review', value: firstReviewLabel },
+  ];
+
+  return (
+    <div className="w-full min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/25 p-4" aria-label="Review coverage">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-neon-cyan" />
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Review coverage</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-black ${completionRate >= 80 ? 'bg-neon-lime/15 text-neon-lime' : 'bg-amber-400/15 text-amber-300'}`}>
+          {completionRate}% complete
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {items.map((item) => (
+          <div key={item.label} className={`rounded-xl border p-3 ${item.alert ? 'border-roast/25 bg-roast/10' : 'border-white/10 bg-white/[0.04]'}`}>
+            <p className={`font-heading text-lg font-black ${item.alert ? 'text-roast' : 'text-white'}`}>{item.value}</p>
+            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">{item.label}</p>
+          </div>
+        ))}
+      </div>
+      {coverage.foundersWithoutUsefulFeedback !== null && typeof coverage.foundersWithoutUsefulFeedback !== 'undefined' && coverage.foundersWithoutUsefulFeedback > 0 ? (
+        <p className="mt-3 text-xs font-semibold text-amber-300" role="status">
+          {coverage.foundersWithoutUsefulFeedback} founder{coverage.foundersWithoutUsefulFeedback === 1 ? '' : 's'} still need useful feedback.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PitchHourPanel({ event }: { event: any }) {
+  const startsAt = new Date(event.pitch_hour_starts_at);
+  const endsAt = event.pitch_hour_ends_at ? new Date(event.pitch_hour_ends_at) : null;
+  if (Number.isNaN(startsAt.getTime())) return null;
+
+  const date = startsAt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const start = startsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const end = endsAt && !Number.isNaN(endsAt.getTime())
+    ? endsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : null;
+
+  return (
+    <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-neon-cyan/10 text-neon-cyan">
+          <CalendarDays className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-neon-cyan">Pitch Hour</p>
+          <p className="mt-1 font-heading text-base font-black text-white">{date} · {start}{end ? `-${end}` : ''}</p>
+          <p className="mt-1 text-xs text-slate-400">Use this window to create review queues and close feedback gaps together.</p>
+        </div>
+      </div>
+      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-bold text-slate-300">
+        {event.review_target || 3} reviews per queue
+      </span>
     </div>
   );
 }

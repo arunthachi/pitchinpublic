@@ -25,6 +25,9 @@ import { ProfileEditModal } from '@/components/ProfileEditModal';
 import { DesktopHabitNudge, MobileHabitNudge } from '@/components/PitchHabitPanel';
 import { getPromptForDate, type PracticePrompt } from '@/lib/practice';
 import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
+import { normalizeLegacyFeedback, normalizeReviewQueue } from '@/lib/review-marketplace';
+import { ReviewQueuePanel } from '@/components/ReviewQueuePanel';
+import type { ReviewQueueSummary } from '@/types';
 
 // Lazy load modal components (not needed on initial page load)
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
@@ -191,6 +194,7 @@ function HomeContent() {
 
   // Fetch real pitches from API
   const [legacyPitches, setLegacyPitches] = useState<LegacyPitch[]>([]);
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueueSummary | null>(null);
   const [pitchesLoading, setPitchesLoading] = useState(true);
   const [currentPitch, setCurrentPitch] = useState<LegacyPitch | null>(null);
   const [handlers, setHandlers] = useState<{
@@ -208,7 +212,7 @@ function HomeContent() {
   const fetchPitches = useCallback(async () => {
     try {
       setPitchesLoading(true);
-      const params = new URLSearchParams({ limit: '100' });
+      const params = new URLSearchParams({ limit: '20' });
 
       const response = await fetch(`/api/pitches?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch pitches');
@@ -217,32 +221,7 @@ function HomeContent() {
 
       // Convert API format to legacy format for backwards compatibility
       const converted = data.pitches.map((pitch: any) => {
-        const feedback = (pitch.feedback || []).map((item: any) => {
-          let parsedContent: any = {};
-          try {
-            parsedContent = item.content ? JSON.parse(item.content) : {};
-          } catch {
-            parsedContent = { notes: item.content || '' };
-          }
-
-          return {
-            id: item.id,
-            authorName: 'Builder',
-            authorRole: 'Founder',
-            type: item.type,
-            signal: parsedContent.signal,
-            signals: parsedContent.signals || (parsedContent.signal ? [parsedContent.signal] : undefined),
-            readiness: parsedContent.readiness,
-            scores: parsedContent.scores || {
-              clarity: 5,
-              solution: 5,
-              market: 5,
-              presentation: 5,
-            },
-            notes: parsedContent.notes || '',
-            createdAt: item.created_at,
-          };
-        });
+        const feedback = (pitch.feedback || []).map(normalizeLegacyFeedback);
 
         return {
           id: pitch.id,
@@ -270,6 +249,7 @@ function HomeContent() {
           promptKey: pitch.prompt_key || null,
           promptText: pitch.prompt_text || null,
           isBestTake: Boolean(pitch.is_best_take),
+          isOwnedByViewer: pitch.user_id === user?.id,
           feedback,
         };
       });
@@ -285,7 +265,26 @@ function HomeContent() {
     } finally {
       setPitchesLoading(false);
     }
-  }, []);
+  }, [user?.id]);
+
+  const fetchReviewQueue = useCallback(async () => {
+    if (!user) {
+      setReviewQueue(null);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/reviews/queue?limit=3', { cache: 'no-store' });
+      if (!response.ok) {
+        setReviewQueue(null);
+        return;
+      }
+      setReviewQueue(normalizeReviewQueue(await response.json()));
+    } catch (error) {
+      console.error('Failed to fetch review queue:', error);
+      setReviewQueue(null);
+    }
+  }, [user]);
 
   const fetchPracticeToday = useCallback(async () => {
     if (!user) return;
@@ -315,7 +314,8 @@ function HomeContent() {
     }
 
     fetchPitches();
-  }, [fetchPitches, user]);
+    fetchReviewQueue();
+  }, [fetchPitches, fetchReviewQueue, user]);
 
   // Filter user's own pitches using the fetched profile
   // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
@@ -628,6 +628,15 @@ function HomeContent() {
             </div>
           )}
 
+          {!isGuest && reviewQueue ? (
+            <div
+              className="absolute top-4 hidden xl:block"
+              style={{ right: 'calc(50% + var(--feed-w) / 2 + 1.5rem)' }}
+            >
+              <ReviewQueuePanel queue={reviewQueue} />
+            </div>
+          ) : null}
+
         </div>
 
         {/* Mobile: Full screen like TikTok */}
@@ -648,6 +657,7 @@ function HomeContent() {
               onOpenGoal={() => setShowPitchGoal(true)}
             />
           )}
+          {!isGuest ? <ReviewQueuePanel queue={reviewQueue} /> : null}
         </div>
       </main>
 

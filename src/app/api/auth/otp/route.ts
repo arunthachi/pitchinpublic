@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (method === 'email') {
-      const isAllowed = await isEmailAllowedForPilot(destination);
+      const isAllowed = await isEmailAllowedForPilot(destination, nextPath);
       if (!isAllowed) {
         return NextResponse.json(
           {

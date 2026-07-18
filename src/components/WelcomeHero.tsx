@@ -33,7 +33,7 @@ const pitchLoop = [
   {
     icon: MessageSquareText,
     title: 'Get scored feedback',
-    description: 'Collect Toast/Roast reactions, written notes, and 1-10 scores from other builders.',
+    description: 'Collect Toast/Roast reactions, focused signal chips, readiness ratings, and written notes from other builders.',
   },
   {
     icon: Repeat2,
@@ -220,7 +220,7 @@ export function WelcomeHero({ showSignIn = false, onSignIn }: WelcomeHeroProps) 
                 className="mt-6 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl"
               >
                 Record your elevator pitch, get Toast/Roast reactions plus written
-                comments and clarity scores from other builders, then tighten the next
+                comments and readiness signals from other builders, then tighten the next
                 version before the room checks out.
               </motion.p>
 

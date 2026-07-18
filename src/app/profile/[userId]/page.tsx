@@ -29,6 +29,7 @@ import {
 } from '@/lib/pitch-copy';
 import { addUtcDays, startOfUtcDay, toUtcDateKey } from '@/lib/momentum';
 import { isUuidLike, pitchPath } from '@/lib/public-routes';
+import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
 
@@ -49,32 +50,7 @@ interface PitchMomentumDay {
 }
 
 function parseFeedback(rawFeedback: any[] | undefined) {
-  return (rawFeedback || []).map((item) => {
-    let parsedContent: any = {};
-    try {
-      parsedContent = item.content ? JSON.parse(item.content) : {};
-    } catch {
-      parsedContent = { notes: item.content || '' };
-    }
-
-    return {
-      id: item.id,
-      authorName: 'Builder',
-      authorRole: 'Founder',
-      type: item.type,
-      signal: parsedContent.signal,
-      signals: parsedContent.signals || (parsedContent.signal ? [parsedContent.signal] : undefined),
-      readiness: parsedContent.readiness,
-      scores: parsedContent.scores || {
-        clarity: 5,
-        solution: 5,
-        market: 5,
-        presentation: 5,
-      },
-      notes: parsedContent.notes || '',
-      createdAt: item.created_at,
-    };
-  });
+  return (rawFeedback || []).map(normalizeLegacyFeedback);
 }
 
 function convertApiPitchToLegacy(pitch: any): LegacyPitch {
@@ -426,18 +402,24 @@ export default function UserProfilePage() {
 
         {activeTab === 'feedback' ? (
           <section className="mt-6 grid gap-3 md:grid-cols-2">
-            {allFeedback.length ? allFeedback.map((item) => (
-              <article key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase ${item.type === 'roast' ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
-                    {item.type === 'roast' ? <Flame className="h-3.5 w-3.5" /> : <Wine className="h-3.5 w-3.5" />}
-                    {(item.signals?.length ? item.signals.join(' + ') : item.signal) || item.type}
+            {allFeedback.length ? allFeedback.map((item) => {
+              const reviewer = feedbackReviewerDisplay(item);
+              return (
+                <article key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase ${item.type === 'roast' ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
+                      {item.type === 'roast' ? <Flame className="h-3.5 w-3.5" /> : <Wine className="h-3.5 w-3.5" />}
+                      {(item.signals?.length ? item.signals.join(' + ') : item.signal) || item.type}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">{readinessLabel(item.readiness || 2)}</span>
+                  </div>
+                  <p className="text-sm leading-6 text-slate-200">{item.notes || 'Signal-only coach note.'}</p>
+                  <span className="mt-3 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                    {reviewer.role}
                   </span>
-                  <span className="text-xs font-semibold text-slate-500">{readinessLabel(item.readiness || 2)}</span>
-                </div>
-                <p className="text-sm leading-6 text-slate-200">{item.notes || 'Signal-only coach note.'}</p>
-              </article>
-            )) : (
+                </article>
+              );
+            }) : (
               <EmptyState title="No feedback yet" body="Coach notes will appear here after builders respond to pitches." />
             )}
           </section>

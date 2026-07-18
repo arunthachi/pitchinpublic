@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (user) {
-    const isAllowed = await isUserAllowedForPilot(user);
+    const isAllowed = await isUserAllowedForPilot(user, safeNext);
     if (!isAllowed) {
       await supabase.auth.signOut();
       const blockedUrl = new URL('/', origin);

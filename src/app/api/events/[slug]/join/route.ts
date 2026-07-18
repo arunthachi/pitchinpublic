@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
+import { createServiceSupabase } from '@/lib/admin';
 
 const joinSchema = z.object({
   accessCode: z.string().max(64).optional().or(z.literal('')),
@@ -27,24 +28,6 @@ function createSupabase(request: NextRequest) {
   );
 }
 
-function createAdminSupabase(request: NextRequest) {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return createSupabase(request);
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set() {},
-        remove() {},
-      },
-    }
-  );
-}
-
 export async function POST(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.json(
@@ -55,7 +38,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
   const params = await props.params;
   const supabase = createSupabase(request);
-  const adminSupabase = createAdminSupabase(request);
+  const adminSupabase = createServiceSupabase();
+
+  if (!adminSupabase) {
+    return NextResponse.json(
+      { success: false, error: 'Event join is not configured in this environment.' },
+      { status: 503 }
+    );
+  }
 
   const {
     data: { user },
@@ -73,7 +63,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({ success: false, error: 'Invalid join request' }, { status: 400 });
   }
 
-  const { data: event, error: eventError } = await supabase
+  // A private event is intentionally hidden by RLS until membership exists, so
+  // resolve it server-side and enforce the invite/access checks below.
+  const { data: event, error: eventError } = await adminSupabase
     .from('pitch_events')
     .select('*')
     .eq('slug', params.slug)
@@ -104,7 +96,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   let invitation = null;
 
   if (providedInviteCode) {
-    const { data: inviteRow } = await adminSupabase
+    const { data: inviteRow, error: inviteError } = await adminSupabase
       .from('pitch_event_invitations')
       .select('*')
       .eq('event_id', event.id)
@@ -112,12 +104,58 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
       .in('status', ['pending', 'accepted'])
       .maybeSingle();
 
+    if (inviteError) {
+      console.error('Error resolving pitch event invitation:', inviteError);
+      return NextResponse.json(
+        { success: false, error: 'Could not verify this event invite. Please try again.' },
+        { status: 500 }
+      );
+    }
+
     invitation = inviteRow;
   }
 
-  if (event.visibility === 'private' && !invitation && !event.access_code) {
+  const suppliedAccessCodeMatches = Boolean(
+    event.access_code && validation.data.accessCode?.trim() === event.access_code
+  );
+  const isExistingMember = Boolean(
+    existingParticipant && existingParticipant.status !== 'removed'
+  );
+  const isOrganizer = event.organizer_id === user.id;
+  const isInviteOnly = event.visibility === 'private' || event.visibility === 'unlisted';
+
+  // Never ignore a supplied but invalid bearer code. Otherwise an unlisted URL
+  // can accidentally turn a typo, expired invite, or guessed code into access.
+  if (providedInviteCode && !invitation && !suppliedAccessCodeMatches) {
     return NextResponse.json(
-      { success: false, error: 'This private pitch event requires an invite code.' },
+      { success: false, error: 'That invite is invalid, expired, or already used.' },
+      { status: 403 }
+    );
+  }
+
+  if (
+    isInviteOnly &&
+    !isOrganizer &&
+    !isExistingMember &&
+    !invitation &&
+    !suppliedAccessCodeMatches
+  ) {
+    return NextResponse.json(
+      { success: false, error: 'This pitch event requires an invitation.' },
+      { status: 403 }
+    );
+  }
+
+  if (invitation?.expires_at && new Date(invitation.expires_at).getTime() <= Date.now()) {
+    return NextResponse.json(
+      { success: false, error: 'This pitch event invite has expired.' },
+      { status: 403 }
+    );
+  }
+
+  if (invitation?.status === 'accepted' && invitation.accepted_by !== user.id) {
+    return NextResponse.json(
+      { success: false, error: 'This pitch event invite has already been used.' },
       { status: 403 }
     );
   }
@@ -135,23 +173,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
         { status: 403 }
       );
     }
-  }
-
-  if (event.access_code) {
-    const providedCode = validation.data.accessCode?.trim();
-    if (providedCode !== event.access_code && !invitation) {
-      return NextResponse.json(
-        { success: false, error: 'That invite code does not match this pitch event.' },
-        { status: 403 }
-      );
-    }
-  }
-
-  if (!invitation && event.visibility === 'private' && !validation.data.accessCode?.trim()) {
-    return NextResponse.json(
-      { success: false, error: 'This private pitch event requires an invite code.' },
-      { status: 403 }
-    );
   }
 
   const role = event.organizer_id === user.id ? 'organizer' : invitation?.role || 'founder';
@@ -175,15 +196,42 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   }
 
   if (invitation) {
-    await adminSupabase
+    const acceptedEmail = normalizeEmail(invitation.email) || normalizeEmail(user.email);
+    const { error: invitationError } = await adminSupabase
       .from('pitch_event_invitations')
       .update({
+        email: acceptedEmail || null,
         status: 'accepted',
         accepted_by: user.id,
         accepted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', invitation.id);
+      .eq('id', invitation.id)
+      .select('id')
+      .single();
+
+    if (invitationError) {
+      console.error('Error consuming pitch event invitation:', invitationError);
+
+      // Do not leave a newly-created membership behind while its bearer link
+      // remains reusable. Existing members are preserved.
+      if (!existingParticipant) {
+        const { error: rollbackError } = await adminSupabase
+          .from('pitch_event_participants')
+          .delete()
+          .eq('event_id', event.id)
+          .eq('user_id', user.id);
+
+        if (rollbackError) {
+          console.error('Error rolling back partial event join:', rollbackError);
+        }
+      }
+
+      return NextResponse.json(
+        { success: false, error: 'Could not accept this event invite. Please try again.' },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ success: true, participant });

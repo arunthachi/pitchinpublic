@@ -425,6 +425,9 @@ export async function GET(request: NextRequest) {
   );
 
   try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
@@ -479,6 +482,13 @@ export async function GET(request: NextRequest) {
           user_id,
           type,
           content,
+          reviewer_role,
+          author:user_id (
+            full_name
+          ),
+          feedback_quality_votes (
+            rating
+          ),
           created_at
         )
       `;
@@ -577,9 +587,33 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
+    const enrichedPitches = (pitches || []).map((pitch: any) => ({
+      ...pitch,
+      feedback: (pitch.feedback || []).map((feedback: any) => {
+        const vote = Array.isArray(feedback.feedback_quality_votes)
+          ? feedback.feedback_quality_votes[0]
+          : feedback.feedback_quality_votes;
+        const isOwner = Boolean(user && pitch.user_id === user.id && feedback.user_id !== user.id);
+        return {
+          id: feedback.id,
+          type: feedback.type,
+          content: feedback.content,
+          reviewer_role: feedback.reviewer_role || 'peer_founder',
+          created_at: feedback.created_at,
+          display_role_only: true,
+          can_rate_quality: isOwner,
+          quality_rating: vote?.rating || null,
+          quality_action: isOwner
+            ? { href: `/api/feedback/${encodeURIComponent(feedback.id)}/quality`, method: 'PUT' }
+            : null,
+          feedback_quality_votes: undefined,
+        };
+      }),
+    }));
+
     return NextResponse.json({
       success: true,
-      pitches: pitches || [],
+      pitches: enrichedPitches,
       total: count || 0,
       page,
       limit,
