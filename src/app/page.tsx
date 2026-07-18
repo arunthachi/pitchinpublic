@@ -83,6 +83,7 @@ function HomeContent() {
   const [showPitchGoal, setShowPitchGoal] = useState(false);
   const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
   const [inviteOnlyNotice, setInviteOnlyNotice] = useState(false);
+  const [desktopFeed, setDesktopFeed] = useState<boolean | null>(null);
   const [practiceToday, setPracticeToday] = useState<PracticeToday>(() => {
     const prompt = getPromptForDate();
     return {
@@ -106,6 +107,15 @@ function HomeContent() {
       },
     };
   });
+
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1024px)');
+    const updateFeedLayout = () => setDesktopFeed(query.matches);
+
+    updateFeedLayout();
+    query.addEventListener('change', updateFeedLayout);
+    return () => query.removeEventListener('change', updateFeedLayout);
+  }, []);
   const [achievement, setAchievement] = useState<{
     badgeIcon: string;
     badgeName: string;
@@ -611,8 +621,8 @@ function HomeContent() {
       {/* Main Content Area - Video Feed */}
       <main className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_48%_8%,rgba(0,230,246,0.06),transparent_24rem),radial-gradient(circle_at_68%_72%,rgba(183,255,42,0.045),transparent_28rem)]">
         {/* Desktop: Centered with reactions on side */}
-        <div
-          className="relative hidden h-full w-full lg:block"
+        {desktopFeed === true ? <div
+          className="relative h-full w-full"
           style={{
             '--feed-h': 'clamp(640px, calc(100dvh - 2rem), 1080px)',
             '--feed-w': 'calc(var(--feed-h) * 9 / 16)',
@@ -687,10 +697,10 @@ function HomeContent() {
             </div>
           ) : null}
 
-        </div>
+        </div> : null}
 
         {/* Mobile: Full screen like TikTok */}
-        <div className="h-[100dvh] w-full lg:hidden">
+        {desktopFeed === false ? <div className="h-[100dvh] w-full">
           <FullScreenVideoFeed
             pitches={legacyPitches}
             reviewRequest={reviewRequest}
@@ -712,7 +722,7 @@ function HomeContent() {
             />
           )}
           {!isGuest ? <ReviewQueuePanel queue={reviewQueue} onSelectPitch={handleSelectReviewPitch} /> : null}
-        </div>
+        </div> : null}
       </main>
 
       {reviewSelectionError ? (
