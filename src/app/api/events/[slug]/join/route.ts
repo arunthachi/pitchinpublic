@@ -73,7 +73,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({ success: false, error: 'Invalid join request' }, { status: 400 });
   }
 
-  const { data: event, error: eventError } = await supabase
+  // A private event is intentionally hidden by RLS until membership exists, so
+  // resolve it server-side and enforce the invite/access checks below.
+  const { data: event, error: eventError } = await adminSupabase
     .from('pitch_events')
     .select('*')
     .eq('slug', params.slug)
@@ -175,9 +177,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   }
 
   if (invitation) {
+    const acceptedEmail = normalizeEmail(invitation.email) || normalizeEmail(user.email);
     await adminSupabase
       .from('pitch_event_invitations')
       .update({
+        email: acceptedEmail || null,
         status: 'accepted',
         accepted_by: user.id,
         accepted_at: new Date().toISOString(),
