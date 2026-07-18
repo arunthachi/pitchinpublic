@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
+  BarChart3,
   Bell,
   CalendarDays,
   Copy,
@@ -31,6 +32,8 @@ import { announcementEmailStatusLabel, announcementEmailStatusTone } from '@/lib
 import { getTakeLabelFromFields } from '@/lib/pitch-copy';
 import { getPracticePrompt } from '@/lib/practice';
 import { pitchPath } from '@/lib/public-routes';
+import { normalizeEventReviewCoverage } from '@/lib/review-marketplace';
+import type { EventReviewCoverage } from '@/types';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLE_GROUPS = [
@@ -249,6 +252,7 @@ export default function EventDashboardPage() {
   const pitches = useMemo(() => state?.pitches || [], [state?.pitches]);
   const invitations = useMemo(() => state?.invitations || [], [state?.invitations]);
   const announcements = useMemo(() => state?.announcements || [], [state?.announcements]);
+  const reviewCoverage = useMemo(() => normalizeEventReviewCoverage(state), [state]);
   const founderRows = useMemo(() => participants.filter((item: any) => item.role === 'founder'), [participants]);
   const teamRows = useMemo(() => participants.filter((item: any) => TEAM_ROLES.includes(item.role)), [participants]);
   const founderInvitations = useMemo(
@@ -603,6 +607,7 @@ export default function EventDashboardPage() {
             <Metric icon={Video} label="Pitch length" value={formatPitchLength(event.pitch_length_seconds)} />
             <Metric icon={CalendarDays} label="Pitch day" value={formatDate(event.event_date)} />
           </div>
+          {reviewCoverage ? <ReviewCoverageStrip coverage={reviewCoverage} /> : null}
         </section>
 
         <div className="mt-5 overflow-x-auto">
@@ -1333,6 +1338,53 @@ function Mini({ label, value }: { label: string; value: number }) {
     <div className="rounded-xl bg-white/[0.05] p-2">
       <p className="font-heading text-lg font-black text-white">{value}</p>
       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+function ReviewCoverageStrip({ coverage }: { coverage: EventReviewCoverage }) {
+  const completionRate = coverage.completionRate ?? (
+    coverage.reviewsAssigned > 0 ? Math.round((coverage.reviewsCompleted / coverage.reviewsAssigned) * 100) : 0
+  );
+  const firstReview = coverage.averageTimeToFirstReviewMinutes;
+  const firstReviewLabel = firstReview === null || typeof firstReview === 'undefined'
+    ? 'Not available'
+    : firstReview < 60
+      ? `${Math.round(firstReview)} min`
+      : `${Math.round(firstReview / 6) / 10} hr`;
+
+  const items = [
+    { label: 'Assigned', value: coverage.reviewsAssigned },
+    { label: 'Completed', value: coverage.reviewsCompleted },
+    { label: 'Uncovered pitches', value: coverage.pitchesWithoutFeedback, alert: coverage.pitchesWithoutFeedback > 0 },
+    ...(coverage.usefulReviews === null || typeof coverage.usefulReviews === 'undefined' ? [] : [{ label: 'Useful reviews', value: coverage.usefulReviews }]),
+    { label: 'First review', value: firstReviewLabel },
+  ];
+
+  return (
+    <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4" aria-label="Review coverage">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-neon-cyan" />
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-300">Review coverage</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-black ${completionRate >= 80 ? 'bg-neon-lime/15 text-neon-lime' : 'bg-amber-400/15 text-amber-300'}`}>
+          {completionRate}% complete
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {items.map((item) => (
+          <div key={item.label} className={`rounded-xl border p-3 ${item.alert ? 'border-roast/25 bg-roast/10' : 'border-white/10 bg-white/[0.04]'}`}>
+            <p className={`font-heading text-lg font-black ${item.alert ? 'text-roast' : 'text-white'}`}>{item.value}</p>
+            <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">{item.label}</p>
+          </div>
+        ))}
+      </div>
+      {coverage.foundersWithoutUsefulFeedback !== null && typeof coverage.foundersWithoutUsefulFeedback !== 'undefined' && coverage.foundersWithoutUsefulFeedback > 0 ? (
+        <p className="mt-3 text-xs font-semibold text-amber-300" role="status">
+          {coverage.foundersWithoutUsefulFeedback} founder{coverage.foundersWithoutUsefulFeedback === 1 ? '' : 's'} still need useful feedback.
+        </p>
+      ) : null}
     </div>
   );
 }

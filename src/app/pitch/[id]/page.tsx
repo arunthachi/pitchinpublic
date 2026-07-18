@@ -23,6 +23,9 @@ import { FeedbackFormData, LegacyPitch } from '@/types';
 import { formatNumber, formatDate } from '@/lib/utils';
 import { isUuidLike } from '@/lib/public-routes';
 import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
+import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
+import { FeedbackQualityControls } from '@/components/FeedbackQualityControls';
+import { useAuth } from '@/contexts/AuthContext';
 
 function readinessLabel(value?: number) {
   if (!value) return 'Getting there';
@@ -38,32 +41,7 @@ function readinessFromScores(scores: FeedbackFormData['scores']) {
 }
 
 function parseFeedback(rawFeedback: any[] | undefined) {
-  return (rawFeedback || []).map((item) => {
-    let parsedContent: any = {};
-    try {
-      parsedContent = item.content ? JSON.parse(item.content) : {};
-    } catch {
-      parsedContent = { notes: item.content || '' };
-    }
-
-    return {
-      id: item.id,
-      authorName: 'Builder',
-      authorRole: 'Founder',
-      type: item.type,
-      signal: parsedContent.signal,
-      signals: parsedContent.signals || (parsedContent.signal ? [parsedContent.signal] : undefined),
-      readiness: parsedContent.readiness,
-      scores: parsedContent.scores || {
-        clarity: 5,
-        solution: 5,
-        market: 5,
-        presentation: 5,
-      },
-      notes: parsedContent.notes || '',
-      createdAt: item.created_at,
-    };
-  });
+  return (rawFeedback || []).map(normalizeLegacyFeedback);
 }
 
 function convertApiPitchToLegacy(pitch: any): LegacyPitch {
@@ -99,6 +77,7 @@ function convertApiPitchToLegacy(pitch: any): LegacyPitch {
 }
 
 export default function PitchDetailPage() {
+  const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
   const pitchId = params.id as string;
@@ -334,6 +313,7 @@ export default function PitchDetailPage() {
                   localFeedback.map((feedback) => {
                     const isRoast = feedback.type === 'roast';
                     const readiness = feedback.readiness || readinessFromScores(feedback.scores);
+                    const reviewer = feedbackReviewerDisplay(feedback);
 
                     return (
                       <motion.div
@@ -355,11 +335,11 @@ export default function PitchDetailPage() {
                               </div>
                               <div>
                                 <p className="font-heading font-bold text-slate-100">
-                                  {feedback.authorName}
+                                  {reviewer.name}
                                 </p>
-                                <p className="text-xs text-slate-400 font-body">
-                                  {feedback.authorRole}
-                                </p>
+                                <span className="mt-1 inline-flex rounded-full border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                                  {reviewer.role}
+                                </span>
                               </div>
                             </div>
 
@@ -418,6 +398,9 @@ export default function PitchDetailPage() {
                               />
                             ))}
                           </div>
+                          {pitch.userId === user?.id && feedback.canRateQuality && feedback.qualityAction ? (
+                            <FeedbackQualityControls action={feedback.qualityAction} initialRating={feedback.qualityRating} />
+                          ) : null}
                         </Card>
                       </motion.div>
                     );

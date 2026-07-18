@@ -4,6 +4,61 @@ export type FeedbackType = 'roast' | 'toast';
 export type ReactionType = 'roast' | 'toast' | 'fire' | 'rocket' | 'eyes' | 'thinking';
 export type CompanyStatus = 'active' | 'paused' | 'archived';
 export type PitchStatus = 'draft' | 'published' | 'archived';
+export type ReviewerRole =
+  | 'peer_founder'
+  | 'coach'
+  | 'mentor'
+  | 'judge'
+  | 'organizer'
+  | 'experienced_reviewer'
+  | 'public_reviewer';
+export type ReviewAssignmentStatus = 'pending' | 'started' | 'submitted' | 'skipped' | 'expired';
+export type FeedbackQualityRating = 'useful' | 'generic' | 'not_helpful';
+
+export interface FeedbackQualityAction {
+  href: string;
+  method?: 'POST' | 'PUT' | 'PATCH';
+}
+
+export interface ReviewQueueItem {
+  id: string;
+  pitchId: string;
+  publicPitchId?: string | null;
+  startupName: string;
+  hook: string;
+  thumbnailUrl?: string | null;
+  eventName?: string | null;
+  dueAt?: string | null;
+  status: ReviewAssignmentStatus;
+}
+
+export interface ReviewCreditSummary {
+  available: number;
+  pending: number;
+  earned: number;
+  discounted?: number;
+  reviewsPerCredit: number;
+  progress: number;
+  exempt?: boolean;
+}
+
+export interface ReviewQueueSummary {
+  items: ReviewQueueItem[];
+  pendingCount: number;
+  credits?: ReviewCreditSummary | null;
+}
+
+export interface EventReviewCoverage {
+  pitchesSubmitted: number;
+  reviewsAssigned: number;
+  reviewsCompleted: number;
+  usefulReviews?: number | null;
+  pitchesWithFeedback: number;
+  pitchesWithoutFeedback: number;
+  foundersWithoutUsefulFeedback?: number | null;
+  completionRate?: number | null;
+  averageTimeToFirstReviewMinutes?: number | null;
+}
 
 // Database-aligned types
 export interface Profile {
@@ -135,6 +190,11 @@ export interface LegacyFeedback {
   };
   notes: string;
   createdAt: string;
+  reviewerRole?: ReviewerRole | string | null;
+  displayRoleOnly?: boolean;
+  canRateQuality?: boolean;
+  qualityRating?: FeedbackQualityRating | null;
+  qualityAction?: FeedbackQualityAction | null;
 }
 
 // Legacy interface for backwards compatibility with existing components
@@ -169,6 +229,7 @@ export interface LegacyPitch {
   isBestTake?: boolean;
   isBookmarked?: boolean;
   bookmarkCount?: number;
+  isOwnedByViewer?: boolean;
 }
 
 export interface QuickReaction {

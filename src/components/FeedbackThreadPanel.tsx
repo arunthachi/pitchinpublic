@@ -5,12 +5,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Flame, MessageSquareText, Wine, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { LegacyFeedback } from '@/types';
+import { feedbackReviewerDisplay } from '@/lib/review-marketplace';
+import { FeedbackQualityControls } from './FeedbackQualityControls';
 
 interface FeedbackThreadPanelProps {
   isOpen: boolean;
   feedback: LegacyFeedback[];
   onClose: () => void;
   onAddFeedback: (type: 'roast' | 'toast') => void;
+  canRateQuality?: boolean;
 }
 
 function usePhoneFrameSheetStyle(isOpen: boolean, compact = false): React.CSSProperties {
@@ -86,8 +89,12 @@ function getSignals(feedback: LegacyFeedback) {
   return feedback.signals?.length ? feedback.signals : feedback.signal ? [feedback.signal] : [feedback.type];
 }
 
-export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }: FeedbackThreadPanelProps) {
+export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, canRateQuality = false }: FeedbackThreadPanelProps) {
   const [portalNode, setPortalNode] = React.useState<HTMLElement | null>(null);
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
   const hasFeedback = feedback.length > 0;
   const sheetStyle = usePhoneFrameSheetStyle(isOpen, !hasFeedback);
   const stopPanelEvent = (event: React.SyntheticEvent) => {
@@ -97,6 +104,36 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
   React.useEffect(() => {
     setPortalNode(document.body);
   }, []);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab' || !panelRef.current) return;
+      const focusable = [...panelRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [isOpen]);
 
   const avgReadiness = hasFeedback
     ? Math.round((feedback.reduce((sum, item) => sum + averageScore(item), 0) / feedback.length) * 10) / 10
@@ -118,6 +155,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
           />
 
           <motion.div
+            ref={panelRef}
             initial={{ opacity: 0, y: 28, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -142,6 +180,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                 </h2>
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
                 onClick={onClose}
                 className="glass-pill flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/[0.16]"
@@ -201,6 +240,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                   {feedback.map((item) => {
                     const isRoast = item.type === 'roast';
                     const score = averageScore(item);
+                    const reviewer = feedbackReviewerDisplay(item);
                     return (
                       <article
                         key={item.id}
@@ -212,8 +252,10 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                               {isRoast ? <Flame className="h-5 w-5" /> : <Wine className="h-5 w-5" />}
                             </div>
                             <div>
-                              <p className="font-semibold text-white">{item.authorName}</p>
-                              <p className="text-xs text-slate-500">{item.authorRole}</p>
+                              <p className="font-semibold text-white">{reviewer.name}</p>
+                              <span className="mt-1 inline-flex rounded-full border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                                {reviewer.role}
+                              </span>
                             </div>
                           </div>
                           <div className={`rounded-full px-3 py-1 text-xs font-black uppercase ${isRoast ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
@@ -237,6 +279,9 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback }
                         ) : (
                           <p className="mt-3 text-sm leading-6 text-slate-500">Signal-only coach note.</p>
                         )}
+                        {canRateQuality && item.canRateQuality && item.qualityAction ? (
+                          <FeedbackQualityControls action={item.qualityAction} initialRating={item.qualityRating} />
+                        ) : null}
                       </article>
                     );
                   })}
