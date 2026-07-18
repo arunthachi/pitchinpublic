@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
+import { createServiceSupabase } from '@/lib/admin';
 
 const createEventSchema = z.object({
   name: z.string().min(3).max(120).trim(),
@@ -145,14 +146,31 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    const { error: participantError } = await supabase.from('pitch_event_participants').upsert({
+    const adminSupabase = createServiceSupabase();
+    if (!adminSupabase) {
+      throw new Error('Event participant setup is not configured in this environment.');
+    }
+
+    const { error: participantError } = await adminSupabase.from('pitch_event_participants').upsert({
       event_id: event.id,
       user_id: user.id,
       role: 'organizer',
       status: 'active',
     });
 
-    if (participantError) throw participantError;
+    if (participantError) {
+      const { error: rollbackError } = await adminSupabase
+        .from('pitch_events')
+        .delete()
+        .eq('id', event.id)
+        .eq('organizer_id', user.id);
+
+      if (rollbackError) {
+        console.error('Could not roll back incomplete pitch room:', rollbackError);
+      }
+
+      throw participantError;
+    }
 
     return NextResponse.json({ success: true, event }, { status: 201 });
   } catch (error) {
