@@ -94,7 +94,6 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
   const panelRef = React.useRef<HTMLDivElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const onCloseRef = React.useRef(onClose);
-  onCloseRef.current = onClose;
   const hasFeedback = feedback.length > 0;
   const sheetStyle = usePhoneFrameSheetStyle(isOpen, !hasFeedback);
   const stopPanelEvent = (event: React.SyntheticEvent) => {
@@ -104,6 +103,10 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
   React.useEffect(() => {
     setPortalNode(document.body);
   }, []);
+
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   React.useEffect(() => {
     if (!isOpen) return;

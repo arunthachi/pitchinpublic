@@ -96,22 +96,23 @@ export function normalizeLegacyFeedback(itemValue: unknown): LegacyFeedback {
 
 export function normalizeReviewQueue(payloadValue: unknown): ReviewQueueSummary | null {
   const payload = objectValue(payloadValue);
-  const queue = objectValue(payload.reviewQueue || payload.review_queue || payload.queue);
+  const queue = objectValue(payload.reviewQueue || payload.review_queue || payload.queue || payload);
   const rawItems = Array.isArray(queue.items) ? queue.items : Array.isArray(queue.assignments) ? queue.assignments : [];
   const items = rawItems.flatMap((value) => {
     const item = objectValue(value);
     const pitch = objectValue(item.pitch);
-    const pitchId = item.pitchId || item.pitch_id || pitch.id;
-    if (!item.id || !pitchId) return [];
+    const publicPitchId = item.publicPitchId || item.public_pitch_id || pitch.publicId || pitch.public_id || null;
+    const pitchId = item.pitchId || item.pitch_id || pitch.id || publicPitchId;
+    if (!item.id || !pitchId || !publicPitchId) return [];
     const rawStatus = item.status;
     const status = ASSIGNMENT_STATES.has(rawStatus) ? rawStatus as ReviewAssignmentStatus : 'pending';
     return [{
       id: String(item.id),
       pitchId: String(pitchId),
-      publicPitchId: item.publicPitchId || item.public_pitch_id || pitch.public_id || null,
-      startupName: item.startupName || item.startup_name || pitch.startup_name || pitch.company_name || 'Practice pitch',
+      publicPitchId,
+      startupName: item.startupName || item.startup_name || pitch.startupName || pitch.startup_name || pitch.company_name || 'Practice pitch',
       hook: item.hook || pitch.hook || 'Share your signal',
-      thumbnailUrl: item.thumbnailUrl || item.thumbnail_url || pitch.thumbnail_url || null,
+      thumbnailUrl: item.thumbnailUrl || item.thumbnail_url || pitch.thumbnailUrl || pitch.thumbnail_url || null,
       eventName: item.eventName || item.event_name || item.event?.name || null,
       dueAt: item.dueAt || item.due_at || null,
       status,
@@ -119,7 +120,7 @@ export function normalizeReviewQueue(payloadValue: unknown): ReviewQueueSummary 
   });
 
   if (!items.length) return null;
-  const creditValue = objectValue(payload.reviewCredits || payload.review_credits || queue.credits);
+  const creditValue = objectValue(payload.reviewCredits || payload.review_credits || queue.credits || payload.credits);
   const hasCredits = Object.keys(creditValue).length > 0;
   const reviewsPerCredit = Math.max(1, finiteNumber(creditValue.reviewsPerCredit || creditValue.reviews_per_credit, 2));
   const progress = Math.max(0, finiteNumber(creditValue.progress || creditValue.useful_reviews_toward_next));
@@ -129,8 +130,8 @@ export function normalizeReviewQueue(payloadValue: unknown): ReviewQueueSummary 
     pendingCount: finiteNumber(queue.pendingCount || queue.pending_count, items.filter((item) => item.status === 'pending' || item.status === 'started').length),
     credits: hasCredits ? {
       available: finiteNumber(creditValue.available || creditValue.balance),
-      pending: finiteNumber(creditValue.pending),
-      earned: finiteNumber(creditValue.earned),
+      pending: finiteNumber(creditValue.pending ?? creditValue.pendingBalance ?? creditValue.pending_balance),
+      earned: finiteNumber(creditValue.earned ?? creditValue.earnedCount ?? creditValue.earned_count),
       discounted: finiteNumber(creditValue.discounted),
       reviewsPerCredit,
       progress: Math.min(reviewsPerCredit, progress),

@@ -253,6 +253,27 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
       assignment = matchedAssignment;
     }
 
+    // The database completion trigger prioritizes started assignments. Mark the
+    // selected row first so one feedback item cannot complete both an event and
+    // a global assignment for the same pitch.
+    if (assignment?.status === 'pending') {
+      const { data: startedAssignment, error: startError } = await supabase
+        .from('review_assignments')
+        .update({ status: 'started' })
+        .eq('id', assignment.id)
+        .eq('reviewer_user_id', user.id)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle();
+
+      if (startError || !startedAssignment) {
+        return NextResponse.json(
+          { success: false, error: 'Review assignment is no longer available.' },
+          { status: 409, headers: formatRateLimitHeaders(result) }
+        );
+      }
+    }
+
     const reviewerRole = await reviewerRoleSnapshot(supabase, user, assignment?.event_id);
 
     // Insert feedback
@@ -271,23 +292,15 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
 
     if (insertError) {
       console.error('Error creating feedback:', insertError);
-      throw insertError;
-    }
-
-    if (assignment) {
-      const { error: assignmentError } = await supabase
-        .from('review_assignments')
-        .update({
-          status: 'submitted',
-          completed_feedback_id: feedback.id,
-        })
-        .eq('id', assignment.id)
-        .eq('reviewer_user_id', user.id)
-        .in('status', ['pending', 'started']);
-
-      if (assignmentError) {
-        console.warn('Feedback saved, but assignment completion failed:', assignmentError);
+      if (assignment?.id) {
+        await supabase
+          .from('review_assignments')
+          .update({ status: 'pending', started_at: null })
+          .eq('id', assignment.id)
+          .eq('reviewer_user_id', user.id)
+          .eq('status', 'started');
       }
+      throw insertError;
     }
 
     // Update streak (feedback counts toward streak)

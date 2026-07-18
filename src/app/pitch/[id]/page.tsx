@@ -44,7 +44,7 @@ function parseFeedback(rawFeedback: any[] | undefined) {
   return (rawFeedback || []).map(normalizeLegacyFeedback);
 }
 
-function convertApiPitchToLegacy(pitch: any): LegacyPitch {
+function convertApiPitchToLegacy(pitch: any, viewerId?: string): LegacyPitch {
   const profile = pitch.profiles || {};
   return {
     id: pitch.id,
@@ -72,6 +72,7 @@ function convertApiPitchToLegacy(pitch: any): LegacyPitch {
     promptKey: pitch.prompt_key || null,
     promptText: pitch.prompt_text || null,
     isBestTake: Boolean(pitch.is_best_take),
+    isOwnedByViewer: Boolean(viewerId && pitch.user_id === viewerId),
     feedback: parseFeedback(pitch.feedback),
   };
 }
@@ -103,7 +104,7 @@ export default function PitchDetailPage() {
           router.replace(`/pitch/${encodeURIComponent(apiPitch.public_id)}`);
           return;
         }
-        const converted = convertApiPitchToLegacy(apiPitch);
+        const converted = convertApiPitchToLegacy(apiPitch, user?.id);
         setRemotePitch(converted);
         setLocalFeedback(converted.feedback || []);
       } finally {
@@ -112,7 +113,7 @@ export default function PitchDetailPage() {
     };
 
     loadPitch();
-  }, [mockPitch, pitchId, router]);
+  }, [mockPitch, pitchId, router, user?.id]);
 
   if (loadingPitch) {
     return (
@@ -138,20 +139,25 @@ export default function PitchDetailPage() {
     );
   }
 
-  const handleFeedbackSubmit = (feedbackData: FeedbackFormData) => {
-    const newFeedback = {
-      id: `f${Date.now()}`,
+  const handleFeedbackSubmit = async (feedbackData: FeedbackFormData) => {
+    const assignmentId = typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.search).get('assignment');
+    const response = await fetch(`/api/pitches/${encodeURIComponent(pitch.publicId || pitch.id)}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...feedbackData, assignmentId: assignmentId || undefined }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.feedback) {
+      throw new Error(payload.error || 'Feedback could not be saved. Please try again.');
+    }
+    const savedFeedback = normalizeLegacyFeedback({
+      ...payload.feedback,
       authorName: 'You',
-      authorRole: 'Founder',
-      type: feedbackData.type,
-      signal: feedbackData.signal,
-      signals: feedbackData.signals,
-      readiness: feedbackData.readiness,
-      scores: feedbackData.scores,
-      notes: feedbackData.notes,
-      createdAt: new Date().toISOString(),
-    };
-    setLocalFeedback([...localFeedback, newFeedback]);
+      authorRole: payload.feedback.reviewerRoleLabel || 'Reviewer',
+    });
+    setLocalFeedback((current) => [...current, savedFeedback]);
   };
 
   return (

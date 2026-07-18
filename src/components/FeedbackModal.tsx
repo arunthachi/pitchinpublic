@@ -20,7 +20,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface FeedbackModalProps {
   pitchId: string;
-  onSubmit: (feedback: FeedbackFormData) => void;
+  onSubmit: (feedback: FeedbackFormData) => Promise<void> | void;
 }
 
 export function FeedbackModal({ pitchId, onSubmit }: FeedbackModalProps) {
@@ -33,22 +33,31 @@ export function FeedbackModal({ pitchId, onSubmit }: FeedbackModalProps) {
     presentation: 5,
   });
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmedNotes = notes.trim();
-    onSubmit({
-      type: feedbackType,
-      signal: feedbackType === 'toast' ? 'Clear' : 'Unclear audience',
-      signals: [feedbackType === 'toast' ? 'Clear' : 'Unclear audience'],
-      readiness: 2,
-      scores,
-      notes: trimmedNotes,
-    });
-    setOpen(false);
-    // Reset form
-    setFeedbackType('toast');
-    setScores({ clarity: 5, solution: 5, market: 5, presentation: 5 });
-    setNotes('');
+    try {
+      setSubmitting(true);
+      setSubmitError('');
+      await onSubmit({
+        type: feedbackType,
+        signal: feedbackType === 'toast' ? 'Clear' : 'Unclear audience',
+        signals: [feedbackType === 'toast' ? 'Clear' : 'Unclear audience'],
+        readiness: 2,
+        scores,
+        notes: trimmedNotes,
+      });
+      setOpen(false);
+      setFeedbackType('toast');
+      setScores({ clarity: 5, solution: 5, market: 5, presentation: 5 });
+      setNotes('');
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Feedback could not be saved. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isRoast = feedbackType === 'roast';
@@ -217,18 +226,20 @@ export function FeedbackModal({ pitchId, onSubmit }: FeedbackModalProps) {
         </div>
 
         <DialogFooter className="gap-2">
+          {submitError ? <p role="alert" className="mr-auto text-sm text-red-300">{submitError}</p> : null}
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
+            disabled={submitting}
             className={
               isRoast
                 ? 'bg-roast hover:bg-roast/90 text-white font-heading font-bold'
                 : 'bg-toast hover:bg-toast/90 text-white font-heading font-bold'
             }
           >
-            {isRoast ? '🔥 Submit Roast' : '🥂 Submit Toast'}
+            {submitting ? 'Saving…' : isRoast ? '🔥 Submit Roast' : '🥂 Submit Toast'}
           </Button>
         </DialogFooter>
       </DialogContent>

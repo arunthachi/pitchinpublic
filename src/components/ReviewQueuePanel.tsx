@@ -28,7 +28,7 @@ export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          className="btn-glass flex h-9 w-9 items-center justify-center lg:hidden"
+          className="btn-glass flex h-9 w-9 items-center justify-center xl:hidden"
           aria-label="Close review queue"
         >
           <X className="h-4 w-4" />
@@ -39,7 +39,7 @@ export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }
         {activeItems.map((item, index) => (
           <Link
             key={item.id}
-            href={pitchPath(item.publicPitchId, item.pitchId) || '/'}
+            href={`${pitchPath(item.publicPitchId, item.pitchId) || '/'}?assignment=${encodeURIComponent(item.id)}`}
             className="flex min-h-14 items-center gap-3 rounded-xl border border-white/10 bg-black/25 p-2.5 transition hover:border-neon-cyan/30 hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.07] text-xs font-black text-slate-300">
@@ -79,14 +79,14 @@ export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }
 
   return (
     <>
-      <aside className="glass-card hidden w-[18rem] overflow-hidden rounded-2xl lg:block" aria-label="Assigned pitch reviews">
+      <aside className="glass-card hidden w-[18rem] overflow-hidden rounded-2xl xl:block" aria-label="Assigned pitch reviews">
         {content}
       </aside>
 
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="glass-pill fixed bottom-24 left-3 z-[65] flex max-w-[calc(100vw-6.5rem)] items-center gap-2 rounded-full px-3 py-2.5 text-left lg:hidden"
+        className="glass-pill fixed left-3 top-[calc(env(safe-area-inset-top)+4.75rem)] z-[65] flex max-w-[calc(100vw-6.5rem)] items-center gap-2 rounded-full px-3 py-2.5 text-left xl:hidden"
         aria-expanded={mobileOpen}
         aria-controls="mobile-review-queue"
       >
@@ -97,7 +97,7 @@ export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }
       </button>
 
       {mobileOpen ? (
-        <div className="fixed inset-0 z-[95] lg:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-review-queue-title">
+        <div className="fixed inset-0 z-[95] xl:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-review-queue-title">
           <button type="button" onClick={() => setMobileOpen(false)} className="absolute inset-0 h-full w-full bg-black/55 backdrop-blur-sm" aria-label="Close review queue" />
           <div id="mobile-review-queue" className="glass-panel absolute inset-x-3 bottom-20 max-h-[70dvh] overflow-y-auto rounded-2xl">
             <span id="mobile-review-queue-title" className="sr-only">Assigned pitch reviews</span>

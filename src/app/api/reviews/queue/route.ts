@@ -48,8 +48,13 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: true })
       .limit(limit);
 
-  let [{ data, error }, { data: creditRow, error: creditError }] = await Promise.all([
+  let [{ data, error }, { count: pendingCount, error: countError }, { data: creditRow, error: creditError }] = await Promise.all([
     loadAssignments(),
+    supabase
+      .from('review_assignments')
+      .select('id', { count: 'exact', head: true })
+      .eq('reviewer_user_id', auth.user.id)
+      .in('status', ['pending', 'started']),
     supabase
       .from('review_credits')
       .select('balance,pending_balance,earned_count,spent_count')
@@ -68,6 +73,12 @@ export async function GET(request: NextRequest) {
       const refreshed = await loadAssignments();
       data = refreshed.data;
       error = refreshed.error;
+      const refreshedCount = await supabase
+        .from('review_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('reviewer_user_id', auth.user.id)
+        .in('status', ['pending', 'started']);
+      pendingCount = refreshedCount.count;
     }
   }
 
@@ -78,6 +89,9 @@ export async function GET(request: NextRequest) {
 
   if (creditError) {
     console.warn('Review queue loaded without credit state:', creditError);
+  }
+  if (countError) {
+    console.warn('Review queue loaded without an exact total:', countError);
   }
 
   const assignments = (data || []).flatMap((assignment: any) => {
@@ -108,12 +122,15 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     assignments,
-    count: assignments.length,
+    count: pendingCount ?? assignments.length,
+    pendingCount: pendingCount ?? assignments.length,
     credits: {
-      balance: creditRow?.balance || 0,
+      available: Math.floor((creditRow?.balance || 0) / 2),
       pendingBalance: creditRow?.pending_balance || 0,
       earnedCount: creditRow?.earned_count || 0,
       spentCount: creditRow?.spent_count || 0,
+      reviewsPerCredit: 2,
+      progress: (creditRow?.balance || 0) % 2,
     },
   });
 }

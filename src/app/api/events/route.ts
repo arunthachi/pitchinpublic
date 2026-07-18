@@ -13,6 +13,16 @@ const createEventSchema = z.object({
   focuses: z.array(z.string().trim().min(2).max(40)).optional(),
   visibility: z.enum(['private', 'unlisted', 'public']).default('unlisted'),
   accessCode: z.string().min(4).max(32).optional().or(z.literal('')),
+  reviewTarget: z.coerce.number().int().min(1).max(10).default(3),
+  pitchHourStartsAt: z.string().datetime().optional().or(z.literal('')),
+  pitchHourEndsAt: z.string().datetime().optional().or(z.literal('')),
+}).superRefine((value, ctx) => {
+  if (Boolean(value.pitchHourStartsAt) !== Boolean(value.pitchHourEndsAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pitchHourStartsAt'], message: 'Choose both a start and end for Pitch Hour.' });
+  }
+  if (value.pitchHourStartsAt && value.pitchHourEndsAt && new Date(value.pitchHourEndsAt) <= new Date(value.pitchHourStartsAt)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pitchHourEndsAt'], message: 'Pitch Hour must end after it starts.' });
+  }
 });
 
 function createSupabase(request: NextRequest) {
@@ -125,6 +135,9 @@ export async function POST(request: NextRequest) {
         focus: focusSummary,
         visibility: data.visibility,
         access_code: data.accessCode || null,
+        review_target: data.reviewTarget,
+        pitch_hour_starts_at: data.pitchHourStartsAt || null,
+        pitch_hour_ends_at: data.pitchHourEndsAt || null,
         status: 'active',
       })
       .select('*')

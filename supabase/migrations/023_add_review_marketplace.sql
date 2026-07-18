@@ -154,6 +154,25 @@ CREATE INDEX idx_review_assignments_pitch_status
 
 ALTER TABLE public.review_assignments ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION public.can_manage_feedback_review_event(target_feedback_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.review_assignments
+    WHERE completed_feedback_id = target_feedback_id
+      AND event_id IS NOT NULL
+      AND public.can_manage_review_event(event_id)
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.can_manage_feedback_review_event(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.can_manage_feedback_review_event(uuid) TO authenticated, service_role;
+
 -- Private quality votes. The owner id is stored for efficient policy checks and
 -- is always derived from the feedback's pitch by the validation trigger below.
 CREATE TABLE public.feedback_quality_votes (
@@ -642,7 +661,7 @@ BEGIN
         WHERE coverage.event_id = target_event_id
           AND coverage.pitch_id = pes.pitch_id
           AND coverage.status IN ('pending', 'started', 'submitted')
-      ), pes.submitted_at, pes.pitch_id
+      ), md5(pes.pitch_id::text || r.user_id::text), pes.submitted_at, pes.pitch_id
       LIMIT r.slots
     ) choice
   )
@@ -827,6 +846,7 @@ CREATE POLICY "Pitch owners and reviewers can view quality votes"
     pitch_owner_user_id = auth.uid()
     OR public.is_platform_admin()
     OR public.is_feedback_reviewer(feedback_id)
+    OR public.can_manage_feedback_review_event(feedback_id)
   );
 
 CREATE POLICY "Pitch owners can create quality votes"
@@ -885,4 +905,180 @@ COMMENT ON TABLE public.review_assignments IS 'Event-scoped and platform review 
 COMMENT ON TABLE public.feedback_quality_votes IS 'Private pitch-owner quality ratings visible only to the owner and relevant reviewer.';
 COMMENT ON TABLE public.review_credit_ledger IS 'Append-only soft-credit ledger; it does not enforce a pitch submission gate.';
 COMMENT ON COLUMN public.feedback.reviewer_role IS 'Accountable reviewer role snapshot captured when feedback is submitted.';
-COMMENT ON COLUMN public.pitch_events.review_target IS 'Optional target number of reviews per submitted pitch.';
+COMMENT ON COLUMN public.pitch_events.review_target IS 'Optional target number of active review assignments per reviewer queue.';
+
+-- Launch hardening: keep pilot roles and review accounting secure even when a
+-- caller bypasses the application routes and uses PostgREST directly.
+CREATE OR REPLACE FUNCTION public.is_platform_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.platform_admins
+    WHERE LOWER(email) = LOWER(COALESCE(auth.jwt() ->> 'email', ''))
+      AND role = 'super_admin'
+  );
+$$;
+
+DROP POLICY IF EXISTS "Users can join pitch events" ON public.pitch_event_participants;
+CREATE POLICY "Users can join pitch events as founders"
+  ON public.pitch_event_participants FOR INSERT
+  WITH CHECK (
+    auth.uid() = user_id
+    AND role = 'founder'
+    AND status = 'active'
+  );
+
+DROP POLICY IF EXISTS "Participants and organizers can update participants" ON public.pitch_event_participants;
+CREATE POLICY "Event managers can update participants"
+  ON public.pitch_event_participants FOR UPDATE
+  USING (
+    public.is_platform_admin()
+    OR public.is_pitch_event_owner(event_id)
+    OR public.is_pitch_event_member(event_id, ARRAY['organizer', 'admin'])
+  )
+  WITH CHECK (
+    public.is_platform_admin()
+    OR public.is_pitch_event_owner(event_id)
+    OR public.is_pitch_event_member(event_id, ARRAY['organizer', 'admin'])
+  );
+
+CREATE OR REPLACE FUNCTION public.protect_event_participant_identity()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.event_id IS DISTINCT FROM OLD.event_id
+     OR NEW.user_id IS DISTINCT FROM OLD.user_id THEN
+    RAISE EXCEPTION 'Event participant identity cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER protect_event_participant_identity_before_update
+  BEFORE UPDATE ON public.pitch_event_participants
+  FOR EACH ROW EXECUTE FUNCTION public.protect_event_participant_identity();
+REVOKE ALL ON FUNCTION public.protect_event_participant_identity() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.snapshot_feedback_reviewer_role()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  pitch_owner_id uuid;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.pitch_id IS DISTINCT FROM OLD.pitch_id
+       OR NEW.user_id IS DISTINCT FROM OLD.user_id THEN
+      RAISE EXCEPTION 'Feedback ownership and pitch cannot be changed';
+    END IF;
+    NEW.reviewer_role := OLD.reviewer_role;
+    RETURN NEW;
+  END IF;
+
+  SELECT user_id INTO pitch_owner_id
+  FROM public.pitches
+  WHERE id = NEW.pitch_id AND deleted_at IS NULL;
+
+  IF pitch_owner_id IS NULL THEN
+    RAISE EXCEPTION 'Feedback pitch must exist and be active';
+  END IF;
+  IF pitch_owner_id = NEW.user_id THEN
+    RAISE EXCEPTION 'A reviewer cannot leave feedback on their own pitch';
+  END IF;
+
+  SELECT reviewer_role INTO NEW.reviewer_role
+  FROM public.review_assignments
+  WHERE pitch_id = NEW.pitch_id
+    AND reviewer_user_id = NEW.user_id
+    AND status IN ('pending', 'started')
+  ORDER BY CASE status WHEN 'started' THEN 0 ELSE 1 END, created_at DESC
+  LIMIT 1;
+
+  IF NEW.reviewer_role IS NULL THEN
+    NEW.reviewer_role := CASE
+      WHEN EXISTS (SELECT 1 FROM public.pitches WHERE user_id = NEW.user_id)
+        THEN 'peer_founder'
+      ELSE 'public_reviewer'
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.process_submitted_review()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  matched_assignment public.review_assignments;
+BEGIN
+  SELECT * INTO matched_assignment
+  FROM public.review_assignments
+  WHERE pitch_id = NEW.pitch_id
+    AND reviewer_user_id = NEW.user_id
+    AND status IN ('started', 'pending')
+  ORDER BY CASE status WHEN 'started' THEN 0 ELSE 1 END, created_at DESC
+  LIMIT 1
+  FOR UPDATE;
+
+  IF matched_assignment.id IS NOT NULL THEN
+    UPDATE public.review_assignments
+    SET status = 'submitted', completed_feedback_id = NEW.id, completed_at = now()
+    WHERE id = matched_assignment.id;
+
+    INSERT INTO public.review_credit_ledger (
+      user_id, event_id, feedback_id, assignment_id, bucket, amount,
+      entry_type, note
+    ) VALUES (
+      NEW.user_id, matched_assignment.event_id, NEW.id, matched_assignment.id,
+      'pending', 1, 'feedback_submitted', 'Pending assigned-review credit'
+    ) ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP POLICY IF EXISTS "Pitch owners and reviewers can view quality votes" ON public.feedback_quality_votes;
+CREATE POLICY "Pitch owners and reviewers can view quality votes"
+  ON public.feedback_quality_votes FOR SELECT
+  USING (
+    pitch_owner_user_id = auth.uid()
+    OR public.is_platform_admin()
+    OR public.is_feedback_reviewer(feedback_id)
+  );
+
+CREATE OR REPLACE FUNCTION public.get_event_review_quality_summary(target_event_id uuid)
+RETURNS TABLE(useful_reviews bigint, pitches_with_useful_feedback bigint)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+BEGIN
+  IF NOT public.can_manage_review_event(target_event_id) THEN
+    RAISE EXCEPTION 'Not authorized to view event review quality';
+  END IF;
+  RETURN QUERY
+  SELECT
+    COUNT(*) FILTER (WHERE fqv.rating = 'useful'),
+    COUNT(DISTINCT ra.pitch_id) FILTER (WHERE fqv.rating = 'useful')
+  FROM public.review_assignments ra
+  LEFT JOIN public.feedback_quality_votes fqv
+    ON fqv.feedback_id = ra.completed_feedback_id
+  WHERE ra.event_id = target_event_id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_event_review_quality_summary(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_event_review_quality_summary(uuid) TO authenticated, service_role;

@@ -212,7 +212,7 @@ function HomeContent() {
   const fetchPitches = useCallback(async () => {
     try {
       setPitchesLoading(true);
-      const params = new URLSearchParams({ limit: '100' });
+      const params = new URLSearchParams({ limit: '20' });
 
       const response = await fetch(`/api/pitches?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch pitches');
@@ -255,7 +255,6 @@ function HomeContent() {
       });
 
       setLegacyPitches(converted);
-      setReviewQueue(normalizeReviewQueue(data));
       setCurrentPitch((current) => current ?? converted[0] ?? null);
     } catch (error) {
       console.error('Failed to fetch pitches:', error);
@@ -267,6 +266,25 @@ function HomeContent() {
       setPitchesLoading(false);
     }
   }, [user?.id]);
+
+  const fetchReviewQueue = useCallback(async () => {
+    if (!user) {
+      setReviewQueue(null);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/reviews/queue?limit=3', { cache: 'no-store' });
+      if (!response.ok) {
+        setReviewQueue(null);
+        return;
+      }
+      setReviewQueue(normalizeReviewQueue(await response.json()));
+    } catch (error) {
+      console.error('Failed to fetch review queue:', error);
+      setReviewQueue(null);
+    }
+  }, [user]);
 
   const fetchPracticeToday = useCallback(async () => {
     if (!user) return;
@@ -296,7 +314,8 @@ function HomeContent() {
     }
 
     fetchPitches();
-  }, [fetchPitches, user]);
+    fetchReviewQueue();
+  }, [fetchPitches, fetchReviewQueue, user]);
 
   // Filter user's own pitches using the fetched profile
   // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
@@ -611,7 +630,7 @@ function HomeContent() {
 
           {!isGuest && reviewQueue ? (
             <div
-              className="absolute top-4 hidden lg:block"
+              className="absolute top-4 hidden xl:block"
               style={{ right: 'calc(50% + var(--feed-w) / 2 + 1.5rem)' }}
             >
               <ReviewQueuePanel queue={reviewQueue} />

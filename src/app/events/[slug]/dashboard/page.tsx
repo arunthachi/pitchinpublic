@@ -12,6 +12,7 @@ import {
   Copy,
   ExternalLink,
   LogOut,
+  ListChecks,
   Mail,
   MessageSquareText,
   Play,
@@ -484,6 +485,32 @@ export default function EventDashboardPage() {
     load();
   };
 
+  const assignReviews = async () => {
+    setBusyAction('assign-reviews');
+    setActionMessage('');
+    try {
+      const response = await fetch(`/api/events/${slug}/review-assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewsPerPitch: event.review_target || 3 }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || 'Could not assign reviews.');
+      }
+      setActionMessage(
+        data.created > 0
+          ? `${data.created} review assignment${data.created === 1 ? '' : 's'} added to participant queues.`
+          : 'Review queues are already covered or need at least two active participants and a submitted pitch.'
+      );
+      await load();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not assign reviews.');
+    } finally {
+      setBusyAction('');
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     router.push('/');
@@ -607,7 +634,21 @@ export default function EventDashboardPage() {
             <Metric icon={Video} label="Pitch length" value={formatPitchLength(event.pitch_length_seconds)} />
             <Metric icon={CalendarDays} label="Pitch day" value={formatDate(event.event_date)} />
           </div>
-          {reviewCoverage ? <ReviewCoverageStrip coverage={reviewCoverage} /> : null}
+          {event.pitch_hour_starts_at ? <PitchHourPanel event={event} /> : null}
+          <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            {reviewCoverage ? <ReviewCoverageStrip coverage={reviewCoverage} /> : <div />}
+            {state.canManageEvent ? (
+              <button
+                type="button"
+                onClick={assignReviews}
+                disabled={busyAction === 'assign-reviews' || submissions.length === 0}
+                className="btn-glass inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <ListChecks className="h-4 w-4 text-neon-cyan" />
+                {busyAction === 'assign-reviews' ? 'Assigning...' : 'Assign pitch reviews'}
+              </button>
+            ) : null}
+          </div>
         </section>
 
         <div className="mt-5 overflow-x-auto">
@@ -1362,7 +1403,7 @@ function ReviewCoverageStrip({ coverage }: { coverage: EventReviewCoverage }) {
   ];
 
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4" aria-label="Review coverage">
+    <div className="w-full min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/25 p-4" aria-label="Review coverage">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-neon-cyan" />
@@ -1385,6 +1426,36 @@ function ReviewCoverageStrip({ coverage }: { coverage: EventReviewCoverage }) {
           {coverage.foundersWithoutUsefulFeedback} founder{coverage.foundersWithoutUsefulFeedback === 1 ? '' : 's'} still need useful feedback.
         </p>
       ) : null}
+    </div>
+  );
+}
+
+function PitchHourPanel({ event }: { event: any }) {
+  const startsAt = new Date(event.pitch_hour_starts_at);
+  const endsAt = event.pitch_hour_ends_at ? new Date(event.pitch_hour_ends_at) : null;
+  if (Number.isNaN(startsAt.getTime())) return null;
+
+  const date = startsAt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const start = startsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const end = endsAt && !Number.isNaN(endsAt.getTime())
+    ? endsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : null;
+
+  return (
+    <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-neon-cyan/10 text-neon-cyan">
+          <CalendarDays className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-neon-cyan">Pitch Hour</p>
+          <p className="mt-1 font-heading text-base font-black text-white">{date} · {start}{end ? `-${end}` : ''}</p>
+          <p className="mt-1 text-xs text-slate-400">Use this window to create review queues and close feedback gaps together.</p>
+        </div>
+      </div>
+      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-bold text-slate-300">
+        {event.review_target || 3} reviews per queue
+      </span>
     </div>
   );
 }
