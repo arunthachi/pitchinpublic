@@ -11,6 +11,9 @@ This release integrates the founder practice loop, organizer event workflow, inv
 - Quick Toast/Roast reactions with one click.
 - Scrollable structured feedback with multiple signals, readiness, and an optional note.
 - Assigned review queue, review credits, and usefulness ratings.
+- Assigned reviews now open inside the Stage/video experience instead of navigating to the legacy full-page pitch detail screen.
+- Review URLs and client payloads expose only the pitch public ID; assignment identifiers are resolved and completed on the server.
+- Review submission is atomic and idempotent, so retries cannot create duplicate feedback or credit.
 - Startup profile reuse across pitch takes.
 - 31-second portrait upload, Cloudflare processing, and transition to publish metadata.
 - Best-take, practice momentum, goal, notification preference, and profile routes.
@@ -43,6 +46,14 @@ This release integrates the founder practice loop, organizer event workflow, inv
 - `npm audit --omit=dev --audit-level=high`: no high or critical findings.
 - Staging landing response: HTTP 200, approximately 0.16 seconds in release check.
 - Staging health response: HTTP 200, approximately 0.82 seconds in release check.
+
+## Assigned Review Interaction Contract
+
+- Phone layouts use a lower feedback sheet capped near 70% of the viewport so the pitch remains visible.
+- Desktop layouts use a bounded sidecar or dialog instead of replacing the Stage.
+- The form owns its internal scroll area, keeps the submit action reachable above safe areas and the software keyboard, traps focus while open, and returns focus when closed.
+- Toast/Roast, up to three signal chips, readiness, and an optional note remain the complete fast-review path.
+- Assignment UUIDs are never placed in routes, query strings, or browser-facing queue responses.
 
 ## Residual Pilot Checks
 

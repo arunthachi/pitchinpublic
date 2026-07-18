@@ -195,6 +195,8 @@ function HomeContent() {
   // Fetch real pitches from API
   const [legacyPitches, setLegacyPitches] = useState<LegacyPitch[]>([]);
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueSummary | null>(null);
+  const [reviewRequest, setReviewRequest] = useState<{ publicPitchId: string; nonce: number } | null>(null);
+  const [reviewSelectionError, setReviewSelectionError] = useState<string | null>(null);
   const [pitchesLoading, setPitchesLoading] = useState(true);
   const [currentPitch, setCurrentPitch] = useState<LegacyPitch | null>(null);
   const [handlers, setHandlers] = useState<{
@@ -208,6 +210,40 @@ function HomeContent() {
     reactionPending: boolean;
   } | null>(null);
 
+  const convertApiPitch = useCallback((pitch: any): LegacyPitch => {
+    const feedback = (pitch.feedback || []).map(normalizeLegacyFeedback);
+
+    return {
+      id: pitch.id,
+      publicId: pitch.public_id || null,
+      userId: pitch.user_id,
+      founderHandle: pitch.profiles?.public_handle || pitch.profiles?.username || null,
+      founderName: pitch.profiles?.full_name || 'Anonymous',
+      founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
+      companyName: getPitchStartupNameFromFields(pitch, 'Startup'),
+      hook: pitch.hook,
+      description: pitch.description || '',
+      feedbackAsk: getPitchFeedbackAskFromFields(pitch),
+      videoUrl: pitch.video_url,
+      thumbnailUrl: pitch.thumbnail_url || '',
+      industry: 'SaaS',
+      stage: 'Seed',
+      views: pitch.views_count,
+      interestScore: pitch.interest_score,
+      roastCount: pitch.roast_count,
+      toastCount: pitch.toast_count,
+      createdAt: pitch.created_at,
+      duration: pitch.duration,
+      versionNumber: pitch.take_version || pitch.version_number,
+      practiceGoalId: pitch.practice_goal_id || null,
+      promptKey: pitch.prompt_key || null,
+      promptText: pitch.prompt_text || null,
+      isBestTake: Boolean(pitch.is_best_take),
+      isOwnedByViewer: pitch.user_id === user?.id,
+      feedback,
+    };
+  }, [user?.id]);
+
   // Fetch pitches from API
   const fetchPitches = useCallback(async () => {
     try {
@@ -219,40 +255,7 @@ function HomeContent() {
 
       const data = await response.json();
 
-      // Convert API format to legacy format for backwards compatibility
-      const converted = data.pitches.map((pitch: any) => {
-        const feedback = (pitch.feedback || []).map(normalizeLegacyFeedback);
-
-        return {
-          id: pitch.id,
-          publicId: pitch.public_id || null,
-          userId: pitch.user_id,
-          founderHandle: pitch.profiles?.public_handle || pitch.profiles?.username || null,
-          founderName: pitch.profiles?.full_name || 'Anonymous',
-          founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
-          companyName: getPitchStartupNameFromFields(pitch, 'Startup'),
-          hook: pitch.hook,
-          description: pitch.description || '',
-          feedbackAsk: getPitchFeedbackAskFromFields(pitch),
-          videoUrl: pitch.video_url,
-          thumbnailUrl: pitch.thumbnail_url || '',
-          industry: 'SaaS', // Default, will be added in next phase
-          stage: 'Seed', // Default, will be added in next phase
-          views: pitch.views_count,
-          interestScore: pitch.interest_score,
-          roastCount: pitch.roast_count,
-          toastCount: pitch.toast_count,
-          createdAt: pitch.created_at,
-          duration: pitch.duration,
-          versionNumber: pitch.take_version || pitch.version_number,
-          practiceGoalId: pitch.practice_goal_id || null,
-          promptKey: pitch.prompt_key || null,
-          promptText: pitch.prompt_text || null,
-          isBestTake: Boolean(pitch.is_best_take),
-          isOwnedByViewer: pitch.user_id === user?.id,
-          feedback,
-        };
-      });
+      const converted = data.pitches.map(convertApiPitch);
 
       setLegacyPitches(converted);
       setCurrentPitch((current) => current ?? converted[0] ?? null);
@@ -265,7 +268,7 @@ function HomeContent() {
     } finally {
       setPitchesLoading(false);
     }
-  }, [user?.id]);
+  }, [convertApiPitch]);
 
   const fetchReviewQueue = useCallback(async () => {
     if (!user) {
@@ -279,12 +282,55 @@ function HomeContent() {
         setReviewQueue(null);
         return;
       }
-      setReviewQueue(normalizeReviewQueue(await response.json()));
+      const normalized = normalizeReviewQueue(await response.json());
+      setReviewQueue(normalized);
+      return normalized;
     } catch (error) {
       console.error('Failed to fetch review queue:', error);
       setReviewQueue(null);
     }
   }, [user]);
+
+  const handleSelectReviewPitch = useCallback(async (publicPitchId: string) => {
+    setReviewSelectionError(null);
+    let selectedPitch = legacyPitches.find((pitch) => pitch.publicId === publicPitchId) || null;
+
+    if (!selectedPitch) {
+      try {
+        const response = await fetch(`/api/pitches?publicId=${encodeURIComponent(publicPitchId)}&limit=1`, {
+          cache: 'no-store',
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.pitches?.[0]) {
+          throw new Error(payload.error || 'This assigned pitch is not available.');
+        }
+        selectedPitch = convertApiPitch(payload.pitches[0]);
+        setLegacyPitches((current) => [
+          selectedPitch as LegacyPitch,
+          ...current.filter((pitch) => pitch.publicId !== publicPitchId),
+        ]);
+      } catch (error) {
+        console.error('Failed to open assigned review:', error);
+        setReviewSelectionError('This review could not be opened. Refresh the queue and try again.');
+        return;
+      }
+    }
+
+    setReviewRequest({ publicPitchId, nonce: Date.now() });
+  }, [convertApiPitch, legacyPitches]);
+
+  const handleAssignedReviewComplete = useCallback(async () => {
+    await fetchReviewQueue();
+  }, [fetchReviewQueue]);
+
+  const handleReviewNext = useCallback(() => {
+    const next = reviewQueue?.items.find((item) => item.publicPitchId !== reviewRequest?.publicPitchId);
+    if (!next) {
+      setReviewRequest(null);
+      return;
+    }
+    void handleSelectReviewPitch(next.publicPitchId);
+  }, [handleSelectReviewPitch, reviewQueue, reviewRequest?.publicPitchId]);
 
   const fetchPracticeToday = useCallback(async () => {
     if (!user) return;
@@ -577,6 +623,10 @@ function HomeContent() {
             <div className="h-full w-full overflow-hidden rounded-[1.28rem] bg-black">
             <FullScreenVideoFeed
               pitches={legacyPitches}
+              reviewRequest={reviewRequest}
+              onAssignedReviewComplete={handleAssignedReviewComplete}
+              onReviewNext={handleReviewNext}
+              onExitReviewMode={() => setReviewRequest(null)}
               hideReactions={true}
               onCurrentPitchChange={handlePitchChange}
             />
@@ -633,7 +683,7 @@ function HomeContent() {
               className="absolute top-4 hidden xl:block"
               style={{ right: 'calc(50% + var(--feed-w) / 2 + 1.5rem)' }}
             >
-              <ReviewQueuePanel queue={reviewQueue} />
+              <ReviewQueuePanel queue={reviewQueue} onSelectPitch={handleSelectReviewPitch} />
             </div>
           ) : null}
 
@@ -643,6 +693,10 @@ function HomeContent() {
         <div className="h-[100dvh] w-full lg:hidden">
           <FullScreenVideoFeed
             pitches={legacyPitches}
+            reviewRequest={reviewRequest}
+            onAssignedReviewComplete={handleAssignedReviewComplete}
+            onReviewNext={handleReviewNext}
+            onExitReviewMode={() => setReviewRequest(null)}
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
             isGuest={isGuest}
@@ -657,9 +711,15 @@ function HomeContent() {
               onOpenGoal={() => setShowPitchGoal(true)}
             />
           )}
-          {!isGuest ? <ReviewQueuePanel queue={reviewQueue} /> : null}
+          {!isGuest ? <ReviewQueuePanel queue={reviewQueue} onSelectPitch={handleSelectReviewPitch} /> : null}
         </div>
       </main>
+
+      {reviewSelectionError ? (
+        <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+1rem)] z-[100] mx-auto max-w-md rounded-2xl border border-roast/35 bg-[#241519]/95 p-3 text-sm font-semibold text-red-100 shadow-2xl backdrop-blur-xl" role="alert">
+          {reviewSelectionError}
+        </div>
+      ) : null}
 
       {/* Sign In Modal */}
       <SignInModal

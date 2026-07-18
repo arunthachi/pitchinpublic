@@ -13,6 +13,10 @@ import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 
 interface FullScreenVideoFeedProps {
   pitches: LegacyPitch[];
+  reviewRequest?: { publicPitchId: string; nonce: number } | null;
+  onAssignedReviewComplete?: (publicPitchId: string) => Promise<void> | void;
+  onReviewNext?: () => void;
+  onExitReviewMode?: () => void;
   onCurrentPitchChange?: (pitch: LegacyPitch, handlers: {
     onRoast: () => void;
     onToast: () => void;
@@ -141,6 +145,10 @@ function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
 
 export function FullScreenVideoFeed({
   pitches,
+  reviewRequest = null,
+  onAssignedReviewComplete,
+  onReviewNext,
+  onExitReviewMode,
   onCurrentPitchChange,
   hideReactions = false,
   isGuest = false,
@@ -158,7 +166,10 @@ export function FullScreenVideoFeed({
   const [hasTrackedView, setHasTrackedView] = useState(false);
   const [reactionBurst, setReactionBurst] = useState<{ type: ReactionBurstType; id: number } | null>(null);
   const [reactionPending, setReactionPending] = useState(false);
+  const [reviewComplete, setReviewComplete] = useState(false);
   const wheelLockRef = useRef(false);
+  const handledReviewNonceRef = useRef<number | null>(null);
+  const feedbackSubmissionKeyRef = useRef<string | null>(null);
   const reactionBurstTimeoutRef = useRef<number | null>(null);
   const reactionPendingRef = useRef(false);
 
@@ -198,6 +209,26 @@ export function FullScreenVideoFeed({
   React.useEffect(() => {
     setLocalPitches(pitches);
   }, [pitches]);
+
+  useEffect(() => {
+    if (!reviewRequest) return;
+    if (handledReviewNonceRef.current === reviewRequest.nonce) return;
+    const requestedIndex = localPitches.findIndex(
+      (pitch) => pitch.publicId === reviewRequest.publicPitchId
+    );
+    if (requestedIndex < 0) return;
+
+    handledReviewNonceRef.current = reviewRequest.nonce;
+    setCurrentIndex((previousIndex) => {
+      setDirection(requestedIndex >= previousIndex ? 'down' : 'up');
+      return requestedIndex;
+    });
+    setFeedbackListOpen(false);
+    setFeedbackType('toast');
+    setReviewComplete(false);
+    feedbackSubmissionKeyRef.current = crypto.randomUUID();
+    setFeedbackPanelOpen(true);
+  }, [reviewRequest, localPitches]);
 
   const currentPitch = localPitches[currentIndex];
 
@@ -510,10 +541,14 @@ export function FullScreenVideoFeed({
     if (!currentPitch) return false;
 
     try {
-      const response = await fetch(`/api/pitches/${currentPitch.id}/feedback`, {
+      const submissionKey = feedbackSubmissionKeyRef.current || crypto.randomUUID();
+      feedbackSubmissionKeyRef.current = submissionKey;
+      const pitchIdentifier = currentPitch.publicId || currentPitch.id;
+      const response = await fetch(`/api/pitches/${encodeURIComponent(pitchIdentifier)}/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Idempotency-Key': submissionKey,
         },
         body: JSON.stringify({
           type: feedback.type,
@@ -553,7 +588,13 @@ export function FullScreenVideoFeed({
         );
         triggerReactionBurst(feedback.type);
         // Close feedback panel after successful submission
+        feedbackSubmissionKeyRef.current = null;
         setFeedbackPanelOpen(false);
+        const completedReviewPublicId = reviewRequest?.publicPitchId;
+        if (completedReviewPublicId && completedReviewPublicId === currentPitch.publicId) {
+          setReviewComplete(true);
+          await onAssignedReviewComplete?.(completedReviewPublicId);
+        }
         return true;
       }
     } catch (error) {
@@ -647,6 +688,7 @@ export function FullScreenVideoFeed({
   const openFeedback = (type: 'roast' | 'toast') => {
     setFeedbackType(type);
     setFeedbackListOpen(false);
+    feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
   };
 
@@ -755,7 +797,42 @@ export function FullScreenVideoFeed({
             </div>
           )}
 
-          <AnimatePresence>
+      <AnimatePresence>
+        {reviewComplete && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-[75] rounded-2xl border border-white/15 bg-[#101820]/94 p-4 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:w-[min(26rem,calc(100%-2rem))] sm:-translate-x-1/2"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="font-heading text-lg font-black text-white">Useful signal sent</p>
+            <p className="mt-1 text-sm text-slate-300">Your feedback is saved and this review is complete.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setReviewComplete(false);
+                  onExitReviewMode?.();
+                }}
+                className="btn-glass min-h-11 rounded-xl px-3 text-sm font-bold text-white"
+              >
+                Back to Stage
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setReviewComplete(false);
+                  onReviewNext?.();
+                }}
+                className="min-h-11 rounded-xl bg-neon-cyan px-3 text-sm font-black text-slate-950"
+              >
+                Review next
+              </button>
+            </div>
+          </motion.div>
+        )}
             {reactionBurst && (
               <FeedReactionBurst
                 key={reactionBurst.id}
@@ -797,7 +874,10 @@ export function FullScreenVideoFeed({
       {/* Quick Feedback Panel renders after the thread panel so the first Toast/Roast tap brings it above the closing thread sheet. */}
       <QuickFeedbackPanel
         isOpen={feedbackPanelOpen}
-        onClose={() => setFeedbackPanelOpen(false)}
+        onClose={() => {
+          feedbackSubmissionKeyRef.current = null;
+          setFeedbackPanelOpen(false);
+        }}
         onSubmit={handleFeedbackSubmit}
         initialType={feedbackType}
       />

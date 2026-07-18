@@ -87,6 +87,7 @@ export default function PitchDetailPage() {
   const [loadingPitch, setLoadingPitch] = useState(!mockPitch);
   const pitch = mockPitch || remotePitch;
   const [localFeedback, setLocalFeedback] = useState(mockPitch?.feedback || []);
+  const feedbackSubmissionKeyRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     if (mockPitch) return;
@@ -140,13 +141,15 @@ export default function PitchDetailPage() {
   }
 
   const handleFeedbackSubmit = async (feedbackData: FeedbackFormData) => {
-    const assignmentId = typeof window === 'undefined'
-      ? null
-      : new URLSearchParams(window.location.search).get('assignment');
+    const submissionKey = feedbackSubmissionKeyRef.current || crypto.randomUUID();
+    feedbackSubmissionKeyRef.current = submissionKey;
     const response = await fetch(`/api/pitches/${encodeURIComponent(pitch.publicId || pitch.id)}/feedback`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...feedbackData, assignmentId: assignmentId || undefined }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': submissionKey,
+      },
+      body: JSON.stringify(feedbackData),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.feedback) {
@@ -157,6 +160,7 @@ export default function PitchDetailPage() {
       authorName: 'You',
       authorRole: payload.feedback.reviewerRoleLabel || 'Reviewer',
     });
+    feedbackSubmissionKeyRef.current = null;
     setLocalFeedback((current) => [...current, savedFeedback]);
   };
 

@@ -15,6 +15,7 @@ Pitch in Public is a mobile-first pitch practice room where founders record shor
 5. Events/cohorts are the distribution wedge, not a separate product.
 6. Manual pilot operations are acceptable until the behavior is proven.
 7. Mobile-first web should feel like an app, not a responsive desktop page.
+8. Mobile-first behavior is mandatory for every founder-facing screen, not an optional acceptance criterion.
 
 ## North Star Loop
 
@@ -57,6 +58,8 @@ Must support:
   - Getting there.
   - Pitch-ready.
 - Display feedback per pitch.
+- Open assigned feedback inside the current Stage/video context without a full-page navigation.
+- Keep assignment and database identifiers server-side; browser routes use stable public pitch identifiers only.
 - Mark one pitch as Best Take.
 - See practice momentum:
   - Reps.

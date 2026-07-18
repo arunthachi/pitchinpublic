@@ -103,13 +103,12 @@ export function normalizeReviewQueue(payloadValue: unknown): ReviewQueueSummary 
     const pitch = objectValue(item.pitch);
     const publicPitchId = item.publicPitchId || item.public_pitch_id || pitch.publicId || pitch.public_id || null;
     const pitchId = item.pitchId || item.pitch_id || pitch.id || publicPitchId;
-    if (!item.id || !pitchId || !publicPitchId) return [];
+    if (!pitchId || !publicPitchId) return [];
     const rawStatus = item.status;
     const status = ASSIGNMENT_STATES.has(rawStatus) ? rawStatus as ReviewAssignmentStatus : 'pending';
     return [{
-      id: String(item.id),
       pitchId: String(pitchId),
-      publicPitchId,
+      publicPitchId: String(publicPitchId),
       startupName: item.startupName || item.startup_name || pitch.startupName || pitch.startup_name || pitch.company_name || 'Practice pitch',
       hook: item.hook || pitch.hook || 'Share your signal',
       thumbnailUrl: item.thumbnailUrl || item.thumbnail_url || pitch.thumbnailUrl || pitch.thumbnail_url || null,

@@ -21,9 +21,8 @@ export interface FeedbackQualityAction {
 }
 
 export interface ReviewQueueItem {
-  id: string;
   pitchId: string;
-  publicPitchId?: string | null;
+  publicPitchId: string;
   startupName: string;
   hook: string;
   thumbnailUrl?: string | null;

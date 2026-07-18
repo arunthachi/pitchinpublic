@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import {
   reviewerRoleLabel,
-  reviewerRoleSnapshot,
 } from '@/lib/review-marketplace-server';
 
 /**
@@ -47,7 +46,6 @@ const feedbackSchema = z.object({
     presentation: z.number().min(1).max(10),
   }).optional(),
   notes: z.string().max(2000).optional(),
-  assignmentId: z.string().uuid().optional(),
 }).superRefine((value, ctx) => {
   if (!value.signal && !value.signals?.length) {
     ctx.addIssue({
@@ -222,116 +220,69 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     const feedbackData = validation.data;
     const signals = normalizedSignals(feedbackData);
 
-    let assignment: any = null;
-    if (feedbackData.assignmentId) {
-      const { data: matchedAssignment, error: assignmentError } = await supabase
-        .from('review_assignments')
-        .select('id,event_id,status')
-        .eq('id', feedbackData.assignmentId)
-        .eq('reviewer_user_id', user.id)
-        .eq('pitch_id', pitch.id)
-        .in('status', ['pending', 'started'])
-        .maybeSingle();
-
-      if (assignmentError || !matchedAssignment) {
-        return NextResponse.json(
-          { success: false, error: 'Review assignment is no longer available.' },
-          { status: 409, headers: formatRateLimitHeaders(result) }
-        );
-      }
-      assignment = matchedAssignment;
-    } else {
-      const { data: matchedAssignment } = await supabase
-        .from('review_assignments')
-        .select('id,event_id,status')
-        .eq('reviewer_user_id', user.id)
-        .eq('pitch_id', pitch.id)
-        .in('status', ['pending', 'started'])
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      assignment = matchedAssignment;
+    const idempotencyHeader = request.headers.get('idempotency-key');
+    const parsedIdempotencyKey = idempotencyHeader
+      ? z.string().uuid().safeParse(idempotencyHeader)
+      : null;
+    if (parsedIdempotencyKey && !parsedIdempotencyKey.success) {
+      return NextResponse.json(
+        { success: false, error: 'Idempotency-Key must be a UUID.' },
+        { status: 400, headers: formatRateLimitHeaders(result) }
+      );
     }
 
-    // The database completion trigger prioritizes started assignments. Mark the
-    // selected row first so one feedback item cannot complete both an event and
-    // a global assignment for the same pitch.
-    if (assignment?.status === 'pending') {
-      const { data: startedAssignment, error: startError } = await supabase
-        .from('review_assignments')
-        .update({ status: 'started' })
-        .eq('id', assignment.id)
-        .eq('reviewer_user_id', user.id)
-        .eq('status', 'pending')
-        .select('id')
-        .maybeSingle();
-
-      if (startError || !startedAssignment) {
-        return NextResponse.json(
-          { success: false, error: 'Review assignment is no longer available.' },
-          { status: 409, headers: formatRateLimitHeaders(result) }
-        );
+    const submissionKey = parsedIdempotencyKey?.success
+      ? parsedIdempotencyKey.data
+      : crypto.randomUUID();
+    const { data: submissionRows, error: submissionError } = await supabase.rpc(
+      'submit_pitch_feedback',
+      {
+        target_pitch_id: pitch.id,
+        feedback_type: feedbackData.type,
+        feedback_content: serializeFeedbackContent(feedbackData),
+        request_key: submissionKey,
       }
+    );
+
+    const feedback = Array.isArray(submissionRows) ? submissionRows[0] : submissionRows;
+    if (submissionError || !feedback) {
+      console.error('Error creating feedback:', submissionError);
+      throw submissionError || new Error('Feedback could not be saved');
     }
 
-    const reviewerRole = await reviewerRoleSnapshot(supabase, user, assignment?.event_id);
+    const reviewerRole = feedback.reviewer_role;
 
-    // Insert feedback
-    const { data: feedback, error: insertError } = await supabase
-      .from('feedback')
-      .insert({
-        pitch_id: pitch.id,
-        user_id: user.id,
-        type: feedbackData.type,
-        content: serializeFeedbackContent(feedbackData),
-        reviewer_role: reviewerRole,
-        is_public: true, // Default to public in Phase 1
-      })
-      .select()
-      .single();
+    if (!feedback.idempotent_replay) {
+      // These are secondary signals; the authoritative feedback transaction has
+      // already committed and idempotent retries must not apply them twice.
+      try {
+        await supabase.rpc('update_user_streak', {
+          user_id: user.id,
+          activity_type: feedbackData.type,
+        });
+      } catch (error) {
+        console.error('Error updating streak:', error);
+      }
 
-    if (insertError) {
-      console.error('Error creating feedback:', insertError);
-      if (assignment?.id) {
+      try {
         await supabase
-          .from('review_assignments')
-          .update({ status: 'pending', started_at: null })
-          .eq('id', assignment.id)
-          .eq('reviewer_user_id', user.id)
-          .eq('status', 'started');
+          .from('practice_reps')
+          .update({
+            readiness: feedbackData.readiness,
+            clarity_delta: feedbackData.type === 'toast' ? 1 : 0,
+          })
+          .eq('pitch_id', pitch.id);
+      } catch (error) {
+        console.error('Error updating practice rep signal:', error);
       }
-      throw insertError;
-    }
-
-    // Update streak (feedback counts toward streak)
-    try {
-      await supabase.rpc('update_user_streak', {
-        user_id: user.id,
-        activity_type: feedbackData.type,
-      });
-    } catch (error) {
-      console.error('Error updating streak:', error);
-      // Non-fatal, don't throw
-    }
-
-    try {
-      await supabase
-        .from('practice_reps')
-        .update({
-          readiness: feedbackData.readiness,
-          clarity_delta: feedbackData.type === 'toast' ? 1 : 0,
-        })
-        .eq('pitch_id', pitch.id);
-    } catch (error) {
-      console.error('Error updating practice rep signal:', error);
     }
 
     return NextResponse.json(
       {
         success: true,
         feedback: {
-          id: feedback.id,
-          type: feedback.type,
+          id: feedback.feedback_id,
+          type: feedback.submitted_type,
           signal: signals[0],
           signals,
           readiness: feedbackData.readiness,
@@ -341,9 +292,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
           reviewerRoleLabel: reviewerRoleLabel(reviewerRole),
           createdAt: feedback.created_at,
         },
-        assignmentCompleted: Boolean(assignment),
+        assignmentCompleted: Boolean(feedback.assignment_completed),
       },
-      { headers: formatRateLimitHeaders(result) }
+      {
+        headers: {
+          ...formatRateLimitHeaders(result),
+          'Idempotency-Key': submissionKey,
+        },
+      }
     );
   } catch (error) {
     console.error('Error creating feedback:', error);

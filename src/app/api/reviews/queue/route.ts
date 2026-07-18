@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
     supabase
       .from('review_assignments')
       .select(`
-      id,
       status,
       assignment_reason,
       due_at,
@@ -52,7 +51,7 @@ export async function GET(request: NextRequest) {
     loadAssignments(),
     supabase
       .from('review_assignments')
-      .select('id', { count: 'exact', head: true })
+      .select('pitch_id', { count: 'exact', head: true })
       .eq('reviewer_user_id', auth.user.id)
       .in('status', ['pending', 'started']),
     supabase
@@ -75,7 +74,7 @@ export async function GET(request: NextRequest) {
       error = refreshed.error;
       const refreshedCount = await supabase
         .from('review_assignments')
-        .select('id', { count: 'exact', head: true })
+        .select('pitch_id', { count: 'exact', head: true })
         .eq('reviewer_user_id', auth.user.id)
         .in('status', ['pending', 'started']);
       pendingCount = refreshedCount.count;
@@ -100,7 +99,6 @@ export async function GET(request: NextRequest) {
     if (!pitch?.public_id) return [];
 
     return [{
-      id: assignment.id,
       status: assignment.status,
       reason: assignment.assignment_reason,
       dueAt: assignment.due_at,

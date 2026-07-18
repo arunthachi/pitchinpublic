@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { ChevronDown, ClipboardCheck, Coins, X } from 'lucide-react';
 import type { ReviewQueueSummary } from '@/types';
-import { pitchPath } from '@/lib/public-routes';
 
-export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }) {
+interface ReviewQueuePanelProps {
+  queue: ReviewQueueSummary | null;
+  onSelectPitch: (publicPitchId: string) => void;
+}
+
+export function ReviewQueuePanel({ queue, onSelectPitch }: ReviewQueuePanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   if (!queue?.items.length) return null;
 
@@ -28,7 +31,7 @@ export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          className="btn-glass flex h-9 w-9 items-center justify-center xl:hidden"
+          className="btn-glass flex h-11 w-11 items-center justify-center xl:hidden"
           aria-label="Close review queue"
         >
           <X className="h-4 w-4" />
@@ -37,10 +40,15 @@ export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }
 
       <div className="mt-3 space-y-2">
         {activeItems.map((item, index) => (
-          <Link
-            key={item.id}
-            href={`${pitchPath(item.publicPitchId, item.pitchId) || '/'}?assignment=${encodeURIComponent(item.id)}`}
-            className="flex min-h-14 items-center gap-3 rounded-xl border border-white/10 bg-black/25 p-2.5 transition hover:border-neon-cyan/30 hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
+          <button
+            key={item.publicPitchId}
+            type="button"
+            onClick={() => {
+              onSelectPitch(item.publicPitchId);
+              setMobileOpen(false);
+            }}
+            className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-white/10 bg-black/25 p-2.5 text-left transition hover:border-neon-cyan/30 hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
+            aria-label={`Review ${item.startupName}`}
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.07] text-xs font-black text-slate-300">
               {index + 1}
@@ -51,8 +59,10 @@ export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }
             </span>
             {item.status === 'started' ? (
               <span className="rounded-full bg-amber-400/15 px-2 py-1 text-[10px] font-black uppercase text-amber-300">Started</span>
-            ) : null}
-          </Link>
+            ) : (
+              <span className="text-xs font-black text-neon-cyan">Review</span>
+            )}
+          </button>
         ))}
       </div>
 
@@ -86,7 +96,7 @@ export function ReviewQueuePanel({ queue }: { queue: ReviewQueueSummary | null }
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="glass-pill fixed left-3 top-[calc(env(safe-area-inset-top)+4.75rem)] z-[65] flex max-w-[calc(100vw-6.5rem)] items-center gap-2 rounded-full px-3 py-2.5 text-left xl:hidden"
+        className="glass-pill fixed left-3 top-[calc(env(safe-area-inset-top)+4.75rem)] z-[65] flex min-h-11 max-w-[calc(100vw-6.5rem)] items-center gap-2 rounded-full px-3 py-2.5 text-left xl:hidden"
         aria-expanded={mobileOpen}
         aria-controls="mobile-review-queue"
       >
