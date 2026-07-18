@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
+import { createServiceSupabase } from '@/lib/admin';
 
 const joinSchema = z.object({
   accessCode: z.string().max(64).optional().or(z.literal('')),
@@ -27,24 +28,6 @@ function createSupabase(request: NextRequest) {
   );
 }
 
-function createAdminSupabase(request: NextRequest) {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return createSupabase(request);
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set() {},
-        remove() {},
-      },
-    }
-  );
-}
-
 export async function POST(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.json(
@@ -55,7 +38,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
   const params = await props.params;
   const supabase = createSupabase(request);
-  const adminSupabase = createAdminSupabase(request);
+  const adminSupabase = createServiceSupabase();
+
+  if (!adminSupabase) {
+    return NextResponse.json(
+      { success: false, error: 'Event join is not configured in this environment.' },
+      { status: 503 }
+    );
+  }
 
   const {
     data: { user },
