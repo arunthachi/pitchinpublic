@@ -427,7 +427,30 @@ export async function GET(request: NextRequest) {
   try {
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication required',
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!(await isUserAllowedForPilot(user))) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: INVITE_ONLY_MESSAGE,
+          code: 'invite_required',
+        },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
