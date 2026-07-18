@@ -3,6 +3,11 @@ import { createServerClient } from '@supabase/ssr';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { z } from 'zod';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
+import {
+  reconcileReviewCredits,
+  reviewerRoleLabel,
+  reviewerRoleSnapshot,
+} from '@/lib/review-marketplace';
 
 /**
  * POST /api/pitches/[pitchId]/feedback
@@ -43,6 +48,7 @@ const feedbackSchema = z.object({
     presentation: z.number().min(1).max(10),
   }).optional(),
   notes: z.string().max(2000).optional(),
+  assignmentId: z.string().uuid().optional(),
 }).superRefine((value, ctx) => {
   if (!value.signal && !value.signals?.length) {
     ctx.addIssue({
@@ -160,11 +166,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
       );
     }
 
-    // Validate pitch exists
+    // Accept the stable public pitch identifier while retaining UUID compatibility
+    // for existing clients during rollout.
+    const pitchLookupColumn = params.pitchId.startsWith('p_') ? 'public_id' : 'id';
     const { data: pitch, error: pitchError } = await supabase
       .from('pitches')
-      .select('id')
-      .eq('id', params.pitchId)
+      .select('id,user_id,public_id')
+      .eq(pitchLookupColumn, params.pitchId)
+      .is('deleted_at', null)
       .single();
 
     if (pitchError || !pitch) {
@@ -177,6 +186,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
           status: 404,
           headers: formatRateLimitHeaders(result),
         }
+      );
+    }
+
+    if (pitch.user_id === user.id) {
+      return NextResponse.json(
+        { success: false, error: 'You cannot leave feedback on your own pitch.' },
+        { status: 403, headers: formatRateLimitHeaders(result) }
       );
     }
 
@@ -207,14 +223,48 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     const feedbackData = validation.data;
     const signals = normalizedSignals(feedbackData);
 
+    let assignment: any = null;
+    if (feedbackData.assignmentId) {
+      const { data: matchedAssignment, error: assignmentError } = await supabase
+        .from('review_assignments')
+        .select('id,event_id,status')
+        .eq('id', feedbackData.assignmentId)
+        .eq('reviewer_user_id', user.id)
+        .eq('pitch_id', pitch.id)
+        .in('status', ['pending', 'started'])
+        .maybeSingle();
+
+      if (assignmentError || !matchedAssignment) {
+        return NextResponse.json(
+          { success: false, error: 'Review assignment is no longer available.' },
+          { status: 409, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      assignment = matchedAssignment;
+    } else {
+      const { data: matchedAssignment } = await supabase
+        .from('review_assignments')
+        .select('id,event_id,status')
+        .eq('reviewer_user_id', user.id)
+        .eq('pitch_id', pitch.id)
+        .in('status', ['pending', 'started'])
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      assignment = matchedAssignment;
+    }
+
+    const reviewerRole = await reviewerRoleSnapshot(supabase, user, assignment?.event_id);
+
     // Insert feedback
     const { data: feedback, error: insertError } = await supabase
       .from('feedback')
       .insert({
-        pitch_id: params.pitchId,
+        pitch_id: pitch.id,
         user_id: user.id,
         type: feedbackData.type,
         content: serializeFeedbackContent(feedbackData),
+        reviewer_role: reviewerRole,
         is_public: true, // Default to public in Phase 1
       })
       .select()
@@ -223,6 +273,28 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     if (insertError) {
       console.error('Error creating feedback:', insertError);
       throw insertError;
+    }
+
+    if (assignment) {
+      const { error: assignmentError } = await supabase
+        .from('review_assignments')
+        .update({
+          status: 'submitted',
+          completed_feedback_id: feedback.id,
+        })
+        .eq('id', assignment.id)
+        .eq('reviewer_user_id', user.id)
+        .in('status', ['pending', 'started']);
+
+      if (assignmentError) {
+        console.warn('Feedback saved, but assignment completion failed:', assignmentError);
+      }
+    }
+
+    try {
+      await reconcileReviewCredits(supabase, user.id);
+    } catch (error) {
+      console.warn('Feedback saved, but credit projection could not be refreshed:', error);
     }
 
     // Update streak (feedback counts toward streak)
@@ -243,7 +315,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
           readiness: feedbackData.readiness,
           clarity_delta: feedbackData.type === 'toast' ? 1 : 0,
         })
-        .eq('pitch_id', params.pitchId);
+        .eq('pitch_id', pitch.id);
     } catch (error) {
       console.error('Error updating practice rep signal:', error);
     }
@@ -259,8 +331,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
           readiness: feedbackData.readiness,
           notes: feedbackData.notes?.trim() || '',
           scores: scoresFromFeedback(feedbackData),
+          reviewerRole,
+          reviewerRoleLabel: reviewerRoleLabel(reviewerRole),
           createdAt: feedback.created_at,
         },
+        assignmentCompleted: Boolean(assignment),
       },
       { headers: formatRateLimitHeaders(result) }
     );
