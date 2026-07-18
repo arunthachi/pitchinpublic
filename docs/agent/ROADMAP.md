@@ -138,7 +138,7 @@ Success metrics:
 
 ## Phase 3A - Review Marketplace
 
-Status: planned.
+Status: shipped to staging and release-verified on 2026-07-18.
 
 Detailed specs:
 
@@ -165,6 +165,24 @@ Done when:
 - Pitch owners can rate feedback quality.
 - Organizers can see which founders need more feedback.
 - The pilot can measure useful reviews per active pitch.
+
+Shipped scope:
+
+- Assigned review queue with self-review exclusion and event scoping.
+- Assignment completion when structured feedback is submitted.
+- Private usefulness ratings and useful-feedback aggregates.
+- Soft review credits that encourage reciprocity without blocking pilot posts.
+- Reviewer role labels for peers, coaches, mentors, judges, organizers, and public reviewers.
+- Organizer feedback coverage, assignment, and pitch-hour readiness controls.
+- Invite-only founder access and fail-closed event membership.
+
+Release verification:
+
+- Founder quick Toast/Roast and detailed feedback passed in desktop and mobile browser viewports.
+- Event organizer dashboard, founder/team invites, announcements, and submission data passed in staging.
+- Cloudflare upload and processing passed with a 31-second 9:16 mobile test video; the temporary asset was deleted.
+- Staging and production schemas contain the complete migration history and pass Supabase schema lint.
+- Anonymous and unrelated authenticated users cannot read private event membership, invitations, assignments, credits, or votes.
 
 ## Phase 4 - Paid Pitch Without Fear Sprint
 
@@ -272,9 +290,8 @@ Your pitch sprint task today: make the customer obvious in sentence one. Record 
 
 ## Next Highest-Leverage Work
 
-1. Stabilize founder profile/startup profile/upload prefill.
-2. Make feedback save/display robust and obvious.
-3. Simplify feed right rail and preserve video focus.
-4. Complete organizer invite/event/submission smoke path.
-5. Run a real founder use-case test from sign-in to second take.
-6. Run a real organizer use-case test from invite to founder submission.
+1. Run the controlled pilot and monitor useful reviews per active pitch, median time to first useful review, and second-take completion.
+2. Seed the first 50 reviews with organizers and trusted founders so the quality norm is explicit.
+3. Validate the real iOS Safari and Android Chrome camera flow with pilot devices.
+4. Add hard review-credit gating only if the soft reciprocity prompt does not sustain review supply.
+5. Add push notifications only after email nudge engagement and repeat practice are measured.

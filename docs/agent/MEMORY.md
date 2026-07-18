@@ -512,15 +512,15 @@ arun@pitchinpublic.io
 
 Transactional email uses Resend.
 
-Recommended sender in Vercel:
+Verified sender in Vercel:
 
 ```text
-Pitch in Public <hello@pitchinpublic.io>
+Pitch in Public <hello@mail.pitchinpublic.io>
 ```
 
-Do not wrap the Vercel env value in quotes.
+The application currently uses this verified sender directly because staging environment parsing caused repeated provider failures. `LEAD_EMAIL_FROM` remains documented for a later configuration cleanup. Do not wrap environment values in quotes.
 
-Resend must have `pitchinpublic.io` verified and the API key authorized for that domain.
+Resend must have `mail.pitchinpublic.io` verified and the API key authorized for that domain.
 
 The app strips accidental wrapping quotes defensively.
 
