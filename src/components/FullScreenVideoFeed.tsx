@@ -170,6 +170,7 @@ export function FullScreenVideoFeed({
   const wheelLockRef = useRef(false);
   const handledReviewNonceRef = useRef<number | null>(null);
   const feedbackSubmissionKeyRef = useRef<string | null>(null);
+  const feedbackPitchRef = useRef<{ id: string; publicId?: string } | null>(null);
   const reactionBurstTimeoutRef = useRef<number | null>(null);
   const reactionPendingRef = useRef(false);
 
@@ -226,6 +227,10 @@ export function FullScreenVideoFeed({
     setFeedbackListOpen(false);
     setFeedbackType('toast');
     setReviewComplete(false);
+    feedbackPitchRef.current = {
+      id: localPitches[requestedIndex].id,
+      publicId: localPitches[requestedIndex].publicId,
+    };
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
   }, [reviewRequest, localPitches]);
@@ -336,6 +341,11 @@ export function FullScreenVideoFeed({
   }, []);
 
   const isFeedbackOverlayOpen = feedbackPanelOpen || feedbackListOpen;
+
+  const handleVideoEnded = useCallback(() => {
+    if (isFeedbackOverlayOpen) return;
+    goToNext();
+  }, [isFeedbackOverlayOpen, goToNext]);
 
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     if (isFeedbackOverlayOpen) return;
@@ -538,12 +548,15 @@ export function FullScreenVideoFeed({
   };
 
   const handleFeedbackSubmit = async (feedback: FeedbackFormData) => {
-    if (!currentPitch) return false;
+    const feedbackPitch = feedbackPitchRef.current
+      ? localPitches.find((pitch) => pitch.id === feedbackPitchRef.current?.id)
+      : currentPitch;
+    if (!feedbackPitch) return false;
 
     try {
       const submissionKey = feedbackSubmissionKeyRef.current || crypto.randomUUID();
       feedbackSubmissionKeyRef.current = submissionKey;
-      const pitchIdentifier = currentPitch.publicId || currentPitch.id;
+      const pitchIdentifier = feedbackPitch.publicId || feedbackPitch.id;
       const response = await fetch(`/api/pitches/${encodeURIComponent(pitchIdentifier)}/feedback`, {
         method: 'POST',
         headers: {
@@ -567,7 +580,7 @@ export function FullScreenVideoFeed({
       } else {
         const data = await response.json();
         const submittedFeedback = {
-          id: data.feedback?.id || `${currentPitch.id}-${Date.now()}`,
+          id: data.feedback?.id || `${feedbackPitch.id}-${Date.now()}`,
           authorName: 'You',
           authorRole: 'Founder',
           type: feedback.type,
@@ -581,7 +594,7 @@ export function FullScreenVideoFeed({
 
         setLocalPitches((prevPitches) =>
           prevPitches.map((p) =>
-            p.id === currentPitch.id
+            p.id === feedbackPitch.id
               ? { ...p, feedback: [...(p.feedback || []), submittedFeedback] }
               : p
           )
@@ -589,9 +602,10 @@ export function FullScreenVideoFeed({
         triggerReactionBurst(feedback.type);
         // Close feedback panel after successful submission
         feedbackSubmissionKeyRef.current = null;
+        feedbackPitchRef.current = null;
         setFeedbackPanelOpen(false);
         const completedReviewPublicId = reviewRequest?.publicPitchId;
-        if (completedReviewPublicId && completedReviewPublicId === currentPitch.publicId) {
+        if (completedReviewPublicId && completedReviewPublicId === feedbackPitch.publicId) {
           setReviewComplete(true);
           await onAssignedReviewComplete?.(completedReviewPublicId);
         }
@@ -688,6 +702,9 @@ export function FullScreenVideoFeed({
   const openFeedback = (type: 'roast' | 'toast') => {
     setFeedbackType(type);
     setFeedbackListOpen(false);
+    feedbackPitchRef.current = currentPitch
+      ? { id: currentPitch.id, publicId: currentPitch.publicId }
+      : null;
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
   };
@@ -767,7 +784,7 @@ export function FullScreenVideoFeed({
           <VideoPlayer
             url={currentPitch.videoUrl}
             playing={true}
-            onEnded={goToNext}
+            onEnded={handleVideoEnded}
           />
 
           <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-32 bg-gradient-to-b from-black/45 to-transparent" />
@@ -876,6 +893,7 @@ export function FullScreenVideoFeed({
         isOpen={feedbackPanelOpen}
         onClose={() => {
           feedbackSubmissionKeyRef.current = null;
+          feedbackPitchRef.current = null;
           setFeedbackPanelOpen(false);
         }}
         onSubmit={handleFeedbackSubmit}
