@@ -83,6 +83,27 @@ async function reserveAuditRow(
 
   if (error) {
     if ((error as any)?.code === '23505') {
+      const { data: retried, error: retryError } = await supabase
+        .from('nudge_events')
+        .update({
+          status: 'queued',
+          scheduled_for: row.scheduled_for || new Date().toISOString(),
+          sent_at: null,
+          error: null,
+        })
+        .eq('dedupe_key', row.dedupe_key)
+        .eq('status', 'failed')
+        .select('id')
+        .maybeSingle();
+
+      if (retryError) {
+        throw retryError;
+      }
+
+      if (retried?.id) {
+        return { inserted: true as const, id: retried.id, retried: true as const };
+      }
+
       return { inserted: false as const, duplicate: true as const };
     }
 
@@ -295,6 +316,8 @@ async function runNudgeSweep(request: NextRequest) {
       continue;
     }
 
+    let auditId: string | null = null;
+
     try {
       const reservation = await reserveAuditRow(supabase, {
         user_id: goal.user_id,
@@ -317,6 +340,8 @@ async function runNudgeSweep(request: NextRequest) {
         });
         continue;
       }
+
+      auditId = reservation.id;
 
       const sendResult = await sendEmail({
         to: profile.email,
@@ -354,6 +379,12 @@ async function runNudgeSweep(request: NextRequest) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error while sending the daily prompt.';
+      if (auditId) {
+        await finalizeAuditRow(supabase, auditId, {
+          status: 'failed',
+          error: message,
+        });
+      }
       failedResults.push({
         kind: 'daily_pitch_prompt',
         userId: goal.user_id,
@@ -382,6 +413,8 @@ async function runNudgeSweep(request: NextRequest) {
       const profile = profilesById.get(participant.user_id);
       const preferences = preferencesByUserId.get(participant.user_id);
       const emailEnabled = preferences?.email_enabled ?? true;
+      const timezone = preferences?.timezone || 'America/New_York';
+      const dailyNudgeTime = preferences?.daily_nudge_time || '09:00:00';
 
       if (!profile?.email) {
         skippedResults.push({
@@ -402,6 +435,10 @@ async function runNudgeSweep(request: NextRequest) {
           subject: `${event.name} deadline reminder`,
           reason: 'Automated email nudges are disabled.',
         });
+        continue;
+      }
+
+      if (!shouldSendDailyNudge({ now, timeZone: timezone, dailyNudgeTime })) {
         continue;
       }
 
@@ -426,6 +463,8 @@ async function runNudgeSweep(request: NextRequest) {
         continue;
       }
 
+      let auditId: string | null = null;
+
       try {
         const reservation = await reserveAuditRow(supabase, {
           user_id: participant.user_id,
@@ -448,6 +487,8 @@ async function runNudgeSweep(request: NextRequest) {
           });
           continue;
         }
+
+        auditId = reservation.id;
 
         const sendResult = await sendEmail({
           to: profile.email,
@@ -485,6 +526,12 @@ async function runNudgeSweep(request: NextRequest) {
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error while sending the event reminder.';
+        if (auditId) {
+          await finalizeAuditRow(supabase, auditId, {
+            status: 'failed',
+            error: message,
+          });
+        }
         failedResults.push({
           kind: 'event_deadline_reminder',
           userId: participant.user_id,

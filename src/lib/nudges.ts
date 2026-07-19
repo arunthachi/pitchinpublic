@@ -4,6 +4,7 @@ import { PracticePrompt } from './practice';
 const DEFAULT_APP_URL = 'https://app.pitchinpublic.io';
 const DEFAULT_TIME_ZONE = 'America/New_York';
 const DEFAULT_NUDGE_TIME = '09:00:00';
+const NUDGE_DELIVERY_WINDOW_MINUTES = 2 * 60;
 const PREFERENCES_PATH = '/notifications/preferences';
 
 const DAILY_LEAD_LINE = 'Today’s pitch task: make the customer obvious in sentence one. Record a 60-sec take.';
@@ -70,15 +71,29 @@ export function formatDateOnlyLabel(value?: string | null) {
 }
 
 export function getZonedDateParts(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  let formatter: Intl.DateTimeFormat;
+
+  try {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: DEFAULT_TIME_ZONE,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
 
   const parts = formatter.formatToParts(date);
   const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
@@ -99,9 +114,16 @@ export function getZonedDateParts(date: Date, timeZone: string) {
 function parseNudgeTime(value?: string | null) {
   const normalized = (value || DEFAULT_NUDGE_TIME).trim();
   const [hourPart = '09', minutePart = '00'] = normalized.split(':');
+  const hour = Number(hourPart);
+  const minute = Number(minutePart);
+
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) {
+    return { hour: 9, minute: 0 };
+  }
+
   return {
-    hour: Number(hourPart),
-    minute: Number(minutePart),
+    hour,
+    minute,
   };
 }
 
@@ -123,7 +145,9 @@ export function shouldSendDailyNudge({
   const currentMinutes = local.hour * 60 + local.minute;
   const scheduledMinutes = scheduled.hour * 60 + scheduled.minute;
 
-  return currentMinutes >= scheduledMinutes;
+  const minutesSinceScheduled = currentMinutes - scheduledMinutes;
+
+  return minutesSinceScheduled >= 0 && minutesSinceScheduled < NUDGE_DELIVERY_WINDOW_MINUTES;
 }
 
 export function shouldSendEventReminder({
