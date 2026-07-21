@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 interface ProfileEditModalProps {
   isOpen: boolean;
   user: User | null;
+  currentFullName?: string;
   currentBio?: string;
   currentWebsite?: string;
   currentTwitter?: string;
@@ -38,12 +39,14 @@ const startupStageOptions = [
 export function ProfileEditModal({
   isOpen,
   user,
+  currentFullName,
   currentBio,
   currentWebsite,
   currentTwitter,
   currentLinkedin,
   onComplete,
 }: ProfileEditModalProps) {
+  const [fullName, setFullName] = useState(currentFullName || '');
   const [bio, setBio] = useState(currentBio || '');
   const [website, setWebsite] = useState(currentWebsite || '');
   const [twitter, setTwitter] = useState(currentTwitter || '');
@@ -63,6 +66,7 @@ export function ProfileEditModal({
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
+      setFullName(currentFullName || '');
       setBio(currentBio || '');
       setWebsite(currentWebsite || '');
       setTwitter(currentTwitter || '');
@@ -76,7 +80,7 @@ export function ProfileEditModal({
       setError(null);
       setCompleted(false);
     }
-  }, [isOpen, currentBio, currentWebsite, currentTwitter, currentLinkedin]);
+  }, [isOpen, currentFullName, currentBio, currentWebsite, currentTwitter, currentLinkedin]);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -136,9 +140,16 @@ export function ProfileEditModal({
       setLoading(true);
       setError(null);
 
+      const cleanFullName = fullName.trim();
+      if (cleanFullName.length < 2) {
+        throw new Error('Enter your name before saving');
+      }
+
       // Update user metadata with new profile info
       const { error: updateError } = await supabase.auth.updateUser({
         data: {
+          full_name: cleanFullName,
+          name: cleanFullName,
           bio: bio || null,
           website: website || null,
           twitter_handle: twitter || null,
@@ -152,6 +163,7 @@ export function ProfileEditModal({
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
+          full_name: cleanFullName,
           bio: bio || null,
           website: website || null,
           twitter_handle: twitter || null,
@@ -236,6 +248,7 @@ export function ProfileEditModal({
   };
 
   const hasChanges =
+    fullName !== (currentFullName || '') ||
     bio !== (currentBio || '') ||
     website !== (currentWebsite || '') ||
     twitter !== (currentTwitter || '') ||
@@ -290,7 +303,7 @@ export function ProfileEditModal({
                           Edit Profile
                         </h2>
                         <p className="mt-2 text-sm text-slate-400">
-                          Update founder details and your primary startup
+                          Update your personal profile and primary startup
                         </p>
                       </div>
 
@@ -407,9 +420,29 @@ export function ProfileEditModal({
 
                         <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                           <div className="mb-4">
-                            <h3 className="font-heading text-lg font-black text-white">Founder profile</h3>
-                            <p className="text-sm text-slate-500">About you, not the startup.</p>
+                            <h3 className="font-heading text-lg font-black text-white">Personal profile</h3>
+                            <p className="text-sm text-slate-500">Your identity can be used across founder, reviewer, investor, and organizer roles.</p>
                           </div>
+
+                        {/* Full name */}
+                        <div>
+                          <label className="text-sm font-medium text-slate-300 mb-2 block">
+                            Full name
+                          </label>
+                          <input
+                            type="text"
+                            value={fullName}
+                            onChange={(e) => {
+                              setFullName(e.target.value);
+                              if (error) setError(null);
+                            }}
+                            placeholder="Your first and last name"
+                            autoComplete="name"
+                            maxLength={120}
+                            className="w-full rounded-2xl border border-slate-700 bg-slate-800/50 px-4 py-3.5 text-base text-white placeholder:text-slate-500 transition-all focus:border-neon-cyan focus:outline-none focus:ring-2 focus:ring-neon-cyan/20 sm:px-5 sm:py-4"
+                            disabled={loading}
+                          />
+                        </div>
 
                         {/* Bio */}
                         <div>

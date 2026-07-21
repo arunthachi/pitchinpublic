@@ -15,7 +15,7 @@ import { WelcomeHero } from '@/components/WelcomeHero';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
-import { getLegacyPitches, mockUser, profileToUser, authUserToUser } from '@/lib/data';
+import { getLegacyPitches, profileToUser, authUserToUser } from '@/lib/data';
 import { LegacyPitch, User, Profile } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
@@ -122,6 +122,7 @@ function HomeContent() {
     badgeDescription: string;
   } | null>(null);
   const isGuest = !user;
+  const accountUser = userProfile || (user ? authUserToUser(user) : null);
   const canManageEvents = userRoles.includes('organizer') || userRoles.includes('admin');
   const showPublicSignIn = isGuest;
   const pitchMaxParam = Number(searchParams.get('pitchMax'));
@@ -229,7 +230,11 @@ function HomeContent() {
       userId: pitch.user_id,
       founderHandle: pitch.profiles?.public_handle || pitch.profiles?.username || null,
       founderName: pitch.profiles?.full_name || 'Anonymous',
-      founderAvatar: pitch.profiles?.avatar_url || mockUser.avatar,
+      founderAvatar:
+        pitch.profiles?.avatar_url ||
+        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+          pitch.profiles?.full_name || pitch.profiles?.public_handle || pitch.profiles?.username || 'User'
+        )}`,
       companyName: getPitchStartupNameFromFields(pitch, 'Startup'),
       hook: pitch.hook,
       description: pitch.description || '',
@@ -374,7 +379,7 @@ function HomeContent() {
   }, [fetchPitches, fetchReviewQueue, user]);
 
   // Filter user's own pitches using the fetched profile
-  // Only filter if we have a userProfile (to avoid showing mockUser's pitches)
+  // Only filter after the authenticated profile is available.
   const userPitches = user
     ? legacyPitches.filter((pitch) => pitch.userId === user.id)
     : [];
@@ -556,8 +561,8 @@ function HomeContent() {
             aria-expanded={accountMenuOpen}
           >
             <img
-              src={userProfile?.avatar || mockUser.avatar}
-              alt={userProfile?.name || mockUser.name}
+              src={accountUser?.avatar || ''}
+              alt={accountUser?.name || 'Account'}
               className="h-full w-full object-cover transition-transform hover:scale-110"
             />
           </button>
@@ -573,10 +578,10 @@ function HomeContent() {
               <div className="glass-panel absolute right-0 mt-3 w-72 overflow-hidden rounded-3xl border-white/15 p-2 shadow-2xl shadow-black/50">
                 <div className="border-b border-white/10 px-3 py-3">
                   <p className="truncate font-heading text-sm font-bold text-white">
-                    {userProfile?.name || mockUser.name}
+                    {accountUser?.name || 'Account'}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-slate-400">
-                    {userProfile?.email || user?.email || 'Founder account'}
+                    {accountUser?.email || user?.email || 'User account'}
                   </p>
                 </div>
 
@@ -813,6 +818,7 @@ function HomeContent() {
         <ProfileEditModal
           isOpen={showProfileEdit}
           user={user}
+          currentFullName={fullProfile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || undefined}
           currentBio={fullProfile?.bio || undefined}
           currentWebsite={fullProfile?.website || undefined}
           currentTwitter={fullProfile?.twitter_handle || undefined}

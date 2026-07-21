@@ -533,12 +533,13 @@ export function getProfileByUsername(username: string): Profile | undefined {
 
 // Helper to convert Profile (database type) to User (legacy type)
 export function profileToUser(profile: Profile): User {
+  const name = profile.full_name?.trim() || profile.email?.split('@')[0] || 'User';
   return {
     id: profile.id,
     publicHandle: profile.public_handle || profile.username || null,
-    name: profile.full_name,
+    name,
     email: profile.email,
-    avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(profile.full_name)}`,
+    avatar: profile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
     bio: profile.bio || undefined,
     followersCount: profile.followers_count,
     followingCount: profile.following_count,
