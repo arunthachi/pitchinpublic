@@ -150,5 +150,22 @@ export async function isEmailAllowedForPilot(email?: string | null, nextPath?: s
 }
 
 export async function isUserAllowedForPilot(user?: User | null, nextPath?: string | null) {
-  return isEmailAllowedForPilot(user?.email, nextPath);
+  if (!user) return false;
+
+  const adminSupabase = createServiceSupabase();
+  if (adminSupabase) {
+    const { data: membership, error } = await adminSupabase
+      .from('pilot_members')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error && error.code !== '42P01') {
+      console.error('Pilot membership lookup failed:', error);
+    }
+
+    if (membership) return true;
+  }
+
+  return isEmailAllowedForPilot(user.email, nextPath);
 }

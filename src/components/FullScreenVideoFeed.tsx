@@ -573,12 +573,11 @@ export function FullScreenVideoFeed({
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const error = await response.json();
-        console.error('Failed to submit feedback:', error);
-        return false;
+        console.error('Failed to submit feedback:', data);
+        throw new Error(data.error || 'Could not save feedback. Please try again.');
       } else {
-        const data = await response.json();
         const submittedFeedback = {
           id: data.feedback?.id || `${feedbackPitch.id}-${Date.now()}`,
           authorName: 'You',
@@ -613,7 +612,9 @@ export function FullScreenVideoFeed({
       }
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      return false;
+      throw error instanceof Error
+        ? error
+        : new Error('Could not save feedback. Please try again.');
     }
   };
 

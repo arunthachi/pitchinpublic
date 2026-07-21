@@ -265,8 +265,10 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
       setNoteOpen(false);
       setNotes('');
       setSignals([activeSignals[0]]);
-    } catch {
-      setSubmitError('Could not save feedback. Please try again.');
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : 'Could not save feedback. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
