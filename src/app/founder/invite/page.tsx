@@ -99,7 +99,6 @@ function FounderInviteContent() {
     if (authLoading || !user || !invitation || emailMismatch) return;
     if (pageState !== 'ready') return;
 
-    let active = true;
     const acceptInvite = async () => {
       setPageState('accepting');
       setMessage('Securing your founder access...');
@@ -111,7 +110,6 @@ function FounderInviteContent() {
           body: JSON.stringify({ token }),
         });
         const data = await response.json();
-        if (!active) return;
 
         if (!response.ok || !data.success) {
           if (data.code === 'email_mismatch') {
@@ -129,16 +127,12 @@ function FounderInviteContent() {
         setMessage('You’re in. Your first pitch is ready to record.');
         window.setTimeout(() => router.replace(data.redirectTo || '/'), 1400);
       } catch {
-        if (!active) return;
         setPageState('error');
         setMessage('Could not accept this invitation. Please try again.');
       }
     };
 
     void acceptInvite();
-    return () => {
-      active = false;
-    };
   }, [authLoading, emailMismatch, invitation, pageState, router, token, user]);
 
   const useAnotherAccount = async () => {
