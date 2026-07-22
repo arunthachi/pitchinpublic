@@ -638,6 +638,7 @@ function HomeContent() {
             <div className="h-full w-full overflow-hidden rounded-[1.28rem] bg-black">
             <FullScreenVideoFeed
               pitches={legacyPitches}
+              isLoading={pitchesLoading}
               reviewRequest={reviewRequest}
               onAssignedReviewComplete={handleAssignedReviewComplete}
               onReviewNext={handleReviewNext}
@@ -708,6 +709,7 @@ function HomeContent() {
         {desktopFeed === false ? <div className="h-[100dvh] w-full">
           <FullScreenVideoFeed
             pitches={legacyPitches}
+            isLoading={pitchesLoading}
             reviewRequest={reviewRequest}
             onAssignedReviewComplete={handleAssignedReviewComplete}
             onReviewNext={handleReviewNext}

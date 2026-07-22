@@ -13,6 +13,7 @@ import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 
 interface FullScreenVideoFeedProps {
   pitches: LegacyPitch[];
+  isLoading?: boolean;
   reviewRequest?: { publicPitchId: string; nonce: number } | null;
   onAssignedReviewComplete?: (publicPitchId: string) => Promise<void> | void;
   onReviewNext?: () => void;
@@ -145,6 +146,7 @@ function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
 
 export function FullScreenVideoFeed({
   pitches,
+  isLoading = false,
   reviewRequest = null,
   onAssignedReviewComplete,
   onReviewNext,
@@ -741,8 +743,19 @@ export function FullScreenVideoFeed({
     return (
       <div className="relative w-full h-full bg-black flex items-center justify-center">
         <div className="text-white/60 text-center">
-          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p>Loading pitches...</p>
+          {isLoading ? (
+            <>
+              <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+              <p>Loading pitches...</p>
+            </>
+          ) : (
+            <div className="mx-auto max-w-xs px-6">
+              <p className="font-heading text-xl font-black text-white">No pitches yet</p>
+              <p className="mt-2 text-sm leading-6 text-white/55">
+                Record the first pitch or check back when founders begin posting.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
