@@ -2,6 +2,26 @@ import { createClient } from '@/lib/supabase/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { isUserAllowedForPilot } from '@/lib/pilot-access';
+import {
+  FounderInviteResolveError,
+  getFounderInviteTokenFromNextPath,
+  resolveFounderInviteToken,
+} from '@/app/api/founder-invites/_server';
+
+async function isValidFounderInviteReturn(nextPath: string) {
+  const token = getFounderInviteTokenFromNextPath(nextPath);
+  if (!token) return false;
+
+  try {
+    const invitation = await resolveFounderInviteToken(token);
+    return invitation.status === 'pending' || invitation.status === 'accepted';
+  } catch (error) {
+    if (!(error instanceof FounderInviteResolveError)) {
+      console.error('Founder invitation auth return validation failed');
+    }
+    return false;
+  }
+}
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -30,7 +50,10 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (user) {
-    const isAllowed = await isUserAllowedForPilot(user, safeNext);
+    // A valid founder invite may complete authentication so the acceptance page
+    // can enforce the invited email. It does not grant app access by itself.
+    const isAllowed = await isValidFounderInviteReturn(safeNext)
+      || await isUserAllowedForPilot(user, safeNext);
     if (!isAllowed) {
       await supabase.auth.signOut();
       const blockedUrl = new URL('/', origin);

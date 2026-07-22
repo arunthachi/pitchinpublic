@@ -12,6 +12,8 @@ type OAuthProvider = 'google';
 interface SignInModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialEmail?: string;
+  nextPath?: string;
 }
 
 const getFriendlyAuthError = (error: unknown) => {
@@ -38,7 +40,7 @@ const getSafeNextPath = () => {
   return null;
 };
 
-export function SignInModal({ isOpen, onClose }: SignInModalProps) {
+export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: SignInModalProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [authStep, setAuthStep] = useState<'start' | 'email-code'>('start');
@@ -49,17 +51,19 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
 
+    setEmail(initialEmail);
+
     const params = new URLSearchParams(window.location.search);
     if (params.get('auth') === 'invite_required') {
       setError(INVITE_ONLY_MESSAGE);
     }
-  }, [isOpen]);
+  }, [initialEmail, isOpen]);
 
   const resetModal = () => {
     setLoading(null);
     setError(null);
     setAuthStep('start');
-    setEmail('');
+    setEmail(initialEmail);
     setOtpCode('');
     setSentTo('');
   };
@@ -70,7 +74,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     onClose();
   };
 
-  const handleSocialSignIn = async (provider: OAuthProvider, nextPath?: string) => {
+  const handleSocialSignIn = async (provider: OAuthProvider) => {
     try {
       setLoading(provider);
       setError(null);
@@ -114,8 +118,8 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
     try {
       setLoading('email');
       setError(null);
-      const nextPath = (() => {
-        const explicitNext = getSafeNextPath();
+      const emailNextPath = (() => {
+        const explicitNext = nextPath || getSafeNextPath();
         if (explicitNext) return explicitNext;
 
         return `${window.location.pathname}${window.location.search}` || '/';
@@ -124,7 +128,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
       const response = await fetch('/api/auth/otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, next: nextPath }),
+        body: JSON.stringify({ email: trimmedEmail, next: emailNextPath }),
       });
       const data = await response.json();
 
@@ -166,7 +170,7 @@ export function SignInModal({ isOpen, onClose }: SignInModalProps) {
 
       if (error) throw error;
       clearAuthPending();
-      const explicitNext = getSafeNextPath();
+      const explicitNext = nextPath || getSafeNextPath();
       if (explicitNext) {
         window.location.assign(explicitNext);
         return;

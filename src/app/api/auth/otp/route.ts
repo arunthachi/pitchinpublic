@@ -3,6 +3,29 @@ import { createServerClient } from '@supabase/ssr';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { emailSchema, phoneSchema } from '@/lib/validation';
 import { INVITE_ONLY_MESSAGE, isEmailAllowedForPilot } from '@/lib/pilot-access';
+import {
+  FounderInviteResolveError,
+  getFounderInviteTokenFromNextPath,
+  resolveFounderInviteToken,
+} from '@/app/api/founder-invites/_server';
+
+async function matchesFounderInvite(nextPath: string, email: string) {
+  const token = getFounderInviteTokenFromNextPath(nextPath);
+  if (!token) return false;
+
+  try {
+    const invitation = await resolveFounderInviteToken(token);
+    return (
+      (invitation.status === 'pending' || invitation.status === 'accepted')
+      && invitation.email === email.trim().toLowerCase()
+    );
+  } catch (error) {
+    if (!(error instanceof FounderInviteResolveError)) {
+      console.error('Founder invitation OTP validation failed');
+    }
+    return false;
+  }
+}
 
 /**
  * POST /api/auth/otp
@@ -128,7 +151,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (method === 'email') {
-      const isAllowed = await isEmailAllowedForPilot(destination, nextPath);
+      const isAllowed = await matchesFounderInvite(nextPath, destination)
+        || await isEmailAllowedForPilot(destination, nextPath);
       if (!isAllowed) {
         return NextResponse.json(
           {

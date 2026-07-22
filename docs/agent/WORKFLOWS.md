@@ -344,6 +344,10 @@ Common failures:
 
 Dashboard should surface provider errors instead of hiding them.
 
+Independent founder access is operated through `/pip-super-admin`. Follow
+`FOUNDER_INVITES_RUNBOOK.md`; pending invites may start authentication but only
+accepted invitations create durable pilot membership.
+
 ## Video Workflow
 
 Provider:

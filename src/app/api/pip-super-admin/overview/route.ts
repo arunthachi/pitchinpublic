@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAdmin } from '@/lib/admin';
+import {
+  founderInvitesEnabled,
+  listFounderInvitations,
+} from '@/lib/founder-invitations';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +23,8 @@ export async function GET(request: NextRequest) {
     eventsResult,
     leadsResult,
     pendingInvitesResult,
+    founderInvitations,
+    pendingFounderInvitesResult,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -50,6 +56,14 @@ export async function GET(request: NextRequest) {
       .from('organizer_invitations')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending'),
+    founderInvitesEnabled() ? listFounderInvitations(supabase, 50) : Promise.resolve([]),
+    founderInvitesEnabled()
+      ? supabase
+          .from('founder_invitations')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending')
+          .gt('expires_at', new Date().toISOString())
+      : Promise.resolve({ count: 0, error: null }),
   ]);
 
   const errors = [
@@ -59,6 +73,7 @@ export async function GET(request: NextRequest) {
     eventsResult.error,
     leadsResult.error,
     pendingInvitesResult.error,
+    pendingFounderInvitesResult.error,
   ].filter(Boolean);
 
   if (errors.length) {
@@ -121,6 +136,20 @@ export async function GET(request: NextRequest) {
   const leadMetrics = { ...leadTotals };
   delete leadMetrics.sources;
 
+  const serializedFounderInvitations = founderInvitations.map((invitation) => ({
+    id: invitation.id,
+    email: invitation.email,
+    cohort: invitation.cohort,
+    source: invitation.source,
+    status: invitation.status,
+    email_status: invitation.emailStatus,
+    email_error: invitation.emailError,
+    email_sent_at: invitation.emailSentAt,
+    accepted_at: invitation.acceptedAt,
+    expires_at: invitation.expiresAt,
+    created_at: invitation.createdAt,
+  }));
+
   return NextResponse.json({
     success: true,
     counts: {
@@ -128,11 +157,14 @@ export async function GET(request: NextRequest) {
       organizers: organizersResult.count || organizers.length,
       events: eventsResult.count || 0,
       pendingOrganizerInvites: pendingInvitesResult.count || 0,
+      pendingFounderInvites: pendingFounderInvitesResult.count || 0,
       leadRequests: leadsResult.count || leadRows.length,
     },
     founders: profilesResult.data || [],
     organizers,
     organizerInvitations: invitationsResult.data || [],
+    founderInvitations: serializedFounderInvitations,
+    founderInvitesEnabled: founderInvitesEnabled(),
     events: eventsResult.data || [],
     leads: leadRows,
     leadMetrics: {

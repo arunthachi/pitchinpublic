@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test:nudges": "tsx --test src/lib/nudges.test.ts"
+    "test:nudges": "tsx --test src/lib/nudges.test.ts",
+    "test:founder-invites": "tsx --test src/app/api/founder-invites/_server.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",

@@ -81,7 +81,11 @@ export async function isValidPilotInvitePath(nextPath?: string | null, email?: s
   return !normalizedInviteEmail || normalizedInviteEmail === normalizedEmail;
 }
 
-export async function isEmailAllowedForPilot(email?: string | null, nextPath?: string | null) {
+export async function isEmailAllowedForPilot(
+  email?: string | null,
+  nextPath?: string | null,
+  options: { includePendingFounderInvite?: boolean } = {}
+) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) return false;
 
@@ -146,7 +150,23 @@ export async function isEmailAllowedForPilot(email?: string | null, nextPath?: s
     console.error('Pilot access event invite lookup failed:', eventInviteError);
   }
 
-  return Boolean(eventInvite);
+  if (eventInvite) return true;
+
+  if (options.includePendingFounderInvite === false) return false;
+
+  const { data: founderInvite, error: founderInviteError } = await adminSupabase
+    .from('founder_invitations')
+    .select('id,expires_at')
+    .eq('normalized_email', normalizedEmail)
+    .eq('status', 'pending')
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (founderInviteError && founderInviteError.code !== '42P01') {
+    console.error('Pilot access founder invite lookup failed:', founderInviteError);
+  }
+
+  return Boolean(founderInvite);
 }
 
 export async function isUserAllowedForPilot(user?: User | null, nextPath?: string | null) {
@@ -167,5 +187,9 @@ export async function isUserAllowedForPilot(user?: User | null, nextPath?: strin
     if (membership) return true;
   }
 
-  return isEmailAllowedForPilot(user.email, nextPath);
+  // Pending independent-founder invitations may start authentication, but they
+  // do not grant app access until the acceptance RPC creates pilot_members.
+  return isEmailAllowedForPilot(user.email, nextPath, {
+    includePendingFounderInvite: false,
+  });
 }
