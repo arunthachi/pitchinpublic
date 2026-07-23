@@ -10,7 +10,7 @@
 CREATE TABLE public.trusted_reviewer_invitations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   action_key text NOT NULL UNIQUE DEFAULT (
-    'ri_' || encode(gen_random_bytes(16), 'hex')
+    'ri_' || encode(extensions.gen_random_bytes(16), 'hex')
   ) CHECK (action_key ~ '^ri_[0-9a-f]{32}$'),
   email text NOT NULL CHECK (btrim(email) <> ''),
   normalized_email text GENERATED ALWAYS AS (lower(btrim(email))) STORED,
