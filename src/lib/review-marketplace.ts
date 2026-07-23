@@ -16,6 +16,7 @@ const ROLE_LABELS: Record<ReviewerRole, string> = {
   organizer: 'Organizer',
   experienced_reviewer: 'Experienced reviewer',
   public_reviewer: 'Public reviewer',
+  trusted_reviewer: 'Trusted reviewer',
 };
 
 const ASSIGNMENT_STATES = new Set<ReviewAssignmentStatus>(['pending', 'started', 'submitted', 'skipped', 'expired']);
@@ -47,11 +48,14 @@ export function reviewerRoleLabel(value?: string | null) {
   return role ? ROLE_LABELS[role] : 'Reviewer';
 }
 
-export function feedbackReviewerDisplay(feedback: Pick<LegacyFeedback, 'authorName' | 'authorRole' | 'reviewerRole' | 'displayRoleOnly'>) {
+export function feedbackReviewerDisplay(feedback: Pick<LegacyFeedback, 'authorName' | 'authorRole' | 'reviewerRole' | 'reviewerBadge' | 'displayRoleOnly'>) {
   const role = reviewerRoleLabel(feedback.reviewerRole || feedback.authorRole);
+  const badge = feedback.reviewerBadge;
+  const credential = [badge?.title, badge?.organization].filter(Boolean).join(' · ');
   return {
     name: feedback.displayRoleOnly ? role : feedback.authorName || role,
-    role,
+    role: credential || role,
+    expertise: badge?.expertise || [],
   };
 }
 
@@ -70,6 +74,7 @@ export function normalizeLegacyFeedback(itemValue: unknown): LegacyFeedback {
   const rawRating = quality.rating || item.quality_rating || item.qualityRating;
   const qualityRating = QUALITY_RATINGS.has(rawRating) ? rawRating as FeedbackQualityRating : null;
   const rawAction = objectValue(quality.action || item.quality_action || item.qualityAction);
+  const rawBadge = objectValue(item.reviewer_badge || item.reviewerBadge);
   const actionHref = rawAction.href || rawAction.url;
   const qualityAction: FeedbackQualityAction | null = typeof actionHref === 'string' && actionHref.startsWith('/') && !actionHref.startsWith('//')
     ? { href: actionHref, method: ['POST', 'PUT', 'PATCH'].includes(rawAction.method) ? rawAction.method : 'POST' }
@@ -80,6 +85,12 @@ export function normalizeLegacyFeedback(itemValue: unknown): LegacyFeedback {
     authorName: item.author_name || item.authorName || item.author?.full_name || 'Reviewer',
     authorRole: reviewerRoleLabel(role),
     reviewerRole: normalizeReviewerRole(role) || role || null,
+    reviewerBadge: Object.keys(rawBadge).length ? {
+      title: typeof rawBadge.title === 'string' ? rawBadge.title : null,
+      organization: typeof rawBadge.organization === 'string' ? rawBadge.organization : null,
+      roles: Array.isArray(rawBadge.roles) ? rawBadge.roles.filter((value): value is string => typeof value === 'string') : [],
+      expertise: Array.isArray(rawBadge.expertise) ? rawBadge.expertise.filter((value): value is string => typeof value === 'string') : [],
+    } : null,
     displayRoleOnly,
     type: item.type === 'roast' ? 'roast' : 'toast',
     signal: content.signal,

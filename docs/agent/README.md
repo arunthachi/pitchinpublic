@@ -9,6 +9,7 @@ Read these files before making non-trivial product or architecture changes:
 - [PRODUCT_SPEC.md](PRODUCT_SPEC.md) - detailed product spec for founders, organizers, platform admin, and the pilot workflow.
 - [REVIEW_MARKETPLACE_SPEC.md](REVIEW_MARKETPLACE_SPEC.md) - decisions for assigned feedback queues, reviewer supply, credits, quality ratings, and review density.
 - [REVIEW_MARKETPLACE_IMPLEMENTATION_PLAN.md](REVIEW_MARKETPLACE_IMPLEMENTATION_PLAN.md) - phased branch/worktree plan for building the review marketplace.
+- [TRUSTED_REVIEWERS.md](TRUSTED_REVIEWERS.md) - trusted reviewer invitations, scoped pitch access, credentials, and security invariants.
 - [WORKFLOWS.md](WORKFLOWS.md) - implementation workflows, QA expectations, release process, and route ownership.
 - [FOUNDER_INVITES_RUNBOOK.md](FOUNDER_INVITES_RUNBOOK.md) - independent founder invitation lifecycle, security, operations, verification, and rollback.
 - [ROADMAP.md](ROADMAP.md) - phased roadmap and what should remain manual until validated.

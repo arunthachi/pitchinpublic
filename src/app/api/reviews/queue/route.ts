@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const requestedLimit = Number.parseInt(searchParams.get('limit') || '3', 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(10, Math.max(1, requestedLimit)) : 3;
+  const mode = searchParams.get('mode') === 'reviewer' ? 'reviewer' : 'founder';
+  const roleFilter = mode === 'reviewer'
+    ? ['trusted_reviewer']
+    : ['peer_founder', 'public_reviewer', 'coach', 'judge', 'mentor', 'organizer', 'experienced_reviewer'];
 
   const loadAssignments = () =>
     supabase
@@ -41,28 +45,38 @@ export async function GET(request: NextRequest) {
       )
       `)
       .eq('reviewer_user_id', auth.user.id)
+      .in('reviewer_role', roleFilter)
       .in('status', ['pending', 'started'])
       .neq('pitch.user_id', auth.user.id)
       .order('due_at', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
       .limit(limit);
 
-  let [{ data, error }, { count: pendingCount, error: countError }, { data: creditRow, error: creditError }] = await Promise.all([
+  let [{ data, error }, { count: pendingCount, error: countError }, { data: creditRow, error: creditError }, { data: isTrustedReviewer }] = await Promise.all([
     loadAssignments(),
     supabase
       .from('review_assignments')
       .select('pitch_id', { count: 'exact', head: true })
       .eq('reviewer_user_id', auth.user.id)
+      .in('reviewer_role', roleFilter)
       .in('status', ['pending', 'started']),
     supabase
       .from('review_credits')
       .select('balance,pending_balance,earned_count,spent_count')
       .eq('user_id', auth.user.id)
       .maybeSingle(),
+    supabase.rpc('is_trusted_reviewer'),
   ]);
 
+  if (mode === 'reviewer' && !isTrustedReviewer) {
+    return NextResponse.json({ success: false, error: 'Trusted reviewer access is required.' }, { status: 403 });
+  }
+
   if (!error && !data?.length) {
-    const { error: claimError } = await supabase.rpc('claim_global_review_assignments', {
+    const claimFunction = mode === 'reviewer'
+      ? 'claim_trusted_review_assignments'
+      : 'claim_global_review_assignments';
+    const { error: claimError } = await supabase.rpc(claimFunction, {
       target_count: limit,
     });
 
@@ -76,6 +90,7 @@ export async function GET(request: NextRequest) {
         .from('review_assignments')
         .select('pitch_id', { count: 'exact', head: true })
         .eq('reviewer_user_id', auth.user.id)
+        .in('reviewer_role', roleFilter)
         .in('status', ['pending', 'started']);
       pendingCount = refreshedCount.count;
     }
@@ -122,7 +137,7 @@ export async function GET(request: NextRequest) {
     assignments,
     count: pendingCount ?? assignments.length,
     pendingCount: pendingCount ?? assignments.length,
-    credits: {
+    credits: mode === 'reviewer' ? null : {
       available: Math.floor((creditRow?.balance || 0) / 2),
       pendingBalance: creditRow?.pending_balance || 0,
       earnedCount: creditRow?.earned_count || 0,

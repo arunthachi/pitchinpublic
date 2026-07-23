@@ -6,6 +6,7 @@ import { getPromptForDate } from '@/lib/practice';
 import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
+import { createServiceSupabase } from '@/lib/admin';
 
 /**
  * POST /api/pitches
@@ -610,6 +611,42 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
+    const trustedReviewerUserIds = [...new Set(
+      (pitches || []).flatMap((pitch: any) =>
+        (pitch.feedback || [])
+          .filter((feedback: any) => feedback.reviewer_role === 'trusted_reviewer')
+          .map((feedback: any) => feedback.user_id)
+          .filter(Boolean)
+      )
+    )] as string[];
+    const reviewerBadges = new Map<string, {
+      title: string | null;
+      organization: string | null;
+      expertise: string[];
+    }>();
+
+    if (trustedReviewerUserIds.length) {
+      const adminSupabase = createServiceSupabase();
+      if (adminSupabase) {
+        const { data: memberships, error: membershipError } = await adminSupabase
+          .from('trusted_reviewer_memberships')
+          .select('user_id,title,organization,expertise')
+          .in('user_id', trustedReviewerUserIds);
+
+        if (membershipError) {
+          console.warn('Pitch feed loaded without trusted reviewer badges:', membershipError);
+        } else {
+          (memberships || []).forEach((membership: any) => {
+            reviewerBadges.set(membership.user_id, {
+              title: membership.title || null,
+              organization: membership.organization || null,
+              expertise: (membership.expertise || []).slice(0, 2),
+            });
+          });
+        }
+      }
+    }
+
     const enrichedPitches = (pitches || []).map((pitch: any) => ({
       ...pitch,
       feedback: (pitch.feedback || []).map((feedback: any) => {
@@ -622,6 +659,9 @@ export async function GET(request: NextRequest) {
           type: feedback.type,
           content: feedback.content,
           reviewer_role: feedback.reviewer_role || 'peer_founder',
+          reviewer_badge: feedback.reviewer_role === 'trusted_reviewer'
+            ? reviewerBadges.get(feedback.user_id) || null
+            : null,
           created_at: feedback.created_at,
           display_role_only: true,
           can_rate_quality: isOwner,

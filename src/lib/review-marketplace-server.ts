@@ -57,6 +57,7 @@ const ROLE_LABELS: Record<string, string> = {
   organizer: 'Organizer',
   peer_founder: 'Peer founder',
   public_reviewer: 'Public reviewer',
+  trusted_reviewer: 'Trusted reviewer',
 };
 
 export function reviewerRoleLabel(role: string) {

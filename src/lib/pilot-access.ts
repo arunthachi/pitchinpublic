@@ -152,6 +152,27 @@ export async function isEmailAllowedForPilot(
 
   if (eventInvite) return true;
 
+  const { data: reviewerInvite, error: reviewerInviteError } = await adminSupabase
+    .from('trusted_reviewer_invitations')
+    .select('id,expires_at,status')
+    .eq('normalized_email', normalizedEmail)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (reviewerInviteError && reviewerInviteError.code !== '42P01') {
+    console.error('Pilot access reviewer invite lookup failed:', reviewerInviteError);
+  }
+
+  const reviewerInviteIsActive = Boolean(
+    reviewerInvite
+    && new Date(reviewerInvite.expires_at).getTime() >= Date.now()
+  );
+  if (reviewerInviteIsActive) {
+    return true;
+  }
+
   if (options.includePendingFounderInvite === false) return false;
 
   const { data: founderInvite, error: founderInviteError } = await adminSupabase
@@ -185,6 +206,19 @@ export async function isUserAllowedForPilot(user?: User | null, nextPath?: strin
     }
 
     if (membership) return true;
+
+    const { data: reviewerMembership, error: reviewerMembershipError } = await adminSupabase
+      .from('trusted_reviewer_memberships')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (reviewerMembershipError && reviewerMembershipError.code !== '42P01') {
+      console.error('Trusted reviewer membership lookup failed:', reviewerMembershipError);
+    }
+
+    if (reviewerMembership) return true;
   }
 
   // Pending independent-founder invitations may start authentication, but they

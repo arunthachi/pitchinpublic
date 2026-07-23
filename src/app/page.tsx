@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Edit, LogOut, UserCircle } from 'lucide-react';
+import { ClipboardCheck, Edit, LogOut, UserCircle } from 'lucide-react';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
@@ -65,6 +65,32 @@ interface PracticeToday {
   };
 }
 
+type ReviewerAccessPayload = {
+  isReviewer?: boolean;
+  hasAccess?: boolean;
+  allowed?: boolean;
+  active?: boolean;
+  status?: string;
+  access?: { active?: boolean; status?: string };
+  reviewerAccess?: { active?: boolean; status?: string };
+  membership?: { active?: boolean; status?: string };
+  reviewer?: { active?: boolean; status?: string };
+  founderAccess?: boolean;
+};
+
+const APP_MODE_KEY = 'pip.appMode';
+
+function hasActiveReviewerAccess(payload: ReviewerAccessPayload) {
+  const access = payload?.access || payload?.reviewerAccess || payload?.membership || payload?.reviewer;
+  return payload?.isReviewer === true
+    || payload?.hasAccess === true
+    || payload?.allowed === true
+    || payload?.active === true
+    || payload?.status === 'active'
+    || access?.active === true
+    || access?.status === 'active';
+}
+
 function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -83,6 +109,10 @@ function HomeContent() {
   const [showPitchGoal, setShowPitchGoal] = useState(false);
   const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
   const [inviteOnlyNotice, setInviteOnlyNotice] = useState(false);
+  const [reviewerMode, setReviewerMode] = useState(false);
+  const [reviewerAccess, setReviewerAccess] = useState(false);
+  const [founderAccess, setFounderAccess] = useState(false);
+  const [accessCheckComplete, setAccessCheckComplete] = useState(false);
   const [desktopFeed, setDesktopFeed] = useState<boolean | null>(null);
   const [practiceToday, setPracticeToday] = useState<PracticeToday>(() => {
     const prompt = getPromptForDate();
@@ -253,11 +283,11 @@ function HomeContent() {
       practiceGoalId: pitch.practice_goal_id || null,
       promptKey: pitch.prompt_key || null,
       promptText: pitch.prompt_text || null,
-      isBestTake: Boolean(pitch.is_best_take),
-      isOwnedByViewer: pitch.user_id === user?.id,
+      isBestTake: reviewerMode ? false : Boolean(pitch.is_best_take),
+      isOwnedByViewer: !reviewerMode && pitch.user_id === user?.id,
       feedback,
     };
-  }, [user?.id]);
+  }, [reviewerMode, user?.id]);
 
   // Fetch pitches from API
   const fetchPitches = useCallback(async () => {
@@ -270,7 +300,10 @@ function HomeContent() {
 
       const data = await response.json();
 
-      const converted = data.pitches.map(convertApiPitch);
+      const visiblePitches = reviewerMode
+        ? data.pitches.filter((pitch: any) => pitch.user_id !== user?.id)
+        : data.pitches;
+      const converted = visiblePitches.map(convertApiPitch);
 
       setLegacyPitches(converted);
       setCurrentPitch((current) => current ?? converted[0] ?? null);
@@ -283,7 +316,7 @@ function HomeContent() {
     } finally {
       setPitchesLoading(false);
     }
-  }, [convertApiPitch]);
+  }, [convertApiPitch, reviewerMode, user?.id]);
 
   const fetchReviewQueue = useCallback(async () => {
     if (!user) {
@@ -292,7 +325,7 @@ function HomeContent() {
     }
 
     try {
-      const response = await fetch('/api/reviews/queue?limit=3', { cache: 'no-store' });
+      const response = await fetch(`/api/reviews/queue?limit=3&mode=${reviewerMode ? 'reviewer' : 'founder'}`, { cache: 'no-store' });
       if (!response.ok) {
         setReviewQueue(null);
         return;
@@ -304,7 +337,7 @@ function HomeContent() {
       console.error('Failed to fetch review queue:', error);
       setReviewQueue(null);
     }
-  }, [user]);
+  }, [reviewerMode, user]);
 
   const handleSelectReviewPitch = useCallback(async (publicPitchId: string) => {
     setReviewSelectionError(null);
@@ -348,7 +381,7 @@ function HomeContent() {
   }, [handleSelectReviewPitch, reviewQueue, reviewRequest?.publicPitchId]);
 
   const fetchPracticeToday = useCallback(async () => {
-    if (!user) return;
+    if (!user || !accessCheckComplete || reviewerMode) return;
 
     try {
       const response = await fetch('/api/practice/today');
@@ -361,7 +394,7 @@ function HomeContent() {
     } catch (error) {
       console.error('Failed to fetch practice today:', error);
     }
-  }, [user]);
+  }, [accessCheckComplete, reviewerMode, user]);
 
   useEffect(() => {
     fetchPracticeToday();
@@ -369,14 +402,14 @@ function HomeContent() {
 
   // Fetch pitches once the feed is visible. The marketing landing should stay lightweight.
   useEffect(() => {
-    if (!user) {
+    if (!user || !accessCheckComplete) {
       setPitchesLoading(false);
       return;
     }
 
     fetchPitches();
     fetchReviewQueue();
-  }, [fetchPitches, fetchReviewQueue, user]);
+  }, [accessCheckComplete, fetchPitches, fetchReviewQueue, user]);
 
   // Filter user's own pitches using the fetched profile
   // Only filter after the authenticated profile is available.
@@ -401,7 +434,7 @@ function HomeContent() {
   }, [router, signOut]);
 
   useEffect(() => {
-    if (loading || searchParams.get('record') !== '1') return;
+    if (loading || !accessCheckComplete || reviewerMode || searchParams.get('record') !== '1') return;
 
     if (user) {
       setRecordingStudioOpen(true);
@@ -414,7 +447,7 @@ function HomeContent() {
     }
 
     setSignInModalOpen(true);
-  }, [loading, searchParams, user]);
+  }, [accessCheckComplete, loading, reviewerMode, searchParams, user]);
 
   useEffect(() => {
     if (loading || user) return;
@@ -435,12 +468,33 @@ function HomeContent() {
   }, [loading, searchParams, user]);
 
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading) return;
+
+    if (!user) {
+      setReviewerMode(false);
+      setReviewerAccess(false);
+      setFounderAccess(false);
+      setAccessCheckComplete(true);
+      return;
+    }
 
     let cancelled = false;
 
     const verifyPilotAccess = async () => {
       try {
+        setAccessCheckComplete(false);
+        const reviewerResponse = await fetch('/api/reviewer/access', { cache: 'no-store' });
+        const reviewerPayload: ReviewerAccessPayload = await reviewerResponse.json().catch(() => ({}));
+        const isReviewer = reviewerResponse.ok && hasActiveReviewerAccess(reviewerPayload);
+        const canUseFounderMode = reviewerPayload.founderAccess === true;
+
+        if (cancelled) return;
+        setReviewerAccess(isReviewer);
+        setFounderAccess(canUseFounderMode);
+        const preferredMode = window.localStorage.getItem(APP_MODE_KEY);
+        setReviewerMode(isReviewer && (!canUseFounderMode || preferredMode === 'reviewer'));
+        if (isReviewer && !canUseFounderMode) return;
+
         const response = await fetch('/api/auth/access', { cache: 'no-store' });
 
         if (!cancelled && response.status === 403) {
@@ -449,6 +503,8 @@ function HomeContent() {
         }
       } catch (error) {
         console.error('Pilot access check failed:', error);
+      } finally {
+        if (!cancelled) setAccessCheckComplete(true);
       }
     };
 
@@ -459,13 +515,22 @@ function HomeContent() {
     };
   }, [loading, router, signOut, user]);
 
-  if (loading && isGuest && authPending) {
+  const switchAppMode = useCallback((mode: 'founder' | 'reviewer') => {
+    if (mode === 'reviewer' && !reviewerAccess) return;
+    if (mode === 'founder' && !founderAccess) return;
+    window.localStorage.setItem(APP_MODE_KEY, mode);
+    setReviewerMode(mode === 'reviewer');
+  }, [founderAccess, reviewerAccess]);
+
+  if ((loading && isGuest && authPending) || (!isGuest && !accessCheckComplete)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="glass-panel rounded-3xl px-6 py-5 text-center">
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
-          <p className="font-heading text-lg font-bold text-white">Signing you in...</p>
-          <p className="mt-1 text-sm text-slate-400">Opening your pitch practice feed.</p>
+          <p className="font-heading text-lg font-bold text-white">
+            {loading ? 'Signing you in...' : 'Checking your access...'}
+          </p>
+          <p className="mt-1 text-sm text-slate-400">Opening your pitch feed.</p>
         </div>
       </div>
     );
@@ -523,23 +588,54 @@ function HomeContent() {
           guestActionLabel="Sign in"
           onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
           canManageEvents={canManageEvents}
+          reviewerMode={reviewerMode}
+          canSwitchMode={reviewerAccess && founderAccess}
+          onModeChange={switchAppMode}
         />
       </div>
 
       {/* Top Navigation Bar - Mobile Only */}
-      <div className="lg:hidden">
-        <TopNavBar />
-      </div>
+      {reviewerMode ? (
+        <div className="fixed inset-x-0 top-0 z-50 flex items-center justify-between border-b border-white/10 bg-black/75 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur-xl lg:hidden">
+          <div className="flex items-center gap-2 text-sm font-bold text-white">
+            <ClipboardCheck className="h-5 w-5 text-neon-cyan" />
+            Review feed
+          </div>
+          <div className="flex items-center gap-2">
+            {founderAccess ? (
+              <button type="button" onClick={() => switchAppMode('founder')} className="btn-glass min-h-11 px-4 text-sm font-bold text-slate-100">
+                Founder mode
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="btn-glass flex h-11 w-11 items-center justify-center p-0 text-slate-200"
+              aria-label="Log out"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="lg:hidden">
+          <TopNavBar
+            onReviewerMode={reviewerAccess && founderAccess ? () => switchAppMode('reviewer') : undefined}
+          />
+        </div>
+      )}
 
       {/* Bottom Navigation Bar - Mobile Only */}
-      <div className="lg:hidden">
-        <BottomNavBar
-          onCreateClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
-          onProfileClick={() => isGuest ? promptForRestrictedAction() : router.push('/me')}
-          onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
-          isGuest={isGuest}
-        />
-      </div>
+      {!reviewerMode ? (
+        <div className="lg:hidden">
+          <BottomNavBar
+            onCreateClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
+            onProfileClick={() => isGuest ? promptForRestrictedAction() : router.push('/me')}
+            onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
+            isGuest={isGuest}
+          />
+        </div>
+      ) : null}
 
       {/* Top Right Button - Desktop Only */}
       {isGuest ? (
@@ -586,28 +682,37 @@ function HomeContent() {
                 </div>
 
                 <div className="py-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      router.push('/me');
-                    }}
-                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07] hover:text-white"
-                  >
-                    <UserCircle className="h-5 w-5 text-neon-cyan" />
-                    View profile
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      setShowProfileEdit(true);
-                    }}
-                    className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07] hover:text-white"
-                  >
-                    <Edit className="h-5 w-5 text-neon-lime" />
-                    Edit profile
-                  </button>
+                  {!reviewerMode ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          router.push('/me');
+                        }}
+                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07] hover:text-white"
+                      >
+                        <UserCircle className="h-5 w-5 text-neon-cyan" />
+                        View profile
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          setShowProfileEdit(true);
+                        }}
+                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-200 transition hover:bg-white/[0.07] hover:text-white"
+                      >
+                        <Edit className="h-5 w-5 text-neon-lime" />
+                        Edit profile
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-300">
+                      <ClipboardCheck className="h-5 w-5 text-neon-cyan" />
+                      Trusted reviewer
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={handleSignOut}
@@ -677,7 +782,7 @@ function HomeContent() {
             </div>
           )}
 
-          {!isGuest && (
+          {!isGuest && !reviewerMode && (
             <div
               className="absolute top-4 hidden xl:block"
               style={{
@@ -719,7 +824,7 @@ function HomeContent() {
             isGuest={isGuest}
             onSignInClick={promptForRestrictedAction}
           />
-          {!isGuest && (
+          {!isGuest && !reviewerMode && (
             <MobileHabitNudge
               prompt={practiceToday.prompt}
               progress={practiceToday.progress}
@@ -744,10 +849,10 @@ function HomeContent() {
         onClose={() => setSignInModalOpen(false)}
       />
 
-      <PwaInstallPrompt dockToBottomNav={!isGuest} />
+      <PwaInstallPrompt dockToBottomNav={!isGuest && !reviewerMode} />
 
       {/* Recording Studio Modal - Only for authenticated users */}
-      {!isGuest && (
+      {!isGuest && !reviewerMode && (
         <RecordingStudio
           isOpen={recordingStudioOpen}
           onClose={() => setRecordingStudioOpen(false)}
@@ -767,7 +872,7 @@ function HomeContent() {
       )}
 
       {/* User Profile Panel - Only for authenticated users */}
-      {!isGuest && userProfile && (
+      {!isGuest && !reviewerMode && userProfile && (
         <UserProfile
           isOpen={profileOpen}
           onClose={() => setProfileOpen(false)}
@@ -786,7 +891,7 @@ function HomeContent() {
       )}
 
       {/* Profile Setup Modal - Shown after first login for email/phone users */}
-      {!isGuest && user && (
+      {!isGuest && !reviewerMode && user && (
         <ProfileSetupModal
           isOpen={showProfileSetup}
           user={user}
@@ -816,7 +921,7 @@ function HomeContent() {
       )}
 
       {/* Profile Edit Modal - Shown when user clicks Edit Profile */}
-      {!isGuest && user && (
+      {!isGuest && !reviewerMode && user && (
         <ProfileEditModal
           isOpen={showProfileEdit}
           user={user}
@@ -851,7 +956,7 @@ function HomeContent() {
       )}
 
       {/* Daily Challenge Banner */}
-      {!isGuest && (
+      {!isGuest && !reviewerMode && (
         <PitchGoalPanel
           isOpen={showPitchGoal}
           onClose={() => setShowPitchGoal(false)}
@@ -866,7 +971,7 @@ function HomeContent() {
       )}
 
       {/* Daily Challenge Banner - retained for backend challenge responses. */}
-      {!isGuest && (
+      {!isGuest && !reviewerMode && (
         <DailyChallengeBanner
           isOpen={showDailyChallenge}
           onClose={() => setShowDailyChallenge(false)}
@@ -874,7 +979,7 @@ function HomeContent() {
       )}
 
       {/* Achievement Unlock Celebration */}
-      {achievement && (
+      {!reviewerMode && achievement && (
         <AchievementUnlock
           badgeIcon={achievement.badgeIcon}
           badgeName={achievement.badgeName}

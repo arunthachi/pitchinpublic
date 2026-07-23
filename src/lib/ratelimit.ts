@@ -25,7 +25,7 @@ interface RateLimitResult {
 const memoryStore = new Map<string, number[]>();
 
 // Clean up expired entries every 5 minutes
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [key, timestamps] of memoryStore.entries()) {
     // Keep only timestamps from last hour (3600 seconds)
@@ -37,6 +37,7 @@ setInterval(() => {
     }
   }
 }, 300000); // Every 5 minutes
+cleanupTimer.unref();
 
 /**
  * In-memory rate limiter

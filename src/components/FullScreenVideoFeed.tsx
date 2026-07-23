@@ -583,7 +583,8 @@ export function FullScreenVideoFeed({
         const submittedFeedback = {
           id: data.feedback?.id || `${feedbackPitch.id}-${Date.now()}`,
           authorName: 'You',
-          authorRole: 'Founder',
+          authorRole: data.feedback?.reviewerRoleLabel || 'Reviewer',
+          reviewerRole: data.feedback?.reviewerRole || null,
           type: feedback.type,
           signal: data.feedback?.signal || feedback.signal,
           signals: data.feedback?.signals || feedback.signals,

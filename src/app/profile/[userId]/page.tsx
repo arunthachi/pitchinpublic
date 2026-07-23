@@ -417,6 +417,11 @@ export default function UserProfilePage() {
                   <span className="mt-3 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-500">
                     {reviewer.role}
                   </span>
+                  {reviewer.expertise.length ? (
+                    <p className="mt-1 truncate text-[10px] text-slate-500">
+                      {reviewer.expertise.slice(0, 2).join(' · ')}
+                    </p>
+                  ) : null}
                 </article>
               );
             }) : (

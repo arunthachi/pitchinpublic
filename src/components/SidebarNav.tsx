@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, Flame, PanelLeftClose, PanelLeftOpen, Plus, Trophy, UserRound, Video } from 'lucide-react';
+import { CalendarDays, ClipboardCheck, Flame, PanelLeftClose, PanelLeftOpen, Plus, Trophy, UserRound, Video } from 'lucide-react';
 import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
@@ -13,6 +13,9 @@ interface SidebarNavProps {
   guestActionLabel?: string;
   onChallengeClick?: () => void;
   canManageEvents?: boolean;
+  reviewerMode?: boolean;
+  canSwitchMode?: boolean;
+  onModeChange?: (mode: 'founder' | 'reviewer') => void;
 }
 
 interface Streak {
@@ -65,16 +68,21 @@ export function SidebarNav({
   guestActionLabel = 'Log in',
   onChallengeClick,
   canManageEvents = false,
+  reviewerMode = false,
+  canSwitchMode = false,
+  onModeChange,
 }: SidebarNavProps) {
   const [streak, setStreak] = useState<Streak | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const navItems = [
-    { label: 'Practice', icon: Video, active: true },
-    { label: 'My pitches', icon: UserRound, href: '/me' },
-    { label: 'Pitch rooms', icon: CalendarDays, href: '/events' },
-    { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
-  ];
-  const organizerItems = canManageEvents
+  const navItems = reviewerMode
+    ? [{ label: 'Review feed', icon: ClipboardCheck, active: true }]
+    : [
+        { label: 'Practice', icon: Video, active: true },
+        { label: 'My pitches', icon: UserRound, href: '/me' },
+        { label: 'Pitch rooms', icon: CalendarDays, href: '/events' },
+        { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
+      ];
+  const organizerItems = canManageEvents && !reviewerMode
     ? [
         { label: 'My rooms', icon: CalendarDays, href: '/events' },
         { label: 'Create event', icon: CalendarDays, href: '/events/new' },
@@ -94,7 +102,7 @@ export function SidebarNav({
   };
 
   useEffect(() => {
-    if (isGuest) {
+    if (isGuest || reviewerMode) {
       setStreak(null);
       return;
     }
@@ -119,7 +127,7 @@ export function SidebarNav({
       cancelled = true;
       window.removeEventListener(PITCH_CREATED_EVENT, fetchStreak);
     };
-  }, [isGuest]);
+  }, [isGuest, reviewerMode]);
 
   return (
     <aside
@@ -136,7 +144,9 @@ export function SidebarNav({
             <h1 className="text-lg font-heading font-bold text-white leading-none">
               Pitch in Public
             </h1>
-            <p className="text-xs text-slate-400 font-body">For Founders</p>
+            <p className="text-xs text-slate-400 font-body">
+              {reviewerMode ? 'Trusted Reviewer' : 'For Founders'}
+            </p>
           </div>
           </div>
         </Link>
@@ -231,20 +241,22 @@ export function SidebarNav({
         ) : null}
 
         {/* Post Button */}
-        <motion.button
-          onClick={onPostClick}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className={`cta-primary mt-6 flex w-full items-center justify-center gap-2 px-4 py-3.5 font-heading font-bold ${
-            isCollapsed ? 'lg:px-3' : ''
-          }`}
-          title={isCollapsed ? 'Record Pitch' : undefined}
-        >
-          <Plus className="w-5 h-5" />
-          <span className={`hidden lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>Record Pitch</span>
-        </motion.button>
+        {!reviewerMode ? (
+          <motion.button
+            onClick={onPostClick}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`cta-primary mt-6 flex w-full items-center justify-center gap-2 px-4 py-3.5 font-heading font-bold ${
+              isCollapsed ? 'lg:px-3' : ''
+            }`}
+            title={isCollapsed ? 'Record Pitch' : undefined}
+          >
+            <Plus className="w-5 h-5" />
+            <span className={`hidden lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>Record Pitch</span>
+          </motion.button>
+        ) : null}
 
-        {!isGuest && streak && !isCollapsed && (
+        {!isGuest && !reviewerMode && streak && !isCollapsed && (
           <div className="mt-6 hidden lg:block">
             <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-left">
               <div className="mb-3 flex items-center justify-between gap-2">
@@ -290,6 +302,17 @@ export function SidebarNav({
 
       {/* Bottom section - invite access for guests. Settings stays hidden until it is functional. */}
       <div className="border-t border-white/10 p-2 lg:p-4">
+        {!isGuest && canSwitchMode ? (
+          <button
+            type="button"
+            onClick={() => onModeChange?.(reviewerMode ? 'founder' : 'reviewer')}
+            className={`mb-3 flex min-h-11 w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.055] px-3 text-sm font-bold text-slate-200 transition hover:border-neon-cyan/35 hover:text-white ${isCollapsed ? 'lg:px-2' : ''}`}
+            title={reviewerMode ? 'Switch to founder mode' : 'Switch to reviewer mode'}
+          >
+            <span className={isCollapsed ? 'lg:hidden' : ''}>{reviewerMode ? 'Founder mode' : 'Reviewer mode'}</span>
+            <span className={`hidden ${isCollapsed ? 'lg:block' : ''}`} aria-hidden="true">⇄</span>
+          </button>
+        ) : null}
         {isGuest ? (
           <>
             <motion.button

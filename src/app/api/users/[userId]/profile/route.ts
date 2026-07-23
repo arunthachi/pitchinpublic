@@ -57,8 +57,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
         website,
         twitter_handle,
         linkedin_url,
-        created_at,
-        email
+        created_at
       `
       )
       .eq(isUuidLike(params.userId) ? 'id' : 'public_handle', params.userId)
@@ -87,19 +86,19 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
     const { count: followersCount, error: followerError } = await supabase
       .from('follows')
       .select('id', { count: 'exact', head: true })
-      .eq('following_id', params.userId);
+      .eq('following_id', profile.id);
 
     // Fetch following count
     const { count: followingCount, error: followingError } = await supabase
       .from('follows')
       .select('id', { count: 'exact', head: true })
-      .eq('follower_id', params.userId);
+      .eq('follower_id', profile.id);
 
     // Fetch pitches count
     const { count: pitchesCount, error: pitchesError } = await supabase
       .from('pitches')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', params.userId)
+      .eq('user_id', profile.id)
       .eq('deleted_at', null);
 
     return NextResponse.json({
@@ -108,7 +107,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
         id: profile.id,
         publicHandle: profile.public_handle || profile.username || profile.id,
         name: profile.full_name || 'Unknown User',
-        email: profile.email || '',
         avatar: profile.avatar_url || '',
         bio: profile.bio || null,
         website: profile.website || null,

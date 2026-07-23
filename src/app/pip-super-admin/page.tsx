@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
+  BadgeCheck,
   CalendarDays,
   Check,
   Copy,
@@ -92,6 +93,42 @@ type AdminOverview = {
   };
 };
 
+type ReviewerRole = 'investor' | 'product_leader' | 'past_judge' | 'mentor' | 'operator' | 'other';
+type ReviewerInvite = {
+  actionKey: string;
+  email: string;
+  reviewerRoles: ReviewerRole[];
+  expertise: string[];
+  title: string | null;
+  organization: string | null;
+  status: string;
+  acceptedAt: string | null;
+  expiresAt: string;
+  emailStatus: string;
+  emailError: string | null;
+  emailSentAt: string | null;
+  createdAt: string;
+};
+type TrustedReviewer = {
+  email: string;
+  name: string | null;
+  reviewerRoles: ReviewerRole[];
+  expertise: string[];
+  title: string | null;
+  organization: string | null;
+  grantedAt: string;
+  eventAccess: Array<{ name: string; slug: string }>;
+};
+
+const REVIEWER_ROLE_OPTIONS: Array<{ value: ReviewerRole; label: string }> = [
+  { value: 'investor', label: 'Investor' },
+  { value: 'product_leader', label: 'Product leader' },
+  { value: 'past_judge', label: 'Past judge' },
+  { value: 'mentor', label: 'Mentor' },
+  { value: 'operator', label: 'Operator' },
+  { value: 'other', label: 'Other' },
+];
+
 function formatDate(value?: string | null) {
   if (!value) return 'None';
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
@@ -156,7 +193,7 @@ export default function AdminPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [loadState, setLoadState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [error, setError] = useState('');
-  const [inviteTab, setInviteTab] = useState<'founders' | 'organizers'>('founders');
+  const [inviteTab, setInviteTab] = useState<'founders' | 'organizers' | 'reviewers'>('founders');
   const [organizerInviteState, setOrganizerInviteState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [organizerInviteMessage, setOrganizerInviteMessage] = useState('');
   const [organizerInviteUrl, setOrganizerInviteUrl] = useState('');
@@ -165,6 +202,13 @@ export default function AdminPage() {
   const [founderInviteUrl, setFounderInviteUrl] = useState('');
   const [founderActionId, setFounderActionId] = useState<string | null>(null);
   const [organizerActionId, setOrganizerActionId] = useState<string | null>(null);
+  const [reviewerInvites, setReviewerInvites] = useState<ReviewerInvite[]>([]);
+  const [reviewers, setReviewers] = useState<TrustedReviewer[]>([]);
+  const [reviewerInviteState, setReviewerInviteState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [reviewerInviteMessage, setReviewerInviteMessage] = useState('');
+  const [reviewerInviteUrl, setReviewerInviteUrl] = useState('');
+  const [reviewerActionId, setReviewerActionId] = useState<string | null>(null);
+  const [reviewerEventSelection, setReviewerEventSelection] = useState<Record<string, string>>({});
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState('');
   const [organizerForm, setOrganizerForm] = useState({
@@ -180,6 +224,15 @@ export default function AdminPage() {
     expiresInDays: 30,
     sendEmail: true,
   });
+  const [reviewerForm, setReviewerForm] = useState({
+    email: '',
+    reviewerRoles: ['mentor'] as ReviewerRole[],
+    expertise: '',
+    title: '',
+    organization: '',
+    expiresInDays: 30,
+    sendEmail: true,
+  });
 
   const isSignedOut = !loading && !user;
 
@@ -188,14 +241,22 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/pip-super-admin/overview', { cache: 'no-store' });
-      const data = await response.json();
+      const [overviewResponse, reviewerResponse] = await Promise.all([
+        fetch('/api/pip-super-admin/overview', { cache: 'no-store' }),
+        fetch('/api/pip-super-admin/reviewer-invites', { cache: 'no-store' }),
+      ]);
+      const [data, reviewerData] = await Promise.all([overviewResponse.json(), reviewerResponse.json()]);
 
-      if (!response.ok || !data.success) {
+      if (!overviewResponse.ok || !data.success) {
         throw new Error(data.error || 'Could not load admin dashboard.');
+      }
+      if (!reviewerResponse.ok || !reviewerData.success) {
+        throw new Error(reviewerData.error || 'Could not load trusted reviewers.');
       }
 
       setOverview(data);
+      setReviewerInvites(reviewerData.invitations || []);
+      setReviewers(reviewerData.reviewers || []);
       setLoadState('idle');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load admin dashboard.');
@@ -285,6 +346,101 @@ export default function AdminPage() {
     } catch (err) {
       setFounderInviteState('error');
       setFounderInviteMessage(err instanceof Error ? err.message : 'Could not create founder invite.');
+    }
+  };
+
+  const createReviewerInvite = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setReviewerInviteState('loading');
+    setReviewerInviteMessage('');
+    setReviewerInviteUrl('');
+    try {
+      const response = await fetch('/api/pip-super-admin/reviewer-invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...reviewerForm,
+          expertise: reviewerForm.expertise.split(',').map((item) => item.trim()).filter(Boolean),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Could not create reviewer invite.');
+      setReviewerInviteState('success');
+      setReviewerInviteUrl(data.inviteUrl || '');
+      setReviewerInviteMessage(data.emailStatus === 'sent' ? 'Reviewer invite created and emailed.' : 'Reviewer invite created. Copy the private link below.');
+      setReviewerForm({ email: '', reviewerRoles: ['mentor'], expertise: '', title: '', organization: '', expiresInDays: 30, sendEmail: true });
+      await loadOverview();
+    } catch (err) {
+      setReviewerInviteState('error');
+      setReviewerInviteMessage(err instanceof Error ? err.message : 'Could not create reviewer invite.');
+    }
+  };
+
+  const reviewerInviteAction = async (actionKey: string, action: 'send' | 'revoke') => {
+    setReviewerActionId(actionKey);
+    setReviewerInviteMessage('');
+    try {
+      const response = await fetch(`/api/pip-super-admin/reviewer-invites/${actionKey}/${action}`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || `Could not ${action} reviewer invite.`);
+      setReviewerInviteState('success');
+      setReviewerInviteUrl(data.inviteUrl || '');
+      setReviewerInviteMessage(action === 'send' ? 'Reviewer invite email sent.' : 'Reviewer invite revoked.');
+      await loadOverview();
+    } catch (err) {
+      setReviewerInviteState('error');
+      setReviewerInviteMessage(err instanceof Error ? err.message : `Could not ${action} reviewer invite.`);
+    } finally {
+      setReviewerActionId(null);
+    }
+  };
+
+  const updateReviewerEventAccess = async (reviewerEmail: string, eventSlug: string, grant: boolean) => {
+    const actionKey = `${reviewerEmail}:${eventSlug}`;
+    setReviewerActionId(actionKey);
+    setReviewerInviteMessage('');
+    try {
+      const response = await fetch('/api/pip-super-admin/reviewer-event-access', {
+        method: grant ? 'POST' : 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewerEmail, eventSlug }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Could not update private event access.');
+      setReviewerInviteState('success');
+      setReviewerInviteMessage(grant ? 'Private event access granted.' : 'Private event access removed.');
+      if (grant) {
+        setReviewerEventSelection((current) => ({ ...current, [reviewerEmail]: '' }));
+      }
+      await loadOverview();
+    } catch (err) {
+      setReviewerInviteState('error');
+      setReviewerInviteMessage(err instanceof Error ? err.message : 'Could not update private event access.');
+    } finally {
+      setReviewerActionId(null);
+    }
+  };
+
+  const revokeReviewerAccess = async (reviewerEmail: string) => {
+    if (!window.confirm(`Revoke trusted reviewer access for ${reviewerEmail}?`)) return;
+    setReviewerActionId(`revoke:${reviewerEmail}`);
+    setReviewerInviteMessage('');
+    try {
+      const response = await fetch('/api/pip-super-admin/reviewer-access', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewerEmail }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Could not revoke reviewer access.');
+      setReviewerInviteState('success');
+      setReviewerInviteMessage('Trusted reviewer access revoked.');
+      await loadOverview();
+    } catch (err) {
+      setReviewerInviteState('error');
+      setReviewerInviteMessage(err instanceof Error ? err.message : 'Could not revoke reviewer access.');
+    } finally {
+      setReviewerActionId(null);
     }
   };
 
@@ -458,9 +614,154 @@ export default function AdminPage() {
             >
               Organizer invites
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={inviteTab === 'reviewers'}
+              onClick={() => setInviteTab('reviewers')}
+              className={`min-h-11 flex-1 rounded-full px-5 text-sm font-black transition sm:flex-none ${inviteTab === 'reviewers' ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/[0.06]'}`}
+            >
+              Trusted reviewers
+            </button>
           </div>
 
-          {inviteTab === 'founders' ? (
+          {inviteTab === 'reviewers' ? (
+            <div className="mt-4 space-y-6" role="tabpanel">
+              <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+                <form onSubmit={createReviewerInvite} className="glass-panel rounded-[2rem] p-5 sm:p-6">
+                  <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-neon-cyan">Review supply</p>
+                  <h2 className="mt-2 font-heading text-3xl font-black">Invite a trusted reviewer</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">Reviewers see community-published pitches. Private event access is granted separately after they accept.</p>
+                  <div className="mt-5 space-y-4">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-slate-200">Email</span>
+                      <input type="email" required value={reviewerForm.email} onChange={(event) => setReviewerForm({ ...reviewerForm, email: event.target.value })} className="input-dark" placeholder="reviewer@example.com" />
+                    </label>
+                    <fieldset>
+                      <legend className="mb-2 text-sm font-bold text-slate-200">Roles <span className="font-normal text-slate-500">(select all that apply)</span></legend>
+                      <div className="flex flex-wrap gap-2">
+                        {REVIEWER_ROLE_OPTIONS.map((role) => {
+                          const selected = reviewerForm.reviewerRoles.includes(role.value);
+                          return (
+                            <button
+                              key={role.value}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => setReviewerForm((current) => ({
+                                ...current,
+                                reviewerRoles: selected
+                                  ? current.reviewerRoles.filter((item) => item !== role.value)
+                                  : [...current.reviewerRoles, role.value],
+                              }))}
+                              className={`min-h-11 rounded-full border px-4 text-sm font-bold transition ${selected ? 'border-neon-cyan/50 bg-neon-cyan/15 text-white' : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]'}`}
+                            >
+                              {role.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-bold text-slate-200">Title <span className="font-normal text-slate-500">(optional)</span></span>
+                        <input value={reviewerForm.title} onChange={(event) => setReviewerForm({ ...reviewerForm, title: event.target.value })} className="input-dark" placeholder="Partner, Product leader" />
+                      </label>
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-bold text-slate-200">Organization <span className="font-normal text-slate-500">(optional)</span></span>
+                        <input value={reviewerForm.organization} onChange={(event) => setReviewerForm({ ...reviewerForm, organization: event.target.value })} className="input-dark" placeholder="Company or fund" />
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-slate-200">Expertise <span className="font-normal text-slate-500">(comma separated)</span></span>
+                      <input value={reviewerForm.expertise} onChange={(event) => setReviewerForm({ ...reviewerForm, expertise: event.target.value })} className="input-dark" placeholder="B2B SaaS, fintech, go-to-market" />
+                    </label>
+                    <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-bold text-slate-200">Expires in days</span>
+                        <input type="number" min={1} max={90} value={reviewerForm.expiresInDays} onChange={(event) => setReviewerForm({ ...reviewerForm, expiresInDays: Number(event.target.value) })} className="input-dark" />
+                      </label>
+                      <label className="flex min-h-14 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+                        <input type="checkbox" checked={reviewerForm.sendEmail} onChange={(event) => setReviewerForm({ ...reviewerForm, sendEmail: event.target.checked })} className="h-5 w-5 accent-neon-cyan" />
+                        <span className="text-sm font-bold text-slate-200">Send email</span>
+                      </label>
+                    </div>
+                    <InviteNotice state={reviewerInviteState} message={reviewerInviteMessage} />
+                    {reviewerInviteUrl ? <InviteUrl url={reviewerInviteUrl} copied={copiedUrl === reviewerInviteUrl} onCopy={copyInviteUrl} /> : null}
+                    <button disabled={reviewerInviteState === 'loading' || reviewerForm.reviewerRoles.length === 0} className="cta-primary inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full px-5 py-4 font-heading font-black disabled:opacity-50">
+                      {reviewerInviteState === 'loading' ? <Loader2 className="h-5 w-5 animate-spin" /> : <BadgeCheck className="h-5 w-5" />}
+                      Send reviewer invite
+                    </button>
+                  </div>
+                </form>
+
+                <InviteHistory title="Reviewer invites" empty="No reviewer invites yet.">
+                  {reviewerInvites.length ? reviewerInvites.map((invite) => (
+                    <div key={invite.actionKey} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-heading text-lg font-black">{invite.email}</p>
+                          <p className="mt-1 text-sm text-slate-400">{[invite.title, invite.organization].filter(Boolean).join(' · ') || 'Trusted reviewer'}</p>
+                        </div>
+                        <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-200">{invite.status}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {invite.reviewerRoles.map((role) => <span key={role} className="rounded-full border border-neon-cyan/20 bg-neon-cyan/10 px-3 py-1 text-xs font-bold text-cyan-100">{REVIEWER_ROLE_OPTIONS.find((option) => option.value === role)?.label || role}</span>)}
+                      </div>
+                      {invite.expertise.length ? <p className="mt-3 text-sm text-slate-400">Expertise: {invite.expertise.join(', ')}</p> : null}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${emailStatusClass(invite.emailStatus)}`}>{formatEmailStatus(invite.emailStatus)}</span>
+                        <span className="text-xs text-slate-500">Expires {formatDate(invite.expiresAt)}</span>
+                      </div>
+                      {invite.emailError ? <p className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100">{readableEmailError(invite.emailError)}</p> : null}
+                      {invite.status === 'pending' ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button type="button" disabled={reviewerActionId === invite.actionKey} onClick={() => reviewerInviteAction(invite.actionKey, 'send')} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 text-sm font-bold text-slate-100"><Mail className="h-4 w-4 text-neon-cyan" /> Resend</button>
+                          <button type="button" disabled={reviewerActionId === invite.actionKey} onClick={() => reviewerInviteAction(invite.actionKey, 'revoke')} className="min-h-11 rounded-full border border-red-400/20 px-4 text-sm font-bold text-red-200">Revoke</button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )) : <EmptyState text="No reviewer invites yet." />}
+                </InviteHistory>
+              </div>
+
+              <Panel title="Active trusted reviewers">
+                {reviewers.length ? reviewers.map((reviewer) => {
+                  const selection = reviewerEventSelection[reviewer.email] || '';
+                  return (
+                    <div key={reviewer.email} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div><p className="font-heading text-lg font-black">{reviewer.name || reviewer.email}</p><p className="text-sm text-slate-400">{reviewer.email}</p></div>
+                        <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-200">Active</span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-300">{[reviewer.title, reviewer.organization].filter(Boolean).join(' · ') || 'Trusted reviewer'}</p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {reviewer.eventAccess.map((event) => (
+                          <button key={event.slug} type="button" disabled={reviewerActionId === `${reviewer.email}:${event.slug}`} onClick={() => updateReviewerEventAccess(reviewer.email, event.slug, false)} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-slate-200" title="Remove private event access">
+                            {event.name} <X className="h-3.5 w-3.5" />
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                        <select value={selection} onChange={(event) => setReviewerEventSelection((current) => ({ ...current, [reviewer.email]: event.target.value }))} className="input-dark" aria-label={`Private event for ${reviewer.email}`}>
+                          <option value="">Grant a private event...</option>
+                          {(overview?.events || []).filter((event) => !reviewer.eventAccess.some((grant) => grant.slug === event.slug)).map((event) => <option key={event.slug} value={event.slug}>{event.name}</option>)}
+                        </select>
+                        <button type="button" disabled={!selection || reviewerActionId === `${reviewer.email}:${selection}`} onClick={() => selection && updateReviewerEventAccess(reviewer.email, selection, true)} className="btn-glass min-h-12 rounded-full px-5 font-bold disabled:opacity-50">Grant access</button>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={reviewerActionId === `revoke:${reviewer.email}`}
+                        onClick={() => revokeReviewerAccess(reviewer.email)}
+                        className="mt-4 min-h-11 rounded-full border border-red-400/20 px-4 text-sm font-bold text-red-200 transition hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        Revoke reviewer access
+                      </button>
+                    </div>
+                  );
+                }) : <EmptyState text="No reviewers have accepted an invite yet." />}
+              </Panel>
+            </div>
+          ) : inviteTab === 'founders' ? (
             <div className="mt-4 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]" role="tabpanel">
               <form onSubmit={createFounderInvite} className="glass-panel rounded-[2rem] p-5 sm:p-6">
                 <p className="font-heading text-xs font-black uppercase tracking-[0.2em] text-neon-lime">Independent founder</p>

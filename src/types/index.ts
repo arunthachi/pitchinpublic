@@ -11,7 +11,8 @@ export type ReviewerRole =
   | 'judge'
   | 'organizer'
   | 'experienced_reviewer'
-  | 'public_reviewer';
+  | 'public_reviewer'
+  | 'trusted_reviewer';
 export type ReviewAssignmentStatus = 'pending' | 'started' | 'submitted' | 'skipped' | 'expired';
 export type FeedbackQualityRating = 'useful' | 'generic' | 'not_helpful';
 
@@ -190,6 +191,12 @@ export interface LegacyFeedback {
   notes: string;
   createdAt: string;
   reviewerRole?: ReviewerRole | string | null;
+  reviewerBadge?: {
+    title?: string | null;
+    organization?: string | null;
+    roles?: string[];
+    expertise?: string[];
+  } | null;
   displayRoleOnly?: boolean;
   canRateQuality?: boolean;
   qualityRating?: FeedbackQualityRating | null;

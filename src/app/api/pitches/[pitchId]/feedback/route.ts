@@ -303,13 +303,26 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     );
   } catch (error) {
     console.error('Error creating feedback:', error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : error && typeof error === 'object' && 'message' in error
+          ? String(error.message)
+          : 'Failed to create feedback';
+    const alreadyReviewed = /already reviewed this pitch/i.test(message);
+    const accessDenied = /access denied|no longer available/i.test(message);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to create feedback',
+        error: alreadyReviewed
+          ? 'You already reviewed this pitch.'
+          : accessDenied
+            ? 'This pitch is no longer available for review.'
+            : message,
+        code: alreadyReviewed ? 'already_reviewed' : accessDenied ? 'review_access_revoked' : 'feedback_failed',
       },
       {
-        status: 500,
+        status: alreadyReviewed ? 409 : accessDenied ? 403 : 500,
         headers: formatRateLimitHeaders(result),
       }
     );
