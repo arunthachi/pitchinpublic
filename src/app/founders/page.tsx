@@ -62,6 +62,24 @@ export default function FoundersPage() {
             />
           </div>
         </div>
+        <nav
+          aria-label="Choose audience"
+          className="mx-4 mb-3 grid grid-cols-2 rounded-lg border border-white/10 bg-white/[0.04] p-1 sm:hidden"
+        >
+          <Link
+            href="/founders"
+            aria-current="page"
+            className="rounded-md bg-white/10 px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] text-white"
+          >
+            For founders
+          </Link>
+          <Link
+            href="/for-events"
+            className="rounded-md px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            For organizers
+          </Link>
+        </nav>
       </header>
 
       <main>

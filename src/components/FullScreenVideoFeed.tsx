@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { LegacyPitch, FeedbackFormData } from '@/types';
 import { VideoPlayer } from './VideoPlayer';
 import { FloatingPitchInfo } from './FloatingPitchInfo';
@@ -17,7 +17,6 @@ interface FullScreenVideoFeedProps {
   reviewRequest?: { publicPitchId: string; nonce: number } | null;
   onAssignedReviewComplete?: (publicPitchId: string) => Promise<void> | void;
   onReviewNext?: () => void;
-  onExitReviewMode?: () => void;
   onCurrentPitchChange?: (pitch: LegacyPitch, handlers: {
     onRoast: () => void;
     onToast: () => void;
@@ -150,7 +149,6 @@ export function FullScreenVideoFeed({
   reviewRequest = null,
   onAssignedReviewComplete,
   onReviewNext,
-  onExitReviewMode,
   onCurrentPitchChange,
   hideReactions = false,
   isGuest = false,
@@ -174,6 +172,7 @@ export function FullScreenVideoFeed({
   const feedbackSubmissionKeyRef = useRef<string | null>(null);
   const feedbackPitchRef = useRef<{ id: string; publicId?: string } | null>(null);
   const reactionBurstTimeoutRef = useRef<number | null>(null);
+  const reviewCompleteTimeoutRef = useRef<number | null>(null);
   const reactionPendingRef = useRef(false);
 
   const triggerReactionBurst = useCallback((type: ReactionBurstType) => {
@@ -204,6 +203,9 @@ export function FullScreenVideoFeed({
     return () => {
       if (reactionBurstTimeoutRef.current) {
         window.clearTimeout(reactionBurstTimeoutRef.current);
+      }
+      if (reviewCompleteTimeoutRef.current) {
+        window.clearTimeout(reviewCompleteTimeoutRef.current);
       }
     };
   }, []);
@@ -610,6 +612,14 @@ export function FullScreenVideoFeed({
         if (completedReviewPublicId && completedReviewPublicId === feedbackPitch.publicId) {
           setReviewComplete(true);
           await onAssignedReviewComplete?.(completedReviewPublicId);
+          if (reviewCompleteTimeoutRef.current) {
+            window.clearTimeout(reviewCompleteTimeoutRef.current);
+          }
+          reviewCompleteTimeoutRef.current = window.setTimeout(() => {
+            setReviewComplete(false);
+            onReviewNext?.();
+            reviewCompleteTimeoutRef.current = null;
+          }, 1400);
         }
         return true;
       }
@@ -832,37 +842,17 @@ export function FullScreenVideoFeed({
       <AnimatePresence>
         {reviewComplete && (
           <motion.div
-            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5rem)] z-[75] rounded-2xl border border-white/15 bg-[#101820]/94 p-4 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:w-[min(26rem,calc(100%-2rem))] sm:-translate-x-1/2"
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            className="pointer-events-none absolute left-1/2 top-[calc(env(safe-area-inset-top)+1rem)] z-[75] flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-white/15 bg-[#101820]/90 px-4 py-2.5 text-sm font-bold text-white shadow-xl backdrop-blur-xl"
             role="status"
             aria-live="polite"
           >
-            <p className="font-heading text-lg font-black text-white">Useful signal sent</p>
-            <p className="mt-1 text-sm text-slate-300">Your feedback is saved and this review is complete.</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setReviewComplete(false);
-                  onExitReviewMode?.();
-                }}
-                className="btn-glass min-h-11 rounded-xl px-3 text-sm font-bold text-white"
-              >
-                Back to Stage
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setReviewComplete(false);
-                  onReviewNext?.();
-                }}
-                className="min-h-11 rounded-xl bg-neon-cyan px-3 text-sm font-black text-slate-950"
-              >
-                Review next
-              </button>
-            </div>
+            <span className="grid size-6 place-items-center rounded-full bg-toast text-slate-950">
+              <Check className="size-4" strokeWidth={3} aria-hidden="true" />
+            </span>
+            Useful signal sent
           </motion.div>
         )}
             {reactionBurst && (

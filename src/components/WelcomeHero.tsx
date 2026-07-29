@@ -187,10 +187,27 @@ export function WelcomeHero({ showSignIn = false, onSignIn }: WelcomeHeroProps) 
             )}
           </div>
         </div>
+        <nav
+          aria-label="Choose audience"
+          className="mx-4 mb-3 grid grid-cols-2 rounded-lg border border-white/10 bg-white/[0.04] p-1 sm:hidden"
+        >
+          <Link
+            href="/founders"
+            className="rounded-md px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            For founders
+          </Link>
+          <Link
+            href="/for-events"
+            className="rounded-md px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.1em] text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            For organizers
+          </Link>
+        </nav>
       </header>
 
       <main>
-        <section className="relative overflow-hidden border-b border-white/10 bg-[linear-gradient(90deg,rgba(0,0,0,0.92),rgba(0,0,0,0.76)_42%,rgba(0,0,0,0.35)),url('https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=1800&q=80')] bg-cover bg-center pt-24">
+        <section className="relative overflow-hidden border-b border-white/10 bg-[linear-gradient(90deg,rgba(0,0,0,0.92),rgba(0,0,0,0.76)_42%,rgba(0,0,0,0.35)),url('https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=1800&q=80')] bg-cover bg-center pt-36 sm:pt-24">
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80" />
           <div className="relative mx-auto grid max-w-7xl gap-10 px-4 pb-12 pt-10 sm:px-6 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-16 lg:pt-16">
             <div className="flex flex-col justify-center">

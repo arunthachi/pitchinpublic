@@ -747,7 +747,6 @@ function HomeContent() {
               reviewRequest={reviewRequest}
               onAssignedReviewComplete={handleAssignedReviewComplete}
               onReviewNext={handleReviewNext}
-              onExitReviewMode={() => setReviewRequest(null)}
               hideReactions={true}
               onCurrentPitchChange={handlePitchChange}
             />
@@ -818,7 +817,6 @@ function HomeContent() {
             reviewRequest={reviewRequest}
             onAssignedReviewComplete={handleAssignedReviewComplete}
             onReviewNext={handleReviewNext}
-            onExitReviewMode={() => setReviewRequest(null)}
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
             isGuest={isGuest}
