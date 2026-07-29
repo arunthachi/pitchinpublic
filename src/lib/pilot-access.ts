@@ -117,6 +117,37 @@ export async function isEmailAllowedForPilot(
     return true;
   }
 
+  // Accepted founder invitations become durable pilot_members rows. The OTP
+  // gate runs before Supabase can identify the user, so resolve that active
+  // membership by verified email instead of relying on an old invite status.
+  const { data: matchingProfiles, error: matchingProfilesError } = await adminSupabase
+    .from('profiles')
+    .select('id')
+    .ilike('email', normalizedEmail)
+    .limit(10);
+
+  if (matchingProfilesError) {
+    console.error('Pilot access profile lookup failed:', matchingProfilesError);
+  }
+
+  const matchingProfileIds = (matchingProfiles || []).map((profile) => profile.id);
+  if (matchingProfileIds.length > 0) {
+    const { data: pilotMembership, error: pilotMembershipError } = await adminSupabase
+      .from('pilot_members')
+      .select('user_id')
+      .in('user_id', matchingProfileIds)
+      .limit(1)
+      .maybeSingle();
+
+    if (pilotMembershipError && pilotMembershipError.code !== '42P01') {
+      console.error('Pilot access membership-by-email lookup failed:', pilotMembershipError);
+    }
+
+    if (pilotMembership) {
+      return true;
+    }
+  }
+
   const { data: organizerInvite, error: organizerInviteError } = await adminSupabase
     .from('organizer_invitations')
     .select('id,expires_at,status')
