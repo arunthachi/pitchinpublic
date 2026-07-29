@@ -1,4 +1,4 @@
-import type { User } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { createServiceSupabase, normalizeEmail } from '@/lib/admin';
 export { INVITE_ONLY_MESSAGE } from '@/lib/access-copy';
 
@@ -81,6 +81,41 @@ export async function isValidPilotInvitePath(nextPath?: string | null, email?: s
   return !normalizedInviteEmail || normalizedInviteEmail === normalizedEmail;
 }
 
+export async function hasPilotMembershipForEmail(
+  adminSupabase: SupabaseClient,
+  email?: string | null
+) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return false;
+
+  const { data: matchingProfiles, error: matchingProfilesError } = await adminSupabase
+    .from('profiles')
+    .select('id')
+    .eq('email', normalizedEmail)
+    .limit(10);
+
+  if (matchingProfilesError) {
+    console.error('Pilot access profile lookup failed:', matchingProfilesError);
+    return false;
+  }
+
+  const matchingProfileIds = (matchingProfiles || []).map((profile) => profile.id);
+  if (matchingProfileIds.length === 0) return false;
+
+  const { data: pilotMembership, error: pilotMembershipError } = await adminSupabase
+    .from('pilot_members')
+    .select('user_id')
+    .in('user_id', matchingProfileIds)
+    .limit(1)
+    .maybeSingle();
+
+  if (pilotMembershipError && pilotMembershipError.code !== '42P01') {
+    console.error('Pilot access membership-by-email lookup failed:', pilotMembershipError);
+  }
+
+  return Boolean(pilotMembership);
+}
+
 export async function isEmailAllowedForPilot(
   email?: string | null,
   nextPath?: string | null,
@@ -120,32 +155,8 @@ export async function isEmailAllowedForPilot(
   // Accepted founder invitations become durable pilot_members rows. The OTP
   // gate runs before Supabase can identify the user, so resolve that active
   // membership by verified email instead of relying on an old invite status.
-  const { data: matchingProfiles, error: matchingProfilesError } = await adminSupabase
-    .from('profiles')
-    .select('id')
-    .ilike('email', normalizedEmail)
-    .limit(10);
-
-  if (matchingProfilesError) {
-    console.error('Pilot access profile lookup failed:', matchingProfilesError);
-  }
-
-  const matchingProfileIds = (matchingProfiles || []).map((profile) => profile.id);
-  if (matchingProfileIds.length > 0) {
-    const { data: pilotMembership, error: pilotMembershipError } = await adminSupabase
-      .from('pilot_members')
-      .select('user_id')
-      .in('user_id', matchingProfileIds)
-      .limit(1)
-      .maybeSingle();
-
-    if (pilotMembershipError && pilotMembershipError.code !== '42P01') {
-      console.error('Pilot access membership-by-email lookup failed:', pilotMembershipError);
-    }
-
-    if (pilotMembership) {
-      return true;
-    }
+  if (await hasPilotMembershipForEmail(adminSupabase, normalizedEmail)) {
+    return true;
   }
 
   const { data: organizerInvite, error: organizerInviteError } = await adminSupabase
