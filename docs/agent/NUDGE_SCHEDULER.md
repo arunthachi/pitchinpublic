@@ -1,11 +1,18 @@
-# Nudge Scheduler
+# Role-Aware Notification Coordinator
 
 ## Decision
 
-Pitch in Public sends founder nudges according to each founder's selected local
-time and time zone. The sweep runs hourly at five minutes past the hour. A
-two-hour delivery window tolerates a delayed invocation without sending stale
+Pitch in Public runs one role-aware email coordinator. It sends the most
+important eligible message for each user according to that user's selected
+local time and time zone. The sweep runs hourly at five minutes past the hour.
+A two-hour delivery window tolerates a delayed invocation without sending stale
 messages later in the day.
+
+The coordinator enforces a 20-hour cooldown across all automated,
+nontransactional email. If a user has multiple roles, deadline exceptions beat
+weekly summaries, and weekly summaries beat routine founder practice prompts.
+Transactional invitations and organizer announcements are separate from this
+coordinator.
 
 Supabase Cron owns hourly scheduling. Vercel Cron remains a once-daily fallback
 because the current Vercel Hobby plan does not permit hourly cron jobs. The
@@ -68,17 +75,29 @@ limit 5;
 ```
 
 The endpoint should return HTTP 200. A valid run may send zero emails when no
-founder is currently inside their local delivery window. Confirm actual sends
+recipient is currently inside their local delivery window. Confirm actual sends
 and dedupe outcomes in `nudge_events`.
 
 ## Operational Behavior
 
-- The app decides eligibility using the founder's time zone, local time, and
-  enabled preference.
-- Daily dedupe keys are based on the founder's local calendar date.
-- Event deadline reminders have independent event/user dedupe keys.
-- Daily prompts and event deadline reminders both respect the founder's selected
-  local delivery time.
+- Founder messages:
+  - Daily practice prompt when an active practice goal exists.
+  - Event deadline reminders at 7 days, 72 hours, and 24 hours.
+  - Event reminders stop once a founder has a submitted or locked take.
+- Reviewer messages:
+  - Due-soon alert when an assigned review is due within 24 hours.
+  - Tuesday digest when outstanding assigned reviews remain.
+- Organizer/admin messages:
+  - Monday event-readiness digest.
+  - 72-hour and 24-hour exception alerts only when founder submissions are
+    missing.
+- Every role can independently pause its automated messages. A master email
+  switch pauses all automated messages.
+- All automated messages respect the recipient's selected local delivery time.
+- Daily and weekly dedupe keys use the recipient's local calendar.
+- Event reminders use milestone-specific event/user dedupe keys.
+- Email links use public event slugs. Database UUIDs are never placed in
+  recipient-facing URLs.
 - Provider failures are marked `failed` and may be reserved once more by the
   next hourly sweep; sent or currently queued rows remain deduplicated.
 - Invalid stored time zones or times fall back to 9:00 AM America/New_York so a

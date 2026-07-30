@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getLocalDateKey, shouldSendDailyNudge } from './nudges';
+import {
+  getEventDashboardUrl,
+  getEventReminderMilestone,
+  getEventRoomUrl,
+  getLocalDateKey,
+  getLocalWeekday,
+  getLocalWeekKey,
+  shouldSendDailyNudge,
+} from './nudges';
 
 test('sends within the selected local-time window', () => {
   const now = new Date('2026-07-19T13:35:00.000Z'); // 9:35 AM in New York
@@ -77,4 +85,72 @@ test('falls back safely for invalid stored preferences', () => {
     true
   );
   assert.equal(getLocalDateKey(now, 'not-a-timezone'), '2026-07-19');
+});
+
+test('selects the nearest event reminder milestone without sending after the deadline', () => {
+  const now = new Date('2026-07-20T12:00:00.000Z');
+
+  assert.equal(
+    getEventReminderMilestone({
+      now,
+      submissionDeadline: '2026-07-27T12:00:00.000Z',
+    }),
+    '7d'
+  );
+  assert.equal(
+    getEventReminderMilestone({
+      now,
+      submissionDeadline: '2026-07-23T12:00:00.000Z',
+    }),
+    '72h'
+  );
+  assert.equal(
+    getEventReminderMilestone({
+      now,
+      submissionDeadline: '2026-07-21T12:00:00.000Z',
+    }),
+    '24h'
+  );
+  assert.equal(
+    getEventReminderMilestone({
+      now,
+      submissionDeadline: '2026-07-20T11:59:59.000Z',
+    }),
+    null
+  );
+});
+
+test('calculates weekly digest dates in the recipient timezone', () => {
+  const now = new Date('2026-07-28T03:30:00.000Z');
+
+  assert.equal(getLocalWeekday(now, 'America/New_York'), 'Mon');
+  assert.equal(getLocalWeekKey(now, 'America/New_York'), '2026-07-27');
+  assert.equal(getLocalWeekday(now, 'Asia/Tokyo'), 'Tue');
+  assert.equal(getLocalWeekKey(now, 'Asia/Tokyo'), '2026-07-27');
+});
+
+test('notification links use public event slugs instead of database identifiers', () => {
+  const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL = 'https://staging-pip.pitchinpublic.io/';
+
+  try {
+    assert.equal(
+      getEventRoomUrl('founder-sprint-july'),
+      'https://staging-pip.pitchinpublic.io/events/founder-sprint-july'
+    );
+    assert.equal(
+      getEventDashboardUrl('founder-sprint-july'),
+      'https://staging-pip.pitchinpublic.io/events/founder-sprint-july/dashboard'
+    );
+    assert.equal(
+      getEventDashboardUrl('room / private'),
+      'https://staging-pip.pitchinpublic.io/events/room%20%2F%20private/dashboard'
+    );
+  } finally {
+    if (previousAppUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_APP_URL;
+    } else {
+      process.env.NEXT_PUBLIC_APP_URL = previousAppUrl;
+    }
+  }
 });
