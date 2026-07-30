@@ -27,6 +27,12 @@ export function getEventRoomUrl(slug?: string | null) {
   return `${getAppUrl()}/events/${encodeURIComponent(normalizedSlug)}`;
 }
 
+export function getEventDashboardUrl(slug?: string | null) {
+  const normalizedSlug = (slug || '').trim();
+  if (!normalizedSlug) return getPitchHomeUrl();
+  return `${getAppUrl()}/events/${encodeURIComponent(normalizedSlug)}/dashboard`;
+}
+
 export function formatPitchLength(seconds?: number | null) {
   if (!seconds || Number.isNaN(seconds)) return '60 seconds';
   if (seconds < 60) return `${seconds} seconds`;
@@ -164,6 +170,51 @@ export function shouldSendEventReminder({
 
   const hoursRemaining = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
   return hoursRemaining > 0 && hoursRemaining <= 24;
+}
+
+export type EventReminderMilestone = '7d' | '72h' | '24h';
+
+export function getEventReminderMilestone({
+  submissionDeadline,
+  now = new Date(),
+}: {
+  submissionDeadline?: string | null;
+  now?: Date;
+}): EventReminderMilestone | null {
+  if (!submissionDeadline) return null;
+
+  const deadline = new Date(submissionDeadline);
+  if (Number.isNaN(deadline.getTime())) return null;
+
+  const hoursRemaining = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+  if (hoursRemaining <= 0) return null;
+  if (hoursRemaining <= 24) return '24h';
+  if (hoursRemaining <= 72) return '72h';
+  if (hoursRemaining <= 7 * 24) return '7d';
+  return null;
+}
+
+export function getLocalWeekday(date: Date, timeZone?: string | null) {
+  try {
+    const weekday = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone || DEFAULT_TIME_ZONE,
+      weekday: 'short',
+    }).format(date);
+    return weekday;
+  } catch {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: DEFAULT_TIME_ZONE,
+      weekday: 'short',
+    }).format(date);
+  }
+}
+
+export function getLocalWeekKey(date: Date, timeZone?: string | null) {
+  const local = getZonedDateParts(date, timeZone || DEFAULT_TIME_ZONE);
+  const localDate = new Date(Date.UTC(local.year, local.month - 1, local.day));
+  const day = localDate.getUTCDay() || 7;
+  localDate.setUTCDate(localDate.getUTCDate() - day + 1);
+  return localDate.toISOString().slice(0, 10);
 }
 
 function buildEmailShell({
@@ -323,6 +374,119 @@ export function buildEventDeadlineNudgeEmail({
       actionLabel: 'Open event room',
       actionHref: eventUrl,
       footer: 'Automated nudge only. Organizer announcements are separate.',
+    }),
+  };
+}
+
+export function buildReviewQueueEmail({
+  reviewerName,
+  pendingCount,
+  dueSoonCount,
+}: {
+  reviewerName?: string | null;
+  pendingCount: number;
+  dueSoonCount: number;
+}) {
+  const greeting = reviewerName ? `Hi ${reviewerName},` : 'Hi reviewer,';
+  const reviewUrl = getPitchHomeUrl();
+  const preferencesUrl = getNotificationPreferencesUrl();
+  const urgent = dueSoonCount > 0;
+  const subject = urgent
+    ? `${dueSoonCount} pitch review${dueSoonCount === 1 ? '' : 's'} due soon`
+    : `${pendingCount} pitch${pendingCount === 1 ? '' : 'es'} waiting for your signal`;
+
+  return {
+    subject,
+    text: [
+      greeting,
+      '',
+      urgent
+        ? `${dueSoonCount} assigned review${dueSoonCount === 1 ? ' is' : 's are'} due in the next 24 hours.`
+        : `Your review queue has ${pendingCount} pitch${pendingCount === 1 ? '' : 'es'} waiting.`,
+      'A clear signal takes about a minute and helps a founder improve the next take.',
+      '',
+      `Open your review queue: ${reviewUrl}`,
+      `Manage email preferences: ${preferencesUrl}`,
+    ].join('\n'),
+    html: buildEmailShell({
+      eyebrow: urgent ? 'Review due soon' : 'Your review queue',
+      title: subject,
+      paragraphs: [
+        greeting,
+        'A clear signal takes about a minute and helps a founder improve the next take.',
+      ],
+      details: [
+        { label: 'Waiting', value: `${pendingCount} assigned pitch${pendingCount === 1 ? '' : 'es'}` },
+        { label: 'Due in 24 hours', value: String(dueSoonCount) },
+      ],
+      actionLabel: 'Open review queue',
+      actionHref: reviewUrl,
+      footer: `Manage reviewer reminders at ${preferencesUrl}`,
+    }),
+  };
+}
+
+export function buildOrganizerReadinessEmail({
+  organizerName,
+  eventName,
+  eventSlug,
+  founderCount,
+  submissionCount,
+  missingCount,
+  submissionDeadline,
+  urgent = false,
+}: {
+  organizerName?: string | null;
+  eventName: string;
+  eventSlug?: string | null;
+  founderCount: number;
+  submissionCount: number;
+  missingCount: number;
+  submissionDeadline?: string | null;
+  urgent?: boolean;
+}) {
+  const greeting = organizerName ? `Hi ${organizerName},` : 'Hi organizer,';
+  const dashboardUrl = getEventDashboardUrl(eventSlug);
+  const preferencesUrl = getNotificationPreferencesUrl();
+  const subject = urgent
+    ? `${eventName}: ${missingCount} founder${missingCount === 1 ? '' : 's'} still missing a submission`
+    : `${eventName} readiness: ${submissionCount}/${founderCount} submissions ready`;
+
+  return {
+    subject,
+    text: [
+      greeting,
+      '',
+      urgent
+        ? `${missingCount} founder${missingCount === 1 ? ' has' : 's have'} not submitted before the approaching deadline.`
+        : 'Here is your weekly pitch-room readiness snapshot.',
+      `Founders: ${founderCount}`,
+      `Submitted: ${submissionCount}`,
+      `Missing: ${missingCount}`,
+      submissionDeadline ? `Deadline: ${formatDeadlineLabel(submissionDeadline)}` : null,
+      '',
+      `Open organizer dashboard: ${dashboardUrl}`,
+      `Manage email preferences: ${preferencesUrl}`,
+    ]
+      .filter((line): line is string => line !== null)
+      .join('\n'),
+    html: buildEmailShell({
+      eyebrow: urgent ? 'Deadline exception' : 'Weekly readiness',
+      title: subject,
+      paragraphs: [
+        greeting,
+        urgent
+          ? 'Focus on the founders who still need a useful nudge before the room closes.'
+          : 'Use this snapshot to spot missing submissions without checking the dashboard every day.',
+      ],
+      details: [
+        { label: 'Founders', value: String(founderCount) },
+        { label: 'Submitted', value: String(submissionCount) },
+        { label: 'Missing', value: String(missingCount) },
+      ],
+      actionLabel: 'Open organizer dashboard',
+      actionHref: dashboardUrl,
+      footer: `Manage organizer updates at ${preferencesUrl}`,
     }),
   };
 }

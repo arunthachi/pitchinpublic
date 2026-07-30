@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { User } from '@supabase/supabase-js';
-import { createRequestSupabase } from '@/lib/admin';
+import { createRequestSupabase, createServiceSupabase } from '@/lib/admin';
 
 export const dynamic = 'force-dynamic';
 
 const updateSchema = z.object({
   emailEnabled: z.boolean().optional(),
+  founderNudgesEnabled: z.boolean().optional(),
+  reviewerDigestEnabled: z.boolean().optional(),
+  organizerDigestEnabled: z.boolean().optional(),
   dailyNudgeTime: z
     .string()
     .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/)
@@ -101,12 +104,54 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('notification_preferences')
-    .select('user_id,email_enabled,daily_nudge_time,timezone,created_at,updated_at')
+    .select(
+      'user_id,email_enabled,daily_nudge_time,timezone,founder_nudges_enabled,reviewer_digest_enabled,organizer_digest_enabled,created_at,updated_at'
+    )
     .eq('user_id', user.id)
     .maybeSingle();
 
   if (error) {
     return NextResponse.json({ success: false, error: error.message || 'Could not load preferences.' }, { status: 500 });
+  }
+
+  const serviceSupabase = createServiceSupabase();
+  let reviewer = false;
+  let organizer = false;
+
+  if (serviceSupabase) {
+    const [reviewerMembership, reviewAssignment, ownedEvent, teamMembership] = await Promise.all([
+      serviceSupabase
+        .from('trusted_reviewer_memberships')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle(),
+      serviceSupabase
+        .from('review_assignments')
+        .select('id')
+        .eq('reviewer_user_id', user.id)
+        .in('status', ['pending', 'started'])
+        .limit(1)
+        .maybeSingle(),
+      serviceSupabase
+        .from('pitch_events')
+        .select('id')
+        .eq('organizer_id', user.id)
+        .limit(1)
+        .maybeSingle(),
+      serviceSupabase
+        .from('pitch_event_participants')
+        .select('event_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .in('role', ['organizer', 'admin'])
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    reviewer = Boolean(reviewerMembership.data || reviewAssignment.data);
+    organizer = Boolean(ownedEvent.data || teamMembership.data);
   }
 
   return NextResponse.json({
@@ -116,8 +161,16 @@ export async function GET(request: NextRequest) {
       email_enabled: true,
       daily_nudge_time: '09:00:00',
       timezone: 'America/New_York',
+      founder_nudges_enabled: true,
+      reviewer_digest_enabled: true,
+      organizer_digest_enabled: true,
       created_at: null,
       updated_at: null,
+    },
+    roles: {
+      founder: true,
+      reviewer,
+      organizer,
     },
   });
 }
@@ -156,7 +209,9 @@ export async function PATCH(request: NextRequest) {
 
   const { data: existingPreferences, error: existingError } = await supabase
     .from('notification_preferences')
-    .select('email_enabled,daily_nudge_time,timezone')
+    .select(
+      'email_enabled,daily_nudge_time,timezone,founder_nudges_enabled,reviewer_digest_enabled,organizer_digest_enabled'
+    )
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -170,6 +225,12 @@ export async function PATCH(request: NextRequest) {
   const payload = {
     user_id: user.id,
     email_enabled: validation.data.emailEnabled ?? existingPreferences?.email_enabled ?? true,
+    founder_nudges_enabled:
+      validation.data.founderNudgesEnabled ?? existingPreferences?.founder_nudges_enabled ?? true,
+    reviewer_digest_enabled:
+      validation.data.reviewerDigestEnabled ?? existingPreferences?.reviewer_digest_enabled ?? true,
+    organizer_digest_enabled:
+      validation.data.organizerDigestEnabled ?? existingPreferences?.organizer_digest_enabled ?? true,
     daily_nudge_time: validation.data.dailyNudgeTime || existingPreferences?.daily_nudge_time || '09:00:00',
     timezone: validation.data.timezone || existingPreferences?.timezone || 'America/New_York',
     updated_at: new Date().toISOString(),
@@ -178,7 +239,9 @@ export async function PATCH(request: NextRequest) {
   const { data, error } = await supabase
     .from('notification_preferences')
     .upsert(payload, { onConflict: 'user_id' })
-    .select('user_id,email_enabled,daily_nudge_time,timezone,created_at,updated_at')
+    .select(
+      'user_id,email_enabled,daily_nudge_time,timezone,founder_nudges_enabled,reviewer_digest_enabled,organizer_digest_enabled,created_at,updated_at'
+    )
     .single();
 
   if (error) {

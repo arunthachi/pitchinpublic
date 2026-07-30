@@ -350,9 +350,15 @@ Important user preference:
 
 Automated notification preference decision:
 
-- Email nudges are the MVP channel for founder practice reminders.
-- Daily prompt emails and event deadline reminders should respect founder opt-out state.
+- Email is the MVP automated notification channel for founders, reviewers, and organizers.
+- Founders receive daily practice prompts plus 7-day, 72-hour, and 24-hour event reminders.
+- Reviewers receive due-soon assignment alerts plus one Tuesday outstanding-queue digest.
+- Organizers/admins receive a Monday readiness digest plus 72-hour and 24-hour exceptions only when submissions are missing.
+- One role-aware coordinator chooses the highest-priority eligible message and enforces a 20-hour nontransactional email cooldown per user.
+- Every role has an independent opt-out in addition to the master email switch.
+- All automated messages respect the user's preferred local send time and timezone.
 - Manual organizer announcements remain separate from automated nudges.
+- Transactional invitations remain separate from automated nudges.
 
 ## Design Decisions
 

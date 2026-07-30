@@ -265,8 +265,12 @@ Potential work:
 
 Current shipped slice:
 
-- Email nudges now exist for daily founder prompts and event deadline reminders.
-- Founder preference management is exposed through an in-app route.
+- Role-aware email coordination covers founder practice, reviewer queues, and organizer event readiness.
+- Founders receive daily prompts and milestone-based event reminders.
+- Reviewers receive due-soon alerts and a Tuesday queue digest.
+- Organizers receive a Monday readiness digest and deadline exceptions for missing submissions.
+- Role-specific preference management is exposed through an in-app route.
+- A 20-hour cross-role cooldown prevents automated email overload.
 - Push notifications and SMS remain deferred until retention proves out.
 
 Nudge example:
