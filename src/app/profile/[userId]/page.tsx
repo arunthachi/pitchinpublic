@@ -30,6 +30,7 @@ import {
 import { addUtcDays, startOfUtcDay, toUtcDateKey } from '@/lib/momentum';
 import { isUuidLike, pitchPath } from '@/lib/public-routes';
 import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
+import { SignInModal } from '@/components/SignInModal';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
 
@@ -165,7 +166,7 @@ export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const profileKey = params.userId as string;
-  const { user: currentUser, signOut } = useAuth();
+  const { user: currentUser, loading: authLoading, signOut } = useAuth();
 
   const [profile, setProfile] = useState<User | null>(null);
   const [pitches, setPitches] = useState<LegacyPitch[]>([]);
@@ -173,6 +174,7 @@ export default function UserProfilePage() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('pitches');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
 
   const isOwnProfile = Boolean(currentUser?.id && profile?.id === currentUser.id);
 
@@ -180,7 +182,15 @@ export default function UserProfilePage() {
     const loadProfile = async () => {
       try {
         setLoading(true);
-        const profileRes = await fetch(`/api/users/${encodeURIComponent(profileKey)}/profile`);
+        setError(null);
+        const resolvedProfileKey = profileKey === 'me' ? currentUser?.id : profileKey;
+
+        if (!resolvedProfileKey) {
+          setShowSignIn(true);
+          return;
+        }
+
+        const profileRes = await fetch(`/api/users/${encodeURIComponent(resolvedProfileKey)}/profile`);
         if (!profileRes.ok) throw new Error('Could not load profile.');
         const profileData = await profileRes.json();
         const resolvedProfile = profileData.user;
@@ -212,8 +222,9 @@ export default function UserProfilePage() {
       }
     };
 
-    if (profileKey) loadProfile();
-  }, [profileKey, router]);
+    if (!profileKey || (profileKey === 'me' && authLoading)) return;
+    loadProfile();
+  }, [authLoading, currentUser?.id, profileKey, router]);
 
   const finalPitchIds = useMemo(() => new Set(finalTakes.map((take) => take.pitch_id)), [finalTakes]);
   const allFeedback = pitches.flatMap((pitch) => pitch.feedback || []);
@@ -256,6 +267,34 @@ export default function UserProfilePage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (profileKey === 'me' && !currentUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black px-4 text-center">
+        <div className="max-w-sm">
+          <h1 className="font-heading text-3xl font-black text-white">Sign in to view your profile</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-400">
+            Your pitches, feedback, and momentum are saved to your invited account.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowSignIn(true)}
+            className="mt-6 rounded-full bg-neon-cyan px-6 py-3 font-bold text-slate-950"
+          >
+            Sign in
+          </button>
+        </div>
+        <SignInModal
+          isOpen={showSignIn}
+          onClose={() => {
+            setShowSignIn(false);
+            router.replace('/');
+          }}
+          nextPath="/profile/me"
+        />
       </div>
     );
   }
