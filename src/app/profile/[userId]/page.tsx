@@ -528,28 +528,24 @@ function PitchMomentumHeatmap({
   currentStreak: number;
   longestStreak: number;
 }) {
-  const monthMarkers = days.reduce<Array<{ label: string; index: number }>>((markers, day, index) => {
-    if (day.date.getDate() <= 7) {
-      const label = new Intl.DateTimeFormat('en', { month: 'short' }).format(day.date);
-      if (markers[markers.length - 1]?.label !== label) markers.push({ label, index });
-    }
-    return markers;
-  }, []);
-
   const levelClass = [
     'bg-white/[0.055] border-white/[0.04]',
-    'bg-neon-cyan/18 border-neon-cyan/10',
-    'bg-neon-cyan/34 border-neon-cyan/20',
-    'bg-toast/48 border-toast/25',
+    'bg-neon-cyan/[0.18] border-neon-cyan/10',
+    'bg-neon-cyan/[0.34] border-neon-cyan/20',
+    'bg-toast/[0.48] border-toast/25',
     'bg-neon-lime/85 border-neon-lime/35 shadow-[0_0_18px_rgba(183,255,42,0.22)]',
   ];
+  const mobileDays = days.slice(-56);
 
   return (
     <section className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-neon-cyan">Pitch Momentum</p>
-          <h2 className="mt-2 font-heading text-2xl font-black text-white">Practice reps over the last 16 weeks</h2>
+          <h2 className="mt-2 font-heading text-2xl font-black text-white">
+            <span className="sm:hidden">Practice reps over the last 8 weeks</span>
+            <span className="hidden sm:inline">Practice reps over the last 16 weeks</span>
+          </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
             Brighter days mean more pitch reps, received feedback, or a final take submitted.
           </p>
@@ -568,47 +564,83 @@ function PitchMomentumHeatmap({
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto pb-1">
-        <div className="min-w-[780px]">
-          <div className="relative mb-3 h-5">
-            {monthMarkers.map((marker) => (
-              <span
-                key={`${marker.label}-${marker.index}`}
-                className="absolute text-xs font-semibold text-slate-500"
-                style={{ left: `${(marker.index / Math.max(1, days.length - 1)) * 100}%` }}
-              >
-                {marker.label}
-              </span>
-            ))}
-          </div>
-          <div
-            className="grid grid-flow-col grid-rows-7 gap-1.5"
-            style={{ gridTemplateColumns: `repeat(${Math.ceil(days.length / 7)}, minmax(0, 1fr))` }}
-          >
-            {days.map((day) => (
-              <div
-                key={day.key}
-                title={`${formatDate(day.key)}: ${day.pitchCount} pitch reps, ${day.feedbackCount} feedback notes, ${day.finalCount} final takes`}
-                className={`h-4 w-4 rounded-[5px] border transition hover:scale-125 ${levelClass[day.level]}`}
-              />
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-500">
-            <div className="flex items-center gap-3">
-              <span>{totalPitches} pitch reps</span>
-              <span>{totalFeedback} feedback notes</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span>Less</span>
-              {[0, 1, 2, 3, 4].map((level) => (
-                <span key={level} className={`h-3 w-3 rounded-[4px] border ${levelClass[level]}`} />
-              ))}
-              <span>More</span>
-            </div>
-          </div>
+      <div className="mt-6 sm:hidden">
+        <MomentumGrid days={mobileDays} levelClass={levelClass} compact />
+      </div>
+      <div className="mt-6 hidden overflow-x-auto pb-1 sm:block">
+        <MomentumGrid days={days} levelClass={levelClass} />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-500">
+        <div className="flex items-center gap-3">
+          <span>{totalPitches} pitch reps</span>
+          <span>{totalFeedback} feedback notes</span>
+        </div>
+        <div className="flex items-center gap-2" aria-label="Activity intensity">
+          <span>Less</span>
+          {[0, 1, 2, 3, 4].map((level) => (
+            <span key={level} className={`h-3 w-3 rounded-[4px] border ${levelClass[level]}`} />
+          ))}
+          <span>More</span>
         </div>
       </div>
     </section>
+  );
+}
+
+function MomentumGrid({
+  days,
+  levelClass,
+  compact = false,
+}: {
+  days: PitchMomentumDay[];
+  levelClass: string[];
+  compact?: boolean;
+}) {
+  const monthMarkers = days.reduce<Array<{ label: string; index: number }>>((markers, day, index) => {
+    if (day.date.getUTCDate() <= 7) {
+      const label = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(day.date);
+      if (markers[markers.length - 1]?.label !== label) markers.push({ label, index });
+    }
+    return markers;
+  }, []);
+  const weekCount = Math.ceil(days.length / 7);
+
+  return (
+    <div className={compact ? 'w-full' : 'min-w-[780px]'}>
+      <div className="relative mb-3 h-5">
+        {monthMarkers.map((marker) => (
+          <span
+            key={`${marker.label}-${marker.index}`}
+            className="absolute text-xs font-semibold text-slate-500"
+            style={{
+              left: `${(marker.index / Math.max(1, days.length - 1)) * 100}%`,
+              transform: marker.index > days.length - 8 ? 'translateX(-100%)' : undefined,
+            }}
+          >
+            {marker.label}
+          </span>
+        ))}
+      </div>
+      <div
+        className={`grid grid-flow-col grid-rows-7 ${compact ? 'gap-2' : 'gap-1.5'}`}
+        style={{ gridTemplateColumns: `repeat(${weekCount}, minmax(0, 1fr))` }}
+        aria-label={`Pitch activity for the last ${weekCount} weeks`}
+      >
+        {days.map((day) => {
+          const activityLabel = `${formatDate(day.key)}: ${day.pitchCount} pitch reps, ${day.feedbackCount} feedback notes, ${day.finalCount} final takes`;
+
+          return (
+            <span
+              key={day.key}
+              title={activityLabel}
+              aria-label={activityLabel}
+              className={`${compact ? 'aspect-square w-full' : 'h-4 w-4'} rounded-[5px] border transition hover:scale-125 ${levelClass[day.level]}`}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
