@@ -161,6 +161,11 @@ Test:
 - Organizer invites team and founders.
 - Founder joins event.
 - Founder submission appears in dashboard.
+- Organizer/admin opens the outcome report from the dashboard.
+- Invited, joined, first/improved take, feedback, Best Take, submission, and pitch-ready metrics match the event roster fixtures.
+- CSV download contains founder-facing fields only, with no UUIDs, invite codes, or feedback notes.
+- Report fits at 375px and desktop print preview preserves headings, metrics, roster, and definitions.
+- Founder, coach, mentor, judge, inactive manager, and unrelated accounts cannot load the report or CSV.
 
 ### Platform Admin
 
@@ -234,8 +239,11 @@ Files:
 src/app/events/new/page.tsx
 src/app/events/[slug]/page.tsx
 src/app/events/[slug]/dashboard/page.tsx
+src/app/events/[slug]/report/page.tsx
 src/app/organizer/invite/page.tsx
 src/app/api/events/*
+src/lib/event-outcomes.ts
+src/lib/event-outcomes-server.ts
 src/app/api/organizer-invites/accept/route.ts
 ```
 

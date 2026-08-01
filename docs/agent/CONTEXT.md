@@ -182,6 +182,7 @@ Organizer:
 /events/new
 /events/[slug]
 /events/[slug]/dashboard
+/events/[slug]/report
 ```
 
 Platform admin:
@@ -234,6 +235,7 @@ Events:
 /api/events/[slug]/join
 /api/events/[slug]/submission
 /api/events/[slug]/announcements
+/api/events/[slug]/outcomes
 ```
 
 Platform admin:
