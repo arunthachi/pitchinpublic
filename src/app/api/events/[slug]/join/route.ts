@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { createServiceSupabase } from '@/lib/admin';
+import { isEventInviteExpired } from '@/lib/event-dashboard';
 
 const joinSchema = z.object({
   accessCode: z.string().max(64).optional().or(z.literal('')),
@@ -113,6 +114,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     }
 
     invitation = inviteRow;
+  }
+
+  if (invitation && isEventInviteExpired(invitation)) {
+    return NextResponse.json(
+      { success: false, error: 'This event invite has expired. Ask the organizer to resend it.' },
+      { status: 403 }
+    );
   }
 
   const suppliedAccessCodeMatches = Boolean(

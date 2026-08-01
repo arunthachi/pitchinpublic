@@ -11,7 +11,8 @@
     "test:founder-invites": "tsx --test src/app/api/founder-invites/_server.test.ts",
     "test:events": "tsx --test 'src/app/api/events/[slug]/_server.test.ts'",
     "test:pilot-access": "tsx --test src/lib/pilot-access.test.ts",
-    "test:reviewers": "tsx --test src/lib/review-marketplace.test.ts"
+    "test:reviewers": "tsx --test src/lib/review-marketplace.test.ts",
+    "test:event-dashboard": "tsx --test src/lib/event-dashboard.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",
