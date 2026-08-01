@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isUserAllowedForPilot } from '@/lib/pilot-access';
 import { getClientIp, rateLimit } from '@/lib/ratelimit';
 import { createClient } from '@/lib/supabase/server';
+import { extractDeepgramTranscript } from '@/lib/deepgram';
 
 export const runtime = 'nodejs';
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'Voice notes are temporarily unavailable.' }, { status: 503 });
   }
@@ -56,19 +57,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'This audio format is not supported.' }, { status: 415 });
     }
 
-    const providerForm = new FormData();
-    providerForm.append('file', audio, audio.name || 'feedback-note.webm');
-    providerForm.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe');
-    providerForm.append('response_format', 'json');
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
     let response: Response;
     try {
-      response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      response = await fetch('https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: providerForm,
+        headers: {
+          Authorization: `Token ${apiKey}`,
+          'Content-Type': normalizedType || 'application/octet-stream',
+        },
+        body: audio,
         signal: controller.signal,
       });
     } finally {
@@ -79,8 +78,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'We could not transcribe that recording. Please try again.' }, { status: 502 });
     }
 
-    const payload = await response.json() as { text?: unknown };
-    const transcript = typeof payload.text === 'string' ? payload.text.trim().slice(0, 4000) : '';
+    const payload = await response.json();
+    const transcript = extractDeepgramTranscript(payload);
     if (!transcript) {
       return NextResponse.json({ error: 'No speech was detected. Try again closer to the microphone.' }, { status: 422 });
     }
