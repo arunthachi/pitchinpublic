@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { getInvitationHealth, publicInviteDeliveryError } from '@/lib/event-dashboard';
 
 function createSupabase(request: NextRequest) {
   return createServerClient(
@@ -195,7 +196,15 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
 
       participants = participantRows || [];
       submissions = submissionRows || [];
-      invitations = invitationRows || [];
+      invitations = (invitationRows || []).map((invitation: any) => {
+        const { invite_code: inviteCode, ...safeInvitation } = invitation;
+        return {
+          ...safeInvitation,
+          invite_url: `${request.nextUrl.origin}/events/${event.slug}?invite=${encodeURIComponent(inviteCode)}`,
+          email_error: publicInviteDeliveryError(invitation.email_status),
+          health: getInvitationHealth(invitation),
+        };
+      });
 
       const { data: assignmentRows } = await supabase
         .from('review_assignments')

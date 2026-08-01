@@ -1,15 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
+  ArrowRight,
   BarChart3,
   Bell,
   CalendarDays,
+  CheckCircle2,
+  Clock3,
   Copy,
+  Eye,
   ExternalLink,
   LogOut,
   ListChecks,
@@ -24,6 +28,7 @@ import {
   UserPlus,
   Users,
   Video,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPitchLength } from '@/lib/duration';
@@ -34,25 +39,28 @@ import { getTakeLabelFromFields } from '@/lib/pitch-copy';
 import { getPracticePrompt } from '@/lib/practice';
 import { pitchPath } from '@/lib/public-routes';
 import { normalizeEventReviewCoverage } from '@/lib/review-marketplace';
+import {
+  DASHBOARD_TABS,
+  founderMatchesFilter,
+  getDashboardActionCounts,
+  getDeadlineState,
+  getInvitationHealth,
+  parseBulkFounderEmails,
+  parseDashboardState,
+  submissionMatchesFilter,
+  type DashboardFilter,
+  type DashboardTab,
+} from '@/lib/event-dashboard';
 import type { EventReviewCoverage } from '@/types';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLE_GROUPS = [
-  {
-    label: 'Founders',
-    helper: 'Invite the people who will join the room and submit their best take.',
-    roles: ['founder'],
-  },
   {
     label: 'Team',
     helper: 'Invite organizers, admins, coaches, mentors, and judges who can help review the room.',
     roles: ['organizer', 'admin', 'coach', 'mentor', 'judge'],
   },
 ] as const;
-const TABS = ['overview', 'founders', 'submissions', 'team', 'announcements'] as const;
-
-type Tab = (typeof TABS)[number];
-
 type FounderSummary = {
   participant: any;
   pitches: any[];
@@ -212,9 +220,10 @@ export default function EventDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+  const [activeFilter, setActiveFilter] = useState<DashboardFilter | null>(null);
   const [founderInviteEmail, setFounderInviteEmail] = useState('');
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'founder', sendEmail: true });
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'organizer', sendEmail: true });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
   const [lastInvite, setLastInvite] = useState<{ url: string; role: string; email: string; emailStatus?: string | null; emailError?: string | null } | null>(null);
   const [actionMessage, setActionMessage] = useState('');
@@ -246,6 +255,17 @@ export default function EventDashboardPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const syncFromLocation = () => {
+      const next = parseDashboardState(window.location.search);
+      setActiveTab(next.tab);
+      setActiveFilter(next.filter);
+    };
+    syncFromLocation();
+    window.addEventListener('popstate', syncFromLocation);
+    return () => window.removeEventListener('popstate', syncFromLocation);
+  }, []);
+
   const event = state?.event;
   const focusTags = useMemo(() => splitFocusSummary(event?.focus), [event?.focus]);
   const participants = useMemo(() => state?.participants || [], [state?.participants]);
@@ -257,11 +277,11 @@ export default function EventDashboardPage() {
   const founderRows = useMemo(() => participants.filter((item: any) => item.role === 'founder'), [participants]);
   const teamRows = useMemo(() => participants.filter((item: any) => TEAM_ROLES.includes(item.role)), [participants]);
   const founderInvitations = useMemo(
-    () => invitations.filter((item: any) => item.role === 'founder' && item.status === 'pending'),
+    () => invitations.filter((item: any) => item.role === 'founder'),
     [invitations]
   );
   const teamInvitations = useMemo(
-    () => invitations.filter((item: any) => item.role !== 'founder' && item.status === 'pending'),
+    () => invitations.filter((item: any) => item.role !== 'founder'),
     [invitations]
   );
   const founderSummaries = useMemo<FounderSummary[]>(
@@ -273,6 +293,15 @@ export default function EventDashboardPage() {
   const feedbackedCount = founderSummaries.filter((founder: FounderSummary) => founder.feedbackCount > 0).length;
   const bestTakeCount = founderSummaries.filter((founder: FounderSummary) => founder.hasBestTake).length;
   const feedbackCount = pitches.reduce((sum: number, item: any) => sum + (item.feedback?.length || 0), 0);
+  const actionCounts = useMemo(
+    () => getDashboardActionCounts(founderSummaries, submissions),
+    [founderSummaries, submissions]
+  );
+  const deadlineState = useMemo(() => getDeadlineState(event?.submission_deadline), [event?.submission_deadline]);
+  const filteredFounders = useMemo(
+    () => founderSummaries.filter((founder) => founderMatchesFilter(founder, activeFilter)),
+    [activeFilter, founderSummaries]
+  );
   const repeatedSignals = useMemo(
     () =>
       summarizeSignals(pitches.flatMap((pitch: any) => pitch.feedback || []))
@@ -291,6 +320,10 @@ export default function EventDashboardPage() {
       }),
     [submissions]
   );
+  const filteredSubmissions = useMemo(
+    () => sortedSubmissions.filter((submission) => submissionMatchesFilter(submission, activeFilter)),
+    [activeFilter, sortedSubmissions]
+  );
   const organizerName =
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
@@ -302,13 +335,39 @@ export default function EventDashboardPage() {
     user?.user_metadata?.picture ||
     `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(organizerName)}`;
 
+  const setDashboardView = (tab: DashboardTab, filter: DashboardFilter | null = null) => {
+    const url = new URL(window.location.href);
+    if (tab === 'overview') url.searchParams.delete('tab');
+    else url.searchParams.set('tab', tab);
+    if (filter) url.searchParams.set('filter', filter);
+    else url.searchParams.delete('filter');
+    router.push(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+    setActiveTab(tab);
+    setActiveFilter(filter);
+    setActionMessage('');
+    setCreatedInviteLink('');
+  };
+
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? DASHBOARD_TABS.length - 1
+        : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + DASHBOARD_TABS.length) % DASHBOARD_TABS.length;
+    const nextTab = DASHBOARD_TABS[nextIndex];
+    setDashboardView(nextTab);
+    document.getElementById(`dashboard-tab-${nextTab}`)?.focus();
+  };
+
   const copyText = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
     setCopied(label);
     setTimeout(() => setCopied(''), 1600);
   };
 
-  const runInviteMutation = async (inviteId: string, action: 'resend' | 'clear_delivery' | 'revoke') => {
+  const runInviteMutation = async (inviteId: string, action: 'resend' | 'revoke') => {
     setBusyAction(`invite:${inviteId}:${action}`);
     setActionMessage('');
     setCreatedInviteLink('');
@@ -333,8 +392,6 @@ export default function EventDashboardPage() {
                 ? `Invite saved, but email failed. ${data.emailError || 'Check the provider response.'}`
                 : 'Invite email cleared and ready to resend.'
         );
-      } else if (action === 'clear_delivery') {
-        setActionMessage('Invite delivery status cleared.');
       } else {
         setActionMessage('Invite revoked.');
       }
@@ -419,13 +476,24 @@ export default function EventDashboardPage() {
 
   const createFounderInvite = async (event: FormEvent) => {
     event.preventDefault();
+    const parsed = parseBulkFounderEmails(founderInviteEmail);
+    if (parsed.invalid.length || parsed.overflow || !parsed.emails.length) {
+      setActionMessage(
+        parsed.invalid.length
+          ? `Fix ${parsed.invalid.length} invalid email address${parsed.invalid.length === 1 ? '' : 'es'} before inviting.`
+          : parsed.overflow
+            ? 'Invite up to 50 founders at a time.'
+            : 'Add at least one founder email.'
+      );
+      return;
+    }
     setSaving(true);
     setActionMessage('');
     setCreatedInviteLink('');
     const response = await fetch(`/api/events/${slug}/invites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: founderInviteEmail, role: 'founder', sendEmail: true }),
+      body: JSON.stringify({ emails: parsed.emails, role: 'founder', sendEmail: true }),
     });
     const data = await readJsonResponse(response);
     setSaving(false);
@@ -433,24 +501,24 @@ export default function EventDashboardPage() {
       setActionMessage(data?.error || 'Could not create founder invite.');
       return;
     }
+    const results = Array.isArray(data.results) ? data.results : [];
+    const firstCreated = results.find((result: any) => result.success);
     setFounderInviteEmail('');
     setActionMessage(
-      data.emailStatus === 'sent'
-        ? 'Founder invite emailed and link ready.'
-        : data.emailStatus === 'not_configured'
-          ? 'Founder invite created, but email is not configured.'
-          : data.emailStatus === 'failed'
-            ? `Founder invite created, but email failed. ${data.emailError || 'Check the provider response.'}`
-            : 'Founder invite created. Copy the link if you need to send it another way.'
+      data.failed
+        ? `${data.created} founder invite${data.created === 1 ? '' : 's'} created; ${data.failed} failed. Retry the failed addresses.`
+        : `${data.created} founder invite${data.created === 1 ? '' : 's'} created and queued for delivery.`
     );
-    setCreatedInviteLink(data.inviteUrl || '');
-    setLastInvite({
-      url: data.inviteUrl || '',
-      role: 'founder',
-      email: data.invitation?.email || founderInviteEmail.trim(),
-      emailStatus: data.emailStatus || data.invitation?.email_status || null,
-      emailError: data.emailError || data.invitation?.email_error || null,
-    });
+    if (results.length === 1 && firstCreated) {
+      setCreatedInviteLink(firstCreated.inviteUrl || '');
+      setLastInvite({
+        url: firstCreated.inviteUrl || '',
+        role: 'founder',
+        email: firstCreated.email,
+        emailStatus: firstCreated.emailStatus || null,
+        emailError: firstCreated.emailError || null,
+      });
+    }
     load();
   };
 
@@ -591,6 +659,54 @@ export default function EventDashboardPage() {
           </div>
         </div>
 
+        <section aria-labelledby="action-dashboard-title" className="mb-5">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Needs attention</p>
+              <h1 id="action-dashboard-title" className="mt-1 font-heading text-2xl font-black text-white sm:text-3xl">{event.name}</h1>
+            </div>
+            <span className="hidden text-sm font-semibold text-slate-400 sm:block">Choose an action to open its filtered workflow.</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <ActionCard
+              icon={Video}
+              label="Not recorded"
+              value={actionCounts.notRecorded}
+              success="Everyone has recorded"
+              action="View founders"
+              urgent={actionCounts.notRecorded > 0}
+              onClick={() => setDashboardView('founders', 'not-recorded')}
+            />
+            <ActionCard
+              icon={MessageSquareText}
+              label="Needs feedback"
+              value={actionCounts.needsFeedback}
+              success="Every submission has feedback"
+              action="Review submissions"
+              urgent={actionCounts.needsFeedback > 0}
+              onClick={() => setDashboardView('submissions', 'needs-feedback')}
+            />
+            <ActionCard
+              icon={Trophy}
+              label="Missing Best Take"
+              value={actionCounts.missingBestTake}
+              success="Every founder has a Best Take"
+              action="View founders"
+              urgent={actionCounts.missingBestTake > 0}
+              onClick={() => setDashboardView('founders', 'missing-best-take')}
+            />
+            <ActionCard
+              icon={Clock3}
+              label="Submission deadline"
+              value={deadlineState.label}
+              success={deadlineState.state === 'unset' ? 'No deadline is configured' : deadlineState.label}
+              action={actionCounts.notSubmitted > 0 ? `${actionCounts.notSubmitted} not submitted` : 'View founder status'}
+              urgent={deadlineState.state === 'passed' || (deadlineState.daysRemaining !== null && deadlineState.daysRemaining <= 3)}
+              onClick={() => setDashboardView('founders', 'not-submitted')}
+            />
+          </div>
+        </section>
+
         <section className="glass-panel rounded-[2rem] p-5 sm:p-7">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div>
@@ -598,7 +714,7 @@ export default function EventDashboardPage() {
                 <Sparkles className="h-4 w-4" />
                 Event room
               </div>
-              <h1 className="font-heading text-4xl font-black leading-tight sm:text-5xl">{event.name}</h1>
+              <h2 className="font-heading text-4xl font-black leading-tight sm:text-5xl">Event details</h2>
               <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">
                 Team workspace for invite tracking, final takes, feedback coverage, and founder announcements.
               </p>
@@ -652,12 +768,18 @@ export default function EventDashboardPage() {
         </section>
 
         <div className="mt-5 overflow-x-auto">
-          <div className="glass-card inline-flex min-w-full gap-1 rounded-full p-1 sm:min-w-0">
-            {TABS.map((tab) => (
+          <div role="tablist" aria-label="Event dashboard sections" className="glass-card inline-flex min-w-full gap-1 rounded-full p-1 sm:min-w-0">
+            {DASHBOARD_TABS.map((tab, index) => (
               <button
                 key={tab}
+                id={`dashboard-tab-${tab}`}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                role="tab"
+                aria-selected={activeTab === tab}
+                aria-controls={`dashboard-panel-${tab}`}
+                tabIndex={activeTab === tab ? 0 : -1}
+                onClick={() => setDashboardView(tab)}
+                onKeyDown={(event) => handleTabKeyDown(event, index)}
                 className={`rounded-full px-4 py-2 text-sm font-black capitalize tracking-wide transition ${
                   activeTab === tab ? 'bg-white text-slate-950' : 'text-slate-400 hover:bg-white/10 hover:text-white'
                 }`}
@@ -687,7 +809,24 @@ export default function EventDashboardPage() {
           </div>
         )}
 
-        <section className="mt-5">
+        {activeFilter ? (
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" role="status">
+            <p className="text-sm font-bold text-slate-100">
+              Filtered to {activeFilter.replaceAll('-', ' ')}.
+            </p>
+            <button type="button" onClick={() => setDashboardView(activeTab)} className="btn-glass inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-bold">
+              Clear filter
+            </button>
+          </div>
+        ) : null}
+
+        <section
+          id={`dashboard-panel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`dashboard-tab-${activeTab}`}
+          tabIndex={0}
+          className="mt-5 outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
+        >
           {activeTab === 'overview' && (
             <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
               <Panel title="Founder progress" eyebrow="Overview">
@@ -702,11 +841,30 @@ export default function EventDashboardPage() {
                   {founderSummaries.slice(0, 5).map((founder) => (
                     <FounderRow key={founder.participant.id} founder={founder} />
                   ))}
-                  {!founderSummaries.length && <EmptyState text="No founders have joined yet. Create founder invites from the Team tab." />}
+                  {!founderSummaries.length && <EmptyState text="No founders have joined yet. Create founder invites from the Founders tab." />}
                 </div>
               </Panel>
 
               <div className="grid gap-5">
+                <Panel title="Invitation health" eyebrow="Access pulse">
+                  <InvitationHealthSummary invitations={invitations} />
+                </Panel>
+
+                <Panel title="Founder experience" eyebrow="Preview">
+                  <div className="space-y-3 text-sm text-slate-300">
+                    {['Join with the event invite', 'Record or upload an eligible take', 'Submit and mark a Best Take'].map((item) => (
+                      <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-neon-lime" />
+                        <span className="font-semibold">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Link href={`/events/${slug}`} className="cta-primary mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 py-3 font-heading font-bold">
+                    <Eye className="h-4 w-4" />
+                    Preview founder room
+                  </Link>
+                </Panel>
+
                 <Panel title="Repeated signals" eyebrow="Feedback pulse">
                   {repeatedSignals.length ? (
                     <div className="space-y-4">
@@ -744,23 +902,22 @@ export default function EventDashboardPage() {
                 {state.canManageEvent ? (
                   <form onSubmit={createFounderInvite} className="space-y-4">
                     <label className="block">
-                      <span className="mb-2 block text-sm font-bold text-slate-300">Founder email</span>
-                      <input
-                        type="email"
+                      <span className="mb-2 block text-sm font-bold text-slate-300">Founder emails</span>
+                      <textarea
                         value={founderInviteEmail}
                         onChange={(e) => setFounderInviteEmail(e.target.value)}
-                        className="input-dark"
-                        placeholder="founder@company.com"
+                        className="input-dark min-h-28 resize-y"
+                        placeholder={'founder@company.com\ncofounder@startup.io'}
                         required
                       />
-                      <p className="mt-2 text-xs leading-5 text-slate-500">We email the invite by default and still give you a copyable link after creation.</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">Paste up to 50 addresses separated by commas, spaces, or new lines.</p>
                     </label>
                     <button
                       disabled={saving}
                       className="cta-primary inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold disabled:opacity-60"
                     >
                       <UserPlus className="h-4 w-4" />
-                      Create founder invite
+                      Send founder invites
                     </button>
                     <p className="rounded-2xl border border-white/10 bg-black/25 p-4 text-sm leading-6 text-slate-300">
                       This creates a tracked founder invite and sends the email when possible. The invite link stays available for follow-up.
@@ -773,7 +930,7 @@ export default function EventDashboardPage() {
 
               <Panel title="Founder roster" eyebrow="Participants">
                 <div className="grid gap-3 md:grid-cols-2">
-                  {founderSummaries.map((founder) => (
+                  {filteredFounders.map((founder) => (
                     <FounderRow
                       key={founder.participant.id}
                       founder={founder}
@@ -783,7 +940,9 @@ export default function EventDashboardPage() {
                       onUpdateParticipant={runParticipantMutation}
                     />
                   ))}
-                  {!founderSummaries.length && <EmptyState text="No founders have joined this event yet." />}
+                  {!filteredFounders.length && (
+                    <EmptyState text={activeFilter ? 'No founders match this action. Clear the filter to view the full roster.' : 'No founders have joined this event yet.'} />
+                  )}
                 </div>
                 <div className="mt-5 space-y-3">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Founder invites</p>
@@ -791,17 +950,15 @@ export default function EventDashboardPage() {
                     <InviteRow
                       key={invite.id}
                       invite={invite}
-                      eventSlug={event.slug}
                       copied={copied}
                       onCopy={copyText}
                       canManage={state.canManageEvent}
                       busyAction={busyAction}
                       onResend={() => runInviteMutation(invite.id, 'resend')}
-                      onClear={() => runInviteMutation(invite.id, 'clear_delivery')}
                       onRevoke={() => runInviteMutation(invite.id, 'revoke')}
                     />
                   ))}
-                  {!founderInvitations.length && <EmptyState text="No pending founder invites yet." />}
+                  {!founderInvitations.length && <EmptyState text="No founder invitations yet. Paste one or more emails to start the roster." />}
                 </div>
               </Panel>
             </div>
@@ -816,10 +973,12 @@ export default function EventDashboardPage() {
                 <StatusTile label="Best takes" value={bestTakeCount} />
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {sortedSubmissions.map((submission) => (
+                {filteredSubmissions.map((submission) => (
                   <SubmissionCard key={submission.id} submission={submission} />
                 ))}
-                {!sortedSubmissions.length && <EmptyState text="No final takes submitted yet." />}
+                {!filteredSubmissions.length && (
+                  <EmptyState text={activeFilter ? 'No submissions match this action. Clear the filter to view every final take.' : 'No final takes submitted yet.'} />
+                )}
               </div>
             </Panel>
           )}
@@ -836,7 +995,7 @@ export default function EventDashboardPage() {
                         value={inviteForm.email}
                         onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                         className="input-dark"
-                        placeholder="founder@company.com or leave blank for a copyable link"
+                        placeholder="coach@accelerator.org or leave blank for a copyable link"
                       />
                       <p className="mt-2 text-xs leading-5 text-slate-500">Leave blank for link-only access or add an email to send the invite now.</p>
                     </label>
@@ -942,17 +1101,15 @@ export default function EventDashboardPage() {
                     <InviteRow
                       key={invite.id}
                       invite={invite}
-                      eventSlug={event.slug}
                       copied={copied}
                       onCopy={copyText}
                       canManage={state.canManageEvent}
                       busyAction={busyAction}
                       onResend={() => runInviteMutation(invite.id, 'resend')}
-                      onClear={() => runInviteMutation(invite.id, 'clear_delivery')}
                       onRevoke={() => runInviteMutation(invite.id, 'revoke')}
                     />
                   ))}
-                  {!teamInvitations.length && <EmptyState text="No pending team invites yet. Founder invites live in the Founders tab." />}
+                  {!teamInvitations.length && <EmptyState text="No team invitations yet. Founder invites live in the Founders tab." />}
                 </div>
               </Panel>
             </div>
@@ -1013,7 +1170,64 @@ function Panel({ eyebrow, title, children }: { eyebrow: string; title: string; c
   );
 }
 
-function Metric({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) {
+function ActionCard({
+  icon: Icon,
+  label,
+  value,
+  success,
+  action,
+  urgent,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string | number;
+  success: string;
+  action: string;
+  urgent?: boolean;
+  onClick: () => void;
+}) {
+  const isComplete = value === 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group min-h-32 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan sm:p-4 ${
+        urgent ? 'border-roast/30 bg-roast/10 hover:border-roast/60' : 'border-white/10 bg-white/[0.04] hover:border-neon-cyan/40'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <Icon className={`h-5 w-5 ${urgent ? 'text-roast' : isComplete ? 'text-neon-lime' : 'text-neon-cyan'}`} />
+        <ArrowRight className="h-4 w-4 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-white" />
+      </div>
+      <p className="mt-3 font-heading text-xl font-black leading-tight text-white sm:text-2xl">{value}</p>
+      <p className="mt-1 text-xs font-black uppercase tracking-[0.1em] text-slate-400">{label}</p>
+      <p className="mt-2 text-xs font-semibold leading-4 text-slate-500">{isComplete ? success : action}</p>
+    </button>
+  );
+}
+
+function InvitationHealthSummary({ invitations }: { invitations: any[] }) {
+  const health = invitations.map((invitation) => getInvitationHealth(invitation));
+  const items = [
+    { label: 'Sent', value: health.filter((item) => item.delivery === 'sent').length },
+    { label: 'Accepted', value: health.filter((item) => item.lifecycle === 'accepted').length },
+    { label: 'Failed', value: health.filter((item) => item.delivery === 'failed').length },
+    { label: 'Expired', value: health.filter((item) => item.lifecycle === 'expired').length },
+  ];
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+        {items.map((item) => <StatusTile key={item.label} label={item.label} value={item.value} />)}
+      </div>
+      <p className="mt-3 text-xs leading-5 text-slate-500">Email opens are not measured by the current delivery provider integration.</p>
+      {!invitations.length ? <div className="mt-3"><EmptyState text="No invitations yet. Invite founders or team members to begin tracking access." /></div> : null}
+    </div>
+  );
+}
+
+function Metric({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string | number }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
       <Icon className="mb-3 h-5 w-5 text-neon-cyan" />
@@ -1223,9 +1437,7 @@ function InviteRow({
   canManage = false,
   busyAction = '',
   onResend,
-  onClear,
   onRevoke,
-  eventSlug,
 }: {
   invite: any;
   copied: string;
@@ -1233,14 +1445,13 @@ function InviteRow({
   canManage?: boolean;
   busyAction?: string;
   onResend?: () => void;
-  onClear?: () => void;
   onRevoke?: () => void;
-  eventSlug?: string;
 }) {
-  const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/events/${eventSlug}?invite=${invite.invite_code}`;
+  const link = invite.invite_url || '';
   const hasEmail = Boolean(invite.email);
+  const health = getInvitationHealth(invite);
+  const canCopy = health.lifecycle === 'pending' || health.lifecycle === 'expired';
   const resendBusy = busyAction === `invite:${invite.id}:resend`;
-  const clearBusy = busyAction === `invite:${invite.id}:clear_delivery`;
   const revokeBusy = busyAction === `invite:${invite.id}:revoke`;
 
   return (
@@ -1252,7 +1463,7 @@ function InviteRow({
             {roleLabel(invite.role)}
           </span>
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-300">
-            {invite.status}
+            {health.lifecycleLabel}
           </span>
           <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${inviteEmailStatusTone(invite.email_status)}`}>
             {inviteEmailStatusLabel(invite.email_status)}
@@ -1267,12 +1478,13 @@ function InviteRow({
         <button
           type="button"
           onClick={() => onCopy(link, invite.id)}
-          className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold"
+          disabled={!link || !canCopy}
+          className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45"
         >
           <Copy className="h-4 w-4" />
           {copied === invite.id ? 'Copied' : 'Copy link'}
         </button>
-        {canManage && onResend && hasEmail && invite.status === 'pending' ? (
+        {canManage && onResend && hasEmail && health.canResend ? (
           <button
             type="button"
             disabled={resendBusy}
@@ -1283,18 +1495,7 @@ function InviteRow({
             {resendBusy ? 'Sending...' : invite.email_status === 'sent' ? 'Resend' : 'Send email'}
           </button>
         ) : null}
-        {canManage && onClear && invite.status === 'pending' && (invite.email_status !== 'unknown' || invite.email_error) ? (
-          <button
-            type="button"
-            disabled={clearBusy}
-            onClick={onClear}
-            className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-bold disabled:cursor-wait disabled:opacity-60"
-          >
-            <RefreshCw className="h-4 w-4" />
-            {clearBusy ? 'Clearing...' : 'Clear status'}
-          </button>
-        ) : null}
-        {canManage && onRevoke && invite.status === 'pending' ? (
+        {canManage && onRevoke && health.canRevoke ? (
           <button
             type="button"
             disabled={revokeBusy}
