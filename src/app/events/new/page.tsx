@@ -8,32 +8,14 @@ import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock3, Lock, Sparkl
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import { LeadCaptureModal } from '@/components/LeadCaptureModal';
+import {
+  EVENT_FOCUS_OPTIONS,
+  EVENT_PITCH_LENGTH_OPTIONS,
+  EVENT_VISIBILITY_OPTIONS,
+} from '@/lib/event-settings';
 
-const focusOptions = [
-  'Clarity and ask',
-  'ICP and audience',
-  'Problem pain',
-  'Storytelling',
-  'Traction proof',
-  'Investor Q&A',
-  'Demo flow',
-  'Competition prep',
-];
-
-const visibilityOptions = {
-  unlisted: {
-    label: 'Invite link',
-    helper: 'Best for private event rooms. Anyone with the event link can request or join.',
-  },
-  private: {
-    label: 'Invite code required',
-    helper: 'Founders need the event link and the access code before they can join.',
-  },
-  public: {
-    label: 'Public listing',
-    helper: 'Useful later for public programs. The room can appear in public event discovery.',
-  },
-} as const;
+const focusOptions = [...EVENT_FOCUS_OPTIONS];
+const visibilityOptions = EVENT_VISIBILITY_OPTIONS;
 
 function openNativeDatePicker(input: HTMLInputElement) {
   try {
@@ -372,12 +354,9 @@ function NewEventContent() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Pitch length">
                 <select value={form.pitchLengthSeconds} onChange={(e) => setForm({ ...form, pitchLengthSeconds: Number(e.target.value) })} className="input-dark">
-                  <option value={60}>1 minute</option>
-                  <option value={90}>1.5 minutes</option>
-                  <option value={120}>2 minutes</option>
-                  <option value={180}>3 minutes</option>
-                  <option value={300}>5 minutes</option>
-                  <option value={360}>6 minutes</option>
+                  {EVENT_PITCH_LENGTH_OPTIONS.map((option) => (
+                    <option key={option.seconds} value={option.seconds}>{option.label}</option>
+                  ))}
                 </select>
               </Field>
               <Field label="Founder access">
