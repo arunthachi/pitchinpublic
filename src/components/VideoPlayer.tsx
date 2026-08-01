@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
+import { Volume2, VolumeX, Play, Pause, RotateCcw } from 'lucide-react';
 import Hls from 'hls.js';
 
 interface VideoPlayerProps {
@@ -10,6 +10,25 @@ interface VideoPlayerProps {
   playing: boolean;
   onEnded?: () => void;
   onProgress?: (state: { played: number; playedSeconds: number }) => void;
+  onInteractionChange?: (active: boolean) => void;
+}
+
+const SOUND_PREFERENCE_KEY = 'pip-video-sound-enabled';
+
+function soundEnabledForSession() {
+  try {
+    return window.sessionStorage.getItem(SOUND_PREFERENCE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function rememberSoundPreference(enabled: boolean) {
+  try {
+    window.sessionStorage.setItem(SOUND_PREFERENCE_KEY, String(enabled));
+  } catch {
+    // Playback remains functional when storage is unavailable.
+  }
 }
 
 /**
@@ -19,24 +38,56 @@ function isHlsUrl(url: string): boolean {
   return url.includes('.m3u8') || url.includes('/manifest/');
 }
 
-export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerProps) {
+export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionChange }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const playingRef = useRef(playing);
   const [muted, setMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(playing);
-  const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [showSoundPrompt, setShowSoundPrompt] = useState(true);
   const hlsRecoveryAttemptsRef = useRef(0);
 
-  const playVideo = useCallback((video: HTMLVideoElement) => {
-    video.play().catch((error) => {
-      if (error?.name !== 'AbortError') {
-        console.error(error);
+  const playVideo = useCallback(async (video: HTMLVideoElement, withSound = soundEnabledForSession()) => {
+    window.dispatchEvent(new CustomEvent('pip-video-player-claim', { detail: video }));
+    video.muted = !withSound;
+    setMuted(!withSound);
+    try {
+      await video.play();
+      setIsPlaying(true);
+      setShowSoundPrompt(video.muted);
+    } catch (error) {
+      if (withSound) {
+        video.muted = true;
+        setMuted(true);
+        setShowSoundPrompt(true);
+        rememberSoundPreference(false);
+        try {
+          await video.play();
+          setIsPlaying(true);
+          return;
+        } catch {
+          setIsPlaying(false);
+        }
       }
-    });
+      if ((error as DOMException)?.name !== 'AbortError') setIsPlaying(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onClaim = (event: Event) => {
+      const video = videoRef.current;
+      if (video && (event as CustomEvent<HTMLVideoElement>).detail !== video) {
+        video.pause();
+        video.muted = true;
+        setMuted(true);
+        setIsPlaying(false);
+      }
+    };
+    window.addEventListener('pip-video-player-claim', onClaim);
+    return () => window.removeEventListener('pip-video-player-claim', onClaim);
   }, []);
 
   useEffect(() => {
@@ -115,6 +166,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
     }
 
     return () => {
+      video.pause();
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -144,7 +196,6 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
   const handleTimeUpdate = () => {
     if (videoRef.current && videoRef.current.duration) {
       const played = videoRef.current.currentTime / videoRef.current.duration;
-      setProgress(isNaN(played) ? 0 : played);
       setDuration(videoRef.current.duration);
       setCurrentTime(videoRef.current.currentTime);
       onProgress?.({ played, playedSeconds: videoRef.current.currentTime });
@@ -168,17 +219,45 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
     if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.pause();
+        setIsPlaying(false);
       } else {
-        playVideo(videoRef.current);
+        void playVideo(videoRef.current);
       }
     }
-    setIsPlaying(!isPlaying);
     setShowControls(true);
     setTimeout(() => setShowControls(false), 1500);
   };
 
   const toggleMute = () => {
-    setMuted(!muted);
+    const video = videoRef.current;
+    if (!video) return;
+    const nextMuted = !video.muted;
+    video.muted = nextMuted;
+    setMuted(nextMuted);
+    setShowSoundPrompt(nextMuted);
+    rememberSoundPreference(!nextMuted);
+    if (!nextMuted && video.paused) void playVideo(video, true);
+  };
+
+  const replayWithSound = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    rememberSoundPreference(true);
+    video.currentTime = 0;
+    setShowSoundPrompt(false);
+    void playVideo(video, true);
+  };
+
+  const rewind = () => {
+    const video = videoRef.current;
+    if (video) video.currentTime = Math.max(0, video.currentTime - 10);
+  };
+
+  const seek = (seconds: number) => {
+    const video = videoRef.current;
+    if (!video || !duration) return;
+    video.currentTime = seconds;
+    setCurrentTime(seconds);
   };
 
   return (
@@ -193,22 +272,29 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={onEnded}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
       />
 
-      {/* Enhanced Progress Bar with Time Display */}
-      <div className="absolute bottom-16 left-0 right-0 z-50 lg:bottom-0">
-        {/* Thicker, more visible progress bar */}
-        <div className="relative h-1.5 bg-black/40 hover:h-2 transition-all duration-100">
-          {/* Animated gradient progress */}
-          <motion.div
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-neon-cyan to-neon-lime"
-            style={{ width: `${progress * 100}%` }}
-            layoutId="progress"
-          />
-        </div>
-
-        {/* Time Display - shows current / total */}
-        <div className="px-3 py-2 bg-gradient-to-t from-black/80 to-black/40 text-white text-xs font-semibold flex justify-between items-center">
+      <div
+        className="absolute bottom-16 left-0 right-0 z-50 bg-gradient-to-t from-black/90 to-black/30 px-3 pb-2 pt-3 lg:bottom-0"
+        onPointerDown={(event) => { event.stopPropagation(); onInteractionChange?.(true); }}
+        onPointerUp={() => onInteractionChange?.(false)}
+        onPointerCancel={() => onInteractionChange?.(false)}
+        onPointerLeave={() => onInteractionChange?.(false)}
+      >
+        <input
+          type="range"
+          min={0}
+          max={duration || 0}
+          step="0.05"
+          value={Math.min(currentTime, duration || 0)}
+          onChange={(event) => seek(Number(event.target.value))}
+          className="h-7 w-full cursor-pointer accent-neon-cyan"
+          aria-label="Pitch playback position"
+          aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+        />
+        <div className="flex items-center justify-between text-xs font-semibold text-white">
           <span>{formatTime(currentTime)}</span>
           <span className="text-slate-400">{formatTime(duration)}</span>
         </div>
@@ -239,11 +325,21 @@ export function VideoPlayer({ url, playing, onEnded, onProgress }: VideoPlayerPr
         </AnimatePresence>
       </div>
 
-      {/* Mute Button */}
+      {showSoundPrompt && playing ? (
+        <button type="button" onClick={replayWithSound} className="glass-pill absolute left-3 top-4 z-50 flex min-h-11 items-center gap-2 rounded-full px-3 text-sm font-black text-white shadow-lg focus:outline-none focus:ring-2 focus:ring-neon-cyan sm:px-4" aria-label="Replay pitch from the beginning with sound">
+          <Volume2 className="h-4 w-4 text-neon-cyan" /> Play from start
+        </button>
+      ) : null}
+
+      <motion.button type="button" onClick={rewind} whileTap={{ scale: 0.9 }} className="glass-pill absolute right-16 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-full" aria-label="Rewind 10 seconds">
+        <RotateCcw className="h-5 w-5 text-white" />
+      </motion.button>
       <motion.button
+        type="button"
         onClick={toggleMute}
         whileTap={{ scale: 0.9 }}
-        className="glass-pill absolute right-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-full"
+        className="glass-pill absolute right-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-full"
+        aria-label={muted ? 'Turn sound on' : 'Mute pitch'}
       >
         {muted ? (
           <VolumeX className="w-5 h-5 text-slate-300" />

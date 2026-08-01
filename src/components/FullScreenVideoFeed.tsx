@@ -157,6 +157,7 @@ export function FullScreenVideoFeed({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
   const [feedbackListOpen, setFeedbackListOpen] = useState(false);
+  const [playerInteractionActive, setPlayerInteractionActive] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>('toast');
   const [direction, setDirection] = useState<'up' | 'down'>('down');
   const [localPitches, setLocalPitches] = useState<LegacyPitch[]>(pitches);
@@ -789,7 +790,7 @@ export function FullScreenVideoFeed({
       data-feed-frame="true"
       className="relative h-full w-full touch-none overflow-hidden bg-black"
       onWheel={handleWheel}
-      {...(isFeedbackOverlayOpen ? {} : bind())}
+      {...(isFeedbackOverlayOpen || playerInteractionActive ? {} : bind())}
     >
       <AnimatePresence initial={false} custom={direction}>
         <motion.div
@@ -808,8 +809,9 @@ export function FullScreenVideoFeed({
           {/* Video */}
           <VideoPlayer
             url={currentPitch.videoUrl}
-            playing={true}
+            playing={!isFeedbackOverlayOpen}
             onEnded={handleVideoEnded}
+            onInteractionChange={setPlayerInteractionActive}
           />
 
           <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-32 bg-gradient-to-b from-black/45 to-transparent" />

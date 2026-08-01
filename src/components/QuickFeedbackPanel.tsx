@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, Flame, MessageSquarePlus, Target, Wine, X } from 'lucide-react';
+import { CheckCircle2, Flame, Loader2, MessageSquarePlus, Mic, ShieldCheck, Square, Target, Wine, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,9 @@ type SheetLayout = {
 const toastSignals = ['Clear', 'Compelling', 'Strong problem', 'Strong ask'];
 const roastSignals = ['Unclear audience', 'Weak pain', 'Too much jargon', 'Missing ask', 'Not urgent'];
 const maxSignals = 3;
+const MAX_FEEDBACK_NOTE_LENGTH = 2000;
+const MAX_DICTATION_SECONDS = 45;
+const DICTATION_CONSENT_KEY = 'pip-feedback-dictation-consent-v1';
 const readinessLevels = [
   { value: 1, label: 'Needs work', helper: 'The core message is not landing yet.' },
   { value: 2, label: 'Getting there', helper: 'The direction is visible, but it needs focus.' },
@@ -182,24 +185,160 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [dictationStatus, setDictationStatus] = useState<'idle' | 'consent' | 'recording' | 'transcribing' | 'error'>('idle');
+  const [dictationSeconds, setDictationSeconds] = useState(0);
+  const [dictationError, setDictationError] = useState('');
+  const recorderRef = React.useRef<MediaRecorder | null>(null);
+  const microphoneStreamRef = React.useRef<MediaStream | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+  const dictationTimerRef = React.useRef<number | null>(null);
+  const discardDictationRef = React.useRef(false);
 
   const isRoast = feedbackType === 'roast';
   const activeSignals = isRoast ? roastSignals : toastSignals;
   const selectedReadiness = readinessLevels.find((level) => level.value === readiness)!;
+
+  const stopMicrophone = React.useCallback(() => {
+    if (dictationTimerRef.current !== null) {
+      window.clearInterval(dictationTimerRef.current);
+      dictationTimerRef.current = null;
+    }
+    microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
+    microphoneStreamRef.current = null;
+  }, []);
+
+  const transcribeAudio = React.useCallback(async (audio: Blob) => {
+    setDictationStatus('transcribing');
+    setDictationError('');
+
+    try {
+      const body = new FormData();
+      const extension = audio.type.includes('mp4') ? 'm4a' : audio.type.includes('ogg') ? 'ogg' : 'webm';
+      body.append('audio', audio, `feedback-note.${extension}`);
+      const response = await fetch('/api/feedback/transcribe', { method: 'POST', body });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || !payload.transcript) {
+        throw new Error(payload.error || 'We could not transcribe that recording. Please try again.');
+      }
+
+      setNotes((current) => [current.trim(), String(payload.transcript).trim()]
+        .filter(Boolean)
+        .join('\n\n')
+        .slice(0, MAX_FEEDBACK_NOTE_LENGTH));
+      setNoteOpen(true);
+      setDictationStatus('idle');
+      window.requestAnimationFrame(() => noteRef.current?.focus());
+    } catch (error) {
+      setDictationError(error instanceof Error ? error.message : 'We could not transcribe that recording.');
+      setDictationStatus('error');
+    }
+  }, []);
+
+  const stopDictation = React.useCallback((discard = false) => {
+    discardDictationRef.current = discard;
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    stopMicrophone();
+  }, [stopMicrophone]);
+
+  const startDictation = React.useCallback(async () => {
+    setDictationError('');
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setDictationError('Voice notes are not supported in this browser. You can still type your note.');
+      setDictationStatus('error');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      microphoneStreamRef.current = stream;
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+        .find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recorderRef.current = recorder;
+      audioChunksRef.current = [];
+      discardDictationRef.current = false;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const chunks = audioChunksRef.current;
+        audioChunksRef.current = [];
+        recorderRef.current = null;
+        stopMicrophone();
+        if (discardDictationRef.current || !chunks.length) {
+          setDictationStatus('idle');
+          return;
+        }
+        void transcribeAudio(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
+      };
+
+      recorder.start(250);
+      setDictationSeconds(0);
+      setDictationStatus('recording');
+      dictationTimerRef.current = window.setInterval(() => {
+        setDictationSeconds((current) => {
+          const next = current + 1;
+          if (next >= MAX_DICTATION_SECONDS) window.setTimeout(() => stopDictation(false), 0);
+          return Math.min(next, MAX_DICTATION_SECONDS);
+        });
+      }, 1000);
+    } catch (error) {
+      stopMicrophone();
+      setDictationError(
+        error instanceof DOMException && error.name === 'NotAllowedError'
+          ? 'Microphone access was blocked. Allow it in browser settings or type your note.'
+          : 'The microphone could not start. Please try again or type your note.'
+      );
+      setDictationStatus('error');
+    }
+  }, [stopDictation, stopMicrophone, transcribeAudio]);
+
+  const requestDictation = () => {
+    setNoteOpen(true);
+    try {
+      if (window.sessionStorage.getItem(DICTATION_CONSENT_KEY) === 'true') {
+        void startDictation();
+        return;
+      }
+    } catch {
+      // The inline disclosure remains available when storage is blocked.
+    }
+    setDictationStatus('consent');
+  };
+
+  const confirmDictation = () => {
+    try {
+      window.sessionStorage.setItem(DICTATION_CONSENT_KEY, 'true');
+    } catch {
+      // Consent applies to this recording even when storage is unavailable.
+    }
+    void startDictation();
+  };
+
+  const closePanel = React.useCallback(() => {
+    stopDictation(true);
+    onClose();
+  }, [onClose, stopDictation]);
 
   React.useEffect(() => {
     setPortalNode(document.body);
   }, []);
 
   React.useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+    onCloseRef.current = closePanel;
+  }, [closePanel]);
+
+  React.useEffect(() => () => stopDictation(true), [stopDictation]);
 
   React.useEffect(() => {
     if (!isOpen) return;
     setFeedbackType(initialType);
     setSignals([initialType === 'roast' ? roastSignals[0] : toastSignals[0]]);
     setSubmitError('');
+    setDictationError('');
+    setDictationStatus('idle');
   }, [initialType, isOpen]);
 
   React.useEffect(() => {
@@ -242,6 +381,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   }, [isOpen]);
 
   const handleSubmit = async () => {
+    if (dictationStatus === 'recording' || dictationStatus === 'transcribing') return;
     const selectedSignals = signals.length ? signals : [activeSignals[0]];
     setIsSubmitting(true);
     setSubmitError('');
@@ -260,7 +400,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
         return;
       }
 
-      onClose();
+      closePanel();
       setReadiness(2);
       setNoteOpen(false);
       setNotes('');
@@ -310,7 +450,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={closePanel}
             className="fixed inset-0 z-[80] h-full w-full cursor-default bg-black/48 backdrop-blur-sm"
             style={{ touchAction: 'none' }}
             aria-label="Close feedback panel"
@@ -350,7 +490,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 <button
                   ref={closeButtonRef}
                   type="button"
-                  onClick={onClose}
+                  onClick={closePanel}
                   className="btn-glass flex h-10 w-10 shrink-0 items-center justify-center focus:outline-none focus:ring-2 focus:ring-neon-cyan/70"
                   aria-label="Close feedback panel"
                 >
@@ -455,16 +595,28 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
                     <label htmlFor="quick-feedback-note" className="text-sm font-bold text-slate-300">Optional note</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNoteOpen(false);
-                        setNotes('');
-                      }}
-                      className="min-h-9 rounded-lg px-2 text-xs font-bold text-slate-400 hover:text-white"
-                    >
-                      Remove
-                    </button>
+                    {dictationStatus === 'recording' ? (
+                      <button
+                        type="button"
+                        onClick={() => stopDictation(false)}
+                        className="inline-flex min-h-9 items-center gap-2 rounded-full bg-roast px-3 text-xs font-black text-white"
+                      >
+                        <Square className="h-3.5 w-3.5 fill-current" />
+                        Stop · 0:{String(dictationSeconds).padStart(2, '0')}
+                      </button>
+                    ) : dictationStatus === 'transcribing' ? (
+                      <span className="inline-flex min-h-9 items-center gap-2 text-xs font-bold text-slate-300" role="status">
+                        <Loader2 className="h-4 w-4 animate-spin text-neon-cyan" /> Transcribing
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={requestDictation}
+                        className="inline-flex min-h-9 items-center gap-2 rounded-full border border-neon-cyan/35 bg-neon-cyan/10 px-3 text-xs font-black text-neon-cyan hover:bg-neon-cyan/15"
+                      >
+                        <Mic className="h-4 w-4" /> Speak note
+                      </button>
+                    )}
                   </div>
                   <Textarea
                     ref={noteRef}
@@ -477,16 +629,41 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                     rows={3}
                     className="min-h-[96px] resize-none text-base"
                   />
+                  {dictationStatus === 'consent' ? (
+                    <div className="rounded-xl border border-neon-cyan/25 bg-neon-cyan/[0.07] p-3 text-xs leading-5 text-slate-300">
+                      <p className="flex items-start gap-2">
+                        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-neon-cyan" />
+                        Your microphone recording is sent securely for transcription and is not stored by Pitch in Public. Review the text before submitting feedback.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <button type="button" onClick={confirmDictation} className="min-h-10 flex-1 rounded-full bg-neon-cyan px-3 font-black text-slate-950">
+                          Start dictation
+                        </button>
+                        <button type="button" onClick={() => setDictationStatus('idle')} className="min-h-10 rounded-full border border-white/15 px-3 font-bold text-slate-300">
+                          Not now
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {dictationError ? <p className="text-xs font-semibold text-roast" role="alert">{dictationError}</p> : null}
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={openNote}
-                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.035] px-3 text-sm font-bold text-slate-300 transition-colors hover:border-neon-cyan/35 hover:bg-white/[0.07] hover:text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
-                >
-                  <MessageSquarePlus className="h-4 w-4 text-neon-cyan" />
-                  Add an optional note
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={openNote}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.035] px-3 text-sm font-bold text-slate-300 transition-colors hover:border-neon-cyan/35 hover:bg-white/[0.07] hover:text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
+                  >
+                    <MessageSquarePlus className="h-4 w-4 text-neon-cyan" /> Type note
+                  </button>
+                  <button
+                    type="button"
+                    onClick={requestDictation}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-neon-cyan/25 bg-neon-cyan/[0.07] px-3 text-sm font-bold text-neon-cyan transition-colors hover:bg-neon-cyan/15 focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
+                  >
+                    <Mic className="h-4 w-4" /> Speak note
+                  </button>
+                </div>
               )}
             </div>
 
@@ -497,12 +674,20 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
               <Button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || dictationStatus === 'recording' || dictationStatus === 'transcribing'}
                 className={`min-h-12 w-full rounded-full text-sm font-heading font-black sm:text-base ${
                   isRoast ? 'bg-roast text-white hover:bg-roast/90' : 'bg-toast text-slate-950 hover:bg-toast/90'
                 } disabled:cursor-not-allowed disabled:opacity-60`}
               >
-                {isSubmitting ? 'Saving feedback...' : isRoast ? 'Submit constructive roast' : 'Submit useful toast'}
+                {dictationStatus === 'recording'
+                  ? 'Finish voice note first'
+                  : dictationStatus === 'transcribing'
+                    ? 'Transcribing voice note...'
+                    : isSubmitting
+                      ? 'Saving feedback...'
+                      : isRoast
+                        ? 'Submit constructive roast'
+                        : 'Submit useful toast'}
               </Button>
               {submitError ? (
                 <p className="mt-2 text-center text-sm font-semibold text-roast" role="alert">
