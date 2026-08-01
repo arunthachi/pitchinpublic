@@ -16,6 +16,7 @@ import {
   Copy,
   Eye,
   ExternalLink,
+  FileText,
   LogOut,
   ListChecks,
   Mail,
@@ -740,6 +741,12 @@ export default function EventDashboardPage() {
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
+              {state.canManageEvent ? (
+                <Link href={`/events/${slug}/report`} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
+                  <FileText className="h-4 w-4" />
+                  Outcome report
+                </Link>
+              ) : null}
               {state.canManageEvent ? <EventEditDialog event={event} onSaved={handleEventSaved} /> : null}
               <button onClick={() => copyText(roomUrl, 'event')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
                 <Copy className="h-4 w-4" />

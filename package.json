@@ -12,6 +12,7 @@
     "test:events": "tsx --test 'src/app/api/events/[slug]/_server.test.ts'",
     "test:pilot-access": "tsx --test src/lib/pilot-access.test.ts",
     "test:reviewers": "tsx --test src/lib/review-marketplace.test.ts",
+    "test:event-outcomes": "tsx --test src/lib/event-outcomes.test.ts src/lib/event-outcomes-server.test.ts",
     "test:event-dashboard": "tsx --test src/lib/event-dashboard.test.ts"
   },
   "dependencies": {
