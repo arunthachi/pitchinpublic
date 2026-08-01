@@ -10,7 +10,8 @@
     "test:nudges": "tsx --test src/lib/nudges.test.ts",
     "test:founder-invites": "tsx --test src/app/api/founder-invites/_server.test.ts",
     "test:pilot-access": "tsx --test src/lib/pilot-access.test.ts",
-    "test:reviewers": "tsx --test src/lib/review-marketplace.test.ts"
+    "test:reviewers": "tsx --test src/lib/review-marketplace.test.ts",
+    "test:event-outcomes": "tsx --test src/lib/event-outcomes.test.ts src/lib/event-outcomes-server.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",
