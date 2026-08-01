@@ -3,20 +3,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { buildEventInviteEmail, sendEmail as dispatchEmail } from '@/lib/email';
+import {
+  canManageEventInvites,
+  getInvitationHealth,
+  MAX_BULK_FOUNDER_INVITES,
+  publicInviteDeliveryError,
+  publicInviteError,
+} from '@/lib/event-dashboard';
 
-const TEAM_MANAGER_ROLES = ['organizer', 'admin'] as const;
 const INVITE_ROLES = ['founder', 'organizer', 'admin', 'coach', 'mentor', 'judge'] as const;
 const DELIVERY_STATUSES = ['unknown', 'skipped', 'sent', 'failed', 'not_configured'] as const;
 
 const inviteCreateSchema = z.object({
   email: z.string().trim().email().optional().or(z.literal('')),
+  emails: z.array(z.string().trim().email()).max(200).optional(),
   role: z.enum(INVITE_ROLES).default('founder'),
   sendEmail: z.boolean().default(true),
+}).superRefine((value, context) => {
+  if (value.emails?.length && value.role !== 'founder') {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'Bulk invitations are available for founders only.' });
+  }
+  if (value.emails && new Set(value.emails.map(normalizeEmail)).size > MAX_BULK_FOUNDER_INVITES) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: `Invite up to ${MAX_BULK_FOUNDER_INVITES} founders at a time.` });
+  }
 });
 
 const inviteActionSchema = z.object({
   inviteId: z.string().uuid(),
-  action: z.enum(['resend', 'clear_delivery', 'revoke'] as const),
+  action: z.enum(['resend', 'revoke'] as const),
 });
 
 function createSupabase(request: NextRequest) {
@@ -43,21 +57,6 @@ function normalizeEmail(value?: string | null) {
   return value?.trim().toLowerCase() || '';
 }
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-
-  if (error && typeof error === 'object') {
-    const maybeError = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
-    const parts = [maybeError.message, maybeError.details, maybeError.hint]
-      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
-
-    if (parts.length > 0) return parts.join(' ');
-    if (typeof maybeError.code === 'string') return `Database error ${maybeError.code}`;
-  }
-
-  return 'Could not create invite.';
-}
-
 async function getEventAndAccess(supabase: ReturnType<typeof createSupabase>, slug: string, userId: string) {
   const { data: event } = await supabase
     .from('pitch_events')
@@ -66,10 +65,6 @@ async function getEventAndAccess(supabase: ReturnType<typeof createSupabase>, sl
     .single();
 
   if (!event) return { event: null, canManage: false };
-
-  if (event.organizer_id === userId) {
-    return { event, canManage: true };
-  }
 
   const { data: participant } = await supabase
     .from('pitch_event_participants')
@@ -80,7 +75,7 @@ async function getEventAndAccess(supabase: ReturnType<typeof createSupabase>, sl
 
   return {
     event,
-    canManage: participant?.status === 'active' && TEAM_MANAGER_ROLES.includes(participant.role),
+    canManage: canManageEventInvites(event.organizer_id, userId, participant),
   };
 }
 
@@ -140,6 +135,75 @@ async function sendInviteEmail({
     emailStatus: emailResult.status,
     emailError: emailResult.ok ? null : emailResult.error,
     emailSentAt: emailResult.ok ? new Date().toISOString() : null,
+  };
+}
+
+function invitationResponse(invitation: any, inviteUrl: string) {
+  return {
+    ...invitation,
+    invite_code: undefined,
+    invite_url: inviteUrl,
+    email_error: publicInviteDeliveryError(invitation.email_status),
+    health: getInvitationHealth(invitation),
+  };
+}
+
+async function createInvitation({
+  supabase,
+  request,
+  event,
+  user,
+  email,
+  role,
+  sendEmail,
+}: {
+  supabase: ReturnType<typeof createSupabase>;
+  request: NextRequest;
+  event: any;
+  user: { id: string; email?: string | null };
+  email: string;
+  role: (typeof INVITE_ROLES)[number];
+  sendEmail: boolean;
+}) {
+  const inviteCode = createInviteCode();
+  const { data: invitation, error } = await supabase
+    .from('pitch_event_invitations')
+    .insert({
+      event_id: event.id,
+      email: email || null,
+      role,
+      invite_code: inviteCode,
+      invited_by: user.id,
+      status: 'pending',
+    })
+    .select('*')
+    .single();
+
+  if (error || !invitation) {
+    console.error('Error creating event invitation:', error);
+    return { success: false as const, email, error: publicInviteError('create') };
+  }
+
+  const inviteResult = await createOrUpdateInviteResponse({
+    supabase,
+    request,
+    invitation,
+    event,
+    replyTo: user.email || undefined,
+    allowSend: sendEmail,
+  });
+
+  if (inviteResult.updateError) {
+    console.error('Event invite delivery status update failed:', inviteResult.updateError);
+  }
+
+  return {
+    success: true as const,
+    email,
+    invitation: invitationResponse(inviteResult.invitation, inviteResult.inviteUrl),
+    inviteUrl: inviteResult.inviteUrl,
+    emailStatus: inviteResult.emailStatus,
+    emailError: publicInviteDeliveryError(inviteResult.emailStatus),
   };
 }
 
@@ -232,36 +296,37 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({ success: false, error: 'Only event organizers and admins can create invites.' }, { status: 403 });
   }
 
-  const inviteCode = createInviteCode();
-  const { data: invitation, error } = await supabase
-    .from('pitch_event_invitations')
-    .insert({
-      event_id: event.id,
-      email: validation.data.email || null,
-      role: validation.data.role,
-      invite_code: inviteCode,
-      invited_by: user.id,
-      status: 'pending',
-    })
-    .select('*')
-    .single();
+  const emails = validation.data.emails?.length
+    ? [...new Set(validation.data.emails.map(normalizeEmail))]
+    : [normalizeEmail(validation.data.email)];
+  const results: Awaited<ReturnType<typeof createInvitation>>[] = [];
 
-  if (error) {
-    console.error('Error creating event invitation:', error);
-    return NextResponse.json({ success: false, error: getErrorMessage(error) }, { status: 500 });
+  for (let index = 0; index < emails.length; index += 5) {
+    const batch = emails.slice(index, index + 5);
+    results.push(...await Promise.all(batch.map((email) => createInvitation({
+      supabase,
+      request,
+      event,
+      user,
+      email,
+      role: validation.data.role,
+      sendEmail: validation.data.sendEmail && Boolean(email),
+    }))));
   }
 
-  const inviteResult = await createOrUpdateInviteResponse({
-    supabase,
-    request,
-    invitation,
-    event,
-    replyTo: user.email || undefined,
-    allowSend: validation.data.sendEmail,
-  });
+  if (validation.data.emails?.length) {
+    const succeeded = results.filter((result) => result.success);
+    return NextResponse.json({
+      success: succeeded.length > 0,
+      results,
+      created: succeeded.length,
+      failed: results.length - succeeded.length,
+    }, { status: succeeded.length ? 201 : 500 });
+  }
 
-  if (inviteResult.updateError) {
-    console.error('Event invite delivery status update failed:', inviteResult.updateError);
+  const inviteResult = results[0];
+  if (!inviteResult?.success) {
+    return NextResponse.json({ success: false, error: inviteResult?.error || publicInviteError('create') }, { status: 500 });
   }
 
   return NextResponse.json(
@@ -326,31 +391,11 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ slu
   }
 
   const inviteUrl = `${request.nextUrl.origin}/events/${event.slug}?invite=${invitation.invite_code}`;
-
-  if (validation.data.action === 'clear_delivery') {
-    const { data: updatedInvitation, error: updateError } = await updateInviteDelivery(supabase, invitation.id, {
-      email_status: 'unknown',
-      email_error: null,
-      email_sent_at: null,
-    });
-
-    if (updateError) {
-      console.error('Event invite clear delivery update failed:', updateError);
-      return NextResponse.json({ success: false, error: 'Could not clear delivery status.' }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      invitation: updatedInvitation,
-      inviteUrl,
-      emailStatus: updatedInvitation?.email_status || 'unknown',
-      emailError: null,
-    });
-  }
+  const health = getInvitationHealth(invitation);
 
   if (validation.data.action === 'revoke') {
-    if (invitation.status !== 'pending') {
-      return NextResponse.json({ success: false, error: 'Only pending invites can be revoked.' }, { status: 400 });
+    if (!health.canRevoke) {
+      return NextResponse.json({ success: false, error: 'Only pending or expired invites can be revoked.' }, { status: 400 });
     }
 
     const { data: updatedInvitation, error: updateError } = await updateInviteDelivery(supabase, invitation.id, {
@@ -364,18 +409,32 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ slu
 
     return NextResponse.json({
       success: true,
-      invitation: updatedInvitation,
+      invitation: invitationResponse(updatedInvitation, inviteUrl),
       inviteUrl,
       emailStatus: updatedInvitation?.email_status || invitation.email_status || 'unknown',
-      emailError: updatedInvitation?.email_error || null,
+      emailError: publicInviteDeliveryError(updatedInvitation?.email_status),
     });
   }
 
   if (!normalizeEmail(invitation.email)) {
     return NextResponse.json({ success: false, error: 'Add an email address before resending.' }, { status: 400 });
   }
-  if (invitation.status !== 'pending') {
-    return NextResponse.json({ success: false, error: 'Only pending invites can be resent.' }, { status: 400 });
+  if (!health.canResend) {
+    return NextResponse.json({ success: false, error: 'Only pending or expired invites can be resent.' }, { status: 400 });
+  }
+
+  if (health.lifecycle === 'expired') {
+    const { data: refreshedInvitation, error: refreshError } = await supabase
+      .from('pitch_event_invitations')
+      .update({ expires_at: new Date(Date.now() + 30 * 86_400_000).toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', invitation.id)
+      .select('*')
+      .single();
+    if (refreshError || !refreshedInvitation) {
+      console.error('Event invite expiry refresh failed:', refreshError);
+      return NextResponse.json({ success: false, error: publicInviteError('resend') }, { status: 500 });
+    }
+    Object.assign(invitation, refreshedInvitation);
   }
 
   const inviteResult = await createOrUpdateInviteResponse({
@@ -393,9 +452,9 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ slu
 
   return NextResponse.json({
     success: true,
-    invitation: inviteResult.invitation,
+    invitation: invitationResponse(inviteResult.invitation, inviteResult.inviteUrl),
     inviteUrl: inviteResult.inviteUrl,
     emailStatus: inviteResult.emailStatus,
-    emailError: inviteResult.emailError,
+    emailError: publicInviteDeliveryError(inviteResult.emailStatus),
   });
 }
