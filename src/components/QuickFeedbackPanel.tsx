@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, Flame, Loader2, MessageSquarePlus, Mic, ShieldCheck, Square, Target, Wine, X } from 'lucide-react';
+import { CheckCircle2, Flame, Loader2, Mic, ShieldCheck, Square, Target, Wine, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,6 @@ const roastSignals = ['Unclear audience', 'Weak pain', 'Too much jargon', 'Missi
 const maxSignals = 3;
 const MAX_FEEDBACK_NOTE_LENGTH = 2000;
 const MAX_DICTATION_SECONDS = 45;
-const DICTATION_CONSENT_KEY = 'pip-feedback-dictation-consent-v1';
 const readinessLevels = [
   { value: 1, label: 'Needs work', helper: 'The core message is not landing yet.' },
   { value: 2, label: 'Getting there', helper: 'The direction is visible, but it needs focus.' },
@@ -181,11 +180,10 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   const [feedbackType, setFeedbackType] = useState<'roast' | 'toast'>(initialType);
   const [signals, setSignals] = useState<string[]>([toastSignals[0]]);
   const [readiness, setReadiness] = useState(2);
-  const [noteOpen, setNoteOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [dictationStatus, setDictationStatus] = useState<'idle' | 'consent' | 'recording' | 'transcribing' | 'error'>('idle');
+  const [dictationStatus, setDictationStatus] = useState<'idle' | 'recording' | 'transcribing' | 'error'>('idle');
   const [dictationSeconds, setDictationSeconds] = useState(0);
   const [dictationError, setDictationError] = useState('');
   const recorderRef = React.useRef<MediaRecorder | null>(null);
@@ -226,7 +224,6 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
         .filter(Boolean)
         .join('\n\n')
         .slice(0, MAX_FEEDBACK_NOTE_LENGTH));
-      setNoteOpen(true);
       setDictationStatus('idle');
       window.requestAnimationFrame(() => noteRef.current?.focus());
     } catch (error) {
@@ -296,24 +293,6 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
   }, [stopDictation, stopMicrophone, transcribeAudio]);
 
   const requestDictation = () => {
-    setNoteOpen(true);
-    try {
-      if (window.sessionStorage.getItem(DICTATION_CONSENT_KEY) === 'true') {
-        void startDictation();
-        return;
-      }
-    } catch {
-      // The inline disclosure remains available when storage is blocked.
-    }
-    setDictationStatus('consent');
-  };
-
-  const confirmDictation = () => {
-    try {
-      window.sessionStorage.setItem(DICTATION_CONSENT_KEY, 'true');
-    } catch {
-      // Consent applies to this recording even when storage is unavailable.
-    }
     void startDictation();
   };
 
@@ -402,7 +381,6 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
 
       closePanel();
       setReadiness(2);
-      setNoteOpen(false);
       setNotes('');
       setSignals([activeSignals[0]]);
     } catch (error) {
@@ -425,14 +403,6 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
         return current.length === 1 ? current : current.filter((item) => item !== option);
       }
       return current.length >= maxSignals ? [...current.slice(1), option] : [...current, option];
-    });
-  };
-
-  const openNote = () => {
-    setNoteOpen(true);
-    window.requestAnimationFrame(() => {
-      noteRef.current?.focus();
-      noteRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
   };
 
@@ -591,33 +561,11 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                 </p>
               </section>
 
-              {noteOpen ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <label htmlFor="quick-feedback-note" className="text-sm font-bold text-slate-300">Optional note</label>
-                    {dictationStatus === 'recording' ? (
-                      <button
-                        type="button"
-                        onClick={() => stopDictation(false)}
-                        className="inline-flex min-h-9 items-center gap-2 rounded-full bg-roast px-3 text-xs font-black text-white"
-                      >
-                        <Square className="h-3.5 w-3.5 fill-current" />
-                        Stop · 0:{String(dictationSeconds).padStart(2, '0')}
-                      </button>
-                    ) : dictationStatus === 'transcribing' ? (
-                      <span className="inline-flex min-h-9 items-center gap-2 text-xs font-bold text-slate-300" role="status">
-                        <Loader2 className="h-4 w-4 animate-spin text-neon-cyan" /> Transcribing
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={requestDictation}
-                        className="inline-flex min-h-9 items-center gap-2 rounded-full border border-neon-cyan/35 bg-neon-cyan/10 px-3 text-xs font-black text-neon-cyan hover:bg-neon-cyan/15"
-                      >
-                        <Mic className="h-4 w-4" /> Speak note
-                      </button>
-                    )}
-                  </div>
+              <div className="space-y-2">
+                <label htmlFor="quick-feedback-note" className="text-sm font-bold text-slate-300">
+                  Add a note <span className="font-medium text-slate-500">(optional)</span>
+                </label>
+                <div className="relative">
                   <Textarea
                     ref={noteRef}
                     id="quick-feedback-note"
@@ -625,46 +573,47 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                     onChange={(event) => setNotes(event.target.value)}
                     onFocus={() => window.setTimeout(() => noteRef.current?.scrollIntoView({ block: 'center' }), 120)}
                     onPointerDown={stopPanelEvent}
-                    placeholder={isRoast ? 'What is unclear or missing?' : 'What is working well?'}
+                    placeholder={isRoast ? 'What should they sharpen next?' : 'What should they keep or double down on?'}
                     rows={3}
-                    className="min-h-[96px] resize-none text-base"
+                    maxLength={MAX_FEEDBACK_NOTE_LENGTH}
+                    className="min-h-[104px] resize-none pb-14 pr-14 text-base"
                   />
-                  {dictationStatus === 'consent' ? (
-                    <div className="rounded-xl border border-neon-cyan/25 bg-neon-cyan/[0.07] p-3 text-xs leading-5 text-slate-300">
-                      <p className="flex items-start gap-2">
-                        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-neon-cyan" />
-                        Your microphone recording is sent securely for transcription and is not stored by Pitch in Public. Review the text before submitting feedback.
-                      </p>
-                      <div className="mt-3 flex gap-2">
-                        <button type="button" onClick={confirmDictation} className="min-h-10 flex-1 rounded-full bg-neon-cyan px-3 font-black text-slate-950">
-                          Start dictation
-                        </button>
-                        <button type="button" onClick={() => setDictationStatus('idle')} className="min-h-10 rounded-full border border-white/15 px-3 font-bold text-slate-300">
-                          Not now
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {dictationError ? <p className="text-xs font-semibold text-roast" role="alert">{dictationError}</p> : null}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={openNote}
-                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.035] px-3 text-sm font-bold text-slate-300 transition-colors hover:border-neon-cyan/35 hover:bg-white/[0.07] hover:text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
+                    onClick={dictationStatus === 'recording' ? () => stopDictation(false) : requestDictation}
+                    onPointerDown={stopPanelEvent}
+                    disabled={dictationStatus === 'transcribing'}
+                    aria-label={dictationStatus === 'recording' ? 'Stop dictating note' : 'Dictate note'}
+                    title={dictationStatus === 'recording' ? 'Stop dictation' : 'Dictate note'}
+                    className={`absolute bottom-3 right-3 inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border px-3 transition-colors focus:outline-none focus:ring-2 focus:ring-neon-cyan/60 disabled:cursor-wait ${
+                      dictationStatus === 'recording'
+                        ? 'border-roast bg-roast text-white'
+                        : 'border-neon-cyan/35 bg-slate-950/90 text-neon-cyan hover:bg-neon-cyan/15'
+                    }`}
                   >
-                    <MessageSquarePlus className="h-4 w-4 text-neon-cyan" /> Type note
-                  </button>
-                  <button
-                    type="button"
-                    onClick={requestDictation}
-                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-neon-cyan/25 bg-neon-cyan/[0.07] px-3 text-sm font-bold text-neon-cyan transition-colors hover:bg-neon-cyan/15 focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"
-                  >
-                    <Mic className="h-4 w-4" /> Speak note
+                    {dictationStatus === 'recording' ? (
+                      <>
+                        <Square className="h-3.5 w-3.5 fill-current" />
+                        <span className="text-xs font-black">0:{String(dictationSeconds).padStart(2, '0')}</span>
+                      </>
+                    ) : dictationStatus === 'transcribing' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mic className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
-              )}
+                <p className="flex items-start gap-1.5 px-1 text-[11px] leading-4 text-slate-500">
+                  <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  Tap the mic to dictate. Audio is transcribed securely and not stored by Pitch in Public.
+                </p>
+                {dictationStatus === 'transcribing' ? (
+                  <p className="flex items-center gap-2 px-1 text-xs font-semibold text-slate-300" role="status">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-neon-cyan" /> Adding your words…
+                  </p>
+                ) : null}
+                {dictationError ? <p className="text-xs font-semibold text-roast" role="alert">{dictationError}</p> : null}
+              </div>
             </div>
 
             <div
