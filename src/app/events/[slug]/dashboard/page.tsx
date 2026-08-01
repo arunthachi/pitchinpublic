@@ -11,6 +11,7 @@ import {
   Bell,
   CalendarDays,
   CheckCircle2,
+  Circle,
   Clock3,
   Copy,
   Eye,
@@ -51,7 +52,9 @@ import {
   type DashboardFilter,
   type DashboardTab,
 } from '@/lib/event-dashboard';
+import { splitEventFocuses } from '@/lib/event-settings';
 import type { EventReviewCoverage } from '@/types';
+import { EventEditDialog } from '@/components/EventEditDialog';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLE_GROUPS = [
@@ -190,13 +193,6 @@ function roleLabel(role: string) {
   return 'Founder';
 }
 
-function splitFocusSummary(value?: string | null) {
-  return (value || '')
-    .split(/[·,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text) return {};
@@ -267,7 +263,7 @@ export default function EventDashboardPage() {
   }, []);
 
   const event = state?.event;
-  const focusTags = useMemo(() => splitFocusSummary(event?.focus), [event?.focus]);
+  const focusTags = useMemo(() => splitEventFocuses(event?.focus), [event?.focus]);
   const participants = useMemo(() => state?.participants || [], [state?.participants]);
   const submissions = useMemo(() => state?.submissions || [], [state?.submissions]);
   const pitches = useMemo(() => state?.pitches || [], [state?.pitches]);
@@ -584,6 +580,18 @@ export default function EventDashboardPage() {
     router.push('/');
   };
 
+  const handleEventSaved = (updatedEvent: any) => {
+    setState((current: any) => ({ ...current, event: updatedEvent }));
+    setActionMessage('Event settings saved.');
+  };
+
+  const openSetupTab = (tab: DashboardTab) => {
+    setDashboardView(tab);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`dashboard-panel-${tab}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   if (loading) {
     return <DashboardShellSkeleton />;
   }
@@ -732,6 +740,7 @@ export default function EventDashboardPage() {
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
+              {state.canManageEvent ? <EventEditDialog event={event} onSaved={handleEventSaved} /> : null}
               <button onClick={() => copyText(roomUrl, 'event')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
                 <Copy className="h-4 w-4" />
                 {copied === 'event' ? 'Copied' : 'Copy room page'}
@@ -828,8 +837,21 @@ export default function EventDashboardPage() {
           className="mt-5 outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
         >
           {activeTab === 'overview' && (
-            <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
-              <Panel title="Founder progress" eyebrow="Overview">
+            <div className="space-y-5">
+              {state.canManageEvent ? (
+                <SetupChecklist
+                  event={event}
+                  hasFounderInvite={founderRows.length > 0 || invitations.some((item: any) => item.role === 'founder' && item.status !== 'revoked')}
+                  hasReviewerInvite={
+                    teamRows.some((item: any) => ['coach', 'mentor', 'judge'].includes(item.role) && item.status === 'active')
+                    || invitations.some((item: any) => ['coach', 'mentor', 'judge'].includes(item.role) && item.status !== 'revoked')
+                  }
+                  hasAnnouncement={announcements.length > 0}
+                  onNavigate={openSetupTab}
+                />
+              ) : null}
+              <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
+                <Panel title="Founder progress" eyebrow="Overview">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   <StatusTile label="Joined" value={founderSummaries.length} />
                   <StatusTile label="Recorded" value={recordedCount} />
@@ -843,12 +865,12 @@ export default function EventDashboardPage() {
                   ))}
                   {!founderSummaries.length && <EmptyState text="No founders have joined yet. Create founder invites from the Founders tab." />}
                 </div>
-              </Panel>
-
-              <div className="grid gap-5">
-                <Panel title="Invitation health" eyebrow="Access pulse">
-                  <InvitationHealthSummary invitations={invitations} />
                 </Panel>
+
+                <div className="grid gap-5">
+                  <Panel title="Invitation health" eyebrow="Access pulse">
+                    <InvitationHealthSummary invitations={invitations} />
+                  </Panel>
 
                 <Panel title="Founder experience" eyebrow="Preview">
                   <div className="space-y-3 text-sm text-slate-300">
@@ -892,6 +914,7 @@ export default function EventDashboardPage() {
                   </div>
                   <AnnouncementList announcements={announcements.slice(0, 4)} />
                 </Panel>
+                </div>
               </div>
             </div>
           )}
@@ -1167,6 +1190,74 @@ function Panel({ eyebrow, title, children }: { eyebrow: string; title: string; c
       <h2 className="mt-2 font-heading text-2xl font-black text-white">{title}</h2>
       <div className="mt-5">{children}</div>
     </div>
+  );
+}
+
+function SetupChecklist({
+  event,
+  hasFounderInvite,
+  hasReviewerInvite,
+  hasAnnouncement,
+  onNavigate,
+}: {
+  event: any;
+  hasFounderInvite: boolean;
+  hasReviewerInvite: boolean;
+  hasAnnouncement: boolean;
+  onNavigate: (tab: DashboardTab) => void;
+}) {
+  const completeCount = [true, hasFounderInvite, hasReviewerInvite, hasAnnouncement].filter(Boolean).length;
+  const items: Array<{
+    label: string;
+    complete: boolean;
+    action?: string;
+    tab?: DashboardTab;
+    href?: string;
+  }> = [
+    { label: 'Create room', complete: true },
+    { label: 'Invite founders', complete: hasFounderInvite, action: 'Invite', tab: 'founders' },
+    { label: 'Invite judges or coaches', complete: hasReviewerInvite, action: 'Invite', tab: 'team' },
+    { label: 'Preview founder experience', complete: false, action: 'Preview', href: `/events/${event.slug}` },
+    { label: 'Send welcome announcement', complete: hasAnnouncement, action: 'Post', tab: 'announcements' },
+  ];
+
+  return (
+    <section className="glass-card rounded-[2rem] p-5 sm:p-6" aria-labelledby="setup-checklist-title">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Room setup</p>
+          <h2 id="setup-checklist-title" className="mt-2 font-heading text-2xl font-black text-white">Launch checklist</h2>
+        </div>
+        <p className="text-sm font-bold text-slate-400">{completeCount} of 4 trackable steps complete</p>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {items.map((item) => {
+          const content = (
+            <>
+              {item.complete ? <CheckCircle2 className="h-5 w-5 text-neon-lime" /> : <Circle className="h-5 w-5 text-slate-500" />}
+              <span className="min-w-0 flex-1 font-heading text-sm font-bold text-white">{item.label}</span>
+              {item.action ? <span className="text-xs font-black uppercase tracking-[0.1em] text-neon-cyan">{item.action}</span> : null}
+            </>
+          );
+
+          if (item.href) {
+            return <Link key={item.label} href={item.href} className="flex min-h-16 items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 transition hover:border-neon-cyan/40">{content}</Link>;
+          }
+
+          return (
+            <button
+              key={item.label}
+              type="button"
+              disabled={!item.tab}
+              onClick={() => item.tab && onNavigate(item.tab)}
+              className="flex min-h-16 items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left transition hover:border-neon-cyan/40 disabled:cursor-default disabled:hover:border-white/10"
+            >
+              {content}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

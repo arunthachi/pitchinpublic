@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getInvitationHealth, publicInviteDeliveryError } from '@/lib/event-dashboard';
+import { createServiceSupabase } from '@/lib/admin';
+import { canManageEvent, firstEventUpdateIssue, parseEventUpdate } from './_server';
 
 function createSupabase(request: NextRequest) {
   return createServerClient(
@@ -324,6 +326,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   }
 
   const safeEvent = { ...event };
+  if (canManageEvent) safeEvent.hasAccessCode = Boolean(safeEvent.access_code);
   delete safeEvent.access_code;
 
   return NextResponse.json({
@@ -341,4 +344,115 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     canManageEvent,
     reviewCoverage,
   });
+}
+
+export async function PATCH(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json(
+      { success: false, error: 'Event editing is unavailable in this environment.' },
+      { status: 503 }
+    );
+  }
+
+  const supabase = createSupabase(request);
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
+
+  const { data: event, error: eventError } = await supabase
+    .from('pitch_events')
+    .select('id,organizer_id,event_date,submission_deadline')
+    .eq('slug', params.slug)
+    .maybeSingle();
+
+  if (eventError || !event) {
+    return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
+  }
+
+  let participantRole: string | null = null;
+  let participantStatus: string | null = null;
+  if (event.organizer_id !== user.id) {
+    const { data: participant, error: participantError } = await supabase
+      .from('pitch_event_participants')
+      .select('role,status')
+      .eq('event_id', event.id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (participantError) {
+      console.error('Event manager authorization lookup failed:', participantError);
+      return NextResponse.json(
+        { success: false, error: 'Could not verify event editing access.' },
+        { status: 500 }
+      );
+    }
+
+    participantRole = participant?.role || null;
+    participantStatus = participant?.status || null;
+  }
+
+  const isOwner = event.organizer_id === user.id;
+  if (
+    !canManageEvent({
+      userId: user.id,
+      organizerId: event.organizer_id,
+      participantRole,
+      participantStatus,
+    })
+  ) {
+    return NextResponse.json(
+      { success: false, error: 'Only event organizers and admins can edit this room.' },
+      { status: 403 }
+    );
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const parsed = parseEventUpdate(body, event);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: firstEventUpdateIssue(parsed.issues),
+        issues: parsed.issues,
+      },
+      { status: 400 }
+    );
+  }
+
+  const updateClient = isOwner ? supabase : createServiceSupabase();
+  if (!updateClient) {
+    return NextResponse.json(
+      { success: false, error: 'Event editing is unavailable in this environment.' },
+      { status: 503 }
+    );
+  }
+
+  const { data: updatedEvent, error: updateError } = await updateClient
+    .from('pitch_events')
+    .update(parsed.update)
+    .eq('id', event.id)
+    .eq('slug', params.slug)
+    .select('*')
+    .single();
+
+  if (updateError || !updatedEvent) {
+    console.error('Event update failed:', updateError);
+    return NextResponse.json(
+      { success: false, error: 'Could not save event changes. Please try again.' },
+      { status: 500 }
+    );
+  }
+
+  const safeEvent = { ...updatedEvent };
+  safeEvent.hasAccessCode = Boolean(safeEvent.access_code);
+  delete safeEvent.access_code;
+
+  return NextResponse.json({ success: true, event: safeEvent });
 }

@@ -18,6 +18,13 @@ const createEventSchema = z.object({
   pitchHourStartsAt: z.string().datetime().optional().or(z.literal('')),
   pitchHourEndsAt: z.string().datetime().optional().or(z.literal('')),
 }).superRefine((value, ctx) => {
+  if (value.submissionDeadline && value.submissionDeadline > value.eventDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['submissionDeadline'],
+      message: 'Submission deadline must be on or before pitch day.',
+    });
+  }
   if (Boolean(value.pitchHourStartsAt) !== Boolean(value.pitchHourEndsAt)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pitchHourStartsAt'], message: 'Choose both a start and end for Pitch Hour.' });
   }

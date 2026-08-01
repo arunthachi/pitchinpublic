@@ -439,6 +439,16 @@ Fields:
 
 Date fields should open the calendar when clicking anywhere in the field, not just the icon.
 
+Organizer and Admin team members can edit these settings from the event dashboard after room creation. Coach, Mentor, and Judge roles remain read-only. Event access labels must distinguish between a hidden private room, a shareable but invitation-required unlisted room, and an open public room.
+
+The organizer dashboard guides setup through:
+
+- Create room.
+- Invite founders.
+- Invite judges or coaches.
+- Preview founder experience.
+- Send welcome announcement.
+
 ### Organizer Team
 
 Roles:
