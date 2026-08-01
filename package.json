@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:nudges": "tsx --test src/lib/nudges.test.ts",
     "test:founder-invites": "tsx --test src/app/api/founder-invites/_server.test.ts",
+    "test:events": "tsx --test 'src/app/api/events/[slug]/_server.test.ts'",
     "test:pilot-access": "tsx --test src/lib/pilot-access.test.ts",
     "test:reviewers": "tsx --test src/lib/review-marketplace.test.ts"
   },

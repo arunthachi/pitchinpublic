@@ -6,9 +6,12 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   AlertCircle,
+  ArrowRight,
   BarChart3,
   Bell,
   CalendarDays,
+  CheckCircle2,
+  Circle,
   Copy,
   ExternalLink,
   LogOut,
@@ -34,7 +37,9 @@ import { getTakeLabelFromFields } from '@/lib/pitch-copy';
 import { getPracticePrompt } from '@/lib/practice';
 import { pitchPath } from '@/lib/public-routes';
 import { normalizeEventReviewCoverage } from '@/lib/review-marketplace';
+import { splitEventFocuses } from '@/lib/event-settings';
 import type { EventReviewCoverage } from '@/types';
+import { EventEditDialog } from '@/components/EventEditDialog';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLE_GROUPS = [
@@ -182,13 +187,6 @@ function roleLabel(role: string) {
   return 'Founder';
 }
 
-function splitFocusSummary(value?: string | null) {
-  return (value || '')
-    .split(/[·,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text) return {};
@@ -247,7 +245,7 @@ export default function EventDashboardPage() {
   }, [load]);
 
   const event = state?.event;
-  const focusTags = useMemo(() => splitFocusSummary(event?.focus), [event?.focus]);
+  const focusTags = useMemo(() => splitEventFocuses(event?.focus), [event?.focus]);
   const participants = useMemo(() => state?.participants || [], [state?.participants]);
   const submissions = useMemo(() => state?.submissions || [], [state?.submissions]);
   const pitches = useMemo(() => state?.pitches || [], [state?.pitches]);
@@ -516,6 +514,18 @@ export default function EventDashboardPage() {
     router.push('/');
   };
 
+  const handleEventSaved = (updatedEvent: any) => {
+    setState((current: any) => ({ ...current, event: updatedEvent }));
+    setActionMessage('Event settings saved.');
+  };
+
+  const openSetupTab = (tab: Tab) => {
+    setActiveTab(tab);
+    window.requestAnimationFrame(() => {
+      document.getElementById('dashboard-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   if (loading) {
     return <DashboardShellSkeleton />;
   }
@@ -616,6 +626,7 @@ export default function EventDashboardPage() {
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
+              {state.canManageEvent ? <EventEditDialog event={event} onSaved={handleEventSaved} /> : null}
               <button onClick={() => copyText(roomUrl, 'event')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
                 <Copy className="h-4 w-4" />
                 {copied === 'event' ? 'Copied' : 'Copy room page'}
@@ -687,53 +698,68 @@ export default function EventDashboardPage() {
           </div>
         )}
 
-        <section className="mt-5">
+        <section id="dashboard-content" className="mt-5 scroll-mt-4">
           {activeTab === 'overview' && (
-            <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
-              <Panel title="Founder progress" eyebrow="Overview">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                  <StatusTile label="Joined" value={founderSummaries.length} />
-                  <StatusTile label="Recorded" value={recordedCount} />
-                  <StatusTile label="Submitted" value={submittedCount} />
-                  <StatusTile label="With feedback" value={feedbackedCount} />
-                  <StatusTile label="Best takes" value={bestTakeCount} />
-                </div>
-                <div className="mt-5 space-y-3">
-                  {founderSummaries.slice(0, 5).map((founder) => (
-                    <FounderRow key={founder.participant.id} founder={founder} />
-                  ))}
-                  {!founderSummaries.length && <EmptyState text="No founders have joined yet. Create founder invites from the Team tab." />}
-                </div>
-              </Panel>
+            <div className="space-y-5">
+              {state.canManageEvent ? (
+                <SetupChecklist
+                  event={event}
+                  hasFounderInvite={founderRows.length > 0 || invitations.some((item: any) => item.role === 'founder' && item.status !== 'revoked')}
+                  hasReviewerInvite={
+                    teamRows.some((item: any) => ['coach', 'mentor', 'judge'].includes(item.role) && item.status === 'active') ||
+                    invitations.some((item: any) => ['coach', 'mentor', 'judge'].includes(item.role) && item.status !== 'revoked')
+                  }
+                  hasAnnouncement={announcements.length > 0}
+                  onNavigate={openSetupTab}
+                />
+              ) : null}
 
-              <div className="grid gap-5">
-                <Panel title="Repeated signals" eyebrow="Feedback pulse">
-                  {repeatedSignals.length ? (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        {repeatedSignals.map((signal) => (
-                          <span key={signal.label} className="rounded-full border border-neon-cyan/20 bg-neon-cyan/10 px-3 py-1 text-sm font-bold text-neon-cyan">
-                            {signal.label} · {signal.count}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-sm leading-6 text-slate-400">
-                        The most repeated notes show up here so organizers can nudge the room toward the next improvement.
-                      </p>
-                    </div>
-                  ) : (
-                    <EmptyState text="Repeated signals will appear once multiple founders get the same feedback note." />
-                  )}
-                </Panel>
-
-                <Panel title="Latest announcements" eyebrow="Comms">
-                  <div className="mb-4 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Suggested founder nudge</p>
-                    <h3 className="mt-2 font-heading text-lg font-bold text-white">{practicePrompt.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">{practicePrompt.prompt}</p>
+              <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
+                <Panel title="Founder progress" eyebrow="Overview">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <StatusTile label="Joined" value={founderSummaries.length} />
+                    <StatusTile label="Recorded" value={recordedCount} />
+                    <StatusTile label="Submitted" value={submittedCount} />
+                    <StatusTile label="With feedback" value={feedbackedCount} />
+                    <StatusTile label="Best takes" value={bestTakeCount} />
                   </div>
-                  <AnnouncementList announcements={announcements.slice(0, 4)} />
+                  <div className="mt-5 space-y-3">
+                    {founderSummaries.slice(0, 5).map((founder) => (
+                      <FounderRow key={founder.participant.id} founder={founder} />
+                    ))}
+                    {!founderSummaries.length && <EmptyState text="No founders have joined yet. Create founder invites from the Founders tab." />}
+                  </div>
                 </Panel>
+
+                <div className="grid gap-5">
+                  <Panel title="Repeated signals" eyebrow="Feedback pulse">
+                    {repeatedSignals.length ? (
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap gap-2">
+                          {repeatedSignals.map((signal) => (
+                            <span key={signal.label} className="rounded-full border border-neon-cyan/20 bg-neon-cyan/10 px-3 py-1 text-sm font-bold text-neon-cyan">
+                              {signal.label} · {signal.count}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-sm leading-6 text-slate-400">
+                          The most repeated notes show up here so organizers can nudge the room toward the next improvement.
+                        </p>
+                      </div>
+                    ) : (
+                      <EmptyState text="Repeated signals will appear once multiple founders get the same feedback note." />
+                    )}
+                  </Panel>
+
+                  <Panel title="Latest announcements" eyebrow="Comms">
+                    <div className="mb-4 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Suggested founder nudge</p>
+                      <h3 className="mt-2 font-heading text-lg font-bold text-white">{practicePrompt.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">{practicePrompt.prompt}</p>
+                    </div>
+                    <AnnouncementList announcements={announcements.slice(0, 4)} />
+                  </Panel>
+                </div>
               </div>
             </div>
           )}
@@ -1010,6 +1036,79 @@ function Panel({ eyebrow, title, children }: { eyebrow: string; title: string; c
       <h2 className="mt-2 font-heading text-2xl font-black text-white">{title}</h2>
       <div className="mt-5">{children}</div>
     </div>
+  );
+}
+
+function SetupChecklist({
+  event,
+  hasFounderInvite,
+  hasReviewerInvite,
+  hasAnnouncement,
+  onNavigate,
+}: {
+  event: any;
+  hasFounderInvite: boolean;
+  hasReviewerInvite: boolean;
+  hasAnnouncement: boolean;
+  onNavigate: (tab: Tab) => void;
+}) {
+  const completeCount = [true, hasFounderInvite, hasReviewerInvite, hasAnnouncement].filter(Boolean).length;
+  const items: Array<{
+    label: string;
+    complete: boolean;
+    action?: string;
+    tab?: Tab;
+    href?: string;
+  }> = [
+    { label: 'Create room', complete: true },
+    { label: 'Invite founders', complete: hasFounderInvite, action: hasFounderInvite ? 'Review' : 'Invite', tab: 'founders' },
+    { label: 'Invite judges or coaches', complete: hasReviewerInvite, action: hasReviewerInvite ? 'Review' : 'Invite', tab: 'team' },
+    { label: 'Preview founder experience', complete: false, action: 'Preview', href: `/events/${event.slug}` },
+    { label: 'Send welcome announcement', complete: hasAnnouncement, action: hasAnnouncement ? 'Review' : 'Write', tab: 'announcements' },
+  ];
+
+  return (
+    <section className="glass-card rounded-[2rem] p-5 sm:p-6" aria-labelledby="setup-checklist-title">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Guided setup</p>
+          <h2 id="setup-checklist-title" className="mt-2 font-heading text-2xl font-black text-white">Launch checklist</h2>
+        </div>
+        <p className="text-sm font-bold text-slate-400">{completeCount} of 4 trackable steps complete</p>
+      </div>
+      <ol className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {items.map((item) => (
+          <li key={item.label} className="flex min-h-28 flex-col justify-between rounded-2xl border border-white/10 bg-black/25 p-4">
+            <div className="flex items-start gap-3">
+              {item.complete ? (
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-neon-lime" aria-hidden="true" />
+              ) : (
+                <Circle className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
+              )}
+              <span className="text-sm font-bold leading-5 text-white">{item.label}</span>
+            </div>
+            {item.href ? (
+              <Link
+                href={item.href}
+                className="mt-4 inline-flex min-h-11 items-center justify-between gap-2 rounded-xl px-1 text-sm font-black text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
+              >
+                {item.action}<ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : item.tab ? (
+              <button
+                type="button"
+                onClick={() => onNavigate(item.tab!)}
+                className="mt-4 inline-flex min-h-11 items-center justify-between gap-2 rounded-xl px-1 text-left text-sm font-black text-neon-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
+              >
+                {item.action}<ArrowRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <span className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-neon-lime">Complete</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
