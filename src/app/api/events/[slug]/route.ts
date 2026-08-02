@@ -376,9 +376,32 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     }
   }
 
-  const safeEvent = { ...event };
-  if (canManageEvent) safeEvent.hasAccessCode = Boolean(safeEvent.access_code);
-  delete safeEvent.access_code;
+  const safeEvent = isTeamMember
+    ? { ...event }
+    : {
+        name: event.name,
+        slug: event.slug,
+        description: event.description,
+        event_date: event.event_date,
+        submission_deadline: event.submission_deadline,
+        pitch_length_seconds: event.pitch_length_seconds,
+        focus: event.focus,
+        visibility: event.visibility,
+        status: event.status,
+        review_exchange_policy: event.review_exchange_policy,
+        review_target: event.review_target,
+        pitch_hour_starts_at: event.pitch_hour_starts_at,
+        pitch_hour_ends_at: event.pitch_hour_ends_at,
+        organizer: event.organizer
+          ? {
+              full_name: event.organizer.full_name,
+              avatar_url: event.organizer.avatar_url,
+              username: event.organizer.username,
+            }
+          : null,
+      };
+  if (canManageEvent) safeEvent.hasAccessCode = Boolean(event.access_code);
+  delete (safeEvent as Record<string, any>).access_code;
 
   let invite = null;
   if (inviteCode) {
