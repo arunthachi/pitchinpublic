@@ -54,13 +54,18 @@ function requestRoleLabel(type: LeadRequest['type']) {
   return type === 'founder' ? 'Founder' : 'Organizer';
 }
 
-function buildConfirmationEmail(lead: LeadRequest) {
+function buildConfirmationEmail(lead: LeadRequest, siteUrl: string) {
   const roleLabel = requestRoleLabel(lead.type);
-  const title = lead.type === 'founder' ? 'Your founder request is in' : 'Your organizer request is in';
+  const isFounder = lead.type === 'founder';
+  const title = isFounder ? 'We received your founder request' : 'We received your organizer request';
   const intro =
-    lead.type === 'founder'
-      ? 'We received your request for founder access and will follow up with the next step.'
-      : 'We received your organizer invite request. Organizer access stays invite-only, and we will review your program before following up.';
+    isFounder
+      ? 'This confirms that your request is waiting for review. You do not need to do anything right now.'
+      : 'This confirms that your organizer request is waiting for review. This email is not your organizer invitation, and you do not need to do anything right now.';
+  const approvalStep = isFounder
+    ? 'If approved, you will receive a separate invitation email with an Accept founder invitation button.'
+    : 'If approved, you will receive a separate invitation email with an Accept organizer invitation button. After accepting, you can create an event and invite founders or teammates.';
+  const overviewUrl = `${siteUrl.replace(/\/$/, '')}/${isFounder ? 'for-founders' : 'for-events'}`;
 
   return {
     subject: `Pitch in Public: ${title}`,
@@ -68,6 +73,7 @@ function buildConfirmationEmail(lead: LeadRequest) {
       `Thanks for requesting ${roleLabel.toLowerCase()} access on Pitch in Public.`,
       '',
       intro,
+      approvalStep,
       '',
       lead.website ? `Website or LinkedIn: ${lead.website}` : 'Website or LinkedIn: not provided',
       '',
@@ -79,12 +85,19 @@ function buildConfirmationEmail(lead: LeadRequest) {
           <p style="color:#22d3ee; font-size:12px; letter-spacing:.18em; text-transform:uppercase; font-weight:800;">Pitch in Public ${escapeHtml(roleLabel.toLowerCase())} request</p>
           <h1 style="margin:8px 0 16px; font-size:28px;">${escapeHtml(title)}</h1>
           <p style="line-height:1.7; color:#cbd5e1;">${escapeHtml(intro)}</p>
+          <div style="margin-top:20px; padding:18px; border-radius:18px; background:rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.3);">
+            <p style="margin:0 0 8px; color:#22d3ee; font-size:12px; text-transform:uppercase; letter-spacing:.16em; font-weight:800;">Status: pending review</p>
+            <p style="margin:0; line-height:1.7; color:#f8fafc;"><strong>No action is needed now.</strong> ${escapeHtml(approvalStep)}</p>
+          </div>
           <div style="margin-top:24px; padding:18px; border-radius:18px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);">
             <p style="margin:0 0 8px; color:#94a3b8; font-size:13px; text-transform:uppercase; letter-spacing:.16em; font-weight:700;">Request details</p>
             <p style="margin:0; line-height:1.7; color:#f8fafc;"><strong>Email:</strong> ${escapeHtml(lead.email)}</p>
             <p style="margin:8px 0 0; line-height:1.7; color:#f8fafc;"><strong>${escapeHtml(roleLabel)} name:</strong> ${escapeHtml(lead.name)}</p>
             <p style="margin:8px 0 0; line-height:1.7; color:#f8fafc;"><strong>Website / LinkedIn:</strong> ${escapeHtml(lead.website || 'Not provided')}</p>
           </div>
+          <p style="margin:28px 0 8px;">
+            <a href="${escapeHtml(overviewUrl)}" style="display:inline-block; padding:14px 22px; border-radius:999px; background:#22d3ee; color:#020617; font-weight:900; text-decoration:none;">${isFounder ? 'See how founder access works' : 'See how organizer access works'}</a>
+          </p>
           <p style="margin-top:24px; font-size:13px; color:#94a3b8;">If you need to update your request, reply to this email and we will handle it manually.</p>
         </div>
       </div>
@@ -148,8 +161,8 @@ function buildAdminNotificationEmail(lead: LeadRequest, source: string, userAgen
 function leadSuccessMessage(confirmationStatus: DeliveryStatus, notificationStatus: DeliveryStatus, type: LeadRequest['type']) {
   if (confirmationStatus === 'sent' && notificationStatus === 'sent') {
     return type === 'founder'
-      ? 'Request received. Check your inbox for the next step.'
-      : 'Request received. Check your inbox for the next step.';
+      ? 'Request received. We sent a confirmation email; no action is needed while it is reviewed.'
+      : 'Request received. We sent a confirmation email; no action is needed while it is reviewed.';
   }
 
   return type === 'founder'
@@ -251,7 +264,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const confirmationEmail = buildConfirmationEmail(lead);
+    const confirmationEmail = buildConfirmationEmail(lead, request.nextUrl.origin);
     const notificationEmail = buildAdminNotificationEmail(lead, source, userAgent);
     const recipients = (process.env.LEAD_EMAIL_TO || 'hello@pitchinpublic.io,arun@pitchinpublic.io')
       .split(',')

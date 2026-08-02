@@ -17,24 +17,33 @@ function inviteEmailContent({
   inviteUrl: string;
 }) {
   return {
-    subject: 'Your Pitch in Public organizer invite',
+    subject: `Your organizer access is approved for ${organizationName}`,
     text: [
-      `You have been invited to create organizer rooms on Pitch in Public for ${organizationName}.`,
+      `Your Pitch in Public organizer access is approved for ${organizationName}.`,
       '',
-      `Accept your invite: ${inviteUrl}`,
+      'Next steps:',
+      '1. Open the invitation link below.',
+      '2. Sign in or create an account with this invited email address.',
+      '3. Accept the invitation, create your first event, and invite founders or teammates.',
       '',
-      'This invite is tied to your email and expires soon.',
+      `Accept organizer invitation: ${inviteUrl}`,
+      '',
+      'This private invitation works only with the email address that received it and expires soon.',
     ].join('\n'),
     html: `
       <div style="font-family: Inter, Arial, sans-serif; background:#050608; color:#f8fafc; padding:24px;">
         <div style="max-width:640px; margin:0 auto; border:1px solid rgba(255,255,255,.14); border-radius:24px; padding:24px; background:#0f172a;">
-          <p style="color:#22d3ee; font-size:12px; letter-spacing:.18em; text-transform:uppercase; font-weight:800;">Pitch in Public organizer invite</p>
-          <h1 style="margin:8px 0 16px; font-size:28px;">Create pitch rooms for ${escapeHtml(organizationName)}</h1>
+          <p style="color:#22d3ee; font-size:12px; letter-spacing:.18em; text-transform:uppercase; font-weight:800;">Organizer access approved</p>
+          <h1 style="margin:8px 0 16px; font-size:28px;">You are invited to organize ${escapeHtml(organizationName)} on Pitch in Public</h1>
           <p style="line-height:1.7; color:#cbd5e1;">You can create events, invite founders, coaches, mentors, and judges, then review pitch submissions from one dashboard.</p>
+          <div style="margin-top:20px; padding:18px; border-radius:18px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);">
+            <p style="margin:0 0 10px; color:#f8fafc; font-weight:800;">What to do next</p>
+            <p style="margin:0; line-height:1.8; color:#cbd5e1;">1. Open the invitation below.<br>2. Sign in or create an account with this invited email.<br>3. Accept access and create your first event.</p>
+          </div>
           <p style="margin:28px 0;">
-            <a href="${escapeHtml(inviteUrl)}" style="display:inline-block; padding:14px 22px; border-radius:999px; background:#22d3ee; color:#020617; font-weight:900; text-decoration:none;">Accept organizer invite</a>
+            <a href="${escapeHtml(inviteUrl)}" style="display:inline-block; padding:14px 22px; border-radius:999px; background:#22d3ee; color:#020617; font-weight:900; text-decoration:none;">Accept organizer invitation</a>
           </p>
-          <p style="font-size:13px; color:#94a3b8;">If the button does not work, open this link: ${escapeHtml(inviteUrl)}</p>
+          <p style="font-size:13px; color:#94a3b8;">This private invitation works only with the email address that received it. If the button does not work, copy this link into your browser: ${escapeHtml(inviteUrl)}</p>
         </div>
       </div>
     `,
