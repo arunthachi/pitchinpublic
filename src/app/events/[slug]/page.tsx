@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { ArrowRight, Bell, CalendarDays, CheckCircle2, Clock, Lock, Play, Sparkles, Target, Trophy, Video } from 'lucide-react';
+import { ArrowRight, Bell, CalendarDays, CheckCircle2, Clock, Lock, LogOut, Mail, Play, Sparkles, Target, Trophy, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPitchLength } from '@/lib/duration';
+import { SignInModal } from '@/components/SignInModal';
 
 function daysUntil(value: string) {
   const target = new Date(`${value}T12:00:00`);
@@ -24,9 +25,16 @@ function formatFocus(value?: string | null) {
 
 function formatDeadline(value?: string | null) {
   if (!value) return 'Not set';
-  const date = new Date(value);
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value);
   if (Number.isNaN(date.getTime())) return 'Not set';
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function deadlineHasPassed(value?: string | null) {
+  if (!value) return false;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T23:59:59.999` : value;
+  const deadline = new Date(normalized).getTime();
+  return Number.isFinite(deadline) && deadline < Date.now();
 }
 
 function buildRecordHref(event: any) {
@@ -70,7 +78,7 @@ export default function EventPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params.slug as string;
-  const { user } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [eventState, setEventState] = useState<any>(null);
   const [pitches, setPitches] = useState<any[]>([]);
   const [accessCode, setAccessCode] = useState('');
@@ -78,15 +86,20 @@ export default function EventPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
   const inviteCode = searchParams.get('invite') || searchParams.get('code') || '';
   const submittedPitchId = searchParams.get('pitchId') || '';
   const submittedPitchPublicId = searchParams.get('pitchPublicId') || '';
   const submittedFromPublish = searchParams.get('submitted') === '1';
+  const inviteNextPath = inviteCode
+    ? `/events/${slug}?invite=${encodeURIComponent(inviteCode)}`
+    : `/events/${slug}`;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/events/${slug}`);
+      const query = inviteCode ? `?invite=${encodeURIComponent(inviteCode)}` : '';
+      const response = await fetch(`/api/events/${slug}${query}`, { cache: 'no-store' });
       const data = await readJsonResponse(response);
       if (!response.ok || !data) {
         setEventState({ success: false, error: data?.error || 'Unable to load this pitch event.' });
@@ -101,11 +114,11 @@ export default function EventPage() {
     } finally {
       setLoading(false);
     }
-  }, [slug, submittedPitchId]);
+  }, [inviteCode, slug, submittedPitchId]);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, user?.id]);
 
   useEffect(() => {
     if (inviteCode) setAccessCode(inviteCode);
@@ -132,7 +145,10 @@ export default function EventPage() {
   const isJoined = Boolean(eventState?.participation);
   const selectedPitch = pitches.find((pitch) => pitch.id === selectedPitchId);
   const submittedPitch = pitches.find((pitch) => pitch.id === eventState?.userSubmission?.pitch_id);
-  const isSubmissionClosed = Boolean(event?.submission_deadline && new Date(event.submission_deadline).getTime() < Date.now());
+  const isSubmissionClosed = deadlineHasPassed(event?.submission_deadline);
+  const invite = eventState?.invite;
+  const inviteEmailMismatch = Boolean(user && invite?.email && invite.matchesCurrentUser === false);
+  const inviteUnavailable = Boolean(inviteCode && (!invite?.valid || ['expired', 'invalid', 'revoked', 'used'].includes(invite?.status)));
   const focusTags = useMemo(() => splitFocusSummary(event?.focus), [event?.focus]);
   const plan = useMemo(() => {
     if (!event) return [];
@@ -156,7 +172,7 @@ export default function EventPage() {
     const response = await fetch(`/api/events/${slug}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessCode }),
+      body: JSON.stringify(inviteCode ? { inviteCode } : { accessCode }),
     });
     const data = await readJsonResponse(response);
     setSaving(false);
@@ -166,6 +182,12 @@ export default function EventPage() {
     }
     setMessage('You joined the pitch room.');
     load();
+  };
+
+  const switchAccount = async () => {
+    await signOut();
+    setMessage('');
+    setShowSignIn(true);
   };
 
   const submitFinalTake = async () => {
@@ -245,7 +267,9 @@ export default function EventPage() {
               </div>
             </div>
             <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-400">
-              {daysUntil(event.event_date)} days until pitch day. Submit before the deadline, then use your Best Take for the room.
+              {isSubmissionClosed
+                ? `Submissions closed ${formatDeadline(event.submission_deadline)}. Completed takes remain available for review.`
+                : `${daysUntil(event.event_date)} days until pitch day. Submit before the deadline, then use your Best Take for the room.`}
             </p>
           </div>
 
@@ -259,11 +283,19 @@ export default function EventPage() {
                 </div>
               ))}
             </div>
-            {isJoined ? (
+            {inviteUnavailable ? (
+              <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
+                Invitation unavailable
+              </div>
+            ) : isJoined && !isSubmissionClosed ? (
               <Link href={recordHref} className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
                 Record an eligible take
                 <ArrowRight className="h-5 w-5" />
               </Link>
+            ) : isJoined ? (
+              <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
+                Submissions closed
+              </div>
             ) : (
               <a href={`#${JOIN_PANEL_ID}`} className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
                 Join to record
@@ -287,16 +319,55 @@ export default function EventPage() {
         </section>
 
         <section id={JOIN_PANEL_ID} className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
-          {!user ? (
+          {inviteUnavailable ? (
+            <InviteNotice
+              title={
+                invite?.status === 'expired'
+                  ? 'This invitation has expired.'
+                  : invite?.status === 'revoked'
+                    ? 'This invitation was revoked.'
+                    : invite?.status === 'used'
+                      ? 'This invitation has already been used.'
+                      : 'This invitation is not valid.'
+              }
+              copy="Ask the organizer to send a new invitation before joining this pitch room."
+            />
+          ) : authLoading ? (
+            <div className="py-8 text-center text-slate-400">Checking your access...</div>
+          ) : !user ? (
             <div className="text-center">
-              <h2 className="font-heading text-3xl font-bold">Sign in to join this pitch room.</h2>
-              <p className="mt-2 text-slate-400">Use Google, record reps, and submit your final take.</p>
-              <Link href={`/?next=/events/${slug}`} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
-                Sign in
-              </Link>
+              <Mail className="mx-auto h-8 w-8 text-neon-cyan" />
+              <h2 className="mt-4 font-heading text-3xl font-bold">Sign in to accept your invitation.</h2>
+              <p className="mx-auto mt-2 max-w-xl text-slate-400">
+                {invite?.email ? `This private invitation is for ${invite.email}.` : 'Authentication is required before this room can be joined.'}
+              </p>
+              <button type="button" onClick={() => setShowSignIn(true)} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
+                Sign in to continue
+              </button>
             </div>
+          ) : inviteEmailMismatch ? (
+            <InviteNotice
+              title="Use the invited account."
+              copy={`This invitation is for ${invite.email}. You are signed in as ${user.email}.`}
+            >
+              <button type="button" onClick={switchAccount} className="cta-primary mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 font-heading font-bold">
+                <LogOut className="h-4 w-4" />
+                Switch account
+              </button>
+            </InviteNotice>
           ) : !isJoined ? (
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+            inviteCode ? (
+              <div className="text-center">
+                <CheckCircle2 className="mx-auto h-8 w-8 text-neon-lime" />
+                <h2 className="mt-4 font-heading text-3xl font-bold">Your invitation is ready.</h2>
+                <p className="mx-auto mt-2 max-w-xl text-slate-400">
+                  Accept once to add this room to Pitch rooms. Your existing account history and roles stay unchanged.
+                </p>
+                <button onClick={join} disabled={saving} className="cta-primary mt-5 rounded-xl px-5 py-3 font-heading font-bold disabled:opacity-60">
+                  {saving ? 'Joining...' : 'Accept invite and join room'}
+                </button>
+              </div>
+            ) : <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
               <label>
                 <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-300">
                   <Lock className="h-4 w-4" />
@@ -350,10 +421,12 @@ export default function EventPage() {
                 </div>
 
                 <div className="mb-6 flex flex-wrap gap-3">
-                  <Link href={recordHref} className="cta-primary inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-heading font-black">
-                    Record eligible take
-                    <Video className="h-4 w-4" />
-                  </Link>
+                  {!isSubmissionClosed && (
+                    <Link href={recordHref} className="cta-primary inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-heading font-black">
+                      Record eligible take
+                      <Video className="h-4 w-4" />
+                    </Link>
+                  )}
                   {selectedPitch && (
                     <button
                       type="button"
@@ -440,6 +513,23 @@ export default function EventPage() {
           {message && <p className="mt-4 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm font-semibold text-slate-200">{message}</p>}
         </section>
       </main>
+      <SignInModal
+        isOpen={showSignIn}
+        onClose={() => setShowSignIn(false)}
+        initialEmail={invite?.email || ''}
+        nextPath={inviteNextPath}
+      />
+    </div>
+  );
+}
+
+function InviteNotice({ title, copy, children }: { title: string; copy: string; children?: ReactNode }) {
+  return (
+    <div className="py-4 text-center" role="alert">
+      <Lock className="mx-auto h-8 w-8 text-neon-cyan" />
+      <h2 className="mt-4 font-heading text-3xl font-bold">{title}</h2>
+      <p className="mx-auto mt-2 max-w-xl break-words text-slate-400">{copy}</p>
+      {children}
     </div>
   );
 }

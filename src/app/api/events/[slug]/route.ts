@@ -25,6 +25,7 @@ const MANAGER_ROLES = ['organizer', 'admin'];
 
 export async function GET(request: NextRequest, props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
+  const inviteCode = (request.nextUrl.searchParams.get('invite') || request.nextUrl.searchParams.get('code') || '').trim();
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.json(
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: event, error } = await supabase
+  let { data: event, error } = await supabase
     .from('pitch_events')
     .select(
       `
@@ -55,8 +56,58 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     .eq('slug', params.slug)
     .single();
 
+  let resolvedInvitation: any = null;
+  const adminSupabase = inviteCode ? createServiceSupabase() : null;
+
+  // Private rooms are hidden by RLS before membership exists. A valid bearer
+  // invite may reveal the room landing page, but never grants membership by
+  // itself; POST /join performs the authenticated acceptance checks.
+  if ((!event || error) && inviteCode && adminSupabase) {
+    const { data: privateEvent } = await adminSupabase
+      .from('pitch_events')
+      .select(
+        `
+        *,
+        organizer:organizer_id (
+          id,
+          full_name,
+          avatar_url,
+          username
+        )
+      `
+      )
+      .eq('slug', params.slug)
+      .maybeSingle();
+
+    if (privateEvent) {
+      const { data: invitation } = await adminSupabase
+        .from('pitch_event_invitations')
+        .select('email,role,status,accepted_by,expires_at')
+        .eq('event_id', privateEvent.id)
+        .eq('invite_code', inviteCode)
+        .maybeSingle();
+
+      if (invitation) {
+        event = privateEvent;
+        error = null;
+        resolvedInvitation = invitation;
+      }
+    }
+  }
+
   if (error || !event) {
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
+  }
+
+  if (inviteCode && adminSupabase && !resolvedInvitation) {
+    const { data: invitation } = await adminSupabase
+      .from('pitch_event_invitations')
+      .select('email,role,status,accepted_by,expires_at')
+      .eq('event_id', event.id)
+      .eq('invite_code', inviteCode)
+      .maybeSingle();
+
+    resolvedInvitation = invitation;
   }
 
   let participation = null;
@@ -329,6 +380,44 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   if (canManageEvent) safeEvent.hasAccessCode = Boolean(safeEvent.access_code);
   delete safeEvent.access_code;
 
+  let invite = null;
+  if (inviteCode) {
+    const expired = Boolean(
+      resolvedInvitation?.expires_at &&
+        new Date(resolvedInvitation.expires_at).getTime() <= Date.now()
+    );
+    const acceptedByCurrentUser = Boolean(
+      user && resolvedInvitation?.status === 'accepted' && resolvedInvitation.accepted_by === user.id
+    );
+    const usedByAnotherUser = Boolean(
+      resolvedInvitation?.status === 'accepted' &&
+        resolvedInvitation.accepted_by &&
+        (!user || resolvedInvitation.accepted_by !== user.id)
+    );
+    const invitedEmail = resolvedInvitation?.email?.trim().toLowerCase() || null;
+    const currentEmail = user?.email?.trim().toLowerCase() || null;
+    const revoked = resolvedInvitation?.status === 'revoked';
+    const allowedStatus = ['pending', 'accepted'].includes(resolvedInvitation?.status);
+
+    invite = {
+      supplied: true,
+      valid: Boolean(resolvedInvitation && allowedStatus && !expired && !usedByAnotherUser),
+      status: !resolvedInvitation
+        ? 'invalid'
+        : expired
+          ? 'expired'
+          : revoked
+            ? 'revoked'
+            : usedByAnotherUser
+              ? 'used'
+              : resolvedInvitation.status,
+      email: invitedEmail,
+      role: resolvedInvitation?.role || null,
+      matchesCurrentUser: user && invitedEmail ? currentEmail === invitedEmail : null,
+      acceptedByCurrentUser,
+    };
+  }
+
   return NextResponse.json({
     success: true,
     event: safeEvent,
@@ -343,6 +432,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     isTeamMember,
     canManageEvent,
     reviewCoverage,
+    invite,
   });
 }
 
