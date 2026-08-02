@@ -69,7 +69,7 @@ async function readJsonResponse(response: Response) {
   } catch {
     return {
       success: false,
-      error: response.statusText || 'Unexpected response from the event room.',
+      error: response.statusText || 'Unexpected response from the event.',
     };
   }
 }
@@ -148,7 +148,10 @@ export default function EventPage() {
   const isSubmissionClosed = deadlineHasPassed(event?.submission_deadline);
   const invite = eventState?.invite;
   const inviteEmailMismatch = Boolean(user && invite?.email && invite.matchesCurrentUser === false);
-  const inviteUnavailable = Boolean(inviteCode && (!invite?.valid || ['expired', 'invalid', 'revoked', 'used'].includes(invite?.status)));
+  const inviteUnavailable = Boolean(
+    !isJoined && inviteCode && (!invite?.valid || ['expired', 'invalid', 'revoked', 'used'].includes(invite?.status)),
+  );
+  const hasDirectInvite = Boolean(inviteCode && !inviteUnavailable && !isJoined);
   const focusTags = useMemo(() => splitFocusSummary(event?.focus), [event?.focus]);
   const plan = useMemo(() => {
     if (!event) return [];
@@ -177,10 +180,10 @@ export default function EventPage() {
     const data = await readJsonResponse(response);
     setSaving(false);
     if (!response.ok || !data.success) {
-      setMessage(data.error || 'Could not join this pitch room.');
+      setMessage(data.error || `Could not join ${event?.name || 'this event'}.`);
       return;
     }
-    setMessage('You joined the pitch room.');
+    setMessage(`You joined ${event?.name || 'the event'}.`);
     load();
   };
 
@@ -231,11 +234,11 @@ export default function EventPage() {
   };
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading pitch room...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading event...</div>;
   }
 
   if (!eventState?.success || !event) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Pitch room not found.</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Event not found.</div>;
   }
 
   return (
@@ -245,7 +248,7 @@ export default function EventPage() {
           <div className="glass-panel rounded-[2rem] p-6 sm:p-8">
             <div className="glass-pill mb-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-lime">
               <Sparkles className="h-4 w-4" />
-              Pitch room
+              Pitch event
             </div>
             <h1 className="font-heading text-5xl font-black leading-tight sm:text-6xl">{event.name}</h1>
             {event.description && <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">{event.description}</p>}
@@ -269,39 +272,77 @@ export default function EventPage() {
             <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-400">
               {isSubmissionClosed
                 ? `Submissions closed ${formatDeadline(event.submission_deadline)}. Completed takes remain available for review.`
-                : `${daysUntil(event.event_date)} days until pitch day. Submit before the deadline, then use your Best Take for the room.`}
+                : `${daysUntil(event.event_date)} days until pitch day. Submit before the deadline, then use your Best Take for the event.`}
             </p>
           </div>
 
           <div className="glass-card rounded-[2rem] p-5 sm:p-6">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Today&apos;s plan</p>
-            <div className="mt-4 space-y-3">
-              {plan.map((item) => (
-                <div key={item} className="flex items-start gap-3 rounded-2xl bg-black/30 p-4">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-neon-lime" />
-                  <p className="leading-6 text-slate-200">{item}</p>
+            {hasDirectInvite ? (
+              <>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Your invitation</p>
+                <h2 className="mt-3 font-heading text-3xl font-black leading-tight sm:text-4xl">Join {event.name}</h2>
+                <p className="mt-3 text-base leading-7 text-slate-300">
+                  {authLoading
+                    ? 'Checking your account...'
+                    : !user
+                      ? `Sign in or create an account${invite?.email ? ` with ${invite.email}` : ''}. You will return here to accept this invitation.`
+                      : inviteEmailMismatch
+                        ? `This invitation is for ${invite.email}. You are signed in as ${user.email}.`
+                        : `You are signed in as ${user.email}. Accept once to add ${event.name} to your account.`}
+                </p>
+                {authLoading ? (
+                  <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
+                    Checking invitation...
+                  </div>
+                ) : !user ? (
+                  <button type="button" onClick={() => setShowSignIn(true)} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
+                    Sign in to join event
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+                ) : inviteEmailMismatch ? (
+                  <button type="button" onClick={switchAccount} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
+                    <LogOut className="h-5 w-5" />
+                    Use invited account
+                  </button>
+                ) : (
+                  <button type="button" onClick={join} disabled={saving} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">
+                    {saving ? 'Accepting invitation...' : 'Accept invitation'}
+                    {!saving && <ArrowRight className="h-5 w-5" />}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Today&apos;s plan</p>
+                <div className="mt-4 space-y-3">
+                  {plan.map((item) => (
+                    <div key={item} className="flex items-start gap-3 rounded-2xl bg-black/30 p-4">
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-neon-lime" />
+                      <p className="leading-6 text-slate-200">{item}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            {inviteUnavailable ? (
-              <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
-                Invitation unavailable
-              </div>
-            ) : isJoined && !isSubmissionClosed ? (
+              </>
+            )}
+            {!hasDirectInvite && (isJoined && !isSubmissionClosed ? (
               <Link href={recordHref} className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
-                Record an eligible take
+                Record for this event
                 <ArrowRight className="h-5 w-5" />
               </Link>
             ) : isJoined ? (
               <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
                 Submissions closed
               </div>
+            ) : inviteUnavailable ? (
+              <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
+                Invitation unavailable
+              </div>
             ) : (
               <a href={`#${JOIN_PANEL_ID}`} className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
-                Join to record
+                Join {event.name}
                 <ArrowRight className="h-5 w-5" />
               </a>
-            )}
+            ))}
             {eventState.announcements?.length ? (
               <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-4">
                 <div className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-neon-lime">
@@ -318,7 +359,7 @@ export default function EventPage() {
           </div>
         </section>
 
-        <section id={JOIN_PANEL_ID} className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
+        {!hasDirectInvite && <section id={JOIN_PANEL_ID} className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
           {inviteUnavailable ? (
             <InviteNotice
               title={
@@ -330,7 +371,7 @@ export default function EventPage() {
                       ? 'This invitation has already been used.'
                       : 'This invitation is not valid.'
               }
-              copy="Ask the organizer to send a new invitation before joining this pitch room."
+              copy="Ask the organizer to send a new invitation before joining this event."
             />
           ) : authLoading ? (
             <div className="py-8 text-center text-slate-400">Checking your access...</div>
@@ -339,7 +380,7 @@ export default function EventPage() {
               <Mail className="mx-auto h-8 w-8 text-neon-cyan" />
               <h2 className="mt-4 font-heading text-3xl font-bold">Sign in to accept your invitation.</h2>
               <p className="mx-auto mt-2 max-w-xl text-slate-400">
-                {invite?.email ? `This private invitation is for ${invite.email}.` : 'Authentication is required before this room can be joined.'}
+                {invite?.email ? `This private invitation is for ${invite.email}.` : 'Authentication is required before this event can be joined.'}
               </p>
               <button type="button" onClick={() => setShowSignIn(true)} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
                 Sign in to continue
@@ -361,10 +402,10 @@ export default function EventPage() {
                 <CheckCircle2 className="mx-auto h-8 w-8 text-neon-lime" />
                 <h2 className="mt-4 font-heading text-3xl font-bold">Your invitation is ready.</h2>
                 <p className="mx-auto mt-2 max-w-xl text-slate-400">
-                  Accept once to add this room to Pitch rooms. Your existing account history and roles stay unchanged.
+                  Accept once to add {event.name} to your account. Your existing account history and roles stay unchanged.
                 </p>
                 <button onClick={join} disabled={saving} className="cta-primary mt-5 rounded-xl px-5 py-3 font-heading font-bold disabled:opacity-60">
-                  {saving ? 'Joining...' : 'Accept invite and join room'}
+                  {saving ? 'Accepting invitation...' : `Accept invitation to ${event.name}`}
                 </button>
               </div>
             ) : <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -381,11 +422,11 @@ export default function EventPage() {
                 />
               </label>
               <button onClick={join} disabled={saving} className="cta-primary rounded-xl px-5 py-3 font-heading font-bold disabled:opacity-60">
-                Join pitch room
+                Join event
               </button>
               <p className="sm:col-span-2 text-sm leading-6 text-slate-400">
                 {inviteCode
-                  ? 'Your invite link filled the code for you. Join once, then this room will stay in Pitch rooms.'
+                  ? `Your invite link filled the code for you. Join once, then ${event.name} will stay in your account.`
                   : event.visibility === 'private'
                     ? 'Private events need an invite code before you can join, record, or submit.'
                     : 'Use the invite code if you received one; otherwise this event can be joined with the shared link.'}
@@ -416,7 +457,7 @@ export default function EventPage() {
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Goal</p>
                     <p className="mt-1 font-heading text-xl font-black text-white">{formatFocus(event.focus)}</p>
-                    <p className="mt-1 text-sm text-slate-400">Keep the pitch tight enough to fit the room and the deadline.</p>
+                    <p className="mt-1 text-sm text-slate-400">Keep the pitch within the event limit and submit before the deadline.</p>
                   </div>
                 </div>
 
@@ -511,7 +552,7 @@ export default function EventPage() {
           )}
 
           {message && <p className="mt-4 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm font-semibold text-slate-200">{message}</p>}
-        </section>
+        </section>}
       </main>
       <SignInModal
         isOpen={showSignIn}
