@@ -188,10 +188,10 @@ function requestStatusLabel(status?: string | null) {
 }
 
 export default function AdminPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const [showSignIn, setShowSignIn] = useState(false);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
-  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'authorized' | 'forbidden' | 'error'>('idle');
   const [error, setError] = useState('');
   const [inviteTab, setInviteTab] = useState<'founders' | 'organizers' | 'reviewers'>('founders');
   const [organizerInviteState, setOrganizerInviteState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -247,6 +247,24 @@ export default function AdminPage() {
       ]);
       const [data, reviewerData] = await Promise.all([overviewResponse.json(), reviewerResponse.json()]);
 
+      if (overviewResponse.status === 401 || reviewerResponse.status === 401) {
+        setOverview(null);
+        setReviewerInvites([]);
+        setReviewers([]);
+        setError('Your session has expired. Sign in again with a platform admin account.');
+        setLoadState('forbidden');
+        return;
+      }
+
+      if (overviewResponse.status === 403 || reviewerResponse.status === 403) {
+        setOverview(null);
+        setReviewerInvites([]);
+        setReviewers([]);
+        setError('This account does not have platform admin access.');
+        setLoadState('forbidden');
+        return;
+      }
+
       if (!overviewResponse.ok || !data.success) {
         throw new Error(data.error || 'Could not load admin dashboard.');
       }
@@ -257,7 +275,7 @@ export default function AdminPage() {
       setOverview(data);
       setReviewerInvites(reviewerData.invitations || []);
       setReviewers(reviewerData.reviewers || []);
-      setLoadState('idle');
+      setLoadState('authorized');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load admin dashboard.');
       setLoadState('error');
@@ -265,8 +283,14 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (loading || !user) return;
-    loadOverview();
+    if (loading) return;
+    if (!user) {
+      setOverview(null);
+      setLoadState('idle');
+      setError('');
+      return;
+    }
+    void loadOverview();
   }, [loading, user]);
 
   const copyInviteUrl = async (url: string) => {
@@ -533,8 +557,16 @@ export default function AdminPage() {
   const organizerInvites = useMemo(() => overview?.organizerInvitations || [], [overview]);
   const founderInvites = useMemo(() => overview?.founderInvitations || [], [overview]);
 
-  if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading admin...</div>;
+  if (loading || (user && (loadState === 'idle' || (loadState === 'loading' && !overview)))) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+        <section className="glass-panel w-full max-w-xl rounded-[2rem] p-8 text-center">
+          <Loader2 className="mx-auto h-11 w-11 animate-spin text-neon-cyan" />
+          <h1 className="mt-5 font-heading text-3xl font-black">Checking admin access</h1>
+          <p className="mt-3 text-slate-300">Confirming this account before loading platform controls.</p>
+        </section>
+      </main>
+    );
   }
 
   if (isSignedOut) {
@@ -549,6 +581,55 @@ export default function AdminPage() {
           </button>
         </section>
         <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} />
+      </main>
+    );
+  }
+
+  if (loadState === 'forbidden') {
+    const switchAccount = async () => {
+      await signOut();
+      setShowSignIn(true);
+    };
+
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+        <section className="glass-panel w-full max-w-xl rounded-[2rem] p-8 text-center">
+          <ShieldCheck className="mx-auto h-12 w-12 text-red-300" />
+          <h1 className="mt-5 font-heading text-4xl font-black">Admin access required</h1>
+          <p className="mt-3 text-slate-300">
+            Signed in as <span className="font-semibold text-white">{user?.email}</span>. This account cannot access platform controls.
+          </p>
+          <p className="mt-3 text-sm text-slate-400">{error}</p>
+          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+            <button onClick={switchAccount} className="cta-primary rounded-full px-6 py-4 font-heading font-black">
+              Use another account
+            </button>
+            <Link href="/" className="btn-glass rounded-full px-6 py-4 font-heading font-bold">
+              Back to Pitch in Public
+            </Link>
+          </div>
+        </section>
+        <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} />
+      </main>
+    );
+  }
+
+  if (loadState === 'error' || !overview) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+        <section className="glass-panel w-full max-w-xl rounded-[2rem] p-8 text-center">
+          <ShieldCheck className="mx-auto h-12 w-12 text-amber-300" />
+          <h1 className="mt-5 font-heading text-4xl font-black">Admin dashboard unavailable</h1>
+          <p className="mt-3 text-slate-300">{error || 'Platform controls could not be loaded.'}</p>
+          <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
+            <button onClick={loadOverview} className="cta-primary rounded-full px-6 py-4 font-heading font-black">
+              Try again
+            </button>
+            <Link href="/" className="btn-glass rounded-full px-6 py-4 font-heading font-bold">
+              Back to Pitch in Public
+            </Link>
+          </div>
+        </section>
       </main>
     );
   }
