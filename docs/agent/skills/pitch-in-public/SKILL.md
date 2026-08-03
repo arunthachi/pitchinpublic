@@ -11,17 +11,21 @@ Use this project-local skill before changing Pitch in Public.
 
 For any non-trivial task, read:
 
-1. `docs/agent/CONTEXT.md`
-2. `docs/agent/MEMORY.md`
-3. The relevant section of `docs/agent/PRODUCT_SPEC.md`
+1. `AGENTS.md`
+2. `docs/product/PITCH_IN_PUBLIC_PRODUCT_HANDBOOK.md`
+3. `docs/codex/PITCH_IN_PUBLIC_CODEX_HANDBOOK.md`
+4. Relevant source files and ordered database migrations
+5. Relevant specialist context in `docs/agent/`
 
-For implementation/release workflow, read:
+The canonical handbooks supersede conflicting status or workflow claims in older agent documents.
 
-- `docs/agent/WORKFLOWS.md`
+## Truth and Evidence Protocol
 
-For prioritization, read:
-
-- `docs/agent/ROADMAP.md`
+- Treat deployed behavior, current release code, migrations, and reproducible tests as evidence.
+- Label uncertain status as `Verify`; do not infer completion from file presence.
+- Separate current behavior from planned behavior.
+- Never claim a migration, deployment, email delivery, video processing result, or RLS guarantee without checking it.
+- Report discrepancies instead of silently choosing the convenient source.
 
 ## Core Product Truth
 
@@ -52,7 +56,7 @@ Founder:
 ```text
 /
 /me
-/profile/[userId]
+/profile/[publicId]
 /pitch/[id]
 ```
 
@@ -78,11 +82,13 @@ Do not recreate `/admin`.
 - Keep video primary.
 - Keep founder workflow dead simple.
 - Preserve mobile-first responsive behavior.
+- Treat mobile acceptance as mandatory on every user-facing screen.
 - Avoid overbuilding social/discovery features before the practice loop works.
 - Do not make organizer features visible as normal founder actions.
 - Use explicit DB migrations for schema changes.
 - Protect service-role operations server-side only.
 - Run lint/build and browser checks before claiming completion.
+- Test authorization with signed-out, authorized, unrelated, and wrong-role actors.
 
 ## Common Commands
 
