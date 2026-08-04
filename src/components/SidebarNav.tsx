@@ -131,7 +131,7 @@ export function SidebarNav({
 
   return (
     <aside
-      className={`fixed bottom-0 left-0 top-0 z-50 flex w-20 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(18,23,34,0.86),rgba(5,7,10,0.96))] shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl transition-[width] duration-300 ease-out ${
+      className={`fixed bottom-0 left-0 top-0 z-50 flex h-[100dvh] w-20 min-h-0 flex-col border-r border-white/10 bg-[linear-gradient(180deg,rgba(18,23,34,0.86),rgba(5,7,10,0.96))] pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl transition-[width] duration-300 ease-out ${
         isCollapsed ? 'lg:w-20' : 'lg:w-56'
       }`}
     >
@@ -153,7 +153,7 @@ export function SidebarNav({
         <button
           type="button"
           onClick={toggleCollapsed}
-          className={`btn-glass hidden h-9 w-9 shrink-0 items-center justify-center p-0 text-slate-300 hover:text-white lg:flex ${
+          className={`btn-glass hidden h-11 w-11 shrink-0 items-center justify-center p-0 text-slate-300 hover:text-white lg:flex ${
             isCollapsed ? 'absolute -right-4 top-7' : ''
           }`}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -164,7 +164,7 @@ export function SidebarNav({
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 px-2 py-5 ${isCollapsed ? 'lg:px-3' : 'lg:px-3'}`}>
+      <nav aria-label="Primary" className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-5 ${isCollapsed ? 'lg:px-3' : 'lg:px-3'}`}>
         <div className="space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -182,6 +182,7 @@ export function SidebarNav({
                 <Link
                   key={item.label}
                   href={item.href}
+                  aria-current={item.active ? 'page' : undefined}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-slate-400 transition-colors hover:bg-white/[0.07] hover:text-slate-100 ${
                     isCollapsed ? 'lg:justify-center lg:px-3' : 'lg:px-4'
                   }`}
@@ -197,6 +198,7 @@ export function SidebarNav({
                 key={item.label}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
+                aria-current={item.active ? 'page' : undefined}
                 className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
                   isCollapsed ? 'lg:justify-center lg:px-3' : 'lg:px-4'
                 } ${

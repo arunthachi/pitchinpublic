@@ -66,7 +66,7 @@ export function PwaInstallPrompt({ dockToBottomNav = false }: PwaInstallPromptPr
     () =>
       dockToBottomNav
         ? 'bottom-[calc(5.25rem+env(safe-area-inset-bottom))]'
-        : 'bottom-4',
+        : 'bottom-[max(1rem,env(safe-area-inset-bottom))]',
     [dockToBottomNav]
   );
 
@@ -136,7 +136,7 @@ export function PwaInstallPrompt({ dockToBottomNav = false }: PwaInstallPromptPr
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 16 }}
           transition={{ duration: 0.22 }}
-          className={`fixed left-4 right-4 ${bottomOffsetClass} z-[90] mx-auto max-w-md sm:hidden`}
+          className={`fixed left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] ${bottomOffsetClass} z-[90] mx-auto max-w-md sm:hidden`}
         >
           <div className="glass-panel rounded-[1.75rem] border-white/15 p-4 shadow-[0_24px_72px_rgba(0,0,0,0.45)]">
             <div className="flex items-start gap-3">
@@ -156,19 +156,19 @@ export function PwaInstallPrompt({ dockToBottomNav = false }: PwaInstallPromptPr
               <button
                 type="button"
                 onClick={handleDismiss}
-                className="rounded-full border border-white/10 bg-white/[0.04] p-2 text-slate-400 transition hover:text-white"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-400 transition hover:text-white focus-visible:ring-2 focus-visible:ring-neon-cyan"
                 aria-label="Dismiss install prompt"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-col gap-2 min-[360px]:flex-row">
               {deferredPrompt ? (
                 <button
                   type="button"
                   onClick={handleInstall}
-                  className="flex-1 rounded-full bg-gradient-to-r from-neon-cyan to-neon-lime px-4 py-3 text-sm font-bold text-slate-950 transition hover:opacity-95"
+                  className="min-h-11 flex-1 rounded-full bg-gradient-to-r from-neon-cyan to-neon-lime px-4 py-3 text-sm font-bold text-slate-950 transition hover:opacity-95"
                 >
                   <span className="inline-flex items-center justify-center gap-2">
                     <Download className="h-4 w-4" />
@@ -176,7 +176,7 @@ export function PwaInstallPrompt({ dockToBottomNav = false }: PwaInstallPromptPr
                   </span>
                 </button>
               ) : (
-                <div className="flex-1 rounded-full border border-white/10 bg-white/[0.05] px-4 py-3 text-center text-sm font-semibold text-slate-200">
+                <div className="min-h-11 flex-1 rounded-full border border-white/10 bg-white/[0.05] px-4 py-3 text-center text-sm font-semibold text-slate-200">
                   Share menu: Add to Home Screen
                 </div>
               )}
@@ -184,7 +184,7 @@ export function PwaInstallPrompt({ dockToBottomNav = false }: PwaInstallPromptPr
               <button
                 type="button"
                 onClick={handleDismiss}
-                className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white"
+                className="min-h-11 rounded-full border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white"
               >
                 Later
               </button>

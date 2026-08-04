@@ -524,7 +524,7 @@ function HomeContent() {
 
   if ((loading && isGuest && authPending) || (!isGuest && !accessCheckComplete)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="glass-panel rounded-3xl px-6 py-5 text-center">
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
           <p className="font-heading text-lg font-bold text-white">
@@ -539,7 +539,7 @@ function HomeContent() {
   // Show loading state only when an authenticated session is already known.
   if (loading && !isGuest) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="text-white">Loading...</div>
       </div>
     );
@@ -1006,7 +1006,7 @@ function HomeContent() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-background" />}>
       <HomeContent />
     </Suspense>
   );

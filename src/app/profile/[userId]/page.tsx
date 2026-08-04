@@ -265,7 +265,7 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="flex min-h-dvh items-center justify-center bg-black">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
       </div>
     );
@@ -273,7 +273,7 @@ export default function UserProfilePage() {
 
   if (profileKey === 'me' && !currentUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black px-4 text-center">
+      <div className="flex min-h-dvh items-center justify-center bg-black px-4 text-center">
         <div className="max-w-sm">
           <h1 className="font-heading text-3xl font-black text-white">Sign in to view your profile</h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
@@ -301,7 +301,7 @@ export default function UserProfilePage() {
 
   if (error || !profile) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-4 text-center">
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-black px-4 text-center">
         <p className="text-slate-300">{error || 'User not found'}</p>
         <button
           onClick={() => router.back()}
@@ -314,7 +314,7 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-dvh bg-black text-white">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-black/80 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
           <button

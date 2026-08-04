@@ -234,15 +234,15 @@ export default function EventPage() {
   };
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Loading event...</div>;
+    return <div className="flex min-h-dvh items-center justify-center bg-background text-white">Loading event...</div>;
   }
 
   if (!eventState?.success || !event) {
-    return <div className="flex min-h-screen items-center justify-center bg-background text-white">Event not found.</div>;
+    return <div className="flex min-h-dvh items-center justify-center bg-background text-white">Event not found.</div>;
   }
 
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-dvh bg-background text-white">
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
         <section className="grid gap-6 lg:grid-cols-[1fr_0.88fr]">
           <div className="glass-panel rounded-[2rem] p-6 sm:p-8">
@@ -281,7 +281,7 @@ export default function EventPage() {
               <>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Your invitation</p>
                 <h2 className="mt-3 font-heading text-3xl font-black leading-tight sm:text-4xl">Join {event.name}</h2>
-                <p className="mt-3 text-base leading-7 text-slate-300">
+                <p className="mt-3 text-base leading-7 text-slate-300 [overflow-wrap:anywhere]">
                   {authLoading
                     ? 'Checking your account...'
                     : !user
@@ -379,7 +379,7 @@ export default function EventPage() {
             <div className="text-center">
               <Mail className="mx-auto h-8 w-8 text-neon-cyan" />
               <h2 className="mt-4 font-heading text-3xl font-bold">Sign in to accept your invitation.</h2>
-              <p className="mx-auto mt-2 max-w-xl text-slate-400">
+              <p className="mx-auto mt-2 max-w-xl text-slate-400 [overflow-wrap:anywhere]">
                 {invite?.email ? `This private invitation is for ${invite.email}.` : 'Authentication is required before this event can be joined.'}
               </p>
               <button type="button" onClick={() => setShowSignIn(true)} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">

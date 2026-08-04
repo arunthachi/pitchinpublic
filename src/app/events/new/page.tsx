@@ -254,7 +254,7 @@ function NewEventContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-[100dvh] bg-background text-white">
       <header className="border-b border-white/10 bg-graphite-dark/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white">
@@ -265,20 +265,20 @@ function NewEventContent() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:py-12">
-        <section>
+      <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:py-12">
+        <section className="min-w-0">
           <div className="glass-pill mb-5 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-neon-lime">
             <Sparkles className="h-4 w-4" />
             Pitch Event
           </div>
-          <h1 className="font-heading text-5xl font-black leading-tight">Create the room founders practice toward.</h1>
+          <h1 className="font-heading text-4xl font-black leading-tight sm:text-5xl">Create the room founders practice toward.</h1>
           <p className="mt-5 max-w-xl text-lg leading-8 text-slate-300">
             Keep the event setup focused: deadline, pitch length, invite code, and the one thing founders should improve before pitch day.
             Founder pitches still live in the main app, while organizer tools stay here.
           </p>
           <div className="glass-card mt-6 rounded-3xl p-5">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Event defaults</p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="mt-4 grid gap-3 min-[400px]:grid-cols-2">
               <div className="rounded-2xl bg-black/25 p-4">
                 <CalendarDays className="mb-3 h-5 w-5 text-neon-cyan" />
                 <p className="font-bold">30-90 day prep window</p>
@@ -309,7 +309,7 @@ function NewEventContent() {
             <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-slate-400">
               Organizer account
             </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-3">
               <MiniStat label="Signed in" value={user?.email || 'Unknown email'} />
               <MiniStat
                 label="Role"
@@ -322,7 +322,7 @@ function NewEventContent() {
           </div>
         </section>
 
-        <form onSubmit={submit} className="glass-panel rounded-[2rem] p-5 sm:p-6">
+        <form onSubmit={submit} className="glass-panel min-w-0 rounded-[2rem] p-5 sm:p-6">
           <div className="space-y-4">
             <Field label="Event name">
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-dark" required />
@@ -495,7 +495,7 @@ function NewEventContent() {
 
 export default function NewEventPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background text-white">Loading organizer setup...</div>}>
+    <Suspense fallback={<div className="flex min-h-[100dvh] items-center justify-center bg-background text-white">Loading organizer setup...</div>}>
       <NewEventContent />
     </Suspense>
   );
@@ -512,9 +512,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-white">{value}</p>
+      <p className="mt-1 min-w-0 break-words text-sm font-semibold text-white [overflow-wrap:anywhere]">{value}</p>
     </div>
   );
 }

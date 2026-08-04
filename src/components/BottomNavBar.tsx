@@ -14,12 +14,15 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
   const [activeTab, setActiveTab] = useState('home');
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[linear-gradient(180deg,rgba(18,23,34,0.86),rgba(5,7,10,0.96))] shadow-[0_-18px_50px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
+    <nav aria-label="Primary" className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[linear-gradient(180deg,rgba(18,23,34,0.86),rgba(5,7,10,0.96))] shadow-[0_-18px_50px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
       <div className="flex items-center justify-around px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2">
         {/* Home */}
         <button
+          type="button"
           onClick={() => setActiveTab('home')}
-          className="flex flex-col items-center gap-1 px-4 py-1"
+          className="flex min-h-11 min-w-11 flex-col items-center gap-1 rounded-xl px-4 py-1 focus-visible:ring-2 focus-visible:ring-neon-cyan"
+          aria-current={activeTab === 'home' ? 'page' : undefined}
+          aria-label="Practice feed"
         >
           <Video
             size={28}
@@ -32,8 +35,9 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
 
         {/* Create Button (Center, prominent) */}
         <button
+          type="button"
           onClick={onCreateClick}
-          className="relative -mt-2 flex flex-col items-center gap-1 px-2 py-1"
+          className="relative -mt-2 flex min-h-11 min-w-11 flex-col items-center gap-1 rounded-xl px-2 py-1 focus-visible:ring-2 focus-visible:ring-neon-cyan"
           aria-label="Record pitch"
           title="Record pitch"
         >
@@ -49,11 +53,14 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
 
         {/* Challenge */}
         <button
+          type="button"
           onClick={() => {
             setActiveTab('challenge');
             onChallengeClick?.();
           }}
-          className="flex flex-col items-center gap-1 px-2 py-1"
+          className="flex min-h-11 min-w-11 flex-col items-center gap-1 rounded-xl px-2 py-1 focus-visible:ring-2 focus-visible:ring-neon-cyan"
+          aria-current={activeTab === 'challenge' ? 'page' : undefined}
+          aria-label="Pitch goal"
         >
           <Trophy
             size={26}
@@ -66,11 +73,14 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
 
         {/* Profile */}
         <button
+          type="button"
           onClick={() => {
             setActiveTab('profile');
             onProfileClick();
           }}
-          className="flex flex-col items-center gap-1 px-2 py-1"
+          className="flex min-h-11 min-w-11 flex-col items-center gap-1 rounded-xl px-2 py-1 focus-visible:ring-2 focus-visible:ring-neon-cyan"
+          aria-current={activeTab === 'profile' ? 'page' : undefined}
+          aria-label={isGuest ? 'Sign in to view profile' : 'Profile'}
         >
           <User
             size={28}
@@ -82,6 +92,6 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
           </span>
         </button>
       </div>
-    </div>
+    </nav>
   );
 }

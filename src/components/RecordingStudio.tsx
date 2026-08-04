@@ -739,7 +739,7 @@ export function RecordingStudio({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain p-2 sm:p-6">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain px-[max(0.5rem,env(safe-area-inset-left))] pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-[max(1.5rem,env(safe-area-inset-left))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pt-[max(1.5rem,env(safe-area-inset-top))]">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -755,14 +755,19 @@ export function RecordingStudio({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative my-auto flex w-full max-w-md max-h-[calc(100dvh-1rem)] flex-col overflow-hidden rounded-[1.75rem] border border-slate-700 bg-slate-900 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Recording studio"
+            className="relative my-auto flex max-h-full w-full max-w-md min-h-0 flex-col overflow-hidden rounded-[1.75rem] border border-slate-700 bg-slate-900 shadow-2xl"
           >
             {/* Close Button */}
             <button
+              type="button"
               onClick={handleClose}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center transition-colors z-10"
+              className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-slate-800/90 transition-colors hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-neon-cyan sm:right-4 sm:top-4"
+              aria-label="Close recording studio"
             >
-              <X className="w-4 h-4 text-slate-400" />
+              <X className="h-5 w-5 text-slate-300" />
             </button>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:p-6">

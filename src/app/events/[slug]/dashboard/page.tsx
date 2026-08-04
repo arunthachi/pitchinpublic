@@ -619,7 +619,7 @@ export default function EventDashboardPage() {
 
   if (!state.isTeamMember) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-black px-4 text-center text-white">
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-black px-4 text-center text-white">
         <h1 className="font-heading text-4xl font-bold">Event team access only.</h1>
         <p className="mt-3 max-w-md text-slate-400">Founders should use the event invite page to join, record, and submit their best take.</p>
         <Link href={`/events/${slug}`} className="mt-5 rounded-full bg-neon-cyan px-5 py-3 font-heading font-bold text-slate-950">
@@ -630,7 +630,7 @@ export default function EventDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-dvh bg-background text-white">
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link
@@ -1806,7 +1806,7 @@ function EmptyState({ text }: { text: string }) {
 
 function DashboardShellSkeleton() {
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-dvh bg-background text-white">
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
         <div className="glass-panel rounded-[2rem] p-5 sm:p-7">
           <div className="animate-pulse space-y-5">
@@ -1834,7 +1834,7 @@ function DashboardShellSkeleton() {
 
 function DashboardErrorState({ title, body, onRetry }: { title: string; body: string; onRetry: () => void }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 text-white">
       <div className="glass-panel w-full max-w-xl rounded-[2rem] p-6 text-center sm:p-8">
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-roast/15 text-roast">
           <AlertCircle className="h-8 w-8" />

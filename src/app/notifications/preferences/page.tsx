@@ -118,7 +118,7 @@ export default function NotificationPreferencesPage() {
 
   if (!loading && !user) {
     return (
-      <main className="min-h-screen bg-black px-4 py-8 text-white">
+      <main className="min-h-dvh bg-black px-4 py-8 text-white">
         <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-xl flex-col justify-center">
           <Card className="border-white/10 bg-white/[0.05]">
             <CardHeader>
@@ -145,7 +145,7 @@ export default function NotificationPreferencesPage() {
   const selectedTimezone = preferences?.timezone || 'America/New_York';
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_40%),linear-gradient(180deg,#020617_0%,#050608_100%)] px-4 py-6 text-white">
+    <main className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_40%),linear-gradient(180deg,#020617_0%,#050608_100%)] px-4 py-6 text-white">
       <div className="mx-auto w-full max-w-2xl">
         <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-neon-cyan">
           <Sparkles className="h-4 w-4" />

@@ -1,0 +1,208 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
+import {
+  createAuthLifecycleController,
+  type AuthClientLike,
+  type AuthLifecycleSnapshot,
+} from './AuthContext';
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+};
+
+type SessionResult = {
+  data: { session: Session | null };
+  error: unknown | null;
+};
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function createSession(id: string): Session {
+  return {
+    access_token: `access-${id}`,
+    token_type: 'bearer',
+    expires_in: 3600,
+    expires_at: 1_900_000_000,
+    refresh_token: `refresh-${id}`,
+    user: {
+      id,
+      app_metadata: {},
+      user_metadata: {},
+      aud: 'authenticated',
+      created_at: '2026-08-04T00:00:00.000Z',
+    } as User,
+  };
+}
+
+function createAuthClient(
+  sessionRequests: Array<Deferred<SessionResult>>
+) {
+  let authChange: ((event: AuthChangeEvent, session: Session | null) => void) | null = null;
+  let unsubscribed = false;
+  let requestIndex = 0;
+
+  const client: AuthClientLike = {
+    auth: {
+      getSession: () => sessionRequests[requestIndex++].promise,
+      onAuthStateChange(callback) {
+        authChange = callback;
+        return {
+          data: {
+            subscription: {
+              unsubscribe: () => {
+                unsubscribed = true;
+              },
+            },
+          },
+        };
+      },
+      signOut: async () => ({ error: null }),
+    },
+  };
+
+  return {
+    client,
+    emit(event: AuthChangeEvent, session: Session | null) {
+      assert.ok(authChange, 'auth subscription should be registered');
+      authChange(event, session);
+    },
+    wasUnsubscribed: () => unsubscribed,
+  };
+}
+
+function captureLifecycle(client: AuthClientLike) {
+  const snapshots: AuthLifecycleSnapshot[] = [];
+  const timeouts: Array<() => void> = [];
+  const controller = createAuthLifecycleController({
+    client,
+    onChange: (snapshot) => snapshots.push(snapshot),
+    scheduleTimeout: (callback) => {
+      timeouts.push(callback);
+      return timeouts.length as unknown as ReturnType<typeof setTimeout>;
+    },
+    cancelTimeout: () => {},
+  });
+
+  return { controller, snapshots, timeouts };
+}
+
+test('keeps restoring during a slow lookup and accepts its eventual session', async () => {
+  const request = deferred<SessionResult>();
+  const auth = createAuthClient([request]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+
+  const started = controller.start();
+  assert.equal(snapshots.at(-1)?.status, 'restoring');
+
+  const session = createSession('slow-user');
+  request.resolve({ data: { session }, error: null });
+  await started;
+
+  assert.equal(snapshots.at(-1)?.status, 'authenticated');
+  assert.equal(snapshots.at(-1)?.user?.id, 'slow-user');
+});
+
+test('publishes anonymous only after Supabase confirms there is no session', async () => {
+  const request = deferred<SessionResult>();
+  const auth = createAuthClient([request]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+
+  const started = controller.start();
+  assert.notEqual(snapshots.at(-1)?.status, 'anonymous');
+  request.resolve({ data: { session: null }, error: null });
+  await started;
+
+  assert.deepEqual(snapshots.at(-1), {
+    status: 'anonymous',
+    user: null,
+    session: null,
+    error: null,
+  });
+});
+
+test('exposes a recoverable error and succeeds on retry', async () => {
+  const failed = deferred<SessionResult>();
+  const recovered = deferred<SessionResult>();
+  const auth = createAuthClient([failed, recovered]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+
+  const started = controller.start();
+  failed.resolve({ data: { session: null }, error: new Error('offline') });
+  await started;
+  assert.equal(snapshots.at(-1)?.status, 'error');
+  assert.equal(snapshots.at(-1)?.error?.code, 'restore_failed');
+
+  const retrying = controller.retry();
+  assert.equal(snapshots.at(-1)?.status, 'restoring');
+  assert.equal(snapshots.at(-1)?.error?.code, 'restore_failed');
+  recovered.resolve({ data: { session: createSession('recovered-user') }, error: null });
+  await retrying;
+
+  assert.equal(snapshots.at(-1)?.status, 'authenticated');
+  assert.equal(snapshots.at(-1)?.error, null);
+});
+
+test('ignores a late response from an older restore generation', async () => {
+  const first = deferred<SessionResult>();
+  const second = deferred<SessionResult>();
+  const auth = createAuthClient([first, second]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+
+  const originalRestore = controller.start();
+  const latestRestore = controller.retry();
+  second.resolve({ data: { session: null }, error: null });
+  await latestRestore;
+  assert.equal(snapshots.at(-1)?.status, 'anonymous');
+
+  first.resolve({ data: { session: createSession('stale-user') }, error: null });
+  await originalRestore;
+  assert.equal(snapshots.at(-1)?.status, 'anonymous');
+  assert.equal(snapshots.at(-1)?.user, null);
+});
+
+test('auth events supersede a pending restore and dispose unsubscribes', async () => {
+  const request = deferred<SessionResult>();
+  const auth = createAuthClient([request]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+
+  const started = controller.start();
+  auth.emit('SIGNED_IN', createSession('event-user'));
+  assert.equal(snapshots.at(-1)?.status, 'authenticated');
+  assert.equal(snapshots.at(-1)?.user?.id, 'event-user');
+
+  auth.emit('SIGNED_OUT', null);
+  assert.equal(snapshots.at(-1)?.status, 'anonymous');
+
+  request.resolve({ data: { session: null }, error: null });
+  await started;
+  assert.equal(snapshots.at(-1)?.status, 'anonymous');
+
+  controller.dispose();
+  assert.equal(auth.wasUnsubscribed(), true);
+});
+
+test('a timed-out lookup becomes an error and cannot sign the user out later', async () => {
+  const request = deferred<SessionResult>();
+  const auth = createAuthClient([request]);
+  const { controller, snapshots, timeouts } = captureLifecycle(auth.client);
+
+  const started = controller.start();
+  timeouts[0]();
+  assert.equal(snapshots.at(-1)?.status, 'error');
+  assert.equal(snapshots.at(-1)?.error?.code, 'restore_timeout');
+
+  request.resolve({ data: { session: null }, error: null });
+  await started;
+  assert.equal(snapshots.at(-1)?.status, 'error');
+});

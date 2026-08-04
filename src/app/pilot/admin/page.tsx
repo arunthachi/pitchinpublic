@@ -372,7 +372,7 @@ export default async function FounderAccessAdminPage() {
 
 function AdminShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-dvh bg-black text-white">
       <header className="sticky top-0 z-50 border-b border-white/10 bg-black/82 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/founders" className="flex items-center gap-3">

@@ -118,7 +118,7 @@ export default function PitchDetailPage() {
 
   if (loadingPitch) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="flex min-h-dvh items-center justify-center bg-black">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
       </div>
     );
@@ -126,7 +126,7 @@ export default function PitchDetailPage() {
 
   if (!pitch) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-heading font-bold text-slate-100 mb-2">
             Pitch Not Found
@@ -165,7 +165,7 @@ export default function PitchDetailPage() {
   };
 
   return (
-    <div className="min-h-screen pb-12">
+    <div className="min-h-dvh pb-12">
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800">
         <div className="container mx-auto px-4 py-4">

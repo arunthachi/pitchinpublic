@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -17,38 +17,10 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          applySessionCookieMutation(request, response, name, value, options);
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
+          applySessionCookieMutation(request, response, name, '', options);
         },
       },
     }
@@ -74,4 +46,21 @@ export async function updateSession(request: NextRequest) {
   // This significantly reduces latency for page loads
 
   return response;
+}
+
+/**
+ * Mirrors each Supabase cookie mutation onto the request and the single
+ * middleware response. Reusing the response is important: replacing it for
+ * every mutation silently drops earlier Set-Cookie headers during token
+ * rotation.
+ */
+export function applySessionCookieMutation(
+  request: NextRequest,
+  response: NextResponse,
+  name: string,
+  value: string,
+  options: CookieOptions
+) {
+  request.cookies.set({ name, value, ...options });
+  response.cookies.set({ name, value, ...options });
 }

@@ -3,7 +3,7 @@ import { ArrowLeft, Mail } from 'lucide-react';
 
 export default function ContactPage() {
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-white">
+    <main className="min-h-dvh bg-background px-5 py-8 text-white">
       <section className="mx-auto max-w-3xl">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white">
           <ArrowLeft className="h-4 w-4" />

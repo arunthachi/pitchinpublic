@@ -75,7 +75,7 @@ export default function EventsPage() {
 
   if (loading || isLoadingEvents) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-white">
+      <div className="flex min-h-dvh items-center justify-center bg-background text-white">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
       </div>
     );
@@ -83,7 +83,7 @@ export default function EventsPage() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4 text-white">
         <section className="glass-panel w-full max-w-xl rounded-[2rem] p-6 text-center sm:p-8">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan">
             <CalendarDays className="h-8 w-8" />
@@ -102,7 +102,7 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-dvh bg-background text-white">
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>

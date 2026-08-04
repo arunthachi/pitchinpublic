@@ -107,7 +107,7 @@ export default function EventOutcomeReportPage() {
   ];
 
   return (
-    <div className="outcome-report min-h-screen bg-background text-white">
+    <div className="outcome-report min-h-dvh bg-background text-white">
       <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8">
         <nav className="no-print mb-5 flex items-center justify-between gap-3" aria-label="Report navigation">
           <Link
@@ -349,7 +349,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 
 function ReportSkeleton() {
   return (
-    <div className="min-h-screen bg-background text-white" aria-label="Loading event outcome report">
+    <div className="min-h-dvh bg-background text-white" aria-label="Loading event outcome report">
       <main className="mx-auto max-w-6xl animate-pulse px-4 py-8 sm:px-6">
         <div className="h-11 w-32 rounded-lg bg-white/10" />
         <div className="mt-8 h-8 w-2/3 rounded-lg bg-white/10" />
@@ -371,7 +371,7 @@ function ReportError({ state, onRetry, slug }: { state: Extract<LoadState, { kin
         ? 'Report not found'
         : 'Could not load the report';
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 text-white">
       <main className="w-full max-w-lg rounded-lg border border-white/10 bg-white/[0.04] p-6 text-center">
         <AlertCircle className="mx-auto h-10 w-10 text-roast" />
         <h1 className="mt-4 font-heading text-2xl font-black">{title}</h1>
