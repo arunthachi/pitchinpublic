@@ -2,13 +2,39 @@
 
 This file is the repository entry point for all coding agents.
 
-## Read First
+## Automatic Task Bootstrap
 
-For non-trivial work, read in order:
+This bootstrap is mandatory at the start of every new agent task. The user does
+not need to repeat it in their prompt.
 
-1. `docs/product/PITCH_IN_PUBLIC_PRODUCT_HANDBOOK.md`
-2. `docs/codex/PITCH_IN_PUBLIC_CODEX_HANDBOOK.md`
-3. Relevant source, migrations, tests, and specialist files in `docs/agent/`
+1. Confirm the current repository path, worktree/branch, and `git status`.
+2. Read this file completely.
+3. Read the two canonical handbooks in order:
+   - `docs/product/PITCH_IN_PUBLIC_PRODUCT_HANDBOOK.md`
+   - `docs/codex/PITCH_IN_PUBLIC_CODEX_HANDBOOK.md`
+4. Inspect relevant source, migrations, tests, recent commits, and specialist
+   files in `docs/agent/` before making assumptions.
+5. Summarize material constraints internally, then execute the user's task.
+
+For trivial changes, agents may scan the canonical handbooks for relevant
+sections instead of rereading every line, but their requirements still apply.
+Conversation history is never a substitute for repository documentation.
+
+For non-trivial work, follow the reviewed planning and approval gate described
+below before editing. Do not ask the user to restate these bootstrap rules.
+
+## Minimal New-Task Prompt
+
+When Codex is started from this repository or either release worktree, the user
+only needs to provide the task, for example:
+
+```text
+Fix the feedback submission failure in staging, verify the root cause, and test
+the responsive founder flow. Do not deploy until I approve.
+```
+
+If an agent has not loaded this contract and the canonical handbooks, it must do
+so automatically before proceeding.
 
 ## Product Truth
 
