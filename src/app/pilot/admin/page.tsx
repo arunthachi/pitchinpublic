@@ -9,6 +9,7 @@ import {
   getTakeLabelFromFields,
 } from '@/lib/pitch-copy';
 import { profilePath } from '@/lib/public-routes';
+import { isAllowedPilotAdmin } from '@/lib/pilot-admin-access';
 
 export const metadata: Metadata = {
   title: 'Founder Access Admin | Pitch in Public',
@@ -66,17 +67,6 @@ interface FounderSummary {
   feedbackCount: number;
   hasBestTake: boolean;
   latestPitchAt: string | null;
-}
-
-function isAllowedAdmin(email?: string | null) {
-  const raw = process.env.PILOT_ADMIN_EMAILS || process.env.NEXT_PUBLIC_PILOT_ADMIN_EMAILS || '';
-  const allowlist = raw
-    .split(',')
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (!allowlist.length) return true;
-  return Boolean(email && allowlist.includes(email.toLowerCase()));
 }
 
 function groupByFounder(pitches: PitchRow[]) {
@@ -244,12 +234,12 @@ export default async function FounderAccessAdminPage() {
     );
   }
 
-  if (!isAllowedAdmin(user.email)) {
+  if (!isAllowedPilotAdmin(user.email)) {
     return (
       <AdminShell>
         <EmptyGate
           title="Not on the founder access admin list"
-          body="Set PILOT_ADMIN_EMAILS to allow specific operators, or leave it unset for internal local testing."
+          body="Set PILOT_ADMIN_EMAILS to an explicit comma-separated operator allowlist. Access stays closed when the allowlist is missing."
           ctaHref="/"
           ctaLabel="Back to app"
         />
