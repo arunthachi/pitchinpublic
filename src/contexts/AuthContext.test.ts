@@ -46,11 +46,13 @@ function createSession(id: string): Session {
 }
 
 function createAuthClient(
-  sessionRequests: Array<Deferred<SessionResult>>
+  sessionRequests: Array<Deferred<SessionResult>>,
+  signOutResults: Array<{ error: unknown | null }> = [{ error: null }]
 ) {
   let authChange: ((event: AuthChangeEvent, session: Session | null) => void) | null = null;
   let unsubscribed = false;
   let requestIndex = 0;
+  let signOutIndex = 0;
 
   const client: AuthClientLike = {
     auth: {
@@ -67,7 +69,7 @@ function createAuthClient(
           },
         };
       },
-      signOut: async () => ({ error: null }),
+      signOut: async () => signOutResults[Math.min(signOutIndex++, signOutResults.length - 1)],
     },
   };
 
@@ -205,4 +207,52 @@ test('a timed-out lookup becomes an error and cannot sign the user out later', a
   request.resolve({ data: { session: null }, error: null });
   await started;
   assert.equal(snapshots.at(-1)?.status, 'error');
+});
+
+test('turns a rejected session lookup into a recoverable restore error', async () => {
+  const request = deferred<SessionResult>();
+  const auth = createAuthClient([request]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+
+  const started = controller.start();
+  request.reject(new Error('network unavailable'));
+  await started;
+
+  assert.equal(snapshots.at(-1)?.status, 'error');
+  assert.equal(snapshots.at(-1)?.error?.code, 'restore_failed');
+});
+
+test('signs out an authenticated lifecycle and clears the retained session', async () => {
+  const request = deferred<SessionResult>();
+  const auth = createAuthClient([request]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+
+  const started = controller.start();
+  request.resolve({ data: { session: createSession('signed-in-user') }, error: null });
+  await started;
+  await controller.signOut();
+
+  assert.deepEqual(snapshots.at(-1), {
+    status: 'anonymous',
+    user: null,
+    session: null,
+    error: null,
+  });
+});
+
+test('preserves the authenticated session and surfaces a failed sign-out', async () => {
+  const request = deferred<SessionResult>();
+  const signOutError = new Error('sign out failed');
+  const auth = createAuthClient([request], [{ error: signOutError }]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+
+  const started = controller.start();
+  request.resolve({ data: { session: createSession('retained-user') }, error: null });
+  await started;
+
+  await assert.rejects(controller.signOut(), signOutError);
+  assert.equal(snapshots.at(-1)?.status, 'error');
+  assert.equal(snapshots.at(-1)?.error?.code, 'sign_out_failed');
+  assert.equal(snapshots.at(-1)?.user?.id, 'retained-user');
+  assert.equal(snapshots.at(-1)?.session?.user.id, 'retained-user');
 });
