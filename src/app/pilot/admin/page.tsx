@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { AlertCircle, ArrowLeft, CheckCircle2, MessageSquareText, Trophy, UserRound, Video } from 'lucide-react';
 import { BrandMark } from '@/components/BrandMark';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, hasServerSupabaseConfig } from '@/lib/supabase/server';
 import {
   getPitchFeedbackAskFromFields,
   getPitchStartupNameFromFields,
@@ -213,6 +213,19 @@ async function loadPitches() {
 }
 
 export default async function FounderAccessAdminPage() {
+  if (!hasServerSupabaseConfig()) {
+    return (
+      <AdminShell>
+        <EmptyGate
+          title="Admin dashboard unavailable"
+          body="Founder access data is temporarily unavailable. Check the application configuration and try again."
+          ctaHref="/"
+          ctaLabel="Back to app"
+        />
+      </AdminShell>
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

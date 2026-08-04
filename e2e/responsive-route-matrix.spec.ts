@@ -21,6 +21,15 @@ const publicRoutes = [
   { name: 'terms', path: '/terms', heading: /Use Pitch in Public constructively/i },
   { name: 'founders', path: '/founders', heading: /Post your pitch.*Get useful feedback/i },
   { name: 'organizers', path: '/for-events', heading: /Turn your founder program into guided pitch practice/i },
+  { name: 'leaderboard', path: '/leaderboard', heading: /^Leaderboard$/i },
+  { name: 'events anonymous', path: '/events', heading: /Sign in to see your event rooms/i },
+  { name: 'portfolio anonymous', path: '/me', heading: /Sign in to open your pitch portfolio/i },
+  { name: 'notification preferences anonymous', path: '/notifications/preferences', heading: /Sign in to manage notifications/i },
+  { name: 'founder invitation', path: '/founder/invite', heading: /You’re invited to Pitch in Public/i },
+  { name: 'organizer invitation', path: '/organizer/invite', heading: /Accept your organizer invite/i },
+  { name: 'reviewer invitation', path: '/reviewer/invite', heading: /Invitation unavailable/i },
+  { name: 'pilot admin unavailable', path: '/pilot/admin', heading: /Admin dashboard unavailable/i },
+  { name: 'platform admin anonymous', path: '/pip-super-admin', heading: /Platform admin/i },
 ] as const;
 
 for (const route of publicRoutes) {

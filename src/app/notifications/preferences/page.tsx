@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Bell, CalendarClock, Loader2, Mail, MessageSquareText, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 
 type Preferences = {
@@ -122,7 +122,7 @@ export default function NotificationPreferencesPage() {
         <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-xl flex-col justify-center">
           <Card className="border-white/10 bg-white/[0.05]">
             <CardHeader>
-              <CardTitle className="text-white">Sign in to manage notifications</CardTitle>
+              <h1 className="font-heading text-3xl font-bold text-white">Sign in to manage notifications</h1>
               <CardDescription>Control practice, review, and organizer updates from one place.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -154,7 +154,7 @@ export default function NotificationPreferencesPage() {
 
         <Card className="border-white/10 bg-white/[0.05] shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
           <CardHeader className="space-y-3">
-            <CardTitle className="text-3xl text-white">Email preferences</CardTitle>
+            <h1 className="font-heading text-3xl font-bold text-white">Email preferences</h1>
             <CardDescription className="text-base leading-6">
               Choose the updates that help you act. Transactional and security emails are always sent when required.
             </CardDescription>
