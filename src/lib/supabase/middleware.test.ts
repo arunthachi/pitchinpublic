@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NextRequest, NextResponse } from 'next/server';
-import { applySessionCookieMutation } from './middleware';
+import { applySessionCookieMutation, shouldValidateSession } from './middleware';
+
+test('validates API sessions without adding auth latency to pages or health checks', () => {
+  assert.equal(shouldValidateSession('/api/events'), true);
+  assert.equal(shouldValidateSession('/api/pitches/upload-url'), true);
+  assert.equal(shouldValidateSession('/api/health'), false);
+  assert.equal(shouldValidateSession('/api/health/ready'), false);
+  assert.equal(shouldValidateSession('/events/new'), false);
+  assert.equal(shouldValidateSession('/about'), false);
+});
 
 test('preserves every Supabase cookie mutation on one middleware response', () => {
   const request = new NextRequest('https://app.pitchinpublic.io/api/events');

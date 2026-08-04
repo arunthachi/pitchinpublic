@@ -1,6 +1,10 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+export function shouldValidateSession(pathname: string) {
+  return pathname.startsWith('/api/') && !pathname.startsWith('/api/health');
+}
+
 export async function updateSession(request: NextRequest) {
   const response = NextResponse.next({
     request: {
@@ -29,8 +33,7 @@ export async function updateSession(request: NextRequest) {
   // Only validate auth for protected API routes
   // Skip getUser() call for public pages and most requests - client-side auth handles this
   const pathname = request.nextUrl.pathname;
-  const isApiRoute = pathname.startsWith('/api/');
-  const isProtectedRoute = isApiRoute && !pathname.startsWith('/api/health');
+  const isProtectedRoute = shouldValidateSession(pathname);
 
   if (isProtectedRoute) {
     // Only call getUser() for protected API routes that require authentication

@@ -2,10 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import {
+  attachAuthLifecycleRevalidation,
   createAuthLifecycleController,
   type AuthClientLike,
   type AuthLifecycleSnapshot,
 } from './AuthContext';
+
+class RevalidationTarget extends EventTarget {
+  visibilityState: DocumentVisibilityState = 'visible';
+}
 
 type Deferred<T> = {
   promise: Promise<T>;
@@ -255,4 +260,69 @@ test('preserves the authenticated session and surfaces a failed sign-out', async
   assert.equal(snapshots.at(-1)?.error?.code, 'sign_out_failed');
   assert.equal(snapshots.at(-1)?.user?.id, 'retained-user');
   assert.equal(snapshots.at(-1)?.session?.user.id, 'retained-user');
+});
+
+test('retries a failed restore when connectivity returns and detaches cleanly', async () => {
+  const failed = deferred<SessionResult>();
+  const recovered = deferred<SessionResult>();
+  const auth = createAuthClient([failed, recovered]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+  const onlineTarget = new RevalidationTarget();
+  const visibilityTarget = new RevalidationTarget();
+
+  const started = controller.start();
+  failed.resolve({ data: { session: null }, error: new Error('offline') });
+  await started;
+  assert.equal(snapshots.at(-1)?.status, 'error');
+
+  const detach = attachAuthLifecycleRevalidation({
+    controller,
+    onlineTarget,
+    visibilityTarget,
+  });
+  onlineTarget.dispatchEvent(new Event('online'));
+  recovered.resolve({ data: { session: createSession('online-user') }, error: null });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(snapshots.at(-1)?.user?.id, 'online-user');
+
+  detach();
+  const snapshotCount = snapshots.length;
+  onlineTarget.dispatchEvent(new Event('online'));
+  assert.equal(snapshots.length, snapshotCount);
+});
+
+test('revalidates a visible session but ignores hidden and restoring states', async () => {
+  const first = deferred<SessionResult>();
+  const visibleRefresh = deferred<SessionResult>();
+  const auth = createAuthClient([first, visibleRefresh]);
+  const { controller, snapshots } = captureLifecycle(auth.client);
+  const onlineTarget = new RevalidationTarget();
+  const visibilityTarget = new RevalidationTarget();
+
+  const started = controller.start();
+  first.resolve({ data: { session: createSession('visible-user') }, error: null });
+  await started;
+
+  const detach = attachAuthLifecycleRevalidation({
+    controller,
+    onlineTarget,
+    visibilityTarget,
+  });
+  visibilityTarget.visibilityState = 'hidden';
+  visibilityTarget.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(snapshots.at(-1)?.status, 'authenticated');
+
+  visibilityTarget.visibilityState = 'visible';
+  visibilityTarget.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(snapshots.at(-1)?.status, 'restoring');
+  const snapshotCount = snapshots.length;
+  visibilityTarget.dispatchEvent(new Event('visibilitychange'));
+  assert.equal(snapshots.length, snapshotCount);
+
+  visibleRefresh.resolve({ data: { session: createSession('refreshed-user') }, error: null });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(snapshots.at(-1)?.user?.id, 'refreshed-user');
+  detach();
 });

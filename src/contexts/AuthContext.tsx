@@ -60,6 +60,17 @@ export type AuthLifecycleController = {
   getSnapshot: () => AuthLifecycleSnapshot;
 };
 
+type OnlineEventTarget = {
+  addEventListener: (type: 'online', listener: () => void) => void;
+  removeEventListener: (type: 'online', listener: () => void) => void;
+};
+
+type VisibilityEventTarget = {
+  visibilityState: DocumentVisibilityState;
+  addEventListener: (type: 'visibilitychange', listener: () => void) => void;
+  removeEventListener: (type: 'visibilitychange', listener: () => void) => void;
+};
+
 export const AUTH_RESTORE_TIMEOUT_MS = 10_000;
 
 const INITIAL_AUTH_SNAPSHOT: AuthLifecycleSnapshot = {
@@ -240,6 +251,38 @@ export function createAuthLifecycleController({
   };
 }
 
+export function attachAuthLifecycleRevalidation({
+  controller,
+  onlineTarget,
+  visibilityTarget,
+}: {
+  controller: AuthLifecycleController;
+  onlineTarget: OnlineEventTarget;
+  visibilityTarget: VisibilityEventTarget;
+}) {
+  const retryAfterConnectivityReturns = () => {
+    if (controller.getSnapshot().status === 'error') {
+      void controller.retry();
+    }
+  };
+  const revalidateWhenVisible = () => {
+    if (
+      visibilityTarget.visibilityState === 'visible' &&
+      controller.getSnapshot().status !== 'restoring'
+    ) {
+      void controller.retry();
+    }
+  };
+
+  onlineTarget.addEventListener('online', retryAfterConnectivityReturns);
+  visibilityTarget.addEventListener('visibilitychange', revalidateWhenVisible);
+
+  return () => {
+    onlineTarget.removeEventListener('online', retryAfterConnectivityReturns);
+    visibilityTarget.removeEventListener('visibilitychange', revalidateWhenVisible);
+  };
+}
+
 interface AuthContextType extends AuthLifecycleSnapshot {
   /** Backwards-compatible alias used by existing auth consumers. */
   loading: boolean;
@@ -310,24 +353,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     controllerRef.current = controller;
     void controller.start();
-
-    const retryAfterConnectivityReturns = () => {
-      if (controller.getSnapshot().status === 'error') {
-        void controller.retry();
-      }
-    };
-    const revalidateWhenVisible = () => {
-      if (document.visibilityState === 'visible' && controller.getSnapshot().status !== 'restoring') {
-        void controller.retry();
-      }
-    };
-
-    window.addEventListener('online', retryAfterConnectivityReturns);
-    document.addEventListener('visibilitychange', revalidateWhenVisible);
+    const detachRevalidation = attachAuthLifecycleRevalidation({
+      controller,
+      onlineTarget: window,
+      visibilityTarget: document,
+    });
 
     return () => {
-      window.removeEventListener('online', retryAfterConnectivityReturns);
-      document.removeEventListener('visibilitychange', revalidateWhenVisible);
+      detachRevalidation();
       controller.dispose();
       if (controllerRef.current === controller) controllerRef.current = null;
     };
