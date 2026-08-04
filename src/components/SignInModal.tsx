@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Loader2, LockKeyhole, Mail, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -47,6 +47,9 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [sentTo, setSentTo] = useState('');
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
@@ -59,20 +62,64 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
     }
   }, [initialEmail, isOpen]);
 
-  const resetModal = () => {
+  const resetModal = useCallback(() => {
     setLoading(null);
     setError(null);
     setAuthStep('start');
     setEmail(initialEmail);
     setOtpCode('');
     setSentTo('');
-  };
+  }, [initialEmail]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     clearAuthPending();
     resetModal();
     onClose();
-  };
+  }, [onClose, resetModal]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && !dialogRef.current?.contains(activeElement)) {
+      returnFocusRef.current = activeElement;
+    }
+    const focusCloseButton = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleClose();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )];
+      if (!focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusCloseButton);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [handleClose, isOpen]);
 
   const handleSocialSignIn = async (provider: OAuthProvider) => {
     try {
@@ -185,32 +232,40 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={() => returnFocusRef.current?.focus()}>
       {isOpen && (
-        <>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-4 backdrop-blur-xl sm:px-6 sm:py-6"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) handleClose();
+          }}
+        >
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-xl"
-            onClick={handleClose}
-          />
-
-          <div className="fixed inset-0 z-[101] flex items-start justify-center overflow-y-auto overscroll-contain px-3 py-4 sm:px-6 sm:py-6">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 18 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 18 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative my-auto w-full max-w-[460px]"
-            >
-              <div className="glass-panel relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[2rem] sm:max-h-[calc(100dvh-3rem)]">
+            ref={dialogRef}
+            initial={{ opacity: 0, scale: 0.96, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 18 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+            className="relative my-auto w-full max-w-[460px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sign-in-modal-title"
+            aria-describedby="sign-in-modal-description"
+            onMouseDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div className="glass-panel relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[2rem] sm:max-h-[calc(100dvh-3rem)]">
                 <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-neon-cyan/20 via-neon-lime/10 to-transparent" />
 
                 <button
+                  ref={closeButtonRef}
                   type="button"
                   onClick={handleClose}
-                  className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
+                  className="absolute right-5 top-5 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
                   aria-label="Close sign in"
                 >
                   <X className="h-5 w-5" />
@@ -218,10 +273,10 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
 
                 <div className="relative p-6 pt-10 sm:p-8 sm:pt-11">
                   <div className="mb-7">
-                    <h2 className="font-heading text-3xl font-bold tracking-normal text-white sm:text-4xl">
+                    <h2 id="sign-in-modal-title" className="font-heading text-3xl font-bold tracking-normal text-white sm:text-4xl">
                       {authStep === 'email-code' ? 'Enter your code.' : 'Sign in. Start pitching.'}
                     </h2>
-                    <p className="mt-3 text-sm leading-6 text-slate-300">
+                    <p id="sign-in-modal-description" className="mt-3 text-sm leading-6 text-slate-300">
                       {authStep === 'email-code' ? (
                         <>Use the 6-digit code sent to <span className="font-semibold text-white">{sentTo}</span>.</>
                       ) : (
@@ -239,6 +294,7 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         className="mb-5 rounded-2xl border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+                        role="alert"
                       >
                         {error}
                       </motion.div>
@@ -353,10 +409,9 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
                     </p>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        </>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

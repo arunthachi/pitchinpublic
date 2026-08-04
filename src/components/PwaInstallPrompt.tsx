@@ -12,6 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 interface PwaInstallPromptProps {
   dockToBottomNav?: boolean;
+  hidden?: boolean;
 }
 
 const DISMISS_KEY = 'pip.pwa-install.dismissed-at';
@@ -56,7 +57,7 @@ function getDismissedAt() {
   return timestamp;
 }
 
-export function PwaInstallPrompt({ dockToBottomNav = false }: PwaInstallPromptProps) {
+export function PwaInstallPrompt({ dockToBottomNav = false, hidden = false }: PwaInstallPromptProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [isIos, setIsIos] = useState(false);
@@ -102,7 +103,7 @@ export function PwaInstallPrompt({ dockToBottomNav = false }: PwaInstallPromptPr
     };
   }, []);
 
-  if (!ready || !visible) {
+  if (!ready || !visible || hidden) {
     return null;
   }
 

@@ -568,7 +568,7 @@ function HomeContent() {
             </button>
           </div>
         )}
-        <PwaInstallPrompt dockToBottomNav={false} />
+        <PwaInstallPrompt dockToBottomNav={false} hidden={signInModalOpen} />
         <SignInModal
           isOpen={signInModalOpen}
           onClose={() => setSignInModalOpen(false)}
@@ -847,7 +847,7 @@ function HomeContent() {
         onClose={() => setSignInModalOpen(false)}
       />
 
-      <PwaInstallPrompt dockToBottomNav={!isGuest && !reviewerMode} />
+      <PwaInstallPrompt dockToBottomNav={!isGuest && !reviewerMode} hidden={signInModalOpen} />
 
       {/* Recording Studio Modal - Only for authenticated users */}
       {!isGuest && !reviewerMode && (
