@@ -41,6 +41,8 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+    min-height: 100dvh;
     background:
       radial-gradient(circle at 20% 0%, rgba(0, 230, 246, 0.08), transparent 32rem),
       radial-gradient(circle at 84% 18%, rgba(183, 255, 42, 0.05), transparent 30rem),
@@ -148,6 +150,11 @@ html {
   scroll-behavior: smooth;
 }
 
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--pip-cyan);
+  outline-offset: 3px;
+}
+
 /* Custom animations */
 @keyframes glow-pulse {
   0%,
@@ -171,6 +178,21 @@ html {
   /* Optimize scroll on mobile */
   body {
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

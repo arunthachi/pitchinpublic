@@ -214,7 +214,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
                 <>
                   <div className="glass-card rounded-3xl border-neon-cyan/20 bg-[linear-gradient(145deg,rgba(0,230,246,0.14),rgba(183,255,42,0.08)),rgba(0,0,0,0.18)] p-4">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-neon-cyan">Coach signal</p>
-                    <div className="mt-4 grid grid-cols-3 gap-2">
+                    <div className="mt-4 grid grid-cols-1 gap-2 min-[360px]:grid-cols-3">
                       <div className="rounded-2xl bg-black/20 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Readiness</p>
                         <p className="mt-1 font-heading text-lg font-black text-white">{readinessLabel(avgReadiness)}</p>
@@ -297,7 +297,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
               )}
             </div>
 
-            <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-white/10 bg-black/24 px-5 py-4 shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
+            <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-white/10 bg-black/24 px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <button
                 type="button"
                 onClick={() => onAddFeedback('roast')}

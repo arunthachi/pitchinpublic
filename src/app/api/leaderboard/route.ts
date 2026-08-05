@@ -3,6 +3,26 @@ import { createServerClient } from '@supabase/ssr';
 
 export const dynamic = 'force-dynamic';
 
+export function getLeaderboardOrder(type: string) {
+  switch (type) {
+    case 'pitches':
+      return { column: 'pitches_count', options: { ascending: false } };
+    case 'feedback':
+      return {
+        column: 'total_activities',
+        options: { ascending: false, referencedTable: 'user_streaks' },
+      };
+    case 'badges':
+      return { column: 'id', options: { ascending: true } };
+    case 'streaks':
+    default:
+      return {
+        column: 'current_streak',
+        options: { ascending: false, referencedTable: 'user_streaks' },
+      };
+  }
+}
+
 /**
  * GET /api/leaderboard
  * Get ranked users leaderboard
@@ -35,21 +55,32 @@ export const dynamic = 'force-dynamic';
  * }
  */
 export async function GET(request: NextRequest) {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set() {},
-        remove() {},
-      },
-    }
-  );
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({
+      success: true,
+      leaderboard: [],
+      total: 0,
+      limit: 20,
+      offset: 0,
+      type: new URL(request.url).searchParams.get('type') || 'streaks',
+    });
+  }
 
   try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set() {},
+          remove() {},
+        },
+      }
+    );
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'streaks';
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
@@ -85,23 +116,10 @@ export async function GET(request: NextRequest) {
         { count: 'exact' }
       );
 
-    // Order by selected metric
-    switch (type) {
-      case 'pitches':
-        query = query.order('pitches_count', { ascending: false });
-        break;
-      case 'feedback':
-        query = query.order('user_streaks.total_activities', { ascending: false });
-        break;
-      case 'badges':
-        // Will sort by badge count after fetch (requires aggregate)
-        query = query.order('id', { ascending: true });
-        break;
-      case 'streaks':
-      default:
-        query = query.order('user_streaks.current_streak', { ascending: false });
-        break;
-    }
+    // PostgREST orders embedded resources with a separate referenced-table
+    // parameter. A dotted parent column produces an invalid `order` query.
+    const order = getLeaderboardOrder(type);
+    query = query.order(order.column, order.options);
 
     // Add pagination
     query = query.range(offset, offset + limit - 1);
@@ -153,7 +171,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch leaderboard',
+        error: 'Failed to fetch leaderboard',
       },
       { status: 500 }
     );

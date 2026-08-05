@@ -4,6 +4,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { createClientIdempotencyKey, getEventSubmissionRetryKey } from '@/lib/idempotency';
 import { Step2_AddDetails } from './Step2_AddDetails';
 import { Step3_Publish } from './Step3_Publish';
 import type { PracticePrompt } from '@/lib/practice';
@@ -24,6 +25,7 @@ interface RecordingStudioProps {
     pitchLengthSeconds?: number | null;
     focus?: string | null;
   } | null;
+  userId?: string | null;
 }
 
 type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
@@ -60,6 +62,16 @@ interface SavedPitchDetails {
   feedbackAsk?: string;
 }
 
+interface CreatedPitchIdentity {
+  id: string;
+  publicId: string | null;
+  hook: string;
+}
+
+export function buildEventSubmissionBody(pitch: CreatedPitchIdentity) {
+  return pitch.publicId ? { pitchPublicId: pitch.publicId } : { pitchId: pitch.id };
+}
+
 export function RecordingStudio({
   isOpen,
   onClose,
@@ -68,6 +80,7 @@ export function RecordingStudio({
   practiceGoalId,
   maxDurationSeconds = DEFAULT_MAX_RECORDING_SECONDS,
   eventContext = null,
+  userId = null,
 }: RecordingStudioProps) {
   const router = useRouter();
   const maxRecordingSeconds = Math.min(180, Math.max(MIN_RECORDING_SECONDS, maxDurationSeconds));
@@ -87,7 +100,7 @@ export function RecordingStudio({
   const [videoProvider, setVideoProvider] = useState<string | null>(null);
   const [uploadedVideo, setUploadedVideo] = useState<UploadedVideoMetadata | null>(null);
   const [savedPitchDetails, setSavedPitchDetails] = useState<SavedPitchDetails | null>(null);
-  const [createdPitchId, setCreatedPitchId] = useState<string | null>(null);
+  const [createdPitch, setCreatedPitch] = useState<CreatedPitchIdentity | null>(null);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -103,6 +116,11 @@ export function RecordingStudio({
   const loadedSavedDetailsRef = useRef(false);
   const pitchHookRef = useRef('');
   const pitchDescriptionRef = useRef('');
+  const previewUrlRef = useRef<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const pitchCreateIdempotencyKeyRef = useRef('');
 
   useEffect(() => {
     pitchHookRef.current = pitchHook;
@@ -111,6 +129,24 @@ export function RecordingStudio({
   useEffect(() => {
     pitchDescriptionRef.current = pitchDescription;
   }, [pitchDescription]);
+
+  useEffect(() => {
+    previewUrlRef.current = previewUrl;
+  }, [previewUrl]);
+
+  const ensurePitchCreateIdempotencyKey = () => {
+    if (!pitchCreateIdempotencyKeyRef.current) {
+      pitchCreateIdempotencyKeyRef.current = createClientIdempotencyKey();
+    }
+    return pitchCreateIdempotencyKeyRef.current;
+  };
+
+  const persistPendingEventSubmission = (pitch: CreatedPitchIdentity | null) => {
+    if (!eventContext?.slug || !userId || typeof window === 'undefined') return;
+    const key = getEventSubmissionRetryKey(eventContext.slug, userId);
+    if (pitch) window.sessionStorage.setItem(key, JSON.stringify(pitch));
+    else window.sessionStorage.removeItem(key);
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -325,6 +361,8 @@ export function RecordingStudio({
         const fileExtension = mimeType.includes('mp4') ? 'mp4' : 'webm';
         const blob = new Blob(chunksRef.current, { type: mimeType });
         const file = new File([blob], `pitch-recording.${fileExtension}`, { type: mimeType });
+        pitchCreateIdempotencyKeyRef.current = '';
+        setCreatedPitch(null);
         setSelectedFile(file);
         setPreviewUrl((currentUrl) => {
           if (currentUrl) URL.revokeObjectURL(currentUrl);
@@ -386,6 +424,8 @@ export function RecordingStudio({
       } else if (aspectRatioError) {
         setError(aspectRatioError);
       } else {
+        pitchCreateIdempotencyKeyRef.current = '';
+        setCreatedPitch(null);
         setSelectedFile(file);
         setPreviewUrl((currentUrl) => {
           if (currentUrl) URL.revokeObjectURL(currentUrl);
@@ -550,6 +590,29 @@ export function RecordingStudio({
     }
   };
 
+  const submitCreatedPitchToEvent = async (pitch: CreatedPitchIdentity) => {
+    if (!eventContext?.slug) return pitch;
+
+    const response = await fetch(`/api/events/${encodeURIComponent(eventContext.slug)}/submission`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildEventSubmissionBody(pitch)),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Your take was saved, but it could not be submitted to the event. Retry below.');
+    }
+
+    const authoritativePitch: CreatedPitchIdentity = {
+      id: data.pitchId || pitch.id,
+      publicId: data.publicId || pitch.publicId,
+      hook: pitch.hook,
+    };
+    setCreatedPitch(authoritativePitch);
+    persistPendingEventSubmission(null);
+    return authoritativePitch;
+  };
+
   const handleDetailsNext = async (data: {
     hook: string;
     description: string;
@@ -558,11 +621,6 @@ export function RecordingStudio({
     feedbackAsk: string;
     extraContext: string;
   }) => {
-    if (!videoId || !uploadedVideo) {
-      setError('Video is not ready yet');
-      return;
-    }
-
     setUploading(true);
     setError('');
     setPitchHook(data.hook);
@@ -580,6 +638,16 @@ export function RecordingStudio({
     }
 
     try {
+      if (eventContext?.slug && createdPitch) {
+        await submitCreatedPitchToEvent(createdPitch);
+        setMode('publish');
+        return;
+      }
+
+      if (!videoId || !uploadedVideo) {
+        throw new Error('Video is not ready yet. Keep this screen open and try again.');
+      }
+
       const actualDuration = Math.round(uploadedVideo.duration || videoDuration);
 
       if (actualDuration < MIN_RECORDING_SECONDS || actualDuration > maxRecordingSeconds) {
@@ -588,15 +656,15 @@ export function RecordingStudio({
 
       const pitchPayload: any = {
         hook: data.hook,
-        startupName: data.startupName,
         oneLinePitch: data.oneLinePitch,
-        feedbackAsk: data.feedbackAsk,
-        extraContext: data.extraContext,
         videoId,
         playbackUrl: uploadedVideo.playbackUrl,
         duration: actualDuration,
       };
 
+      if (data.startupName) pitchPayload.startupName = data.startupName;
+      if (data.feedbackAsk) pitchPayload.feedbackAsk = data.feedbackAsk;
+      if (data.extraContext) pitchPayload.extraContext = data.extraContext;
       if (data.description && data.description.trim()) {
         pitchPayload.description = data.description.trim();
       }
@@ -618,6 +686,7 @@ export function RecordingStudio({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Idempotency-Key': ensurePitchCreateIdempotencyKey(),
         },
         body: JSON.stringify(pitchPayload),
       });
@@ -648,26 +717,35 @@ export function RecordingStudio({
 
       const responseData = await response.json();
       const { pitch } = responseData;
-      setCreatedPitchId(pitch.publicId || pitch.id);
+      const identity: CreatedPitchIdentity = {
+        id: pitch.id,
+        publicId: pitch.publicId || null,
+        hook: data.hook,
+      };
+      setCreatedPitch(identity);
       onPitchCreated?.(pitch);
+      if (eventContext?.slug) {
+        persistPendingEventSubmission(identity);
+        await submitCreatedPitchToEvent(identity);
+      }
       setMode('publish');
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to create pitch';
-      console.error('Pitch creation error:', errorMsg, err);
+      const errorMsg = err instanceof Error ? err.message : 'Could not finish submitting this take.';
+      console.error('Pitch submission error:', errorMsg, err);
       setError(errorMsg);
     } finally {
       setUploading(false);
     }
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       discardRecordingRef.current = true;
       mediaRecorderRef.current.stop();
     }
     stopCamera();
     if (timerRef.current) clearInterval(timerRef.current);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     setSelectedFile(null);
     setPreviewUrl(null);
     setVideoDuration(0);
@@ -685,9 +763,54 @@ export function RecordingStudio({
     setVideoId(null);
     setVideoProvider(null);
     setUploadedVideo(null);
-    setCreatedPitchId(null);
+    setCreatedPitch(null);
+    pitchCreateIdempotencyKeyRef.current = '';
     onClose();
-  };
+  }, [onClose, stopCamera]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && !dialogRef.current?.contains(activeElement)) {
+      returnFocusRef.current = activeElement;
+    }
+    const focusCloseButton = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleClose();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])'
+      )];
+      if (!focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusCloseButton);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus();
+    };
+  }, [handleClose, isOpen]);
 
   const goBack = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -709,7 +832,8 @@ export function RecordingStudio({
     setVideoId(null);
     setVideoProvider(null);
     setUploadedVideo(null);
-    setCreatedPitchId(null);
+    setCreatedPitch(null);
+    pitchCreateIdempotencyKeyRef.current = '';
     setIsRecording(false);
     setRecordingTime(0);
     recordingTimeRef.current = 0;
@@ -739,7 +863,7 @@ export function RecordingStudio({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain p-2 sm:p-6">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain px-[max(0.5rem,env(safe-area-inset-left))] pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-[max(1.5rem,env(safe-area-inset-left))] sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pt-[max(1.5rem,env(safe-area-inset-top))]">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -751,18 +875,25 @@ export function RecordingStudio({
 
           {/* Modal */}
           <motion.div
+            ref={dialogRef}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative my-auto flex w-full max-w-md max-h-[calc(100dvh-1rem)] flex-col overflow-hidden rounded-[1.75rem] border border-slate-700 bg-slate-900 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Recording studio"
+            className="relative my-auto flex max-h-full w-full max-w-md min-h-0 flex-col overflow-hidden rounded-[1.75rem] border border-slate-700 bg-slate-900 shadow-2xl"
           >
             {/* Close Button */}
             <button
+              ref={closeButtonRef}
+              type="button"
               onClick={handleClose}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center transition-colors z-10"
+              className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-slate-800/90 transition-colors hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-neon-cyan sm:right-4 sm:top-4"
+              aria-label="Close recording studio"
             >
-              <X className="w-4 h-4 text-slate-400" />
+              <X className="h-5 w-5 text-slate-300" />
             </button>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:p-6">
@@ -779,6 +910,8 @@ export function RecordingStudio({
                   initialDescription={pitchDescription}
                   initialStartupName={savedPitchDetails?.startupName || ''}
                   initialFeedbackAsk={savedPitchDetails?.feedbackAsk || ''}
+                  submissionError={error}
+                  retryingSubmission={Boolean(eventContext?.slug && createdPitch)}
                   submissionContext={eventContext}
                 />
               )}
@@ -787,17 +920,26 @@ export function RecordingStudio({
               {mode === 'publish' && previewUrl && (
                 <Step3_Publish
                   pitchTitle={pitchHook}
-                  previewUrl={previewUrl}
-                  videoDuration={videoDuration}
-                  onViewFeed={() => {
-                    if (eventContext?.slug && createdPitchId) {
-                      router.push(`/events/${eventContext.slug}?pitchPublicId=${encodeURIComponent(createdPitchId)}&submitted=1`);
-                      return;
-                    }
+                  eventName={eventContext?.name}
+                  onPrimaryAction={() => {
+                    const publicId = createdPitch?.publicId;
+                    const pitchId = publicId || createdPitch?.id;
                     handleClose();
+                    if (eventContext?.slug && publicId) {
+                      router.push(`/?mode=founder&pitch=${encodeURIComponent(publicId)}`);
+                    } else if (pitchId) {
+                      router.push(`/pitch/${encodeURIComponent(pitchId)}`);
+                    }
                   }}
-                  isLoading={uploading}
-                  primaryActionLabel={eventContext?.slug ? 'Return to event' : 'View Feed'}
+                  onOpenPitch={createdPitch?.publicId || createdPitch?.id ? () => {
+                    const pitchId = createdPitch?.publicId || createdPitch?.id;
+                    handleClose();
+                    router.push(`/pitch/${encodeURIComponent(pitchId || '')}`);
+                  } : undefined}
+                  onRecordAnother={() => {
+                    goBack();
+                  }}
+                  primaryActionLabel={eventContext?.slug ? 'Watch your pitch' : 'View feed'}
                 />
               )}
 
@@ -972,8 +1114,8 @@ export function RecordingStudio({
               {mode === 'preview' && (
                 <>
                   <div className="text-center mb-4">
-                    <h2 className="text-xl font-bold text-white">Ready to upload</h2>
-                    <p className="text-sm text-slate-400 mt-1">Preview your take, then upload it to add the hook.</p>
+                    <h2 className="text-xl font-bold text-white">Review your take</h2>
+                    <p className="text-sm text-slate-400 mt-1">Check the video, then continue to submit.</p>
                   </div>
 
                   <div className="relative mx-auto mb-3 aspect-[9/16] max-h-[min(38dvh,380px)] overflow-hidden rounded-2xl border border-white/10 bg-black">
@@ -1055,7 +1197,7 @@ export function RecordingStudio({
                     ) : (
                       <>
                         <Check className="w-5 h-5" />
-                        Upload and continue
+                        {eventContext ? 'Continue to event submission' : 'Continue'}
                       </>
                     )}
                   </button>

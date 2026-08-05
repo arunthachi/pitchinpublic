@@ -1,5 +1,9 @@
 export const DASHBOARD_TABS = ['overview', 'founders', 'submissions', 'team', 'announcements'] as const;
 export type DashboardTab = (typeof DASHBOARD_TABS)[number];
+export const PERSISTENT_DASHBOARD_TABS = ['overview', 'founders', 'submissions'] as const;
+
+export const EVENT_LIST_VIEWS = ['joined', 'managed', 'team'] as const;
+export type EventListView = (typeof EVENT_LIST_VIEWS)[number];
 
 export const DASHBOARD_FILTERS = ['not-recorded', 'not-submitted', 'needs-feedback', 'missing-best-take'] as const;
 export type DashboardFilter = (typeof DASHBOARD_FILTERS)[number];
@@ -26,19 +30,147 @@ export type InvitationHealth = {
   canRevoke: boolean;
 };
 
+export function getInviteContinuationCounts(
+  responseOk: boolean,
+  data: { sent?: unknown; failed?: unknown; emailFailed?: unknown },
+  requestedCount: number
+) {
+  if (!responseOk) return { invited: 0, failed: Math.max(0, requestedCount) };
+
+  const invited = Math.max(0, Number(data.sent || 0));
+  const failed = Math.max(0, Number(data.failed || 0)) + Math.max(0, Number(data.emailFailed || 0));
+  return { invited, failed };
+}
+
+export function scopePitchFeedbackToEvent<T extends {
+  feedback?: Array<{ id?: string | null }> | null;
+}>(pitch: T, completedFeedbackIds: ReadonlySet<string>): T {
+  return {
+    ...pitch,
+    feedback: (pitch.feedback || []).filter((item) => Boolean(item.id && completedFeedbackIds.has(item.id))),
+  };
+}
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MAX_BULK_FOUNDER_INVITES = 50;
+
+const FILTER_TABS: Record<DashboardFilter, DashboardTab> = {
+  'not-recorded': 'founders',
+  'not-submitted': 'founders',
+  'needs-feedback': 'submissions',
+  'missing-best-take': 'founders',
+};
+
+export type DashboardPrimaryAction =
+  | { kind: 'invite'; label: 'Invite founders'; tab: 'founders'; filter: null }
+  | { kind: 'invite-status'; label: 'View invite status'; tab: 'founders'; filter: null }
+  | { kind: 'review'; label: string; tab: 'submissions'; filter: 'needs-feedback' }
+  | { kind: 'follow-up'; label: string; tab: 'founders'; filter: 'not-submitted' }
+  | { kind: 'submissions'; label: 'View submissions'; tab: 'submissions'; filter: null };
+
+export function parseEventListView(search: string): EventListView | null {
+  const value = new URLSearchParams(search).get('view');
+  return EVENT_LIST_VIEWS.includes(value as EventListView) ? (value as EventListView) : null;
+}
+
+export function classifyEventRole(role?: string | null): EventListView {
+  if (role === 'organizer' || role === 'admin') return 'managed';
+  if (role === 'coach' || role === 'mentor' || role === 'judge') return 'team';
+  return 'joined';
+}
+
+export function resolveEventListView({
+  requestedView,
+  availableViews,
+  canCreateEvents,
+  joinedCount,
+  teamCount,
+}: {
+  requestedView: EventListView | null;
+  availableViews: EventListView[];
+  canCreateEvents: boolean;
+  joinedCount: number;
+  teamCount: number;
+}): EventListView {
+  if (requestedView && availableViews.includes(requestedView)) return requestedView;
+  if (canCreateEvents && availableViews.includes('managed')) return 'managed';
+  if (joinedCount === 0 && teamCount > 0 && availableViews.includes('team')) return 'team';
+  return availableViews[0] || 'joined';
+}
 
 export function parseDashboardState(search: string): { tab: DashboardTab; filter: DashboardFilter | null } {
   const params = new URLSearchParams(search);
   const tabValue = params.get('tab');
   const filterValue = params.get('filter');
   const tab = DASHBOARD_TABS.includes(tabValue as DashboardTab) ? (tabValue as DashboardTab) : 'overview';
-  const filter = DASHBOARD_FILTERS.includes(filterValue as DashboardFilter)
+  const candidateFilter = DASHBOARD_FILTERS.includes(filterValue as DashboardFilter)
     ? (filterValue as DashboardFilter)
     : null;
+  const filter = candidateFilter && FILTER_TABS[candidateFilter] === tab ? candidateFilter : null;
 
   return { tab, filter };
+}
+
+export function buildDashboardHref(
+  pathname: string,
+  tab: DashboardTab,
+  filter: DashboardFilter | null = null
+) {
+  const safeFilter = filter && FILTER_TABS[filter] === tab ? filter : null;
+  const params = new URLSearchParams();
+  if (tab !== 'overview') params.set('tab', tab);
+  if (safeFilter) params.set('filter', safeFilter);
+  const query = params.toString();
+  return `${pathname}${query ? `?${query}` : ''}#dashboard-panel-${tab}`;
+}
+
+export function getDashboardPrimaryAction(input: {
+  activeFounderCount: number;
+  activeFounderInviteCount: number;
+  needsFeedback: number;
+  notSubmitted: number;
+}): DashboardPrimaryAction {
+  if (input.activeFounderCount === 0 && input.activeFounderInviteCount === 0) {
+    return { kind: 'invite', label: 'Invite founders', tab: 'founders', filter: null };
+  }
+  if (input.activeFounderCount === 0) {
+    return { kind: 'invite-status', label: 'View invite status', tab: 'founders', filter: null };
+  }
+  if (input.needsFeedback > 0) {
+    return {
+      kind: 'review',
+      label: input.needsFeedback === 1 ? 'Review next pitch' : `Review ${input.needsFeedback} pitches`,
+      tab: 'submissions',
+      filter: 'needs-feedback',
+    };
+  }
+  if (input.notSubmitted > 0) {
+    return {
+      kind: 'follow-up',
+      label: input.notSubmitted === 1 ? 'Follow up with 1 founder' : `Follow up with ${input.notSubmitted} founders`,
+      tab: 'founders',
+      filter: 'not-submitted',
+    };
+  }
+  return { kind: 'submissions', label: 'View submissions', tab: 'submissions', filter: null };
+}
+
+export function getNextFeedbackSubmission<T extends {
+  submitted_at?: string | null;
+  created_at?: string | null;
+  pitch_id?: string | null;
+  pitch?: { public_id?: string | null; feedback?: unknown[] | null } | null;
+}>(submissions: T[]) {
+  return submissions
+    .filter((submission) => submissionMatchesFilter(submission, 'needs-feedback'))
+    .sort((left, right) => {
+      const leftTime = new Date(left.submitted_at || left.created_at || 0).getTime();
+      const rightTime = new Date(right.submitted_at || right.created_at || 0).getTime();
+      if (leftTime !== rightTime) return leftTime - rightTime;
+      const leftId = left.pitch?.public_id || left.pitch_id || '';
+      const rightId = right.pitch?.public_id || right.pitch_id || '';
+      return leftId.localeCompare(rightId);
+    })[0] || null;
 }
 
 export function founderMatchesFilter(founder: FounderActionState, filter: DashboardFilter | null) {

@@ -461,7 +461,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                   ref={closeButtonRef}
                   type="button"
                   onClick={closePanel}
-                  className="btn-glass flex h-10 w-10 shrink-0 items-center justify-center focus:outline-none focus:ring-2 focus:ring-neon-cyan/70"
+                  className="btn-glass flex h-11 w-11 shrink-0 items-center justify-center focus-visible:ring-2 focus-visible:ring-neon-cyan/70"
                   aria-label="Close feedback panel"
                 >
                   <X className="h-4 w-4" />
@@ -479,7 +479,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                   type="button"
                   onClick={() => chooseType('roast')}
                   aria-pressed={isRoast}
-                  className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-black transition-colors focus:outline-none focus:ring-2 focus:ring-roast/70 ${
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-black transition-colors focus-visible:ring-2 focus-visible:ring-roast/70 ${
                     isRoast ? 'bg-roast text-white' : 'text-slate-400 hover:bg-white/[0.07] hover:text-white'
                   }`}
                 >
@@ -490,7 +490,7 @@ export function QuickFeedbackPanel({ isOpen, onClose, onSubmit, initialType = 't
                   type="button"
                   onClick={() => chooseType('toast')}
                   aria-pressed={!isRoast}
-                  className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-black transition-colors focus:outline-none focus:ring-2 focus:ring-toast/70 ${
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-black transition-colors focus-visible:ring-2 focus-visible:ring-toast/70 ${
                     !isRoast ? 'bg-toast text-slate-950' : 'text-slate-400 hover:bg-white/[0.07] hover:text-white'
                   }`}
                 >

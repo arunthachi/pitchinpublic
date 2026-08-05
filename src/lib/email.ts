@@ -10,6 +10,15 @@ export function escapeHtml(value: string) {
     .replace(/'/g, '&#039;');
 }
 
+export function trustedHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const VERIFIED_SENDER = 'Pitch in Public <hello@mail.pitchinpublic.io>';
 
@@ -67,13 +76,15 @@ export function buildEventInviteEmail({
     ? new Date(submissionDeadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     : null;
   const isTeamInvite = ['organizer', 'admin', 'coach', 'mentor', 'judge'].includes(role);
+  const safeInviteUrl = trustedHttpUrl(inviteUrl);
+  const actionLabel = isTeamInvite ? 'Accept event team invite' : 'Accept event invite';
   const introLine = isTeamInvite
     ? `You were invited to help with ${eventName} on Pitch in Public.`
     : `You were invited to join ${eventName} on Pitch in Public.`;
   const nextLine = isTeamInvite
     ? deadlineLabel
-      ? `Sign in or create an account with this email, then open the event dashboard before ${deadlineLabel}.`
-      : 'Sign in or create an account with this email, then open the event dashboard to review submissions.'
+      ? `Accept with this email, then help the event team before ${deadlineLabel}.`
+      : 'Accept with this email, then help the event team review submissions.'
     : deadlineLabel
       ? `Sign in or create an account with this email, then submit your pitch before ${deadlineLabel}.`
       : 'Sign in or create an account with this email, then submit your pitch when you are ready.';
@@ -86,7 +97,7 @@ export function buildEventInviteEmail({
     text: [
       introLine,
       '',
-      `Open your invite: ${inviteUrl}`,
+      safeInviteUrl ? `${actionLabel}: ${safeInviteUrl}` : 'Ask the event organizer for a new secure invite link.',
       '',
       nextLine,
       `Pitch length: ${pitchLengthLabel}.`,
@@ -100,10 +111,17 @@ export function buildEventInviteEmail({
           <h1 style="margin:8px 0 12px; font-size:30px;">${escapeHtml(eventName)}</h1>
           <p style="margin:0 0 16px; line-height:1.7; color:#cbd5e1;">${escapeHtml(introLine)}</p>
           <p style="margin:0 0 18px; line-height:1.7; color:#cbd5e1;">${escapeHtml(nextLine)}</p>
-          <div style="margin:24px 0; border-radius:20px; padding:20px; background:rgba(34,211,238,.08); border:1px solid rgba(34,211,238,.18);">
-            <p style="margin:0 0 8px; font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:800; color:#67e8f9;">Invite link</p>
-            <p style="margin:0; line-height:1.7; color:#e2e8f0; word-break:break-word;">${escapeHtml(inviteUrl)}</p>
-          </div>
+          ${safeInviteUrl ? `
+            <div style="margin:24px 0;">
+              <a href="${escapeHtml(safeInviteUrl)}" style="display:inline-block; border-radius:999px; padding:14px 22px; background:#67e8f9; color:#081018; font-weight:800; text-decoration:none;">${escapeHtml(actionLabel)}</a>
+              <p style="margin:14px 0 0; line-height:1.6; color:#94a3b8; font-size:13px;">If the button does not work, copy this link:</p>
+              <p style="margin:4px 0 0; line-height:1.7; color:#cbd5e1; word-break:break-all;">${escapeHtml(safeInviteUrl)}</p>
+            </div>
+          ` : `
+            <div style="margin:24px 0; border-radius:16px; padding:16px; background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.22); color:#fde68a;">
+              Ask the event organizer for a new secure invite link.
+            </div>
+          `}
           <div style="border-radius:20px; padding:20px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08);">
             <p style="margin:0 0 8px; font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:800; color:#cbd5e1;">Pitch details</p>
             <p style="margin:0; line-height:1.7; color:#f8fafc;">Pitch length: ${escapeHtml(pitchLengthLabel)}.</p>

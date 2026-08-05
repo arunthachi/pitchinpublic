@@ -22,12 +22,14 @@ export interface FeedbackQualityAction {
 }
 
 export interface ReviewQueueItem {
+  assignmentId: string;
   pitchId: string;
   publicPitchId: string;
   startupName: string;
   hook: string;
   thumbnailUrl?: string | null;
   eventName?: string | null;
+  eventSlug?: string | null;
   dueAt?: string | null;
   status: ReviewAssignmentStatus;
 }

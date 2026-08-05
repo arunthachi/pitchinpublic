@@ -115,15 +115,19 @@ export function normalizeReviewQueue(payloadValue: unknown): ReviewQueueSummary 
     const publicPitchId = item.publicPitchId || item.public_pitch_id || pitch.publicId || pitch.public_id || null;
     const pitchId = item.pitchId || item.pitch_id || pitch.id || publicPitchId;
     if (!pitchId || !publicPitchId) return [];
+    const eventSlug = item.eventSlug || item.event_slug || item.event?.slug || null;
+    const assignmentId = item.assignmentId || item.assignment_id || item.id || `${publicPitchId}:${eventSlug || 'global'}`;
     const rawStatus = item.status;
     const status = ASSIGNMENT_STATES.has(rawStatus) ? rawStatus as ReviewAssignmentStatus : 'pending';
     return [{
+      assignmentId: String(assignmentId),
       pitchId: String(pitchId),
       publicPitchId: String(publicPitchId),
       startupName: item.startupName || item.startup_name || pitch.startupName || pitch.startup_name || pitch.company_name || 'Practice pitch',
       hook: item.hook || pitch.hook || 'Share your signal',
       thumbnailUrl: item.thumbnailUrl || item.thumbnail_url || pitch.thumbnailUrl || pitch.thumbnail_url || null,
       eventName: item.eventName || item.event_name || item.event?.name || null,
+      eventSlug,
       dueAt: item.dueAt || item.due_at || null,
       status,
     }];

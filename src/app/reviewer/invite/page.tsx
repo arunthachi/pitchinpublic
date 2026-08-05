@@ -193,7 +193,7 @@ function ReviewerInviteContent() {
                     <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Invited email</p>
                     <p className="mt-1 break-all text-sm font-bold text-white">{invitation.email}</p>
                     {emailMismatch ? (
-                      <p className="mt-2 text-sm leading-5 text-amber-100/80">You are signed in as {user?.email}. Use the invited account to continue.</p>
+                      <p className="mt-2 text-sm leading-5 text-amber-100/80 [overflow-wrap:anywhere]">You are signed in as {user?.email}. Use the invited account to continue.</p>
                     ) : null}
                   </div>
                 </div>

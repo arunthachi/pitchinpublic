@@ -2,13 +2,14 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { AlertCircle, ArrowLeft, CheckCircle2, MessageSquareText, Trophy, UserRound, Video } from 'lucide-react';
 import { BrandMark } from '@/components/BrandMark';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, hasServerSupabaseConfig } from '@/lib/supabase/server';
 import {
   getPitchFeedbackAskFromFields,
   getPitchStartupNameFromFields,
   getTakeLabelFromFields,
 } from '@/lib/pitch-copy';
 import { profilePath } from '@/lib/public-routes';
+import { isAllowedPilotAdmin } from '@/lib/pilot-admin-access';
 
 export const metadata: Metadata = {
   title: 'Founder Access Admin | Pitch in Public',
@@ -66,17 +67,6 @@ interface FounderSummary {
   feedbackCount: number;
   hasBestTake: boolean;
   latestPitchAt: string | null;
-}
-
-function isAllowedAdmin(email?: string | null) {
-  const raw = process.env.PILOT_ADMIN_EMAILS || process.env.NEXT_PUBLIC_PILOT_ADMIN_EMAILS || '';
-  const allowlist = raw
-    .split(',')
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (!allowlist.length) return true;
-  return Boolean(email && allowlist.includes(email.toLowerCase()));
 }
 
 function groupByFounder(pitches: PitchRow[]) {
@@ -213,6 +203,19 @@ async function loadPitches() {
 }
 
 export default async function FounderAccessAdminPage() {
+  if (!hasServerSupabaseConfig()) {
+    return (
+      <AdminShell>
+        <EmptyGate
+          title="Admin dashboard unavailable"
+          body="Founder access data is temporarily unavailable. Check the application configuration and try again."
+          ctaHref="/"
+          ctaLabel="Back to app"
+        />
+      </AdminShell>
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -231,12 +234,12 @@ export default async function FounderAccessAdminPage() {
     );
   }
 
-  if (!isAllowedAdmin(user.email)) {
+  if (!isAllowedPilotAdmin(user.email)) {
     return (
       <AdminShell>
         <EmptyGate
           title="Not on the founder access admin list"
-          body="Set PILOT_ADMIN_EMAILS to allow specific operators, or leave it unset for internal local testing."
+          body="Set PILOT_ADMIN_EMAILS to an explicit comma-separated operator allowlist. Access stays closed when the allowlist is missing."
           ctaHref="/"
           ctaLabel="Back to app"
         />
@@ -372,7 +375,7 @@ export default async function FounderAccessAdminPage() {
 
 function AdminShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-dvh bg-black text-white">
       <header className="sticky top-0 z-50 border-b border-white/10 bg-black/82 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/founders" className="flex items-center gap-3">

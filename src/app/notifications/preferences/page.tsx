@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Bell, CalendarClock, Loader2, Mail, MessageSquareText, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 
 type Preferences = {
@@ -118,11 +118,11 @@ export default function NotificationPreferencesPage() {
 
   if (!loading && !user) {
     return (
-      <main className="min-h-screen bg-black px-4 py-8 text-white">
+      <main className="min-h-dvh bg-black px-4 py-8 text-white">
         <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-xl flex-col justify-center">
           <Card className="border-white/10 bg-white/[0.05]">
             <CardHeader>
-              <CardTitle className="text-white">Sign in to manage notifications</CardTitle>
+              <h1 className="font-heading text-3xl font-bold text-white">Sign in to manage notifications</h1>
               <CardDescription>Control practice, review, and organizer updates from one place.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -145,7 +145,7 @@ export default function NotificationPreferencesPage() {
   const selectedTimezone = preferences?.timezone || 'America/New_York';
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_40%),linear-gradient(180deg,#020617_0%,#050608_100%)] px-4 py-6 text-white">
+    <main className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_40%),linear-gradient(180deg,#020617_0%,#050608_100%)] px-4 py-6 text-white">
       <div className="mx-auto w-full max-w-2xl">
         <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-neon-cyan">
           <Sparkles className="h-4 w-4" />
@@ -154,7 +154,7 @@ export default function NotificationPreferencesPage() {
 
         <Card className="border-white/10 bg-white/[0.05] shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
           <CardHeader className="space-y-3">
-            <CardTitle className="text-3xl text-white">Email preferences</CardTitle>
+            <h1 className="font-heading text-3xl font-bold text-white">Email preferences</h1>
             <CardDescription className="text-base leading-6">
               Choose the updates that help you act. Transactional and security emails are always sent when required.
             </CardDescription>

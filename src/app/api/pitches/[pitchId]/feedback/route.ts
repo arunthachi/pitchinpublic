@@ -6,6 +6,7 @@ import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import {
   reviewerRoleLabel,
 } from '@/lib/review-marketplace-server';
+import { isPublicPitchId, isUuidLike } from '@/lib/public-routes';
 
 /**
  * POST /api/pitches/[pitchId]/feedback
@@ -46,6 +47,7 @@ const feedbackSchema = z.object({
     presentation: z.number().min(1).max(10),
   }).optional(),
   notes: z.string().max(2000).optional(),
+  eventSlug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
 }).superRefine((value, ctx) => {
   if (!value.signal && !value.signals?.length) {
     ctx.addIssue({
@@ -55,6 +57,35 @@ const feedbackSchema = z.object({
     });
   }
 });
+
+export function feedbackSubmissionRpc(
+  pitchId: string,
+  type: 'roast' | 'toast',
+  content: string,
+  requestKey: string,
+  eventId?: string | null
+) {
+  return eventId
+    ? {
+        name: 'submit_event_pitch_feedback',
+        args: {
+          target_pitch_id: pitchId,
+          feedback_type: type,
+          feedback_content: content,
+          request_key: requestKey,
+          target_event_id: eventId,
+        },
+      }
+    : {
+        name: 'submit_pitch_feedback',
+        args: {
+          target_pitch_id: pitchId,
+          feedback_type: type,
+          feedback_content: content,
+          request_key: requestKey,
+        },
+      };
+}
 
 function normalizedSignals(feedback: z.infer<typeof feedbackSchema>) {
   const rawSignals = feedback.signals?.length ? feedback.signals : [feedback.signal || 'Clear'];
@@ -165,7 +196,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
 
     // Accept the stable public pitch identifier while retaining UUID compatibility
     // for existing clients during rollout.
-    const pitchLookupColumn = params.pitchId.startsWith('p_') ? 'public_id' : 'id';
+    if (!isPublicPitchId(params.pitchId) && !isUuidLike(params.pitchId)) {
+      return NextResponse.json(
+        { success: false, error: 'Pitch not found' },
+        { status: 404, headers: formatRateLimitHeaders(result) }
+      );
+    }
+    const pitchLookupColumn = isPublicPitchId(params.pitchId) ? 'public_id' : 'id';
     const { data: pitch, error: pitchError } = await supabase
       .from('pitches')
       .select('id,user_id,public_id')
@@ -220,6 +257,26 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     const feedbackData = validation.data;
     const signals = normalizedSignals(feedbackData);
 
+    let feedbackEventId: string | null = null;
+    if (feedbackData.eventSlug) {
+      const { data: resolvedEventId, error: eventAccessError } = await supabase.rpc(
+        'resolve_event_feedback_scope',
+        {
+          target_event_slug: feedbackData.eventSlug,
+          target_pitch_id: pitch.id,
+        },
+      );
+
+      if (eventAccessError || !resolvedEventId) {
+        return NextResponse.json(
+          { success: false, error: 'This event review is no longer available.', code: 'event_review_access_required' },
+          { status: 403, headers: formatRateLimitHeaders(result) }
+        );
+      }
+
+      feedbackEventId = resolvedEventId;
+    }
+
     const idempotencyHeader = request.headers.get('idempotency-key');
     const parsedIdempotencyKey = idempotencyHeader
       ? z.string().uuid().safeParse(idempotencyHeader)
@@ -234,14 +291,16 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     const submissionKey = parsedIdempotencyKey?.success
       ? parsedIdempotencyKey.data
       : crypto.randomUUID();
+    const submission = feedbackSubmissionRpc(
+      pitch.id,
+      feedbackData.type,
+      serializeFeedbackContent(feedbackData),
+      submissionKey,
+      feedbackEventId
+    );
     const { data: submissionRows, error: submissionError } = await supabase.rpc(
-      'submit_pitch_feedback',
-      {
-        target_pitch_id: pitch.id,
-        feedback_type: feedbackData.type,
-        feedback_content: serializeFeedbackContent(feedbackData),
-        request_key: submissionKey,
-      }
+      submission.name,
+      submission.args
     );
 
     const feedback = Array.isArray(submissionRows) ? submissionRows[0] : submissionRows;
