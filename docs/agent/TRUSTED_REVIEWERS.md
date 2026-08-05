@@ -37,8 +37,9 @@ is authoritative; UI filtering is only presentation.
 2. The reviewer authenticates using the invited email and accepts the invite.
 3. Reviewer-only accounts open in Review mode with a compact review queue and
    no founder recording, pitch-goal, Best Take, or review-credit controls.
-4. The reviewer submits one Toast or Roast response per pitch using up to three
-   signals, readiness, and an optional note.
+4. The reviewer submits one Toast or Roast response per review scope using up
+   to three signals, readiness, and an optional note. A public review is global;
+   an event assignment permits a separate response for that exact event.
 5. The pitch owner can rate the response as useful, generic, or not helpful.
 
 Feedback remains accountable internally. Public feedback shows the reviewer's
@@ -60,8 +61,9 @@ in browser URLs or public control payloads.
 - Reviewer acceptance verifies both the token and authenticated email.
 - RLS controls pitch visibility; a copied pitch URL cannot expand access.
 - Self-feedback is rejected by both the API and database.
-- A database trigger permits one feedback response per reviewer and pitch;
-  idempotent retries are resolved by the submission RPC before insertion.
+- Database constraints permit one global response per reviewer and pitch, plus
+  one separate response for each exact event. Idempotent retries are resolved
+  by the scope-specific submission RPC before insertion.
 - Event grants are explicit and do not imply access to other organizer events.
 
 ## Pilot verification
@@ -71,6 +73,7 @@ in browser URLs or public control payloads.
 3. Confirm public published pitches are visible and drafts are not.
 4. Grant one private event and confirm only that event's published,
    submitted/locked pitches become visible.
-5. Confirm self-review and a second review on the same pitch are rejected.
+5. Confirm self-review and a second review in the same scope are rejected, while
+   an active assignment for another event permits that event's separate review.
 6. Confirm revoking membership removes reviewer feed access.
 7. Verify invite, queue, feedback, and admin controls at 390x844 and desktop.

@@ -85,8 +85,8 @@ A **full-screen, immersive, mobile-first** web application where founders post 6
 
 ## 🛠️ Tech Stack
 
-- **Framework:** Next.js 14 (App Router, TypeScript)
-- **Video:** React Player
+- **Framework:** Next.js 16 (App Router, TypeScript)
+- **Video:** Native HTML5 playback with HLS support through hls.js
 - **Gestures:** @use-gesture/react
 - **Animation:** Framer Motion
 - **Styling:** Tailwind CSS
