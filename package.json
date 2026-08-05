@@ -10,6 +10,7 @@
     "test:e2e": "playwright test",
     "test:e2e:public": "playwright test e2e/responsive-route-matrix.spec.ts",
     "test:e2e:events-new": "playwright test e2e/events-new-responsive.spec.ts",
+    "test:unit:mobile-pwa": "tsx --test src/contexts/AuthContext.test.ts src/lib/pilot-admin-access.test.ts src/lib/supabase/middleware.test.ts src/lib/supabase/server.test.ts src/app/api/leaderboard/route.test.ts 'src/app/api/videos/[videoId]/route.test.ts'",
     "test:nudges": "tsx --test src/lib/nudges.test.ts",
     "test:founder-invites": "tsx --test src/app/api/founder-invites/_server.test.ts",
     "test:events": "tsx --test 'src/app/api/events/[slug]/_server.test.ts'",

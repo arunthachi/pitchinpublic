@@ -4,6 +4,7 @@ import { GridBackground } from "@/components/GridBackground";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GoogleTagManager } from "@/components/GoogleTagManager";
+import { MotionPreferences } from "@/components/MotionPreferences";
 
 const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://app.pitchinpublic.io").replace(/\/$/, "");
 const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
@@ -154,9 +155,11 @@ export default function RootLayout({
         />
         <GridBackground />
         <ErrorBoundary>
-          <AuthProvider>
-            <main className="relative z-10 min-h-dvh min-w-0 bg-transparent">{children}</main>
-          </AuthProvider>
+          <MotionPreferences>
+            <AuthProvider>
+              <main className="relative z-10 min-h-dvh min-w-0 bg-transparent">{children}</main>
+            </AuthProvider>
+          </MotionPreferences>
         </ErrorBoundary>
       </body>
     </html>

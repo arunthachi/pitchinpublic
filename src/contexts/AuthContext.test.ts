@@ -255,7 +255,7 @@ test('preserves the authenticated session and surfaces a failed sign-out', async
   request.resolve({ data: { session: createSession('retained-user') }, error: null });
   await started;
 
-  await assert.rejects(controller.signOut(), signOutError);
+  await controller.signOut();
   assert.equal(snapshots.at(-1)?.status, 'error');
   assert.equal(snapshots.at(-1)?.error?.code, 'sign_out_failed');
   assert.equal(snapshots.at(-1)?.user?.id, 'retained-user');

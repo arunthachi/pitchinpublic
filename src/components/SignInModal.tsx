@@ -238,7 +238,7 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 py-4 backdrop-blur-xl sm:px-6 sm:py-6"
+          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pt-[max(1.5rem,env(safe-area-inset-top))]"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) handleClose();
           }}
@@ -258,7 +258,7 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
               event.stopPropagation();
             }}
           >
-            <div className="glass-panel relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[2rem] sm:max-h-[calc(100dvh-3rem)]">
+            <div className="glass-panel relative max-h-[calc(100dvh-max(1rem,env(safe-area-inset-top))-max(1rem,env(safe-area-inset-bottom)))] overflow-y-auto overscroll-contain rounded-[2rem] sm:max-h-[calc(100dvh-max(1.5rem,env(safe-area-inset-top))-max(1.5rem,env(safe-area-inset-bottom)))]">
                 <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-neon-cyan/20 via-neon-lime/10 to-transparent" />
 
                 <button

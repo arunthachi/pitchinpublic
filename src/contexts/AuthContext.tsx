@@ -227,7 +227,7 @@ export function createAuthLifecycleController({
         session: snapshot.session,
         error: restorationFailure('sign_out_failed'),
       });
-      throw result.error;
+      return;
     }
 
     publishSession(null);

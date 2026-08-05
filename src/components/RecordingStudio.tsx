@@ -103,6 +103,10 @@ export function RecordingStudio({
   const loadedSavedDetailsRef = useRef(false);
   const pitchHookRef = useRef('');
   const pitchDescriptionRef = useRef('');
+  const previewUrlRef = useRef<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     pitchHookRef.current = pitchHook;
@@ -111,6 +115,10 @@ export function RecordingStudio({
   useEffect(() => {
     pitchDescriptionRef.current = pitchDescription;
   }, [pitchDescription]);
+
+  useEffect(() => {
+    previewUrlRef.current = previewUrl;
+  }, [previewUrl]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -660,14 +668,14 @@ export function RecordingStudio({
     }
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       discardRecordingRef.current = true;
       mediaRecorderRef.current.stop();
     }
     stopCamera();
     if (timerRef.current) clearInterval(timerRef.current);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     setSelectedFile(null);
     setPreviewUrl(null);
     setVideoDuration(0);
@@ -687,7 +695,51 @@ export function RecordingStudio({
     setUploadedVideo(null);
     setCreatedPitchId(null);
     onClose();
-  };
+  }, [onClose, stopCamera]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && !dialogRef.current?.contains(activeElement)) {
+      returnFocusRef.current = activeElement;
+    }
+    const focusCloseButton = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleClose();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])'
+      )];
+      if (!focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusCloseButton);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus();
+    };
+  }, [handleClose, isOpen]);
 
   const goBack = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -751,6 +803,7 @@ export function RecordingStudio({
 
           {/* Modal */}
           <motion.div
+            ref={dialogRef}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -762,6 +815,7 @@ export function RecordingStudio({
           >
             {/* Close Button */}
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={handleClose}
               className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-slate-800/90 transition-colors hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-neon-cyan sm:right-4 sm:top-4"
