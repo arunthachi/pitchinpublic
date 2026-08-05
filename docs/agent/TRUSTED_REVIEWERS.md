@@ -61,14 +61,15 @@ in browser URLs or public control payloads.
 - Reviewer acceptance verifies both the token and authenticated email.
 - RLS controls pitch visibility; a copied pitch URL cannot expand access.
 - Self-feedback is rejected by both the API and database.
-- Database constraints permit one global response per reviewer and pitch, plus
+- Database enforcement permits one global response per reviewer and pitch, plus
   one separate response for each exact event. Idempotent retries are resolved
   by the scope-specific submission RPC before insertion.
 - Event grants are explicit and do not imply access to other organizer events.
 
 ## Pilot verification
 
-1. Apply `20260722223000_add_trusted_reviewers.sql` to staging.
+1. Apply `20260722223000_add_trusted_reviewers.sql` and
+   `20260805170000_scope_event_feedback_submission.sql` to staging.
 2. Invite a reviewer whose account has no founder pitches.
 3. Confirm public published pitches are visible and drafts are not.
 4. Grant one private event and confirm only that event's published,
