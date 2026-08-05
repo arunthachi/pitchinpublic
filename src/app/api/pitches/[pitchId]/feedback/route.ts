@@ -58,6 +58,18 @@ const feedbackSchema = z.object({
   }
 });
 
+const EVENT_FEEDBACK_ROLES = new Set(['organizer', 'admin', 'coach', 'mentor', 'judge']);
+
+export function canGiveEventFeedback(
+  eventOwnerId: string,
+  userId: string,
+  participant?: { role?: string | null; status?: string | null } | null
+) {
+  return eventOwnerId === userId || (
+    participant?.status === 'active' && EVENT_FEEDBACK_ROLES.has(participant.role || '')
+  );
+}
+
 function normalizedSignals(feedback: z.infer<typeof feedbackSchema>) {
   const rawSignals = feedback.signals?.length ? feedback.signals : [feedback.signal || 'Clear'];
   return [...new Set(rawSignals.map((item) => item.trim()).filter(Boolean))].slice(0, 3);
@@ -248,10 +260,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
         .eq('event_id', event.id)
         .eq('user_id', user.id)
         .maybeSingle();
-      const teamRoles = new Set(['organizer', 'admin', 'coach', 'mentor', 'judge']);
-      const hasTeamAccess = event.organizer_id === user.id || (
-        participant?.status === 'active' && teamRoles.has(participant.role || '')
-      );
+      const hasTeamAccess = canGiveEventFeedback(event.organizer_id, user.id, participant);
 
       if (!hasTeamAccess) {
         return NextResponse.json(

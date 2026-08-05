@@ -1495,7 +1495,6 @@ function InviteRow({
 
 function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug: string }) {
   const readiness = readinessFromFeedback(submission.pitch?.feedback || []);
-  const repeatedSignals = summarizeSignals(submission.pitch?.feedback || []).slice(0, 3);
   const takeLabel = getTakeLabelFromFields(submission.pitch || {});
   const detailPath = pitchPath(submission.pitch?.public_id, submission.pitch_id) || '#';
   const feedbackHref = detailPath === '#'
@@ -1540,22 +1539,6 @@ function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug:
             </span>
           ) : null}
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <Mini label="Toast" value={submission.pitch?.toast_count || 0} />
-          <Mini label="Roast" value={submission.pitch?.roast_count || 0} />
-          <Mini label="Notes" value={submission.pitch?.feedback?.length || 0} />
-        </div>
-        {repeatedSignals.length ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {repeatedSignals.map((signal) => (
-              <span key={signal.label} className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold text-slate-300">
-                {signal.label} · {signal.count}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-4 text-xs text-slate-500">No repeated signal yet.</p>
-        )}
         <Link
           href={feedbackHref}
           aria-disabled={feedbackHref === '#' ? true : undefined}
@@ -1565,15 +1548,6 @@ function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug:
         </Link>
       </div>
     </article>
-  );
-}
-
-function Mini({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl bg-white/[0.05] p-2">
-      <p className="font-heading text-lg font-black text-white">{value}</p>
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-    </div>
   );
 }
 
