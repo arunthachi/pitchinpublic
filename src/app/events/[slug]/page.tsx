@@ -9,17 +9,12 @@ import { formatPitchLength } from '@/lib/duration';
 import { SignInModal } from '@/components/SignInModal';
 import { ActionPageNav } from '@/components/ActionPageNav';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
+import { getEventSubmissionRetryKey } from '@/lib/idempotency';
 
 interface PendingSubmission {
   id: string;
   publicId: string | null;
   hook: string;
-}
-
-const EVENT_SUBMISSION_RETRY_PREFIX = 'pitchinpublic:event-submission:';
-
-function getEventSubmissionRetryKey(slug: string) {
-  return `${EVENT_SUBMISSION_RETRY_PREFIX}${slug}`;
 }
 
 function formatDeadline(value?: string | null) {
@@ -83,27 +78,31 @@ export default function EventPage() {
     ? `/events/${slug}?invite=${encodeURIComponent(inviteCode)}`
     : `/events/${slug}`;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const query = inviteCode ? `?invite=${encodeURIComponent(inviteCode)}` : '';
-      const response = await fetch(`/api/events/${slug}${query}`, { cache: 'no-store' });
+      const response = await fetch(`/api/events/${slug}${query}`, { cache: 'no-store', signal });
       const data = await readJsonResponse(response);
+      if (signal?.aborted) return;
       if (!response.ok || !data?.success) {
         setEventState({ success: false, error: data?.error || 'Unable to load this event.' });
         return;
       }
       setEventState(data);
       setSelectedPitchId((current) => returnedPitchId || data.userSubmission?.pitch_id || current);
-    } catch {
+    } catch (error) {
+      if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) return;
       setEventState({ success: false, error: 'Unable to load this event.' });
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [inviteCode, returnedPitchId, slug]);
 
   useEffect(() => {
-    load();
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
   }, [load, user?.id]);
 
   useEffect(() => {
@@ -112,33 +111,44 @@ export default function EventPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try {
-      const stored = window.sessionStorage.getItem(getEventSubmissionRetryKey(slug));
-      if (stored) setPendingSubmission(JSON.parse(stored) as PendingSubmission);
-    } catch {
-      window.sessionStorage.removeItem(getEventSubmissionRetryKey(slug));
+    if (!user?.id) {
+      setPendingSubmission(null);
+      return;
     }
-  }, [slug]);
+    const retryKey = getEventSubmissionRetryKey(slug, user.id);
+    try {
+      const stored = window.sessionStorage.getItem(retryKey);
+      setPendingSubmission(stored ? JSON.parse(stored) as PendingSubmission : null);
+    } catch {
+      window.sessionStorage.removeItem(retryKey);
+      setPendingSubmission(null);
+    }
+  }, [slug, user?.id]);
 
   useEffect(() => {
+    let cancelled = false;
+    const userId = user?.id;
     const loadPitches = async () => {
-      if (!user) {
+      if (!userId) {
         setPitches([]);
         setPitchesLoading(false);
         return;
       }
       setPitchesLoading(true);
       try {
-        const response = await fetch(`/api/pitches?userId=${user.id}&limit=100`);
-        if (!response.ok) return;
+        const response = await fetch(`/api/pitches?userId=${userId}&limit=100`);
+        if (!response.ok || cancelled) return;
         const data = await response.json();
-        setPitches(data.pitches || []);
+        if (!cancelled) setPitches(data.pitches || []);
       } finally {
-        setPitchesLoading(false);
+        if (!cancelled) setPitchesLoading(false);
       }
     };
     loadPitches();
-  }, [user]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!pitches.length) return;
@@ -179,29 +189,34 @@ export default function EventPage() {
     setSubmissionSuccess(pendingSubmission);
     setPendingSubmission(null);
     if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(getEventSubmissionRetryKey(slug));
+      if (user?.id) window.sessionStorage.removeItem(getEventSubmissionRetryKey(slug, user.id));
     }
-  }, [eventState?.userSubmission?.pitch_id, pendingSubmission, slug]);
+  }, [eventState?.userSubmission?.pitch_id, pendingSubmission, slug, user?.id]);
 
   const join = async () => {
     setSaving(true);
     setMessage('');
-    const response = await fetch(`/api/events/${slug}/join`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(inviteCode ? { inviteCode } : { accessCode }),
-    });
-    const data = await readJsonResponse(response);
-    setSaving(false);
-    if (!response.ok || !data.success) {
-      setMessage(data.error || `Could not join ${event?.name || 'this event'}.`);
-      return;
+    try {
+      const response = await fetch(`/api/events/${slug}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inviteCode ? { inviteCode } : { accessCode }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || `Could not join ${event?.name || 'this event'}.`);
+      }
+      setMessage('Invitation accepted. Record or choose your take next.');
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not join ${event?.name || 'this event'}.`);
+    } finally {
+      setSaving(false);
     }
-    setMessage('Invitation accepted. Record or choose your take next.');
-    load();
   };
 
   const switchAccount = async () => {
+    clearPendingSubmission();
     await signOut();
     setMessage('');
     setShowSignIn(true);
@@ -210,7 +225,7 @@ export default function EventPage() {
   const clearPendingSubmission = () => {
     setPendingSubmission(null);
     if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(getEventSubmissionRetryKey(slug));
+      if (user?.id) window.sessionStorage.removeItem(getEventSubmissionRetryKey(slug, user.id));
     }
   };
 
@@ -226,28 +241,32 @@ export default function EventPage() {
 
     setSaving(true);
     setMessage('');
-    const response = await fetch(`/api/events/${slug}/submission`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await readJsonResponse(response);
-    setSaving(false);
-    if (!response.ok || !data.success) {
-      setMessage(data.error || 'Could not submit this take.');
-      return;
-    }
+    try {
+      const response = await fetch(`/api/events/${slug}/submission`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Could not submit this take.');
+      }
 
-    const sourcePitch = pending || selectedPitch;
-    const successPitch: PendingSubmission = {
-      id: data.pitchId || sourcePitch?.id || '',
-      publicId: data.publicId || sourcePitch?.publicId || sourcePitch?.public_id || null,
-      hook: sourcePitch?.hook || 'Submitted pitch',
-    };
-    setSubmissionSuccess(successPitch);
-    clearPendingSubmission();
-    setMessage('Take submitted.');
-    load();
+      const sourcePitch = pending || selectedPitch;
+      const successPitch: PendingSubmission = {
+        id: data.pitchId || sourcePitch?.id || '',
+        publicId: data.publicId || sourcePitch?.publicId || sourcePitch?.public_id || null,
+        hook: sourcePitch?.hook || 'Submitted pitch',
+      };
+      setSubmissionSuccess(successPitch);
+      clearPendingSubmission();
+      setMessage('Take submitted.');
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not submit this take.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {

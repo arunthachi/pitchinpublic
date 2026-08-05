@@ -15,3 +15,9 @@ export function createClientIdempotencyKey() {
   const value = Array.from(random, (byte) => byte.toString(16).padStart(2, '0')).join('');
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
 }
+
+const EVENT_SUBMISSION_RETRY_PREFIX = 'pitchinpublic:event-submission:';
+
+export function getEventSubmissionRetryKey(eventSlug: string, userId: string) {
+  return `${EVENT_SUBMISSION_RETRY_PREFIX}${encodeURIComponent(userId)}:${eventSlug}`;
+}

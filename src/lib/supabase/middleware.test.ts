@@ -14,14 +14,14 @@ test('validates API sessions without adding auth latency to pages or health chec
 
 test('preserves every Supabase cookie mutation on one middleware response', () => {
   const request = new NextRequest('https://app.pitchinpublic.io/api/events');
-  const response = NextResponse.next();
+  let response = NextResponse.next({ request: { headers: request.headers } });
 
-  applySessionCookieMutation(request, response, 'sb-access-token', 'access-value', {
+  response = applySessionCookieMutation(request, response, 'sb-access-token', 'access-value', {
     httpOnly: true,
     path: '/',
     sameSite: 'lax',
   });
-  applySessionCookieMutation(request, response, 'sb-refresh-token', 'refresh-value', {
+  response = applySessionCookieMutation(request, response, 'sb-refresh-token', 'refresh-value', {
     httpOnly: true,
     path: '/',
     sameSite: 'lax',
@@ -33,16 +33,18 @@ test('preserves every Supabase cookie mutation on one middleware response', () =
   assert.equal(response.cookies.get('sb-refresh-token')?.value, 'refresh-value');
   assert.match(response.headers.get('set-cookie') || '', /sb-access-token=access-value/);
   assert.match(response.headers.get('set-cookie') || '', /sb-refresh-token=refresh-value/);
+  assert.match(response.headers.get('x-middleware-request-cookie') || '', /sb-access-token=access-value/);
+  assert.match(response.headers.get('x-middleware-request-cookie') || '', /sb-refresh-token=refresh-value/);
 });
 
 test('mirrors removal mutations without dropping existing rotated cookies', () => {
   const request = new NextRequest('https://app.pitchinpublic.io/api/events', {
     headers: { cookie: 'obsolete-token=old-value' },
   });
-  const response = NextResponse.next();
+  let response = NextResponse.next({ request: { headers: request.headers } });
 
-  applySessionCookieMutation(request, response, 'rotated-token', 'new-value', { path: '/' });
-  applySessionCookieMutation(request, response, 'obsolete-token', '', {
+  response = applySessionCookieMutation(request, response, 'rotated-token', 'new-value', { path: '/' });
+  response = applySessionCookieMutation(request, response, 'obsolete-token', '', {
     maxAge: 0,
     path: '/',
   });
@@ -51,4 +53,7 @@ test('mirrors removal mutations without dropping existing rotated cookies', () =
   assert.equal(response.cookies.get('obsolete-token')?.value, '');
   assert.match(response.headers.get('set-cookie') || '', /rotated-token=new-value/);
   assert.match(response.headers.get('set-cookie') || '', /obsolete-token=/);
+  const forwardedCookie = response.headers.get('x-middleware-request-cookie') || '';
+  assert.match(forwardedCookie, /rotated-token=new-value/);
+  assert.doesNotMatch(forwardedCookie, /obsolete-token=old-value/);
 });

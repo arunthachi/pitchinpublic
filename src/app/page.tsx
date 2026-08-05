@@ -237,7 +237,7 @@ function HomeContent() {
   // Fetch real pitches from API
   const [legacyPitches, setLegacyPitches] = useState<LegacyPitch[]>([]);
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueSummary | null>(null);
-  const [reviewRequest, setReviewRequest] = useState<{ publicPitchId: string; nonce: number } | null>(null);
+  const [reviewRequest, setReviewRequest] = useState<{ assignmentId: string; publicPitchId: string; eventSlug?: string | null; nonce: number } | null>(null);
   const [selectionRequest, setSelectionRequest] = useState<{ publicPitchId: string; nonce: number } | null>(null);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
@@ -387,7 +387,7 @@ function HomeContent() {
     }
   }, [convertApiPitch, legacyPitches]);
 
-  const handleSelectReviewPitch = useCallback(async (publicPitchId: string) => {
+  const handleSelectReviewPitch = useCallback(async (publicPitchId: string, eventSlug: string | null | undefined, assignmentId: string) => {
     setReviewSelectionError(null);
     try {
       await resolveExactPitch(publicPitchId);
@@ -397,7 +397,7 @@ function HomeContent() {
       return;
     }
 
-    setReviewRequest({ publicPitchId, nonce: Date.now() });
+    setReviewRequest({ assignmentId, publicPitchId, eventSlug, nonce: Date.now() });
   }, [resolveExactPitch]);
 
   const handleAssignedReviewComplete = useCallback(async () => {
@@ -405,13 +405,13 @@ function HomeContent() {
   }, [fetchReviewQueue]);
 
   const handleReviewNext = useCallback(() => {
-    const next = reviewQueue?.items.find((item) => item.publicPitchId !== reviewRequest?.publicPitchId);
+    const next = reviewQueue?.items.find((item) => item.assignmentId !== reviewRequest?.assignmentId);
     if (!next) {
       setReviewRequest(null);
       return;
     }
-    void handleSelectReviewPitch(next.publicPitchId);
-  }, [handleSelectReviewPitch, reviewQueue, reviewRequest?.publicPitchId]);
+    void handleSelectReviewPitch(next.publicPitchId, next.eventSlug, next.assignmentId);
+  }, [handleSelectReviewPitch, reviewQueue, reviewRequest?.assignmentId]);
 
   const fetchPracticeToday = useCallback(async () => {
     if (!user || !accessCheckComplete || reviewerMode) return;
@@ -998,6 +998,7 @@ function HomeContent() {
         <RecordingStudio
           isOpen={recordingStudioOpen}
           onClose={() => setRecordingStudioOpen(false)}
+          userId={user?.id}
           onPitchCreated={async (pitch) => {
             // Refresh feed after new pitch is created
             setTimeout(() => {

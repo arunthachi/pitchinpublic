@@ -58,10 +58,12 @@ test('requires public pitch identifiers for review queue navigation', () => {
       items: [
         { pitch_id: 'internal-db-id-only', status: 'pending' },
         {
+          id: 'assignment-a',
           pitch_id: 'internal-db-id',
           public_pitch_id: 'p_public123',
           startup_name: 'Acme',
           status: 'started',
+          event: { slug: 'demo-event', name: 'Demo event' },
         },
       ],
     },
@@ -70,4 +72,23 @@ test('requires public pitch identifiers for review queue navigation', () => {
   assert.equal(queue?.items.length, 1);
   assert.equal(queue?.items[0].publicPitchId, 'p_public123');
   assert.equal(queue?.items[0].pitchId, 'internal-db-id');
+  assert.equal(queue?.items[0].assignmentId, 'assignment-a');
+  assert.equal(queue?.items[0].eventSlug, 'demo-event');
+});
+
+test('keeps two event assignments for the same pitch independently actionable', () => {
+  const queue = normalizeReviewQueue({
+    assignments: [
+      { id: 'assignment-a', pitch: { publicId: 'p_samepitch' }, event: { slug: 'event-a' } },
+      { id: 'assignment-b', pitch: { publicId: 'p_samepitch' }, event: { slug: 'event-b' } },
+    ],
+  });
+
+  assert.deepEqual(
+    queue?.items.map((item) => [item.assignmentId, item.publicPitchId, item.eventSlug]),
+    [
+      ['assignment-a', 'p_samepitch', 'event-a'],
+      ['assignment-b', 'p_samepitch', 'event-b'],
+    ],
+  );
 });

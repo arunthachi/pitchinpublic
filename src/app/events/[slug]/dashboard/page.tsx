@@ -469,39 +469,41 @@ export default function EventDashboardPage() {
     setSaving(true);
     setActionMessage('');
     setCreatedInviteLink('');
-    const response = await fetch(`/api/events/${slug}/invites`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...inviteForm,
-        sendEmail: inviteForm.sendEmail && Boolean(inviteForm.email.trim()),
-      }),
-    });
-    const data = await readJsonResponse(response);
-    setSaving(false);
-    if (!response.ok || !data?.success) {
-      setActionMessage(data?.error || 'Could not create invite.');
-      return;
+    try {
+      const response = await fetch(`/api/events/${slug}/invites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...inviteForm,
+          sendEmail: inviteForm.sendEmail && Boolean(inviteForm.email.trim()),
+        }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Could not create invite.');
+      setInviteForm({ email: '', role: inviteForm.role, sendEmail: inviteForm.sendEmail });
+      setLastInvite({
+        url: data.inviteUrl || '',
+        role: data.invitation?.role || inviteForm.role,
+        email: data.invitation?.email || inviteForm.email.trim(),
+        emailStatus: data.emailStatus || data.invitation?.email_status || null,
+        emailError: data.emailError || data.invitation?.email_error || null,
+      });
+      setActionMessage(
+        data.emailStatus === 'sent'
+          ? 'Invite emailed and link ready.'
+          : data.emailStatus === 'not_configured'
+            ? 'Invite created. Email is not configured, so only the link is ready.'
+            : data.emailStatus === 'failed'
+              ? `Invite created, but email failed. ${data.emailError || 'Check the provider response.'}`
+              : 'Invite created. Copy the link or email it later.'
+      );
+      setCreatedInviteLink(data.inviteUrl || '');
+      await load();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not create invite.');
+    } finally {
+      setSaving(false);
     }
-    setInviteForm({ email: '', role: inviteForm.role, sendEmail: inviteForm.sendEmail });
-    setLastInvite({
-      url: data.inviteUrl || '',
-      role: data.invitation?.role || inviteForm.role,
-      email: data.invitation?.email || inviteForm.email.trim(),
-      emailStatus: data.emailStatus || data.invitation?.email_status || null,
-      emailError: data.emailError || data.invitation?.email_error || null,
-    });
-    setActionMessage(
-      data.emailStatus === 'sent'
-        ? 'Invite emailed and link ready.'
-        : data.emailStatus === 'not_configured'
-          ? 'Invite created. Email is not configured, so only the link is ready.'
-          : data.emailStatus === 'failed'
-            ? `Invite created, but email failed. ${data.emailError || 'Check the provider response.'}`
-            : 'Invite created. Copy the link or email it later.'
-    );
-    setCreatedInviteLink(data.inviteUrl || '');
-    load();
   };
 
   const createFounderInvite = async (event: FormEvent) => {
@@ -520,46 +522,48 @@ export default function EventDashboardPage() {
     setSaving(true);
     setActionMessage('');
     setCreatedInviteLink('');
-    const response = await fetch(`/api/events/${slug}/invites`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emails: parsed.emails, role: 'founder', sendEmail: true }),
-    });
-    const data = await readJsonResponse(response);
-    setSaving(false);
-    if (!response.ok || !data?.success) {
-      setActionMessage(data?.error || 'Could not create founder invite.');
-      return;
-    }
-    const results = Array.isArray(data.results) ? data.results : [];
-    const firstCreated = results.find((result: any) => result.success);
-    setFounderInviteEmail('');
-    const created = Number(data.created || 0);
-    const sent = Number(data.sent || 0);
-    const failed = Number(data.failed || 0);
-    const emailFailed = Number(data.emailFailed || 0);
-    setActionMessage(
-      failed
-        ? `${created} founder invite${created === 1 ? '' : 's'} created; ${failed} failed. Retry the failed addresses.`
-        : emailFailed
-          ? `${created} invite${created === 1 ? '' : 's'} ready, but ${emailFailed} email${emailFailed === 1 ? '' : 's'} could not be sent. Copy the invite link below.`
-          : sent
-            ? `${sent} founder invitation email${sent === 1 ? '' : 's'} sent.`
-            : created
-              ? `${created} founder invite${created === 1 ? '' : 's'} created.`
-              : 'These founders already have active event access or invitations.'
-    );
-    if (results.length === 1 && firstCreated) {
-      setCreatedInviteLink(firstCreated.inviteUrl || '');
-      setLastInvite({
-        url: firstCreated.inviteUrl || '',
-        role: 'founder',
-        email: firstCreated.email,
-        emailStatus: firstCreated.emailStatus || null,
-        emailError: firstCreated.emailError || null,
+    try {
+      const response = await fetch(`/api/events/${slug}/invites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: parsed.emails, role: 'founder', sendEmail: true }),
       });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'Could not create founder invite.');
+      const results = Array.isArray(data.results) ? data.results : [];
+      const firstCreated = results.find((result: any) => result.success);
+      setFounderInviteEmail('');
+      const created = Number(data.created || 0);
+      const sent = Number(data.sent || 0);
+      const failed = Number(data.failed || 0);
+      const emailFailed = Number(data.emailFailed || 0);
+      setActionMessage(
+        failed
+          ? `${created} founder invite${created === 1 ? '' : 's'} created; ${failed} failed. Retry the failed addresses.`
+          : emailFailed
+            ? `${created} invite${created === 1 ? '' : 's'} ready, but ${emailFailed} email${emailFailed === 1 ? '' : 's'} could not be sent. Copy the invite link below.`
+            : sent
+              ? `${sent} founder invitation email${sent === 1 ? '' : 's'} sent.`
+              : created
+                ? `${created} founder invite${created === 1 ? '' : 's'} created.`
+                : 'These founders already have active event access or invitations.'
+      );
+      if (results.length === 1 && firstCreated) {
+        setCreatedInviteLink(firstCreated.inviteUrl || '');
+        setLastInvite({
+          url: firstCreated.inviteUrl || '',
+          role: 'founder',
+          email: firstCreated.email,
+          emailStatus: firstCreated.emailStatus || null,
+          emailError: firstCreated.emailError || null,
+        });
+      }
+      await load();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not create founder invite.');
+    } finally {
+      setSaving(false);
     }
-    load();
   };
 
   const createAnnouncement = async (event: FormEvent) => {
@@ -567,30 +571,32 @@ export default function EventDashboardPage() {
     setSaving(true);
     setActionMessage('');
     setCreatedInviteLink('');
-    const response = await fetch(`/api/events/${slug}/announcements`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(announcementForm),
-    });
-    const data = await readJsonResponse(response);
-    setSaving(false);
-    if (!response.ok || !data.success) {
-      setActionMessage(data.error || 'Could not post announcement.');
-      return;
+    try {
+      const response = await fetch(`/api/events/${slug}/announcements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(announcementForm),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data.success) throw new Error(data.error || 'Could not post announcement.');
+      setAnnouncementForm({ title: '', body: '' });
+      setActionMessage(
+        data.emailStatus === 'sent'
+          ? `Announcement posted and emailed to ${data.recipientCount || 0} founders.`
+          : data.emailStatus === 'skipped'
+            ? `Announcement posted, but email was skipped. ${data.emailError || 'No founder emails were available.'}`
+            : data.emailStatus === 'not_configured'
+              ? 'Announcement posted. Email is not configured in this environment.'
+              : data.emailStatus === 'failed'
+                ? `Announcement posted, but email failed. ${data.emailError || 'Check the provider response.'}`
+                : 'Announcement posted.'
+      );
+      await load();
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Could not post announcement.');
+    } finally {
+      setSaving(false);
     }
-    setAnnouncementForm({ title: '', body: '' });
-    setActionMessage(
-      data.emailStatus === 'sent'
-        ? `Announcement posted and emailed to ${data.recipientCount || 0} founders.`
-        : data.emailStatus === 'skipped'
-          ? `Announcement posted, but email was skipped. ${data.emailError || 'No founder emails were available.'}`
-          : data.emailStatus === 'not_configured'
-            ? 'Announcement posted. Email is not configured in this environment.'
-            : data.emailStatus === 'failed'
-              ? `Announcement posted, but email failed. ${data.emailError || 'Check the provider response.'}`
-              : 'Announcement posted.'
-    );
-    load();
   };
 
   const assignReviews = async () => {

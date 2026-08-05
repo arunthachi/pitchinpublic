@@ -58,16 +58,33 @@ const feedbackSchema = z.object({
   }
 });
 
-const EVENT_FEEDBACK_ROLES = new Set(['organizer', 'admin', 'coach', 'mentor', 'judge']);
-
-export function canGiveEventFeedback(
-  eventOwnerId: string,
-  userId: string,
-  participant?: { role?: string | null; status?: string | null } | null
+export function feedbackSubmissionRpc(
+  pitchId: string,
+  type: 'roast' | 'toast',
+  content: string,
+  requestKey: string,
+  eventId?: string | null
 ) {
-  return eventOwnerId === userId || (
-    participant?.status === 'active' && EVENT_FEEDBACK_ROLES.has(participant.role || '')
-  );
+  return eventId
+    ? {
+        name: 'submit_event_pitch_feedback',
+        args: {
+          target_pitch_id: pitchId,
+          feedback_type: type,
+          feedback_content: content,
+          request_key: requestKey,
+          target_event_id: eventId,
+        },
+      }
+    : {
+        name: 'submit_pitch_feedback',
+        args: {
+          target_pitch_id: pitchId,
+          feedback_type: type,
+          feedback_content: content,
+          request_key: requestKey,
+        },
+      };
 }
 
 function normalizedSignals(feedback: z.infer<typeof feedbackSchema>) {
@@ -240,48 +257,24 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     const feedbackData = validation.data;
     const signals = normalizedSignals(feedbackData);
 
+    let feedbackEventId: string | null = null;
     if (feedbackData.eventSlug) {
-      const { data: event, error: eventError } = await supabase
-        .from('pitch_events')
-        .select('id,organizer_id')
-        .eq('slug', feedbackData.eventSlug)
-        .maybeSingle();
+      const { data: resolvedEventId, error: eventAccessError } = await supabase.rpc(
+        'resolve_event_feedback_scope',
+        {
+          target_event_slug: feedbackData.eventSlug,
+          target_pitch_id: pitch.id,
+        },
+      );
 
-      if (eventError || !event) {
+      if (eventAccessError || !resolvedEventId) {
         return NextResponse.json(
-          { success: false, error: 'Event feedback access is no longer available.', code: 'event_not_found' },
-          { status: 404, headers: formatRateLimitHeaders(result) }
-        );
-      }
-
-      const { data: participant } = await supabase
-        .from('pitch_event_participants')
-        .select('role,status')
-        .eq('event_id', event.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const hasTeamAccess = canGiveEventFeedback(event.organizer_id, user.id, participant);
-
-      if (!hasTeamAccess) {
-        return NextResponse.json(
-          { success: false, error: 'Active event-team access is required.', code: 'event_team_access_required' },
+          { success: false, error: 'This event review is no longer available.', code: 'event_review_access_required' },
           { status: 403, headers: formatRateLimitHeaders(result) }
         );
       }
 
-      const { data: eventSubmission } = await supabase
-        .from('pitch_event_submissions')
-        .select('id')
-        .eq('event_id', event.id)
-        .eq('pitch_id', pitch.id)
-        .maybeSingle();
-
-      if (!eventSubmission) {
-        return NextResponse.json(
-          { success: false, error: 'This pitch was not submitted to that event.', code: 'wrong_event_pitch' },
-          { status: 403, headers: formatRateLimitHeaders(result) }
-        );
-      }
+      feedbackEventId = resolvedEventId;
     }
 
     const idempotencyHeader = request.headers.get('idempotency-key');
@@ -298,14 +291,16 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
     const submissionKey = parsedIdempotencyKey?.success
       ? parsedIdempotencyKey.data
       : crypto.randomUUID();
+    const submission = feedbackSubmissionRpc(
+      pitch.id,
+      feedbackData.type,
+      serializeFeedbackContent(feedbackData),
+      submissionKey,
+      feedbackEventId
+    );
     const { data: submissionRows, error: submissionError } = await supabase.rpc(
-      'submit_pitch_feedback',
-      {
-        target_pitch_id: pitch.id,
-        feedback_type: feedbackData.type,
-        feedback_content: serializeFeedbackContent(feedbackData),
-        request_key: submissionKey,
-      }
+      submission.name,
+      submission.args
     );
 
     const feedback = Array.isArray(submissionRows) ? submissionRows[0] : submissionRows;

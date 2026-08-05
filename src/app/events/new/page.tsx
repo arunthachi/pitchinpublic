@@ -15,7 +15,7 @@ import {
   EVENT_PITCH_LENGTH_OPTIONS,
   EVENT_VISIBILITY_OPTIONS,
 } from '@/lib/event-settings';
-import { parseBulkFounderEmails } from '@/lib/event-dashboard';
+import { getInviteContinuationCounts, parseBulkFounderEmails } from '@/lib/event-dashboard';
 import { createClientIdempotencyKey } from '@/lib/idempotency';
 
 const focusOptions = [...EVENT_FOCUS_OPTIONS];
@@ -34,6 +34,8 @@ function NewEventContent() {
   const searchParams = useSearchParams();
   const { user, loading, signOut } = useAuth();
   const [roleLoading, setRoleLoading] = useState(true);
+  const [accessCheckVersion, setAccessCheckVersion] = useState(0);
+  const [isRecheckingAccess, setIsRecheckingAccess] = useState(false);
   const [canManageEvents, setCanManageEvents] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -121,7 +123,10 @@ function NewEventContent() {
         console.error('Could not check organizer access:', error);
         if (!cancelled) setCanManageEvents(false);
       } finally {
-        if (!cancelled) setRoleLoading(false);
+        if (!cancelled) {
+          setRoleLoading(false);
+          setIsRecheckingAccess(false);
+        }
       }
     };
 
@@ -130,7 +135,7 @@ function NewEventContent() {
     return () => {
       cancelled = true;
     };
-  }, [loading, organizerAccepted, user]);
+  }, [accessCheckVersion, loading, organizerAccepted, user]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -176,8 +181,13 @@ function NewEventContent() {
             body: JSON.stringify({ emails: parsedEmails.emails, role: 'founder', sendEmail: true }),
           });
           const inviteData = await inviteResponse.json().catch(() => ({}));
-          invited = inviteResponse.ok ? Number(inviteData.created || 0) : 0;
-          inviteFailed = inviteResponse.ok ? Number(inviteData.failed || 0) : parsedEmails.emails.length;
+          const outcome = getInviteContinuationCounts(
+            inviteResponse.ok,
+            inviteData,
+            parsedEmails.emails.length
+          );
+          invited = outcome.invited;
+          inviteFailed = outcome.failed;
         } catch {
           inviteFailed = parsedEmails.emails.length;
         }
@@ -234,10 +244,14 @@ function NewEventContent() {
               {organizerAccepted ? (
                 <button
                   type="button"
-                  onClick={() => router.refresh()}
+                  disabled={isRecheckingAccess}
+                  onClick={() => {
+                    setIsRecheckingAccess(true);
+                    setAccessCheckVersion((version) => version + 1);
+                  }}
                   className="cta-primary inline-flex min-h-12 w-full items-center justify-center rounded-xl px-5 font-heading font-black"
                 >
-                  Check access again
+                  {isRecheckingAccess ? 'Checking access...' : 'Check access again'}
                 </button>
               ) : (
                 <LeadCaptureModal

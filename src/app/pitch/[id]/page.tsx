@@ -5,9 +5,6 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  Eye,
-  TrendingUp,
-  Calendar,
   Flame,
   Sparkles,
   Target,
@@ -16,11 +13,9 @@ import {
 import { getLegacyPitchById } from '@/lib/data';
 import { FeedbackModal } from '@/components/FeedbackModal';
 import { PivotHistory } from '@/components/PivotHistory';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FeedbackFormData, LegacyPitch } from '@/types';
-import { formatNumber, formatDate } from '@/lib/utils';
 import { isPublicPitchId, isUuidLike } from '@/lib/public-routes';
 import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
 import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
@@ -28,6 +23,7 @@ import { FeedbackQualityControls } from '@/components/FeedbackQualityControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActionPageNav } from '@/components/ActionPageNav';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
+import { VideoPlayer } from '@/components/VideoPlayer';
 
 function readinessLabel(value?: number) {
   if (!value) return 'Getting there';
@@ -271,34 +267,18 @@ function PitchDetailContent() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="relative aspect-video rounded-lg overflow-hidden bg-slate-900 border border-slate-800"
+              className="relative mx-auto aspect-[9/16] w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-black"
             >
-              <img
-                src={pitch.thumbnailUrl}
-                alt={pitch.companyName}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                <button className="w-20 h-20 rounded-full bg-neon-cyan/90 flex items-center justify-center hover:scale-110 transition-transform">
-                  <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-slate-900 border-b-[12px] border-b-transparent ml-1" />
-                </button>
-              </div>
+              {pitch.videoUrl ? (
+                <VideoPlayer url={pitch.videoUrl} playing />
+              ) : (
+                <img
+                  src={pitch.thumbnailUrl}
+                  alt={pitch.companyName}
+                  className="h-full w-full object-cover"
+                />
+              )}
 
-              {/* Stats overlay */}
-              <div className="absolute top-4 right-4 flex gap-2">
-                <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-sm px-3 py-1.5 rounded-md">
-                  <Eye className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-200">
-                    {formatNumber(pitch.views)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 bg-neon-cyan/20 backdrop-blur-sm px-3 py-1.5 rounded-md border border-neon-cyan/30">
-                  <TrendingUp className="w-4 h-4 text-neon-cyan" />
-                  <span className="text-sm font-bold text-neon-cyan">
-                    {pitch.interestScore}
-                  </span>
-                </div>
-              </div>
             </motion.div>
 
             {/* Pitch Details */}
@@ -319,16 +299,7 @@ function PitchDetailContent() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{pitch.stage}</Badge>
-                  <Badge variant="outline">{pitch.industry}</Badge>
-                  <Badge variant="lime" className="gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {formatDate(pitch.createdAt)}
-                  </Badge>
-                </div>
-
-                <div className="pt-4 border-t border-slate-800">
+                <div className="border-t border-slate-800 pt-4">
                   <div className="flex items-center gap-3 mb-4">
                     <img
                       src={pitch.founderAvatar}

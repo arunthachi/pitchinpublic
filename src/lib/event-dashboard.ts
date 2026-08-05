@@ -30,6 +30,27 @@ export type InvitationHealth = {
   canRevoke: boolean;
 };
 
+export function getInviteContinuationCounts(
+  responseOk: boolean,
+  data: { sent?: unknown; failed?: unknown; emailFailed?: unknown },
+  requestedCount: number
+) {
+  if (!responseOk) return { invited: 0, failed: Math.max(0, requestedCount) };
+
+  const invited = Math.max(0, Number(data.sent || 0));
+  const failed = Math.max(0, Number(data.failed || 0)) + Math.max(0, Number(data.emailFailed || 0));
+  return { invited, failed };
+}
+
+export function scopePitchFeedbackToEvent<T extends {
+  feedback?: Array<{ id?: string | null }> | null;
+}>(pitch: T, completedFeedbackIds: ReadonlySet<string>): T {
+  return {
+    ...pitch,
+    feedback: (pitch.feedback || []).filter((item) => Boolean(item.id && completedFeedbackIds.has(item.id))),
+  };
+}
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MAX_BULK_FOUNDER_INVITES = 50;
 

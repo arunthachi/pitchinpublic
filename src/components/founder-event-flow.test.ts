@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEventSubmissionBody, getEventSubmissionRetryKey } from './RecordingStudio';
+import { buildEventSubmissionBody } from './RecordingStudio';
 import { validatePitchDetails } from './Step2_AddDetails';
 import { buildSubmissionSuccessResponse } from '../app/api/events/[slug]/submission/route';
+import { getEventSubmissionRetryKey } from '@/lib/idempotency';
 
 test('returning founders can submit with saved one-line pitch and no optional fields', () => {
   assert.deepEqual(validatePitchDetails({
@@ -33,8 +34,8 @@ test('event submission retries prefer the stable public pitch identity', () => {
   }), { pitchPublicId: 'p_abc123def456' });
 
   assert.equal(
-    getEventSubmissionRetryKey('demo-day'),
-    'pitchinpublic:event-submission:demo-day',
+    getEventSubmissionRetryKey('demo-day', 'founder-id'),
+    'pitchinpublic:event-submission:founder-id:demo-day',
   );
 });
 

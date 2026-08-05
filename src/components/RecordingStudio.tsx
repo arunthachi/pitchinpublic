@@ -4,7 +4,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { createClientIdempotencyKey } from '@/lib/idempotency';
+import { createClientIdempotencyKey, getEventSubmissionRetryKey } from '@/lib/idempotency';
 import { Step2_AddDetails } from './Step2_AddDetails';
 import { Step3_Publish } from './Step3_Publish';
 import type { PracticePrompt } from '@/lib/practice';
@@ -25,6 +25,7 @@ interface RecordingStudioProps {
     pitchLengthSeconds?: number | null;
     focus?: string | null;
   } | null;
+  userId?: string | null;
 }
 
 type Mode = 'choose' | 'record' | 'upload' | 'preview' | 'details' | 'publish';
@@ -67,12 +68,6 @@ interface CreatedPitchIdentity {
   hook: string;
 }
 
-const EVENT_SUBMISSION_RETRY_PREFIX = 'pitchinpublic:event-submission:';
-
-export function getEventSubmissionRetryKey(eventSlug: string) {
-  return `${EVENT_SUBMISSION_RETRY_PREFIX}${eventSlug}`;
-}
-
 export function buildEventSubmissionBody(pitch: CreatedPitchIdentity) {
   return pitch.publicId ? { pitchPublicId: pitch.publicId } : { pitchId: pitch.id };
 }
@@ -85,6 +80,7 @@ export function RecordingStudio({
   practiceGoalId,
   maxDurationSeconds = DEFAULT_MAX_RECORDING_SECONDS,
   eventContext = null,
+  userId = null,
 }: RecordingStudioProps) {
   const router = useRouter();
   const maxRecordingSeconds = Math.min(180, Math.max(MIN_RECORDING_SECONDS, maxDurationSeconds));
@@ -146,8 +142,8 @@ export function RecordingStudio({
   };
 
   const persistPendingEventSubmission = (pitch: CreatedPitchIdentity | null) => {
-    if (!eventContext?.slug || typeof window === 'undefined') return;
-    const key = getEventSubmissionRetryKey(eventContext.slug);
+    if (!eventContext?.slug || !userId || typeof window === 'undefined') return;
+    const key = getEventSubmissionRetryKey(eventContext.slug, userId);
     if (pitch) window.sessionStorage.setItem(key, JSON.stringify(pitch));
     else window.sessionStorage.removeItem(key);
   };

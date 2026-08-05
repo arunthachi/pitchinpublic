@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     supabase
       .from('review_assignments')
       .select(`
+      id,
       status,
       assignment_reason,
       due_at,
@@ -38,10 +39,6 @@ export async function GET(request: NextRequest) {
         feedback_ask,
         thumbnail_url,
         duration
-      ),
-      event:pitch_events (
-        slug,
-        name
       )
       `)
       .eq('reviewer_user_id', auth.user.id)
@@ -108,12 +105,32 @@ export async function GET(request: NextRequest) {
     console.warn('Review queue loaded without an exact total:', countError);
   }
 
+  const eventAssignmentIds = (data || [])
+    .filter((assignment: any) => assignment.event_id)
+    .map((assignment: any) => assignment.id);
+  const eventIdentityByAssignment = new Map<string, { slug: string; name: string }>();
+  if (eventAssignmentIds.length) {
+    const { data: eventIdentities, error: eventIdentityError } = await supabase.rpc(
+      'get_review_assignment_event_identities',
+      { target_assignment_ids: eventAssignmentIds },
+    );
+    if (eventIdentityError) {
+      console.error('Review queue could not resolve event assignments:', eventIdentityError);
+      return NextResponse.json({ success: false, error: 'Could not load review queue' }, { status: 500 });
+    }
+    (eventIdentities || []).forEach((identity: any) => {
+      eventIdentityByAssignment.set(identity.assignment_id, { slug: identity.slug, name: identity.name });
+    });
+  }
+
   const assignments = (data || []).flatMap((assignment: any) => {
     const pitch = Array.isArray(assignment.pitch) ? assignment.pitch[0] : assignment.pitch;
-    const event = Array.isArray(assignment.event) ? assignment.event[0] : assignment.event;
+    const event = assignment.event_id ? eventIdentityByAssignment.get(assignment.id) : null;
     if (!pitch?.public_id) return [];
+    if (assignment.event_id && !event) return [];
 
     return [{
+      assignmentId: assignment.id,
       status: assignment.status,
       reason: assignment.assignment_reason,
       dueAt: assignment.due_at,

@@ -6,7 +6,7 @@ export function shouldValidateSession(pathname: string) {
 }
 
 export async function updateSession(request: NextRequest) {
-  const response = NextResponse.next({
+  let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -21,10 +21,10 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          applySessionCookieMutation(request, response, name, value, options);
+          response = applySessionCookieMutation(request, response, name, value, options);
         },
         remove(name: string, options: CookieOptions) {
-          applySessionCookieMutation(request, response, name, '', options);
+          response = applySessionCookieMutation(request, response, name, '', options);
         },
       },
     }
@@ -52,10 +52,10 @@ export async function updateSession(request: NextRequest) {
 }
 
 /**
- * Mirrors each Supabase cookie mutation onto the request and the single
- * middleware response. Reusing the response is important: replacing it for
- * every mutation silently drops earlier Set-Cookie headers during token
- * rotation.
+ * Mirrors each Supabase cookie mutation onto both sides of middleware. Next.js
+ * snapshots the forwarded request headers when NextResponse.next() is built,
+ * so rebuild that response after every rotation and replay earlier Set-Cookie
+ * values. The API route then receives the fresh token on this same request.
  */
 export function applySessionCookieMutation(
   request: NextRequest,
@@ -65,5 +65,12 @@ export function applySessionCookieMutation(
   options: CookieOptions
 ) {
   request.cookies.set({ name, value, ...options });
-  response.cookies.set({ name, value, ...options });
+  const nextResponse = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+  response.cookies.getAll().forEach((cookie) => nextResponse.cookies.set(cookie));
+  nextResponse.cookies.set({ name, value, ...options });
+  return nextResponse;
 }

@@ -9,6 +9,7 @@ import {
   getDashboardPrimaryAction,
   getDeadlineState,
   getInvitationHealth,
+  getInviteContinuationCounts,
   getNextFeedbackSubmission,
   isEventInviteExpired,
   parseBulkFounderEmails,
@@ -16,6 +17,7 @@ import {
   parseEventListView,
   publicInviteDeliveryError,
   publicInviteError,
+  scopePitchFeedbackToEvent,
   submissionMatchesFilter,
 } from './event-dashboard';
 
@@ -141,4 +143,28 @@ test('public invitation errors do not expose provider or database internals', ()
   assert.equal(publicInviteError('create'), 'Could not create the invite. Please try again.');
   assert.equal(publicInviteDeliveryError('failed'), 'Email delivery failed. Retry or copy the invite link to send it manually.');
   assert.equal(publicInviteDeliveryError('sent'), null);
+});
+
+test('event creation surfaces both invite creation and email delivery failures', () => {
+  assert.deepEqual(
+    getInviteContinuationCounts(true, { sent: 1, failed: 1, emailFailed: 3 }, 5),
+    { invited: 1, failed: 4 }
+  );
+  assert.deepEqual(getInviteContinuationCounts(false, {}, 5), { invited: 0, failed: 5 });
+});
+
+test('event dashboards count only feedback completed for the current event', () => {
+  const pitch = {
+    id: 'pitch-1',
+    feedback: [
+      { id: 'feedback-event-a' },
+      { id: 'feedback-event-b' },
+      { id: 'feedback-global' },
+    ],
+  };
+
+  assert.deepEqual(
+    scopePitchFeedbackToEvent(pitch, new Set(['feedback-event-b'])),
+    { id: 'pitch-1', feedback: [{ id: 'feedback-event-b' }] },
+  );
 });

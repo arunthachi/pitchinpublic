@@ -16,7 +16,7 @@ interface FullScreenVideoFeedProps {
   isLoading?: boolean;
   selectionRequest?: { publicPitchId: string; nonce: number } | null;
   onPitchSelectionComplete?: (publicPitchId: string, nonce: number) => void;
-  reviewRequest?: { publicPitchId: string; nonce: number } | null;
+  reviewRequest?: { assignmentId: string; publicPitchId: string; eventSlug?: string | null; nonce: number } | null;
   onAssignedReviewComplete?: (publicPitchId: string) => Promise<void> | void;
   onReviewNext?: () => void;
   onCurrentPitchChange?: (pitch: LegacyPitch, handlers: {
@@ -177,6 +177,11 @@ export function FullScreenVideoFeed({
   const handledSelectionNonceRef = useRef<number | null>(null);
   const feedbackSubmissionKeyRef = useRef<string | null>(null);
   const feedbackPitchRef = useRef<{ id: string; publicId?: string } | null>(null);
+  const reviewAssignmentRef = useRef<{
+    assignmentId: string;
+    publicPitchId: string;
+    eventSlug?: string | null;
+  } | null>(null);
   const reactionBurstTimeoutRef = useRef<number | null>(null);
   const reviewCompleteTimeoutRef = useRef<number | null>(null);
   const reactionPendingRef = useRef(false);
@@ -257,6 +262,11 @@ export function FullScreenVideoFeed({
     feedbackPitchRef.current = {
       id: localPitches[requestedIndex].id,
       publicId: localPitches[requestedIndex].publicId,
+    };
+    reviewAssignmentRef.current = {
+      assignmentId: reviewRequest.assignmentId,
+      publicPitchId: reviewRequest.publicPitchId,
+      eventSlug: reviewRequest.eventSlug,
     };
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
@@ -597,6 +607,10 @@ export function FullScreenVideoFeed({
           readiness: feedback.readiness,
           scores: feedback.scores,
           notes: feedback.notes,
+          ...(reviewAssignmentRef.current?.eventSlug
+            && reviewAssignmentRef.current.publicPitchId === feedbackPitch.publicId
+            ? { eventSlug: reviewAssignmentRef.current.eventSlug }
+            : {}),
         }),
       });
 
@@ -628,10 +642,12 @@ export function FullScreenVideoFeed({
         );
         triggerReactionBurst(feedback.type);
         // Close feedback panel after successful submission
+        const completedReview = reviewAssignmentRef.current;
         feedbackSubmissionKeyRef.current = null;
         feedbackPitchRef.current = null;
+        reviewAssignmentRef.current = null;
         setFeedbackPanelOpen(false);
-        const completedReviewPublicId = reviewRequest?.publicPitchId;
+        const completedReviewPublicId = completedReview?.publicPitchId;
         if (completedReviewPublicId && completedReviewPublicId === feedbackPitch.publicId) {
           setReviewComplete(true);
           await onAssignedReviewComplete?.(completedReviewPublicId);
@@ -742,6 +758,7 @@ export function FullScreenVideoFeed({
     feedbackPitchRef.current = currentPitch
       ? { id: currentPitch.id, publicId: currentPitch.publicId }
       : null;
+    reviewAssignmentRef.current = null;
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
   };
@@ -923,6 +940,7 @@ export function FullScreenVideoFeed({
         onClose={() => {
           feedbackSubmissionKeyRef.current = null;
           feedbackPitchRef.current = null;
+          reviewAssignmentRef.current = null;
           setFeedbackPanelOpen(false);
         }}
         onSubmit={handleFeedbackSubmit}
