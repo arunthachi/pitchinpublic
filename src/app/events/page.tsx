@@ -11,6 +11,7 @@ import { destination } from '@/lib/app-navigation';
 import {
   classifyEventRole,
   parseEventListView,
+  resolveEventListView,
   type EventListView,
 } from '@/lib/event-dashboard';
 
@@ -104,11 +105,13 @@ function EventsContent() {
     if (groupedEvents.team.length) views.push('team');
     return views;
   }, [canCreateEvents, groupedEvents.managed.length, groupedEvents.team.length]);
-  const primaryView = requestedView && availableViews.includes(requestedView)
-    ? requestedView
-    : canCreateEvents && availableViews.includes('managed')
-      ? 'managed'
-      : availableViews[0];
+  const primaryView = resolveEventListView({
+    requestedView,
+    availableViews,
+    canCreateEvents,
+    joinedCount: groupedEvents.joined.length,
+    teamCount: groupedEvents.team.length,
+  });
   const viewNotice = requestedRaw && (!requestedView || !availableViews.includes(requestedView))
     ? 'That event view is not available for this account. Showing your available events instead.'
     : '';
