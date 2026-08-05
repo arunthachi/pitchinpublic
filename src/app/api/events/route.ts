@@ -110,18 +110,28 @@ async function canCreatePitchEvents(supabase: ReturnType<typeof createSupabase>,
   return Boolean(data?.length);
 }
 
+export function buildOrganizerParticipantUpsert(eventId: string, userId: string) {
+  return {
+    values: {
+      event_id: eventId,
+      user_id: userId,
+      role: 'organizer',
+      status: 'active',
+    },
+    options: { onConflict: 'event_id,user_id' },
+  } as const;
+}
+
 async function ensureOrganizerParticipant(eventId: string, userId: string) {
   const adminSupabase = createServiceSupabase();
   if (!adminSupabase) {
     throw new Error('Event participant setup is not configured in this environment.');
   }
 
-  const { error } = await adminSupabase.from('pitch_event_participants').upsert({
-    event_id: eventId,
-    user_id: userId,
-    role: 'organizer',
-    status: 'active',
-  });
+  const participant = buildOrganizerParticipantUpsert(eventId, userId);
+  const { error } = await adminSupabase
+    .from('pitch_event_participants')
+    .upsert(participant.values, participant.options);
 
   if (error) throw error;
 }
