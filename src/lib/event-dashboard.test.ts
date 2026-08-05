@@ -1,14 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildDashboardHref,
   canManageEventInvites,
+  classifyEventRole,
   founderMatchesFilter,
   getDashboardActionCounts,
+  getDashboardPrimaryAction,
   getDeadlineState,
   getInvitationHealth,
+  getNextFeedbackSubmission,
   isEventInviteExpired,
   parseBulkFounderEmails,
   parseDashboardState,
+  parseEventListView,
   publicInviteDeliveryError,
   publicInviteError,
   submissionMatchesFilter,
@@ -48,6 +53,51 @@ test('parses only supported dashboard URL state', () => {
     filter: 'not-recorded',
   });
   assert.deepEqual(parseDashboardState('?tab=secrets&filter=all'), { tab: 'overview', filter: null });
+  assert.deepEqual(parseDashboardState('?tab=overview&filter=needs-feedback'), { tab: 'overview', filter: null });
+  assert.deepEqual(parseDashboardState('?tab=founders&filter=needs-feedback'), { tab: 'founders', filter: null });
+});
+
+test('builds one canonical dashboard URL with a matching panel anchor', () => {
+  assert.equal(
+    buildDashboardHref('/events/demo/dashboard', 'submissions', 'needs-feedback'),
+    '/events/demo/dashboard?tab=submissions&filter=needs-feedback#dashboard-panel-submissions'
+  );
+  assert.equal(
+    buildDashboardHref('/events/demo/dashboard', 'founders', 'needs-feedback'),
+    '/events/demo/dashboard?tab=founders#dashboard-panel-founders'
+  );
+  assert.equal(buildDashboardHref('/events/demo/dashboard', 'overview'), '/events/demo/dashboard#dashboard-panel-overview');
+});
+
+test('prioritizes the single organizer action by founder value', () => {
+  assert.deepEqual(
+    getDashboardPrimaryAction({ activeFounderCount: 0, activeFounderInviteCount: 0, needsFeedback: 3, notSubmitted: 2 }),
+    { kind: 'invite', label: 'Invite founders', tab: 'founders', filter: null }
+  );
+  assert.equal(getDashboardPrimaryAction({ activeFounderCount: 0, activeFounderInviteCount: 2, needsFeedback: 0, notSubmitted: 0 }).label, 'View invite status');
+  assert.equal(getDashboardPrimaryAction({ activeFounderCount: 1, activeFounderInviteCount: 0, needsFeedback: 1, notSubmitted: 2 }).label, 'Review next pitch');
+  assert.equal(getDashboardPrimaryAction({ activeFounderCount: 1, activeFounderInviteCount: 0, needsFeedback: 0, notSubmitted: 2 }).label, 'Follow up with 2 founders');
+  assert.equal(getDashboardPrimaryAction({ activeFounderCount: 1, activeFounderInviteCount: 0, needsFeedback: 0, notSubmitted: 0 }).label, 'View submissions');
+});
+
+test('chooses the oldest uncovered submission with a stable public-id tie break', () => {
+  const next = getNextFeedbackSubmission([
+    { submitted_at: '2026-08-02T10:00:00Z', pitch_id: 'third', pitch: { public_id: 'p_cccccccccccc', feedback: [] } },
+    { submitted_at: '2026-08-01T10:00:00Z', pitch_id: 'second', pitch: { public_id: 'p_bbbbbbbbbbbb', feedback: [] } },
+    { submitted_at: '2026-08-01T10:00:00Z', pitch_id: 'first', pitch: { public_id: 'p_aaaaaaaaaaaa', feedback: [] } },
+    { submitted_at: '2026-07-01T10:00:00Z', pitch_id: 'covered', pitch: { public_id: 'p_zzzzzzzzzzzz', feedback: [{}] } },
+  ]);
+  assert.equal(next?.pitch_id, 'first');
+});
+
+test('classifies event workspaces and accepts only supported event views', () => {
+  assert.equal(classifyEventRole('founder'), 'joined');
+  assert.equal(classifyEventRole('organizer'), 'managed');
+  assert.equal(classifyEventRole('admin'), 'managed');
+  assert.equal(classifyEventRole('coach'), 'team');
+  assert.equal(classifyEventRole('judge'), 'team');
+  assert.equal(parseEventListView('?view=managed'), 'managed');
+  assert.equal(parseEventListView('?view=unknown'), null);
 });
 
 test('formats deadline states without hiding passed deadlines', () => {

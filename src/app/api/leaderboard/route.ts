@@ -35,6 +35,17 @@ export const dynamic = 'force-dynamic';
  * }
  */
 export async function GET(request: NextRequest) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({
+      success: true,
+      leaderboard: [],
+      total: 0,
+      limit: 20,
+      offset: 0,
+      type: new URL(request.url).searchParams.get('type') || 'streaks',
+    });
+  }
+
   try {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',

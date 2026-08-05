@@ -649,7 +649,7 @@ export default function AdminPage() {
               Refresh
             </button>
             <Link href="/" className="btn-glass inline-flex items-center gap-2 rounded-full px-4 py-3 font-heading font-bold">
-              Founder app
+              Feed
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

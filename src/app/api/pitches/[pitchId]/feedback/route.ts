@@ -6,6 +6,7 @@ import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import {
   reviewerRoleLabel,
 } from '@/lib/review-marketplace-server';
+import { isPublicPitchId, isUuidLike } from '@/lib/public-routes';
 
 /**
  * POST /api/pitches/[pitchId]/feedback
@@ -46,6 +47,7 @@ const feedbackSchema = z.object({
     presentation: z.number().min(1).max(10),
   }).optional(),
   notes: z.string().max(2000).optional(),
+  eventSlug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
 }).superRefine((value, ctx) => {
   if (!value.signal && !value.signals?.length) {
     ctx.addIssue({
@@ -165,7 +167,13 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
 
     // Accept the stable public pitch identifier while retaining UUID compatibility
     // for existing clients during rollout.
-    const pitchLookupColumn = params.pitchId.startsWith('p_') ? 'public_id' : 'id';
+    if (!isPublicPitchId(params.pitchId) && !isUuidLike(params.pitchId)) {
+      return NextResponse.json(
+        { success: false, error: 'Pitch not found' },
+        { status: 404, headers: formatRateLimitHeaders(result) }
+      );
+    }
+    const pitchLookupColumn = isPublicPitchId(params.pitchId) ? 'public_id' : 'id';
     const { data: pitch, error: pitchError } = await supabase
       .from('pitches')
       .select('id,user_id,public_id')
@@ -219,6 +227,53 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
 
     const feedbackData = validation.data;
     const signals = normalizedSignals(feedbackData);
+
+    if (feedbackData.eventSlug) {
+      const { data: event, error: eventError } = await supabase
+        .from('pitch_events')
+        .select('id,organizer_id')
+        .eq('slug', feedbackData.eventSlug)
+        .maybeSingle();
+
+      if (eventError || !event) {
+        return NextResponse.json(
+          { success: false, error: 'Event feedback access is no longer available.', code: 'event_not_found' },
+          { status: 404, headers: formatRateLimitHeaders(result) }
+        );
+      }
+
+      const { data: participant } = await supabase
+        .from('pitch_event_participants')
+        .select('role,status')
+        .eq('event_id', event.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const teamRoles = new Set(['organizer', 'admin', 'coach', 'mentor', 'judge']);
+      const hasTeamAccess = event.organizer_id === user.id || (
+        participant?.status === 'active' && teamRoles.has(participant.role || '')
+      );
+
+      if (!hasTeamAccess) {
+        return NextResponse.json(
+          { success: false, error: 'Active event-team access is required.', code: 'event_team_access_required' },
+          { status: 403, headers: formatRateLimitHeaders(result) }
+        );
+      }
+
+      const { data: eventSubmission } = await supabase
+        .from('pitch_event_submissions')
+        .select('id')
+        .eq('event_id', event.id)
+        .eq('pitch_id', pitch.id)
+        .maybeSingle();
+
+      if (!eventSubmission) {
+        return NextResponse.json(
+          { success: false, error: 'This pitch was not submitted to that event.', code: 'wrong_event_pitch' },
+          { status: 403, headers: formatRateLimitHeaders(result) }
+        );
+      }
+    }
 
     const idempotencyHeader = request.headers.get('idempotency-key');
     const parsedIdempotencyKey = idempotencyHeader

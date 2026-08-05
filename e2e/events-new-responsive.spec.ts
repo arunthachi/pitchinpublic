@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
   captureBrowserErrors,
   expectNoDocumentHorizontalOverflow,
@@ -26,41 +26,8 @@ const organizerViewports = [
   { width: 1440, height: 900 },
 ] as const;
 
-const LONG_EMAIL = 'organizer-with-an-intentionally-long-mobile-regression-address@founders-community.example';
-const LONG_ROLE = 'Organizer enabled for regional founder-program administration';
-
-async function expectContained(value: Locator, container: Locator, context: string) {
-  const [valueBox, containerBox, scrollMetrics] = await Promise.all([
-    value.boundingBox(),
-    container.boundingBox(),
-    value.evaluate((element) => ({ scrollWidth: element.scrollWidth, clientWidth: element.clientWidth })),
-  ]);
-
-  expect(valueBox, `${context} value has no layout box`).not.toBeNull();
-  expect(containerBox, `${context} container has no layout box`).not.toBeNull();
-  expect(scrollMetrics.scrollWidth, `${context} value does not wrap within its own box`).toBeLessThanOrEqual(
-    scrollMetrics.clientWidth + 1
-  );
-
-  if (valueBox && containerBox) {
-    expect(valueBox.x, `${context} escapes the container's left edge`).toBeGreaterThanOrEqual(containerBox.x - 1);
-    expect(valueBox.x + valueBox.width, `${context} escapes the container's right edge`).toBeLessThanOrEqual(
-      containerBox.x + containerBox.width + 1
-    );
-  }
-}
-
-function boxesOverlap(a: { x: number; y: number; width: number; height: number }, b: typeof a) {
-  return !(
-    a.x + a.width <= b.x + 1 ||
-    b.x + b.width <= a.x + 1 ||
-    a.y + a.height <= b.y + 1 ||
-    b.y + b.height <= a.y + 1
-  );
-}
-
 for (const viewport of organizerViewports) {
-  test(`organizer account long values stay contained at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`organizer create form stays minimal at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     test.skip(
       !hasOrganizerStorageState,
       'Set PLAYWRIGHT_ORGANIZER_STORAGE_STATE to an uncommitted authenticated organizer fixture to run this test.'
@@ -69,48 +36,38 @@ for (const viewport of organizerViewports) {
     const context = `/events/new?organizer=accepted at ${viewport.width}x${viewport.height}`;
     const browserErrors = captureBrowserErrors(page);
     await page.setViewportSize(viewport);
-    await page.addInitScript(
-      ({ email }) => {
-        window.sessionStorage.setItem(
-          'pip.organizer-invite-accepted',
-          JSON.stringify({ email, organizationName: 'International Founder Community and Innovation Program' })
-        );
-      },
-      { email: LONG_EMAIL }
-    );
-
     const response = await page.goto('/events/new?organizer=accepted', { waitUntil: 'domcontentloaded' });
     expect(response?.status(), `${context} returned an HTTP error`).toBeLessThan(400);
     await expect(
-      page.getByRole('heading', { level: 1, name: /Create the room founders practice toward/i }),
+      page.getByRole('heading', { level: 1, name: 'Create event' }),
       `${context} did not reach the authorized organizer form; verify the fixture's role and origin`
     ).toBeVisible({ timeout: 15_000 });
 
-    const signedInLabel = page.getByText('Signed in', { exact: true });
-    const roleLabel = page.getByText('Role', { exact: true });
-    const signedInCell = signedInLabel.locator('..');
-    const roleCell = roleLabel.locator('..');
-    const signedInValue = signedInCell.locator('p').nth(1);
-    const roleValue = roleCell.locator('p').nth(1);
+    await expect(page.getByLabel('Event name')).toBeVisible();
+    await expect(page.getByLabel('Pitch day')).toBeVisible();
+    await expect(page.getByLabel('Founder emails (optional)')).toBeVisible();
+    const advanced = page.getByRole('button', { name: 'Advanced settings' });
+    await expect(advanced).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByLabel('Description')).toBeHidden();
+    await expect(page.getByText('Pitch Hour', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Reviews in each queue', { exact: true })).toHaveCount(0);
 
-    // Mutating only the visible values makes the CSS regression deterministic
-    // without forging an auth token or requiring a specially named test user.
-    await signedInValue.evaluate((element, value) => {
-      element.textContent = value;
-    }, LONG_EMAIL);
-    await roleValue.evaluate((element, value) => {
-      element.textContent = value;
-    }, LONG_ROLE);
+    await advanced.click();
+    await page.getByLabel('Description').fill('Keep this value while advanced settings close.');
+    await advanced.focus();
+    await page.keyboard.press('Escape');
+    await expect(advanced).toBeFocused();
+    await expect(advanced).toHaveAttribute('aria-expanded', 'false');
+    await advanced.click();
+    await expect(page.getByLabel('Description')).toHaveValue('Keep this value while advanced settings close.');
+    await advanced.click();
 
     await settleResponsiveLayout(page);
-    await expectContained(signedInValue, signedInCell, `${context} signed-in value`);
-    await expectContained(roleValue, roleCell, `${context} role value`);
-
-    const [signedInBox, roleBox] = await Promise.all([signedInCell.boundingBox(), roleCell.boundingBox()]);
-    expect(signedInBox, `${context} signed-in cell has no layout box`).not.toBeNull();
-    expect(roleBox, `${context} role cell has no layout box`).not.toBeNull();
-    if (signedInBox && roleBox) {
-      expect(boxesOverlap(signedInBox, roleBox), `${context} organizer account cells overlap`).toBe(false);
+    if (viewport.width === 390 && viewport.height === 844) {
+      const createButton = page.getByRole('button', { name: 'Create event' });
+      const box = await createButton.boundingBox();
+      expect(box, `${context} create button has no layout box`).not.toBeNull();
+      if (box) expect(box.y + box.height, `${context} create action is below the first viewport`).toBeLessThanOrEqual(viewport.height + 1);
     }
 
     await expectNoDocumentHorizontalOverflow(page, context);

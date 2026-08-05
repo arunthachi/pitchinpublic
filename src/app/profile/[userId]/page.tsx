@@ -5,13 +5,11 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
   ExternalLink,
   Flame,
   Globe,
   Grid3X3,
   Linkedin,
-  LogOut,
   MessageSquareText,
   Play,
   Sparkles,
@@ -31,6 +29,8 @@ import { addUtcDays, startOfUtcDay, toUtcDateKey } from '@/lib/momentum';
 import { isUuidLike, pitchPath } from '@/lib/public-routes';
 import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
 import { SignInModal } from '@/components/SignInModal';
+import { ActionPageNav } from '@/components/ActionPageNav';
+import { destination } from '@/lib/app-navigation';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
 
@@ -303,50 +303,27 @@ export default function UserProfilePage() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-black px-4 text-center">
         <p className="text-slate-300">{error || 'User not found'}</p>
-        <button
-          onClick={() => router.back()}
+        <Link
+          href="/"
           className="rounded-lg bg-neon-cyan px-4 py-2 font-semibold text-slate-950"
         >
-          Go back
-        </button>
+          Back to feed
+        </Link>
       </div>
     );
   }
 
   return (
     <div className="min-h-dvh bg-black text-white">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/80 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-300 transition hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </button>
-          <p className="font-heading text-sm font-bold uppercase tracking-[0.2em] text-slate-400">
-            Founder portfolio
-          </p>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-300 transition hover:text-white"
-            >
-              Practice
-            </Link>
-            {isOwnProfile && (
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-2 rounded-full border border-roast/30 bg-roast/10 px-3 py-2 text-sm font-semibold text-roast transition hover:border-roast/60 hover:bg-roast/15 hover:text-red-300"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Log out</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+      <ActionPageNav
+        links={isOwnProfile ? [destination('feed'), destination('myPitches', true)] : [destination('feed')]}
+        account={isOwnProfile ? {
+          email: currentUser?.email,
+          profileHref: '/me',
+          onSignOut: handleSignOut,
+        } : undefined}
+        ariaLabel="Profile navigation"
+      />
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
         <section className="glass-panel overflow-hidden rounded-[2rem]">

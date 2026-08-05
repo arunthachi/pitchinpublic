@@ -14,6 +14,8 @@ import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 interface FullScreenVideoFeedProps {
   pitches: LegacyPitch[];
   isLoading?: boolean;
+  selectionRequest?: { publicPitchId: string; nonce: number } | null;
+  onPitchSelectionComplete?: (publicPitchId: string, nonce: number) => void;
   reviewRequest?: { publicPitchId: string; nonce: number } | null;
   onAssignedReviewComplete?: (publicPitchId: string) => Promise<void> | void;
   onReviewNext?: () => void;
@@ -146,6 +148,8 @@ function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
 export function FullScreenVideoFeed({
   pitches,
   isLoading = false,
+  selectionRequest = null,
+  onPitchSelectionComplete,
   reviewRequest = null,
   onAssignedReviewComplete,
   onReviewNext,
@@ -170,6 +174,7 @@ export function FullScreenVideoFeed({
   const [reviewComplete, setReviewComplete] = useState(false);
   const wheelLockRef = useRef(false);
   const handledReviewNonceRef = useRef<number | null>(null);
+  const handledSelectionNonceRef = useRef<number | null>(null);
   const feedbackSubmissionKeyRef = useRef<string | null>(null);
   const feedbackPitchRef = useRef<{ id: string; publicId?: string } | null>(null);
   const reactionBurstTimeoutRef = useRef<number | null>(null);
@@ -215,6 +220,23 @@ export function FullScreenVideoFeed({
   React.useEffect(() => {
     setLocalPitches(pitches);
   }, [pitches]);
+
+  useEffect(() => {
+    if (!selectionRequest) return;
+    if (handledSelectionNonceRef.current === selectionRequest.nonce) return;
+    const requestedIndex = localPitches.findIndex(
+      (pitch) => pitch.publicId === selectionRequest.publicPitchId
+    );
+    if (requestedIndex < 0) return;
+
+    handledSelectionNonceRef.current = selectionRequest.nonce;
+    setCurrentIndex((previousIndex) => {
+      setDirection(requestedIndex >= previousIndex ? 'down' : 'up');
+      return requestedIndex;
+    });
+    setFeedbackListOpen(false);
+    onPitchSelectionComplete?.(selectionRequest.publicPitchId, selectionRequest.nonce);
+  }, [localPitches, onPitchSelectionComplete, selectionRequest]);
 
   useEffect(() => {
     if (!reviewRequest) return;

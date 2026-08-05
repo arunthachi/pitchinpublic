@@ -28,6 +28,7 @@ import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/
 import { normalizeLegacyFeedback, normalizeReviewQueue } from '@/lib/review-marketplace';
 import { ReviewQueuePanel } from '@/components/ReviewQueuePanel';
 import type { ReviewQueueSummary } from '@/types';
+import { isPublicPitchId } from '@/lib/public-routes';
 
 // Lazy load modal components (not needed on initial page load)
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
@@ -237,6 +238,13 @@ function HomeContent() {
   const [legacyPitches, setLegacyPitches] = useState<LegacyPitch[]>([]);
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueSummary | null>(null);
   const [reviewRequest, setReviewRequest] = useState<{ publicPitchId: string; nonce: number } | null>(null);
+  const [selectionRequest, setSelectionRequest] = useState<{ publicPitchId: string; nonce: number } | null>(null);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [selectionNotice, setSelectionNotice] = useState<string | null>(null);
+  const [selectionLoading, setSelectionLoading] = useState(false);
+  const requestedPitchIdRef = useRef<string | null>(null);
+  const handledSelectionQueryRef = useRef<string | null>(null);
+  const exactPitchRequestsRef = useRef(new Map<string, Promise<LegacyPitch>>());
   const [reviewSelectionError, setReviewSelectionError] = useState<string | null>(null);
   const [pitchesLoading, setPitchesLoading] = useState(true);
   const [currentPitch, setCurrentPitch] = useState<LegacyPitch | null>(null);
@@ -305,7 +313,13 @@ function HomeContent() {
         : data.pitches;
       const converted = visiblePitches.map(convertApiPitch);
 
-      setLegacyPitches(converted);
+      setLegacyPitches((current) => {
+        const requested = requestedPitchIdRef.current
+          ? current.find((pitch) => pitch.publicId === requestedPitchIdRef.current)
+          : null;
+        if (!requested) return converted;
+        return [requested, ...converted.filter((pitch: LegacyPitch) => pitch.publicId !== requested.publicId)];
+      });
       setCurrentPitch((current) => current ?? converted[0] ?? null);
     } catch (error) {
       console.error('Failed to fetch pitches:', error);
@@ -339,33 +353,52 @@ function HomeContent() {
     }
   }, [reviewerMode, user]);
 
+  const resolveExactPitch = useCallback(async (publicPitchId: string) => {
+    const existing = legacyPitches.find((pitch) => pitch.publicId === publicPitchId);
+    if (existing) return existing;
+
+    const pending = exactPitchRequestsRef.current.get(publicPitchId);
+    if (pending) return pending;
+
+    const request = (async () => {
+      const response = await fetch(`/api/pitches?publicId=${encodeURIComponent(publicPitchId)}&limit=1`, {
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.pitches?.[0]) {
+        throw new Error(payload.error || 'This pitch is not available.');
+      }
+      const selectedPitch = convertApiPitch(payload.pitches[0]);
+      if (selectedPitch.publicId !== publicPitchId) {
+        throw new Error('The requested pitch is not available.');
+      }
+      setLegacyPitches((current) => [
+        selectedPitch,
+        ...current.filter((pitch) => pitch.publicId !== publicPitchId),
+      ]);
+      return selectedPitch;
+    })();
+
+    exactPitchRequestsRef.current.set(publicPitchId, request);
+    try {
+      return await request;
+    } finally {
+      exactPitchRequestsRef.current.delete(publicPitchId);
+    }
+  }, [convertApiPitch, legacyPitches]);
+
   const handleSelectReviewPitch = useCallback(async (publicPitchId: string) => {
     setReviewSelectionError(null);
-    let selectedPitch = legacyPitches.find((pitch) => pitch.publicId === publicPitchId) || null;
-
-    if (!selectedPitch) {
-      try {
-        const response = await fetch(`/api/pitches?publicId=${encodeURIComponent(publicPitchId)}&limit=1`, {
-          cache: 'no-store',
-        });
-        const payload = await response.json();
-        if (!response.ok || !payload.pitches?.[0]) {
-          throw new Error(payload.error || 'This assigned pitch is not available.');
-        }
-        selectedPitch = convertApiPitch(payload.pitches[0]);
-        setLegacyPitches((current) => [
-          selectedPitch as LegacyPitch,
-          ...current.filter((pitch) => pitch.publicId !== publicPitchId),
-        ]);
-      } catch (error) {
-        console.error('Failed to open assigned review:', error);
-        setReviewSelectionError('This review could not be opened. Refresh the queue and try again.');
-        return;
-      }
+    try {
+      await resolveExactPitch(publicPitchId);
+    } catch (error) {
+      console.error('Failed to open assigned review:', error);
+      setReviewSelectionError('This review could not be opened. Refresh the queue and try again.');
+      return;
     }
 
     setReviewRequest({ publicPitchId, nonce: Date.now() });
-  }, [convertApiPitch, legacyPitches]);
+  }, [resolveExactPitch]);
 
   const handleAssignedReviewComplete = useCallback(async () => {
     await fetchReviewQueue();
@@ -521,6 +554,74 @@ function HomeContent() {
     window.localStorage.setItem(APP_MODE_KEY, mode);
     setReviewerMode(mode === 'reviewer');
   }, [founderAccess, reviewerAccess]);
+
+  const removePitchHandoffParams = useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('pitch');
+    next.delete('mode');
+    const query = next.toString();
+    router.replace(query ? `/?${query}` : '/', { scroll: false });
+  }, [router, searchParams]);
+
+  const handlePitchSelectionComplete = useCallback((publicPitchId: string, nonce: number) => {
+    if (selectionRequest?.publicPitchId !== publicPitchId || selectionRequest.nonce !== nonce) return;
+    handledSelectionQueryRef.current = publicPitchId;
+    requestedPitchIdRef.current = null;
+    setSelectionLoading(false);
+    setSelectionError(null);
+    setSelectionNotice('Showing your pitch in the founder feed.');
+    removePitchHandoffParams();
+  }, [removePitchHandoffParams, selectionRequest]);
+
+  useEffect(() => {
+    if (loading || !accessCheckComplete || !user) return;
+    const publicPitchId = searchParams.get('pitch');
+    if (!publicPitchId || handledSelectionQueryRef.current === publicPitchId) return;
+
+    if (!isPublicPitchId(publicPitchId)) {
+      handledSelectionQueryRef.current = publicPitchId;
+      removePitchHandoffParams();
+      return;
+    }
+
+    const requestedMode = searchParams.get('mode');
+    if (requestedMode === 'founder' && reviewerMode) {
+      if (!founderAccess) {
+        setSelectionError('Founder feed access is not available for this account.');
+        return;
+      }
+      switchAppMode('founder');
+      setSelectionNotice('Showing founder feed.');
+      return;
+    }
+
+    if (selectionLoading || selectionError) return;
+    requestedPitchIdRef.current = publicPitchId;
+    setSelectionLoading(true);
+    setSelectionNotice(null);
+    void resolveExactPitch(publicPitchId)
+      .then(() => {
+        setSelectionRequest({ publicPitchId, nonce: Date.now() });
+      })
+      .catch((error) => {
+        console.error('Failed to open requested pitch:', error);
+        requestedPitchIdRef.current = null;
+        setSelectionLoading(false);
+        setSelectionError('That pitch is not available right now. You can retry or continue in the feed.');
+      });
+  }, [
+    accessCheckComplete,
+    founderAccess,
+    loading,
+    removePitchHandoffParams,
+    resolveExactPitch,
+    reviewerMode,
+    searchParams,
+    selectionError,
+    selectionLoading,
+    switchAppMode,
+    user,
+  ]);
 
   if ((loading && isGuest && authPending) || (!isGuest && !accessCheckComplete)) {
     return (
@@ -744,6 +845,8 @@ function HomeContent() {
             <FullScreenVideoFeed
               pitches={legacyPitches}
               isLoading={pitchesLoading}
+              selectionRequest={selectionRequest}
+              onPitchSelectionComplete={handlePitchSelectionComplete}
               reviewRequest={reviewRequest}
               onAssignedReviewComplete={handleAssignedReviewComplete}
               onReviewNext={handleReviewNext}
@@ -814,6 +917,8 @@ function HomeContent() {
           <FullScreenVideoFeed
             pitches={legacyPitches}
             isLoading={pitchesLoading}
+            selectionRequest={selectionRequest}
+            onPitchSelectionComplete={handlePitchSelectionComplete}
             reviewRequest={reviewRequest}
             onAssignedReviewComplete={handleAssignedReviewComplete}
             onReviewNext={handleReviewNext}
@@ -840,6 +945,45 @@ function HomeContent() {
           {reviewSelectionError}
         </div>
       ) : null}
+
+      {selectionLoading ? (
+        <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+1rem)] z-[100] mx-auto max-w-sm rounded-2xl border border-neon-cyan/30 bg-slate-950/95 p-3 text-center text-sm font-semibold text-slate-100 shadow-2xl backdrop-blur-xl" role="status">
+          Opening your pitch...
+        </div>
+      ) : null}
+
+      {selectionError ? (
+        <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+1rem)] z-[100] mx-auto max-w-md rounded-2xl border border-roast/35 bg-[#241519]/95 p-4 text-sm text-red-100 shadow-2xl backdrop-blur-xl" role="alert">
+          <p className="font-semibold">{selectionError}</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                handledSelectionQueryRef.current = null;
+                setSelectionError(null);
+              }}
+              className="min-h-11 rounded-full bg-white px-4 font-bold text-slate-950"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handledSelectionQueryRef.current = searchParams.get('pitch');
+                requestedPitchIdRef.current = null;
+                setSelectionError(null);
+                setSelectionRequest(null);
+                removePitchHandoffParams();
+              }}
+              className="min-h-11 rounded-full border border-white/15 px-4 font-bold text-white"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="sr-only" aria-live="polite">{selectionNotice}</div>
 
       {/* Sign In Modal */}
       <SignInModal

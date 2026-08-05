@@ -22,6 +22,8 @@ import {
   Video,
 } from 'lucide-react';
 import type { EventOutcomeFounder, EventOutcomeReport } from '@/lib/event-outcomes';
+import { ActionPageNav } from '@/components/ActionPageNav';
+import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 
 type LoadState =
   | { kind: 'loading' }
@@ -108,18 +110,12 @@ export default function EventOutcomeReportPage() {
 
   return (
     <div className="outcome-report min-h-dvh bg-background text-white">
+      <ActionPageNav
+        links={[eventDashboardDestination(slug), destination('myEvents'), destination('feed')]}
+        ariaLabel="Report navigation"
+        className="no-print"
+      />
       <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8">
-        <nav className="no-print mb-5 flex items-center justify-between gap-3" aria-label="Report navigation">
-          <Link
-            href={`/events/${encodeURIComponent(slug)}/dashboard`}
-            className="btn-glass inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Dashboard
-          </Link>
-          <span className="text-xs font-bold uppercase text-slate-500">Private organizer report</span>
-        </nav>
-
         <header className="outcome-print-section border-b border-white/10 pb-6 sm:pb-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">

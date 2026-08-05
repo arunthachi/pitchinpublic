@@ -15,10 +15,14 @@ test('returns a safe response when leaderboard storage is not configured', async
     const response = await GET(new NextRequest('https://app.test/api/leaderboard'));
     const body = await response.json();
 
-    assert.equal(response.status, 500);
+    assert.equal(response.status, 200);
     assert.deepEqual(body, {
-      success: false,
-      error: 'Failed to fetch leaderboard',
+      success: true,
+      leaderboard: [],
+      total: 0,
+      limit: 20,
+      offset: 0,
+      type: 'streaks',
     });
   } finally {
     console.error = previousConsoleError;

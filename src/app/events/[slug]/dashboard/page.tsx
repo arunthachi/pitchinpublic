@@ -26,7 +26,6 @@ import {
   Send,
   Sparkles,
   Trophy,
-  UserCircle2,
   UserPlus,
   Users,
   Video,
@@ -43,10 +42,14 @@ import { pitchPath } from '@/lib/public-routes';
 import { normalizeEventReviewCoverage } from '@/lib/review-marketplace';
 import {
   DASHBOARD_TABS,
+  PERSISTENT_DASHBOARD_TABS,
+  buildDashboardHref,
   founderMatchesFilter,
   getDashboardActionCounts,
+  getDashboardPrimaryAction,
   getDeadlineState,
   getInvitationHealth,
+  getNextFeedbackSubmission,
   parseBulkFounderEmails,
   parseDashboardState,
   submissionMatchesFilter,
@@ -56,6 +59,8 @@ import {
 import { splitEventFocuses } from '@/lib/event-settings';
 import type { EventReviewCoverage } from '@/types';
 import { EventEditDialog } from '@/components/EventEditDialog';
+import { ActionPageNav } from '@/components/ActionPageNav';
+import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLE_GROUPS = [
@@ -227,6 +232,7 @@ export default function EventDashboardPage() {
   const [createdInviteLink, setCreatedInviteLink] = useState('');
   const [saving, setSaving] = useState(false);
   const [busyAction, setBusyAction] = useState('');
+  const [createdState, setCreatedState] = useState<{ active: boolean; invited: number; failed: number }>({ active: false, invited: 0, failed: 0 });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -257,6 +263,16 @@ export default function EventDashboardPage() {
       const next = parseDashboardState(window.location.search);
       setActiveTab(next.tab);
       setActiveFilter(next.filter);
+      const params = new URLSearchParams(window.location.search);
+      setCreatedState({
+        active: params.get('created') === '1',
+        invited: Math.max(0, Number(params.get('invited') || 0)),
+        failed: Math.max(0, Number(params.get('inviteFailed') || 0)),
+      });
+      window.requestAnimationFrame(() => {
+        const target = window.location.hash ? document.getElementById(window.location.hash.slice(1)) : null;
+        target?.focus();
+      });
     };
     syncFromLocation();
     window.addEventListener('popstate', syncFromLocation);
@@ -294,6 +310,18 @@ export default function EventDashboardPage() {
     () => getDashboardActionCounts(founderSummaries, submissions),
     [founderSummaries, submissions]
   );
+  const activeFounderCount = founderRows.filter((item: any) => item.status !== 'removed').length;
+  const activeFounderInviteCount = founderInvitations.filter((item: any) => item.status !== 'revoked').length;
+  const hasFounderAccess = activeFounderCount > 0 || activeFounderInviteCount > 0;
+  const primaryAction = useMemo(
+    () => getDashboardPrimaryAction({
+      activeFounderCount,
+      activeFounderInviteCount,
+      needsFeedback: actionCounts.needsFeedback,
+      notSubmitted: actionCounts.notSubmitted,
+    }),
+    [actionCounts.needsFeedback, actionCounts.notSubmitted, activeFounderCount, activeFounderInviteCount]
+  );
   const deadlineState = useMemo(() => getDeadlineState(event?.submission_deadline), [event?.submission_deadline]);
   const filteredFounders = useMemo(
     () => founderSummaries.filter((founder) => founderMatchesFilter(founder, activeFilter)),
@@ -321,28 +349,33 @@ export default function EventDashboardPage() {
     () => sortedSubmissions.filter((submission) => submissionMatchesFilter(submission, activeFilter)),
     [activeFilter, sortedSubmissions]
   );
-  const organizerName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    user?.email?.split('@')[0] ||
-    'Organizer';
-  const organizerEmail = user?.email || '';
-  const organizerAvatar =
-    user?.user_metadata?.avatar_url ||
-    user?.user_metadata?.picture ||
-    `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(organizerName)}`;
-
+  const firstNeedsFeedbackSubmission = getNextFeedbackSubmission(submissions);
+  const firstNeedsFeedbackPath = firstNeedsFeedbackSubmission
+    ? pitchPath(firstNeedsFeedbackSubmission.pitch?.public_id, firstNeedsFeedbackSubmission.pitch_id)
+    : null;
+  const reviewNextHref = firstNeedsFeedbackPath
+    ? `${firstNeedsFeedbackPath}?feedback=1&event=${encodeURIComponent(slug)}`
+    : null;
   const setDashboardView = (tab: DashboardTab, filter: DashboardFilter | null = null) => {
-    const url = new URL(window.location.href);
-    if (tab === 'overview') url.searchParams.delete('tab');
-    else url.searchParams.set('tab', tab);
-    if (filter) url.searchParams.set('filter', filter);
-    else url.searchParams.delete('filter');
-    router.push(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+    const href = buildDashboardHref(window.location.pathname, tab, filter);
+    router.push(href, { scroll: false });
     setActiveTab(tab);
     setActiveFilter(filter);
     setActionMessage('');
     setCreatedInviteLink('');
+    window.requestAnimationFrame(() => {
+      document.getElementById(`dashboard-panel-${tab}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById(`dashboard-panel-${tab}`)?.focus();
+    });
+  };
+
+  const dismissCreatedState = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('created');
+    url.searchParams.delete('invited');
+    url.searchParams.delete('inviteFailed');
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+    setCreatedState({ active: false, invited: 0, failed: 0 });
   };
 
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
@@ -351,9 +384,9 @@ export default function EventDashboardPage() {
     const nextIndex = event.key === 'Home'
       ? 0
       : event.key === 'End'
-        ? DASHBOARD_TABS.length - 1
-        : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + DASHBOARD_TABS.length) % DASHBOARD_TABS.length;
-    const nextTab = DASHBOARD_TABS[nextIndex];
+        ? PERSISTENT_DASHBOARD_TABS.length - 1
+        : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + PERSISTENT_DASHBOARD_TABS.length) % PERSISTENT_DASHBOARD_TABS.length;
+    const nextTab = PERSISTENT_DASHBOARD_TABS[nextIndex];
     setDashboardView(nextTab);
     document.getElementById(`dashboard-tab-${nextTab}`)?.focus();
   };
@@ -501,10 +534,20 @@ export default function EventDashboardPage() {
     const results = Array.isArray(data.results) ? data.results : [];
     const firstCreated = results.find((result: any) => result.success);
     setFounderInviteEmail('');
+    const created = Number(data.created || 0);
+    const sent = Number(data.sent || 0);
+    const failed = Number(data.failed || 0);
+    const emailFailed = Number(data.emailFailed || 0);
     setActionMessage(
-      data.failed
-        ? `${data.created} founder invite${data.created === 1 ? '' : 's'} created; ${data.failed} failed. Retry the failed addresses.`
-        : `${data.created} founder invite${data.created === 1 ? '' : 's'} created and queued for delivery.`
+      failed
+        ? `${created} founder invite${created === 1 ? '' : 's'} created; ${failed} failed. Retry the failed addresses.`
+        : emailFailed
+          ? `${created} invite${created === 1 ? '' : 's'} ready, but ${emailFailed} email${emailFailed === 1 ? '' : 's'} could not be sent. Copy the invite link below.`
+          : sent
+            ? `${sent} founder invitation email${sent === 1 ? '' : 's'} sent.`
+            : created
+              ? `${created} founder invite${created === 1 ? '' : 's'} created.`
+              : 'These founders already have active event access or invitations.'
     );
     if (results.length === 1 && firstCreated) {
       setCreatedInviteLink(firstCreated.inviteUrl || '');
@@ -631,161 +674,65 @@ export default function EventDashboardPage() {
 
   return (
     <div className="min-h-dvh bg-background text-white">
+      <ActionPageNav
+        ariaLabel="Event dashboard navigation"
+        links={[
+          destination(state.canManageEvent ? 'myEvents' : 'eventWorkspaces'),
+          eventDashboardDestination(slug, true),
+          destination('feed'),
+        ]}
+        account={user ? { email: user.email, profileHref: '/me', onSignOut: handleSignOut } : undefined}
+      />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Link
-            href="/"
-            className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold text-slate-200 sm:w-auto"
-          >
-            <Video className="h-4 w-4 text-neon-cyan" />
-            Founder app
-          </Link>
-
-          <div className="glass-card flex items-center justify-between gap-3 rounded-full p-2 pl-2.5 sm:justify-end">
-            <Link href="/me" className="flex min-w-0 items-center gap-3 rounded-full pr-1 transition hover:opacity-85">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={organizerAvatar} alt="" className="h-10 w-10 shrink-0 rounded-full border border-white/15 object-cover" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-heading font-black text-white">{organizerName}</span>
-                {organizerEmail ? <span className="block truncate text-xs font-semibold text-slate-400">{organizerEmail}</span> : null}
-              </span>
-            </Link>
-            <Link
-              href="/me"
-              className="btn-glass hidden items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold text-slate-200 sm:inline-flex"
-            >
-              <UserCircle2 className="h-4 w-4" />
-              Profile
-            </Link>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold text-slate-200"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Log out</span>
-            </button>
-          </div>
-        </div>
+        {createdState.active ? (
+          <section className="mb-5 rounded-2xl border border-neon-lime/25 bg-neon-lime/10 p-4" aria-labelledby="event-created-title">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-neon-lime">Event created</p>
+                <h1 id="event-created-title" className="mt-1 font-heading text-2xl font-black">Invite founders to {event.name}</h1>
+              </div>
+              <button type="button" onClick={dismissCreatedState} className="min-h-11 rounded-full px-3 text-sm font-bold text-slate-300 hover:bg-white/10">Dismiss</button>
+            </div>
+            {createdState.invited ? <p className="mt-2 text-sm text-slate-200">{createdState.invited} founder invite{createdState.invited === 1 ? '' : 's'} sent.</p> : null}
+            {createdState.failed ? <p role="alert" className="mt-2 text-sm font-semibold text-amber-300">{createdState.failed} invite{createdState.failed === 1 ? '' : 's'} could not be sent. Retry below.</p> : null}
+            {!hasFounderAccess ? (
+              <form onSubmit={createFounderInvite} className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <label className="min-w-0 flex-1">
+                  <span className="sr-only">Founder emails</span>
+                  <input autoFocus value={founderInviteEmail} onChange={(e) => setFounderInviteEmail(e.target.value)} className="input-dark" placeholder="founder@startup.com" required />
+                </label>
+                <button disabled={saving} className="cta-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 font-black disabled:opacity-60"><UserPlus className="h-4 w-4" />Send invites</button>
+              </form>
+            ) : (
+              <Link href={`/events/${slug}`} className="cta-primary mt-4 inline-flex min-h-11 items-center justify-center rounded-full px-5 text-sm font-black">View founder page</Link>
+            )}
+          </section>
+        ) : null}
 
         <section aria-labelledby="action-dashboard-title" className="mb-5">
-          <div className="mb-4 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Needs attention</p>
-              <h1 id="action-dashboard-title" className="mt-1 font-heading text-2xl font-black text-white sm:text-3xl">{event.name}</h1>
+          <p className="text-sm font-semibold text-slate-400">Pitch day {formatDate(event.event_date)}</p>
+          <h1 id="action-dashboard-title" className="mt-1 font-heading text-3xl font-black text-white sm:text-4xl">{event.name}</h1>
+          {!createdState.active ? (
+            <div className="mt-4">
+              {primaryAction.kind === 'review' && reviewNextHref ? (
+                <Link href={reviewNextHref} className="cta-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-5 font-heading font-black sm:w-auto">{primaryAction.label}<ArrowRight className="h-5 w-5" /></Link>
+              ) : (
+                <button type="button" onClick={() => setDashboardView(primaryAction.tab, primaryAction.filter)} className="cta-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-5 font-heading font-black sm:w-auto">{primaryAction.label}<ArrowRight className="h-5 w-5" /></button>
+              )}
             </div>
-            <span className="hidden text-sm font-semibold text-slate-400 sm:block">Choose an action to open its filtered workflow.</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <ActionCard
-              icon={Video}
-              label="Not recorded"
-              value={actionCounts.notRecorded}
-              success="Everyone has recorded"
-              action="View founders"
-              urgent={actionCounts.notRecorded > 0}
-              onClick={() => setDashboardView('founders', 'not-recorded')}
-            />
-            <ActionCard
-              icon={MessageSquareText}
-              label="Needs feedback"
-              value={actionCounts.needsFeedback}
-              success="Every submission has feedback"
-              action="Review submissions"
-              urgent={actionCounts.needsFeedback > 0}
-              onClick={() => setDashboardView('submissions', 'needs-feedback')}
-            />
-            <ActionCard
-              icon={Trophy}
-              label="Missing Best Take"
-              value={actionCounts.missingBestTake}
-              success="Every founder has a Best Take"
-              action="View founders"
-              urgent={actionCounts.missingBestTake > 0}
-              onClick={() => setDashboardView('founders', 'missing-best-take')}
-            />
-            <ActionCard
-              icon={Clock3}
-              label="Submission deadline"
-              value={deadlineState.label}
-              success={deadlineState.state === 'unset' ? 'No deadline is configured' : deadlineState.label}
-              action={actionCounts.notSubmitted > 0 ? `${actionCounts.notSubmitted} not submitted` : 'View founder status'}
-              urgent={deadlineState.state === 'passed' || (deadlineState.daysRemaining !== null && deadlineState.daysRemaining <= 3)}
-              onClick={() => setDashboardView('founders', 'not-submitted')}
-            />
+          ) : null}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {actionCounts.needsFeedback > 0 && primaryAction.kind !== 'review' ? <ActionCard icon={MessageSquareText} label="Needs feedback" value={actionCounts.needsFeedback} action="Review" urgent onClick={() => setDashboardView('submissions', 'needs-feedback')} /> : null}
+            {actionCounts.notSubmitted > 0 && primaryAction.kind !== 'follow-up' ? <ActionCard icon={Clock3} label="Not submitted" value={actionCounts.notSubmitted} action="Open" urgent onClick={() => setDashboardView('founders', 'not-submitted')} /> : null}
+            {actionCounts.notRecorded > 0 ? <ActionCard icon={Video} label="Not recorded" value={actionCounts.notRecorded} action="Open" onClick={() => setDashboardView('founders', 'not-recorded')} /> : null}
           </div>
         </section>
 
-        <section className="glass-panel rounded-[2rem] p-5 sm:p-7">
-          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-            <div>
-              <div className="glass-pill mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">
-                <Sparkles className="h-4 w-4" />
-                Event room
-              </div>
-              <h2 className="font-heading text-4xl font-black leading-tight sm:text-5xl">Event details</h2>
-              <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">
-                Team workspace for invite tracking, final takes, feedback coverage, and founder announcements.
-              </p>
-              <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Sprint focus</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {focusTags.map((focus) => (
-                    <span key={focus} className="rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-3 py-1.5 text-xs font-bold text-neon-cyan">
-                      {focus}
-                    </span>
-                  ))}
-                  {!focusTags.length && <span className="text-sm text-slate-400">No focus chips set.</span>}
-                </div>
-                {event.description && <p className="mt-3 text-sm leading-6 text-slate-300">{event.description}</p>}
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              {state.canManageEvent ? (
-                <Link href={`/events/${slug}/report`} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
-                  <FileText className="h-4 w-4" />
-                  Outcome report
-                </Link>
-              ) : null}
-              {state.canManageEvent ? <EventEditDialog event={event} onSaved={handleEventSaved} /> : null}
-              <button onClick={() => copyText(roomUrl, 'event')} className="btn-glass inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold text-white">
-                <Copy className="h-4 w-4" />
-                {copied === 'event' ? 'Copied' : 'Copy room page'}
-              </button>
-              <Link href={`/events/${slug}`} className="cta-primary inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold">
-                Founder view
-                <ExternalLink className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Metric icon={Users} label="Founders" value={founderRows.length} />
-            <Metric icon={Trophy} label="Final takes" value={submissions.length} />
-            <Metric icon={MessageSquareText} label="Feedback" value={feedbackCount} />
-            <Metric icon={Video} label="Pitch length" value={formatPitchLength(event.pitch_length_seconds)} />
-            <Metric icon={CalendarDays} label="Pitch day" value={formatDate(event.event_date)} />
-          </div>
-          {event.pitch_hour_starts_at ? <PitchHourPanel event={event} /> : null}
-          <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-            {reviewCoverage ? <ReviewCoverageStrip coverage={reviewCoverage} /> : <div />}
-            {state.canManageEvent ? (
-              <button
-                type="button"
-                onClick={assignReviews}
-                disabled={busyAction === 'assign-reviews' || submissions.length === 0}
-                className="btn-glass inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-heading font-bold disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <ListChecks className="h-4 w-4 text-neon-cyan" />
-                {busyAction === 'assign-reviews' ? 'Assigning...' : 'Assign pitch reviews'}
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        <div className="mt-5 overflow-x-auto">
-          <div role="tablist" aria-label="Event dashboard sections" className="glass-card inline-flex min-w-full gap-1 rounded-full p-1 sm:min-w-0">
-            {DASHBOARD_TABS.map((tab, index) => (
+        <div className="mt-5 flex items-start justify-between gap-3">
+          <div className="overflow-x-auto">
+            <div role="tablist" aria-label="Event dashboard sections" className="inline-flex min-w-max gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1">
+            {PERSISTENT_DASHBOARD_TABS.map((tab, index) => (
               <button
                 key={tab}
                 id={`dashboard-tab-${tab}`}
@@ -803,7 +750,20 @@ export default function EventDashboardPage() {
                 {tab}
               </button>
             ))}
+            </div>
           </div>
+          <details className="relative shrink-0">
+            <summary className="btn-glass flex min-h-11 cursor-pointer list-none items-center rounded-full px-4 text-sm font-bold [&::-webkit-details-marker]:hidden">More</summary>
+            <div className="absolute right-0 z-20 mt-2 grid w-64 gap-1 rounded-xl border border-white/10 bg-slate-950 p-2 shadow-2xl">
+              <button type="button" onClick={() => setDashboardView('team')} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-white/10">Team</button>
+              <button type="button" onClick={() => setDashboardView('announcements')} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-white/10">Announcements</button>
+              {state.canManageEvent ? <EventEditDialog event={event} onSaved={handleEventSaved} /> : null}
+              {state.canManageEvent ? <Link href={`/events/${slug}/report`} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-bold hover:bg-white/10">Outcome report</Link> : null}
+              <button type="button" onClick={() => copyText(roomUrl, 'event')} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-white/10">{copied === 'event' ? 'Copied' : 'Copy founder page'}</button>
+              <Link href={`/events/${slug}`} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-bold hover:bg-white/10">View founder page</Link>
+              {state.canManageEvent && submissions.length ? <button type="button" onClick={assignReviews} disabled={busyAction === 'assign-reviews'} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-white/10 disabled:opacity-50">{busyAction === 'assign-reviews' ? 'Assigning...' : 'Assign pitch reviews'}</button> : null}
+            </div>
+          </details>
         </div>
 
         {actionMessage && (
@@ -844,85 +804,16 @@ export default function EventDashboardPage() {
           className="mt-5 outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
         >
           {activeTab === 'overview' && (
-            <div className="space-y-5">
-              {state.canManageEvent ? (
-                <SetupChecklist
-                  event={event}
-                  hasFounderInvite={founderRows.length > 0 || invitations.some((item: any) => item.role === 'founder' && item.status !== 'revoked')}
-                  hasReviewerInvite={
-                    teamRows.some((item: any) => ['coach', 'mentor', 'judge'].includes(item.role) && item.status === 'active')
-                    || invitations.some((item: any) => ['coach', 'mentor', 'judge'].includes(item.role) && item.status !== 'revoked')
-                  }
-                  hasAnnouncement={announcements.length > 0}
-                  onNavigate={openSetupTab}
-                />
-              ) : null}
-              <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
-                <Panel title="Founder progress" eyebrow="Overview">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                  <StatusTile label="Joined" value={founderSummaries.length} />
-                  <StatusTile label="Recorded" value={recordedCount} />
-                  <StatusTile label="Submitted" value={submittedCount} />
-                  <StatusTile label="With feedback" value={feedbackedCount} />
-                  <StatusTile label="Best takes" value={bestTakeCount} />
+            <div>
+              <h2 className="font-heading text-2xl font-black">Founder progress</h2>
+              <p className="mt-2 text-sm text-slate-400">{submittedCount} of {founderSummaries.length} founders submitted · {feedbackedCount} received feedback</p>
+              {founderSummaries.length ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {founderSummaries.slice(0, 6).map((founder) => <FounderRow key={founder.participant.id} founder={founder} />)}
                 </div>
-                <div className="mt-5 space-y-3">
-                  {founderSummaries.slice(0, 5).map((founder) => (
-                    <FounderRow key={founder.participant.id} founder={founder} />
-                  ))}
-                  {!founderSummaries.length && <EmptyState text="No founders have joined yet. Create founder invites from the Founders tab." />}
-                </div>
-                </Panel>
-
-                <div className="grid gap-5">
-                  <Panel title="Invitation health" eyebrow="Access pulse">
-                    <InvitationHealthSummary invitations={invitations} />
-                  </Panel>
-
-                <Panel title="Founder experience" eyebrow="Preview">
-                  <div className="space-y-3 text-sm text-slate-300">
-                    {['Join with the event invite', 'Record or upload an eligible take', 'Submit and mark a Best Take'].map((item) => (
-                      <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3">
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-neon-lime" />
-                        <span className="font-semibold">{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <Link href={`/events/${slug}`} className="cta-primary mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 py-3 font-heading font-bold">
-                    <Eye className="h-4 w-4" />
-                    Preview founder room
-                  </Link>
-                </Panel>
-
-                <Panel title="Repeated signals" eyebrow="Feedback pulse">
-                  {repeatedSignals.length ? (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        {repeatedSignals.map((signal) => (
-                          <span key={signal.label} className="rounded-full border border-neon-cyan/20 bg-neon-cyan/10 px-3 py-1 text-sm font-bold text-neon-cyan">
-                            {signal.label} · {signal.count}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-sm leading-6 text-slate-400">
-                        The most repeated notes show up here so organizers can nudge the room toward the next improvement.
-                      </p>
-                    </div>
-                  ) : (
-                    <EmptyState text="Repeated signals will appear once multiple founders get the same feedback note." />
-                  )}
-                </Panel>
-
-                <Panel title="Latest announcements" eyebrow="Comms">
-                  <div className="mb-4 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Suggested founder nudge</p>
-                    <h3 className="mt-2 font-heading text-lg font-bold text-white">{practicePrompt.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">{practicePrompt.prompt}</p>
-                  </div>
-                  <AnnouncementList announcements={announcements.slice(0, 4)} />
-                </Panel>
-                </div>
-              </div>
+              ) : (
+                <button type="button" onClick={() => setDashboardView('founders')} className="cta-primary mt-4 inline-flex min-h-11 items-center rounded-full px-5 text-sm font-black">Invite founders</button>
+              )}
             </div>
           )}
 
@@ -996,15 +887,10 @@ export default function EventDashboardPage() {
 
           {activeTab === 'submissions' && (
             <Panel title="Submission review" eyebrow="Team visible">
-              <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatusTile label="Final takes" value={sortedSubmissions.length} />
-                <StatusTile label="Ready for review" value={submittedCount} />
-                <StatusTile label="Feedback items" value={feedbackCount} />
-                <StatusTile label="Best takes" value={bestTakeCount} />
-              </div>
+              <p className="mb-4 text-sm text-slate-400">{sortedSubmissions.length} submitted · {actionCounts.needsFeedback} need feedback</p>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filteredSubmissions.map((submission) => (
-                  <SubmissionCard key={submission.id} submission={submission} />
+                  <SubmissionCard key={submission.id} submission={submission} eventSlug={slug} />
                 ))}
                 {!filteredSubmissions.length && (
                   <EmptyState text={activeFilter ? 'No submissions match this action. Clear the filter to view every final take.' : 'No final takes submitted yet.'} />
@@ -1272,7 +1158,6 @@ function ActionCard({
   icon: Icon,
   label,
   value,
-  success,
   action,
   urgent,
   onClick,
@@ -1280,27 +1165,26 @@ function ActionCard({
   icon: LucideIcon;
   label: string;
   value: string | number;
-  success: string;
   action: string;
   urgent?: boolean;
   onClick: () => void;
 }) {
-  const isComplete = value === 0;
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group min-h-32 rounded-2xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan sm:p-4 ${
+      aria-label={`${value} ${label}. ${action}`}
+      className={`group flex min-h-20 items-center gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan ${
         urgent ? 'border-roast/30 bg-roast/10 hover:border-roast/60' : 'border-white/10 bg-white/[0.04] hover:border-neon-cyan/40'
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <Icon className={`h-5 w-5 ${urgent ? 'text-roast' : isComplete ? 'text-neon-lime' : 'text-neon-cyan'}`} />
-        <ArrowRight className="h-4 w-4 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-white" />
+      <Icon className={`h-5 w-5 shrink-0 ${urgent ? 'text-roast' : 'text-neon-cyan'}`} />
+      <div className="min-w-0 flex-1">
+        <p className="font-heading text-xl font-black leading-tight text-white">{value}</p>
+        <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">{label}</p>
       </div>
-      <p className="mt-3 font-heading text-xl font-black leading-tight text-white sm:text-2xl">{value}</p>
-      <p className="mt-1 text-xs font-black uppercase tracking-[0.1em] text-slate-400">{label}</p>
-      <p className="mt-2 text-xs font-semibold leading-4 text-slate-500">{isComplete ? success : action}</p>
+      <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-300">{action}</span>
+      <ArrowRight className="h-4 w-4 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-white" />
     </button>
   );
 }
@@ -1609,14 +1493,18 @@ function InviteRow({
   );
 }
 
-function SubmissionCard({ submission }: { submission: any }) {
+function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug: string }) {
   const readiness = readinessFromFeedback(submission.pitch?.feedback || []);
   const repeatedSignals = summarizeSignals(submission.pitch?.feedback || []).slice(0, 3);
   const takeLabel = getTakeLabelFromFields(submission.pitch || {});
+  const detailPath = pitchPath(submission.pitch?.public_id, submission.pitch_id) || '#';
+  const feedbackHref = detailPath === '#'
+    ? '#'
+    : `${detailPath}?feedback=1&event=${encodeURIComponent(eventSlug)}`;
 
   return (
     <article className="overflow-hidden rounded-3xl border border-white/10 bg-black/35">
-      <Link href={pitchPath(submission.pitch?.public_id, submission.pitch_id) || '#'} className="group relative block aspect-[9/16] bg-slate-950">
+      <Link href={detailPath} className="group relative block aspect-[9/16] bg-slate-950">
         {submission.pitch?.thumbnail_url ? (
           <img src={submission.pitch.thumbnail_url} alt={submission.pitch.hook} className="h-full w-full object-cover transition group-hover:scale-105" />
         ) : (
@@ -1668,6 +1556,13 @@ function SubmissionCard({ submission }: { submission: any }) {
         ) : (
           <p className="mt-4 text-xs text-slate-500">No repeated signal yet.</p>
         )}
+        <Link
+          href={feedbackHref}
+          aria-disabled={feedbackHref === '#' ? true : undefined}
+          className={`mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl px-4 text-sm font-black ${feedbackHref === '#' ? 'pointer-events-none bg-white/5 text-slate-500' : 'cta-primary'}`}
+        >
+          Review and give feedback
+        </Link>
       </div>
     </article>
   );
@@ -1725,36 +1620,6 @@ function ReviewCoverageStrip({ coverage }: { coverage: EventReviewCoverage }) {
           {coverage.foundersWithoutUsefulFeedback} founder{coverage.foundersWithoutUsefulFeedback === 1 ? '' : 's'} still need useful feedback.
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function PitchHourPanel({ event }: { event: any }) {
-  const startsAt = new Date(event.pitch_hour_starts_at);
-  const endsAt = event.pitch_hour_ends_at ? new Date(event.pitch_hour_ends_at) : null;
-  if (Number.isNaN(startsAt.getTime())) return null;
-
-  const date = startsAt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const start = startsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  const end = endsAt && !Number.isNaN(endsAt.getTime())
-    ? endsAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-    : null;
-
-  return (
-    <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-neon-cyan/10 text-neon-cyan">
-          <CalendarDays className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-neon-cyan">Pitch Hour</p>
-          <p className="mt-1 font-heading text-base font-black text-white">{date} · {start}{end ? `-${end}` : ''}</p>
-          <p className="mt-1 text-xs text-slate-400">Use this window to create review queues and close feedback gaps together.</p>
-        </div>
-      </div>
-      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-bold text-slate-300">
-        {event.review_target || 3} reviews per queue
-      </span>
     </div>
   );
 }

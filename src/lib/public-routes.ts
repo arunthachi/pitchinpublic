@@ -11,6 +11,10 @@ export function createPublicPitchId() {
   return `p_${random}${time}`;
 }
 
+export function isPublicPitchId(value?: string | null) {
+  return Boolean(value && /^p_[a-z0-9]{12}$/.test(value));
+}
+
 export function profilePath(handle?: string | null) {
   return handle ? `/profile/${encodeURIComponent(handle)}` : null;
 }

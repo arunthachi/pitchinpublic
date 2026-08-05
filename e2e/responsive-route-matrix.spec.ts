@@ -22,7 +22,7 @@ const publicRoutes = [
   { name: 'founders', path: '/founders', heading: /Post your pitch.*Get useful feedback/i },
   { name: 'organizers', path: '/for-events', heading: /Turn your founder program into guided pitch practice/i },
   { name: 'leaderboard', path: '/leaderboard', heading: /^Leaderboard$/i },
-  { name: 'events anonymous', path: '/events', heading: /Sign in to see your event rooms/i },
+  { name: 'events anonymous', path: '/events', heading: /Sign in to see your events/i },
   { name: 'portfolio anonymous', path: '/me', heading: /Sign in to open your pitch portfolio/i },
   { name: 'notification preferences anonymous', path: '/notifications/preferences', heading: /Sign in to manage notifications/i },
   { name: 'founder invitation', path: '/founder/invite', heading: /You’re invited to Pitch in Public/i },

@@ -79,12 +79,12 @@ export function SidebarNav({
     : [
         { label: 'Practice', icon: Video, active: true },
         { label: 'My pitches', icon: UserRound, href: '/me' },
-        { label: 'Pitch rooms', icon: CalendarDays, href: '/events' },
+        { label: 'Pitch rooms', icon: CalendarDays, href: '/events?view=joined#events-joined' },
         { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
       ];
   const organizerItems = canManageEvents && !reviewerMode
     ? [
-        { label: 'My rooms', icon: CalendarDays, href: '/events' },
+        { label: 'My events', icon: CalendarDays, href: '/events?view=managed#events-managed' },
         { label: 'Create event', icon: CalendarDays, href: '/events/new' },
       ]
     : [];

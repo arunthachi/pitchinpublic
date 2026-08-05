@@ -9,6 +9,18 @@ const submissionSchema = z.object({
   message: 'Choose a valid pitch before submitting.',
 });
 
+export function buildSubmissionSuccessResponse(
+  submission: Record<string, unknown>,
+  pitch: { id: string; public_id?: string | null },
+) {
+  return {
+    success: true,
+    submission,
+    pitchId: pitch.id,
+    publicId: pitch.public_id || null,
+  };
+}
+
 function createSupabase(request: NextRequest) {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -69,7 +81,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
   let pitchQuery = supabase
     .from('pitches')
-    .select('id, user_id')
+    .select('id, public_id, user_id')
     .eq('user_id', user.id)
     .is('deleted_at', null);
 
@@ -115,7 +127,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({ success: false, error: 'Could not submit final take' }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, submission });
+  return NextResponse.json(buildSubmissionSuccessResponse(submission, pitch));
 }
 
 export async function DELETE(request: NextRequest, props: { params: Promise<{ slug: string }> }) {

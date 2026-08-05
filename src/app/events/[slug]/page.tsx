@@ -1,32 +1,31 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { ArrowRight, Bell, CalendarDays, CheckCircle2, Clock, Lock, LogOut, Mail, Play, Sparkles, Target, Trophy, Video } from 'lucide-react';
+import { ArrowRight, CalendarDays, Clock, Lock, LogOut, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatPitchLength } from '@/lib/duration';
 import { SignInModal } from '@/components/SignInModal';
+import { ActionPageNav } from '@/components/ActionPageNav';
+import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 
-function daysUntil(value: string) {
-  const target = new Date(`${value}T12:00:00`);
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
-  return Math.max(0, Math.ceil((target.getTime() - today.getTime()) / 86400000));
+interface PendingSubmission {
+  id: string;
+  publicId: string | null;
+  hook: string;
 }
 
-function formatFocus(value?: string | null) {
-  if (!value) return 'Unspecified';
-  return value
-    .split(/[-_]/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+const EVENT_SUBMISSION_RETRY_PREFIX = 'pitchinpublic:event-submission:';
+
+function getEventSubmissionRetryKey(slug: string) {
+  return `${EVENT_SUBMISSION_RETRY_PREFIX}${slug}`;
 }
 
 function formatDeadline(value?: string | null) {
-  if (!value) return 'Not set';
+  if (!value) return 'No deadline';
   const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value);
-  if (Number.isNaN(date.getTime())) return 'Not set';
+  if (Number.isNaN(date.getTime())) return 'No deadline';
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -44,33 +43,18 @@ function buildRecordHref(event: any) {
     eventSlug: event.slug,
     eventName: event.name,
   });
-
   if (event.submission_deadline) params.set('eventDeadline', event.submission_deadline);
   if (event.focus) params.set('eventFocus', event.focus);
-
   return `/?${params.toString()}`;
-}
-
-const JOIN_PANEL_ID = 'event-join-panel';
-
-function splitFocusSummary(value?: string | null) {
-  return (value || '')
-    .split(/[·,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text) return {};
-
   try {
     return JSON.parse(text);
   } catch {
-    return {
-      success: false,
-      error: response.statusText || 'Unexpected response from the event.',
-    };
+    return { success: false, error: response.statusText || 'Unexpected response from the event.' };
   }
 }
 
@@ -81,16 +65,20 @@ export default function EventPage() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [eventState, setEventState] = useState<any>(null);
   const [pitches, setPitches] = useState<any[]>([]);
+  const [pitchesLoading, setPitchesLoading] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [selectedPitchId, setSelectedPitchId] = useState('');
+  const [pendingSubmission, setPendingSubmission] = useState<PendingSubmission | null>(null);
+  const [submissionSuccess, setSubmissionSuccess] = useState<PendingSubmission | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
+
   const inviteCode = searchParams.get('invite') || searchParams.get('code') || '';
-  const submittedPitchId = searchParams.get('pitchId') || '';
-  const submittedPitchPublicId = searchParams.get('pitchPublicId') || '';
-  const submittedFromPublish = searchParams.get('submitted') === '1';
+  const returnedPitchId = searchParams.get('pitchId') || '';
+  const returnedPitchPublicId = searchParams.get('pitchPublicId') || '';
+  const returnedFromLegacyPublish = searchParams.get('submitted') === '1';
   const inviteNextPath = inviteCode
     ? `/events/${slug}?invite=${encodeURIComponent(inviteCode)}`
     : `/events/${slug}`;
@@ -101,20 +89,18 @@ export default function EventPage() {
       const query = inviteCode ? `?invite=${encodeURIComponent(inviteCode)}` : '';
       const response = await fetch(`/api/events/${slug}${query}`, { cache: 'no-store' });
       const data = await readJsonResponse(response);
-      if (!response.ok || !data) {
-        setEventState({ success: false, error: data?.error || 'Unable to load this pitch event.' });
-        setSelectedPitchId('');
+      if (!response.ok || !data?.success) {
+        setEventState({ success: false, error: data?.error || 'Unable to load this event.' });
         return;
       }
       setEventState(data);
-      setSelectedPitchId((current) => submittedPitchId || data.userSubmission?.pitch_id || current || '');
+      setSelectedPitchId((current) => returnedPitchId || data.userSubmission?.pitch_id || current);
     } catch {
-      setEventState({ success: false, error: 'Unable to load this pitch event.' });
-      setSelectedPitchId('');
+      setEventState({ success: false, error: 'Unable to load this event.' });
     } finally {
       setLoading(false);
     }
-  }, [inviteCode, slug, submittedPitchId]);
+  }, [inviteCode, returnedPitchId, slug]);
 
   useEffect(() => {
     load();
@@ -125,26 +111,45 @@ export default function EventPage() {
   }, [inviteCode]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.sessionStorage.getItem(getEventSubmissionRetryKey(slug));
+      if (stored) setPendingSubmission(JSON.parse(stored) as PendingSubmission);
+    } catch {
+      window.sessionStorage.removeItem(getEventSubmissionRetryKey(slug));
+    }
+  }, [slug]);
+
+  useEffect(() => {
     const loadPitches = async () => {
-      if (!user) return;
-      const response = await fetch(`/api/pitches?userId=${user.id}&limit=100`);
-      if (!response.ok) return;
-      const data = await response.json();
-      setPitches(data.pitches || []);
+      if (!user) {
+        setPitches([]);
+        setPitchesLoading(false);
+        return;
+      }
+      setPitchesLoading(true);
+      try {
+        const response = await fetch(`/api/pitches?userId=${user.id}&limit=100`);
+        if (!response.ok) return;
+        const data = await response.json();
+        setPitches(data.pitches || []);
+      } finally {
+        setPitchesLoading(false);
+      }
     };
     loadPitches();
   }, [user]);
 
   useEffect(() => {
-    if (!submittedPitchPublicId || !pitches.length) return;
-    const matchedPitch = pitches.find((pitch) => pitch.public_id === submittedPitchPublicId);
-    if (matchedPitch?.id) setSelectedPitchId(matchedPitch.id);
-  }, [pitches, submittedPitchPublicId]);
+    if (!pitches.length) return;
+    const returnedPitch = returnedPitchPublicId
+      ? pitches.find((pitch) => pitch.public_id === returnedPitchPublicId)
+      : null;
+    setSelectedPitchId((current) => returnedPitch?.id || current || pitches[0].id);
+  }, [pitches, returnedPitchPublicId]);
 
   const event = eventState?.event;
   const isJoined = Boolean(eventState?.participation);
-  const selectedPitch = pitches.find((pitch) => pitch.id === selectedPitchId);
-  const submittedPitch = pitches.find((pitch) => pitch.id === eventState?.userSubmission?.pitch_id);
   const isSubmissionClosed = deadlineHasPassed(event?.submission_deadline);
   const invite = eventState?.invite;
   const inviteEmailMismatch = Boolean(user && invite?.email && invite.matchesCurrentUser === false);
@@ -152,22 +157,31 @@ export default function EventPage() {
     !isJoined && inviteCode && (!invite?.valid || ['expired', 'invalid', 'revoked', 'used'].includes(invite?.status)),
   );
   const hasDirectInvite = Boolean(inviteCode && !inviteUnavailable && !isJoined);
-  const focusTags = useMemo(() => splitFocusSummary(event?.focus), [event?.focus]);
-  const plan = useMemo(() => {
-    if (!event) return [];
-    const days = daysUntil(event.event_date);
-    if (days > 45) return ['Record rough reps twice a week.', 'Get one Toast and one Roast per take.', 'Fix the audience sentence first.'];
-    if (days > 14) return ['Record every other day.', 'Cut weak openings.', 'Make the ask specific enough to repeat.'];
-    return ['Record under event timing.', 'Pick the cleanest final take.', 'Stop changing anything that feedback does not repeat.'];
-  }, [event]);
+  const selectedPitch = pitches.find((pitch) => pitch.id === selectedPitchId);
+  const submittedPitch = pitches.find((pitch) => pitch.id === eventState?.userSubmission?.pitch_id);
+  const unresolvedPendingSubmission = pendingSubmission?.id === eventState?.userSubmission?.pitch_id
+    ? null
+    : pendingSubmission;
+  const currentSubmittedPitch = submissionSuccess || (submittedPitch ? {
+    id: submittedPitch.id,
+    publicId: submittedPitch.public_id || null,
+    hook: submittedPitch.hook,
+  } : null);
   const recordHref = event ? buildRecordHref(event) : '/';
 
   useEffect(() => {
-    if (!submittedFromPublish || (!submittedPitchId && !submittedPitchPublicId) || !isJoined) return;
-    if (!message) {
-      setMessage('Your new take is loaded. Submit it or mark it as your Best Take.');
+    if (!returnedFromLegacyPublish || (!returnedPitchId && !returnedPitchPublicId) || !isJoined || eventState?.userSubmission) return;
+    setMessage('Your take is ready. Submit it to finish joining this event.');
+  }, [eventState?.userSubmission, isJoined, returnedFromLegacyPublish, returnedPitchId, returnedPitchPublicId]);
+
+  useEffect(() => {
+    if (!pendingSubmission || pendingSubmission.id !== eventState?.userSubmission?.pitch_id) return;
+    setSubmissionSuccess(pendingSubmission);
+    setPendingSubmission(null);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(getEventSubmissionRetryKey(slug));
     }
-  }, [isJoined, message, submittedFromPublish, submittedPitchId, submittedPitchPublicId]);
+  }, [eventState?.userSubmission?.pitch_id, pendingSubmission, slug]);
 
   const join = async () => {
     setSaving(true);
@@ -183,7 +197,7 @@ export default function EventPage() {
       setMessage(data.error || `Could not join ${event?.name || 'this event'}.`);
       return;
     }
-    setMessage(`You joined ${event?.name || 'the event'}.`);
+    setMessage('Invitation accepted. Record or choose your take next.');
     load();
   };
 
@@ -193,394 +207,232 @@ export default function EventPage() {
     setShowSignIn(true);
   };
 
-  const submitFinalTake = async () => {
-    if (!selectedPitchId) return;
+  const clearPendingSubmission = () => {
+    setPendingSubmission(null);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(getEventSubmissionRetryKey(slug));
+    }
+  };
+
+  const submitFinalTake = async (pending: PendingSubmission | null = null) => {
+    const body = pending
+      ? pending.publicId ? { pitchPublicId: pending.publicId } : { pitchId: pending.id }
+      : selectedPitchId ? { pitchId: selectedPitchId } : null;
+    if (!body) return;
     if (isSubmissionClosed) {
       setMessage('The submission deadline has passed for this event.');
       return;
     }
+
     setSaving(true);
     setMessage('');
     const response = await fetch(`/api/events/${slug}/submission`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pitchId: selectedPitchId }),
+      body: JSON.stringify(body),
     });
     const data = await readJsonResponse(response);
     setSaving(false);
     if (!response.ok || !data.success) {
-      setMessage(data.error || 'Could not submit final take.');
+      setMessage(data.error || 'Could not submit this take.');
       return;
     }
-    setMessage('Final take submitted.');
-    load();
-  };
 
-  const markBestTake = async () => {
-    if (!selectedPitchId) return;
-    setSaving(true);
-    setMessage('');
-    const response = await fetch(`/api/pitches/${selectedPitchId}/best-take`, {
-      method: 'POST',
-    });
-    const data = await response.json();
-    setSaving(false);
-    if (!response.ok || !data.success) {
-      setMessage(data.error || 'Could not mark this take as your Best Take.');
-      return;
-    }
-    setMessage('Best Take saved for this pitch.');
+    const sourcePitch = pending || selectedPitch;
+    const successPitch: PendingSubmission = {
+      id: data.pitchId || sourcePitch?.id || '',
+      publicId: data.publicId || sourcePitch?.publicId || sourcePitch?.public_id || null,
+      hook: sourcePitch?.hook || 'Submitted pitch',
+    };
+    setSubmissionSuccess(successPitch);
+    clearPendingSubmission();
+    setMessage('Take submitted.');
     load();
   };
 
   if (loading) {
-    return <div className="flex min-h-dvh items-center justify-center bg-background text-white">Loading event...</div>;
+    return (
+      <div className="min-h-dvh bg-background text-white">
+        <ActionPageNav links={[destination('feed')]} ariaLabel="Event navigation" />
+        <div className="flex min-h-[70dvh] items-center justify-center">Loading event…</div>
+      </div>
+    );
   }
 
   if (!eventState?.success || !event) {
-    return <div className="flex min-h-dvh items-center justify-center bg-background text-white">Event not found.</div>;
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-5 text-center text-white">
+        <p>{eventState?.error || 'Event not found.'}</p>
+        <Link href="/" className="btn-glass rounded-xl px-5 py-3 font-bold">Back to feed</Link>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-dvh bg-background text-white">
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
-        <section className="grid gap-6 lg:grid-cols-[1fr_0.88fr]">
-          <div className="glass-panel rounded-[2rem] p-6 sm:p-8">
-            <div className="glass-pill mb-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-neon-lime">
-              <Sparkles className="h-4 w-4" />
-              Pitch event
-            </div>
-            <h1 className="font-heading text-5xl font-black leading-tight sm:text-6xl">{event.name}</h1>
-            {event.description && <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">{event.description}</p>}
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <InfoCard icon={CalendarDays} label="Pitch day" value={new Date(`${event.event_date}T12:00:00`).toLocaleDateString()} />
-              <InfoCard icon={Clock} label="Deadline" value={formatDeadline(event.submission_deadline)} />
-              <InfoCard icon={Video} label="Pitch length" value={formatPitchLength(event.pitch_length_seconds)} />
-              <InfoCard icon={Target} label="Goal" value={formatFocus(event.focus)} />
-            </div>
-            <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Sprint focus</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {focusTags.map((focus) => (
-                  <span key={focus} className="rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-3 py-1.5 text-xs font-bold text-neon-cyan">
-                    {focus}
-                  </span>
-                ))}
-                {!focusTags.length && <span className="text-sm text-slate-400">No focus chips set.</span>}
-              </div>
-            </div>
-            <p className="mt-5 max-w-2xl text-sm leading-6 text-slate-400">
-              {isSubmissionClosed
-                ? `Submissions closed ${formatDeadline(event.submission_deadline)}. Completed takes remain available for review.`
-                : `${daysUntil(event.event_date)} days until pitch day. Submit before the deadline, then use your Best Take for the event.`}
-            </p>
+      <ActionPageNav
+        ariaLabel="Event navigation"
+        links={[
+          ...(user ? [destination('pitchRooms', true)] : []),
+          destination('feed'),
+          ...(user && eventState.isTeamMember ? [eventDashboardDestination(slug)] : []),
+        ]}
+        account={user ? { email: user.email, profileHref: '/me', onSignOut: signOut } : undefined}
+      />
+      <main className="mx-auto max-w-3xl px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
+        <section aria-labelledby="event-task-title" className="glass-panel rounded-[1.75rem] p-5 sm:p-7">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-neon-cyan">
+            {currentSubmittedPitch || eventState.userSubmission ? 'Submitted' : hasDirectInvite ? 'Your invitation' : isJoined ? 'Your next step' : 'Pitch event'}
+          </p>
+          <h1 id="event-task-title" className="mt-2 text-balance font-heading text-3xl font-black leading-tight sm:text-4xl">{event.name}</h1>
+          <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-400">
+            <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4" aria-hidden="true" />Submit by {formatDeadline(event.submission_deadline)}</span>
+            <span>{formatPitchLength(event.pitch_length_seconds)} max</span>
+          </p>
+
+          <div className="mt-6">
+            {inviteUnavailable ? (
+              <InviteNotice
+                title={invite?.status === 'expired' ? 'Invitation expired' : invite?.status === 'revoked' ? 'Invitation revoked' : 'Invitation unavailable'}
+                copy="Ask the organizer to send a new invitation."
+              />
+            ) : authLoading ? (
+              <p className="py-4 text-slate-400">Checking your account…</p>
+            ) : hasDirectInvite && !user ? (
+              <TaskCopy title="Sign in to accept" copy={invite?.email ? `Use ${invite.email} to keep this invitation connected to the right account.` : 'Sign in, then return here to accept.'}>
+                <button type="button" onClick={() => setShowSignIn(true)} className="cta-primary mt-5 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black">Sign in to accept</button>
+              </TaskCopy>
+            ) : hasDirectInvite && inviteEmailMismatch ? (
+              <TaskCopy title="Use the invited account" copy={`This invitation is for ${invite.email}. You are signed in as ${user?.email}.`}>
+                <button type="button" onClick={switchAccount} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black"><LogOut className="h-5 w-5" />Use invited account</button>
+              </TaskCopy>
+            ) : hasDirectInvite ? (
+              <TaskCopy title="Accept your invitation" copy="Add this event to your pitch rooms and continue to your take.">
+                <button type="button" onClick={join} disabled={saving} className="cta-primary mt-5 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">{saving ? 'Accepting…' : 'Accept invitation'}</button>
+              </TaskCopy>
+            ) : !user ? (
+              <TaskCopy title="Sign in to join" copy="Your event access and submission stay connected to your account.">
+                <button type="button" onClick={() => setShowSignIn(true)} className="cta-primary mt-5 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black">Sign in to continue</button>
+              </TaskCopy>
+            ) : inviteEmailMismatch ? (
+              <TaskCopy title="Use the invited account" copy={`This invitation is for ${invite.email}.`}>
+                <button type="button" onClick={switchAccount} className="btn-glass mt-5 min-h-14 w-full rounded-2xl px-5 py-4 font-bold">Switch account</button>
+              </TaskCopy>
+            ) : !isJoined ? (
+              inviteCode ? (
+                <TaskCopy title="Accept your invitation" copy="Join once, then this event stays in your pitch rooms.">
+                  <button type="button" onClick={join} disabled={saving} className="cta-primary mt-5 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">{saving ? 'Accepting…' : 'Accept invitation'}</button>
+                </TaskCopy>
+              ) : (
+                <div>
+                  <label htmlFor="access-code" className="text-sm font-bold text-white">{event.visibility === 'private' ? 'Invite code' : 'Invite code (optional)'}</label>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_auto]">
+                    <input id="access-code" value={accessCode} onChange={(event) => setAccessCode(event.target.value)} className="input-dark" placeholder="Enter code" />
+                    <button type="button" onClick={join} disabled={saving} className="cta-primary min-h-14 rounded-2xl px-6 font-heading font-black disabled:opacity-60">{saving ? 'Joining…' : 'Join event'}</button>
+                  </div>
+                </div>
+              )
+            ) : unresolvedPendingSubmission ? (
+              <TaskCopy title="Finish submitting your take" copy="Your video and pitch are saved. Retry only the event submission—no new upload needed.">
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-sm font-semibold text-white">{unresolvedPendingSubmission.hook}</div>
+                <button type="button" onClick={() => submitFinalTake(unresolvedPendingSubmission)} disabled={saving || isSubmissionClosed} className="cta-primary mt-4 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-50">{saving ? 'Retrying…' : 'Retry submission'}</button>
+                <button type="button" onClick={clearPendingSubmission} className="mt-2 min-h-11 w-full text-sm font-bold text-slate-400 hover:text-white">Dismiss</button>
+              </TaskCopy>
+            ) : eventState.userSubmission && pitchesLoading ? (
+              <TaskCopy title="Your take is submitted" copy="Loading your submitted pitch…" />
+            ) : currentSubmittedPitch ? (
+              <TaskCopy title="Your take is submitted" copy="The event team can now review it and give feedback.">
+                <div className="mt-4 rounded-2xl border border-neon-lime/20 bg-neon-lime/10 p-4 text-sm font-semibold text-white">{currentSubmittedPitch.hook}</div>
+                {currentSubmittedPitch.publicId ? (
+                  <Link href={`/?mode=founder&pitch=${encodeURIComponent(currentSubmittedPitch.publicId)}`} className="cta-primary mt-4 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">Watch your pitch<ArrowRight className="h-5 w-5" /></Link>
+                ) : null}
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {currentSubmittedPitch.publicId ? <Link href={`/pitch/${encodeURIComponent(currentSubmittedPitch.publicId)}`} className="btn-glass inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold">Open pitch</Link> : null}
+                  {!isSubmissionClosed ? <Link href={recordHref} className="inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold text-slate-300 hover:bg-white/[0.05]">Record another</Link> : null}
+                </div>
+              </TaskCopy>
+            ) : pitchesLoading ? (
+              <TaskCopy title="Checking your takes" copy="Finding your latest eligible pitch…" />
+            ) : isSubmissionClosed ? (
+              <TaskCopy title="Submissions are closed" copy={`The deadline was ${formatDeadline(event.submission_deadline)}.`} />
+            ) : selectedPitch ? (
+              <TaskCopy title="Submit your take" copy="Review the selected take, then send it to the event team.">
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
+                  <p className="line-clamp-2 text-sm font-semibold leading-6 text-white">{selectedPitch.hook}</p>
+                </div>
+                <button type="button" onClick={() => submitFinalTake()} disabled={saving} className="cta-primary mt-4 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">{saving ? 'Submitting…' : `Submit to ${event.name}`}</button>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <Link href={recordHref} className="btn-glass inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold"><Video className="mr-2 h-4 w-4" />Record another</Link>
+                  {pitches.length > 1 ? (
+                    <details className="rounded-2xl border border-white/10">
+                      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center px-4 py-3 text-sm font-bold text-slate-300">Change take</summary>
+                      <div className="space-y-2 border-t border-white/10 p-2">
+                        {pitches.map((pitch) => (
+                          <button key={pitch.id} type="button" onClick={() => setSelectedPitchId(pitch.id)} className={`min-h-11 w-full rounded-xl px-3 py-2 text-left text-sm font-semibold ${pitch.id === selectedPitchId ? 'bg-neon-cyan/15 text-neon-cyan' : 'text-slate-300 hover:bg-white/[0.05]'}`}>{pitch.hook}</button>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+                </div>
+              </TaskCopy>
+            ) : (
+              <TaskCopy title="Record or upload your take" copy="Create the pitch you want the event team to review.">
+                <Link href={recordHref} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black"><Video className="h-5 w-5" />Record or upload</Link>
+              </TaskCopy>
+            )}
           </div>
 
-          <div className="glass-card rounded-[2rem] p-5 sm:p-6">
-            {hasDirectInvite ? (
-              <>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Your invitation</p>
-                <h2 className="mt-3 font-heading text-3xl font-black leading-tight sm:text-4xl">Join {event.name}</h2>
-                <p className="mt-3 text-base leading-7 text-slate-300 [overflow-wrap:anywhere]">
-                  {authLoading
-                    ? 'Checking your account...'
-                    : !user
-                      ? `Sign in or create an account${invite?.email ? ` with ${invite.email}` : ''}. You will return here to accept this invitation.`
-                      : inviteEmailMismatch
-                        ? `This invitation is for ${invite.email}. You are signed in as ${user.email}.`
-                        : `You are signed in as ${user.email}. Accept once to add ${event.name} to your account.`}
-                </p>
-                {authLoading ? (
-                  <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
-                    Checking invitation...
-                  </div>
-                ) : !user ? (
-                  <button type="button" onClick={() => setShowSignIn(true)} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
-                    Sign in to join event
-                    <ArrowRight className="h-5 w-5" />
-                  </button>
-                ) : inviteEmailMismatch ? (
-                  <button type="button" onClick={switchAccount} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
-                    <LogOut className="h-5 w-5" />
-                    Use invited account
-                  </button>
-                ) : (
-                  <button type="button" onClick={join} disabled={saving} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">
-                    {saving ? 'Accepting invitation...' : 'Accept invitation'}
-                    {!saving && <ArrowRight className="h-5 w-5" />}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Today&apos;s plan</p>
-                <div className="mt-4 space-y-3">
-                  {plan.map((item) => (
-                    <div key={item} className="flex items-start gap-3 rounded-2xl bg-black/30 p-4">
-                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-neon-lime" />
-                      <p className="leading-6 text-slate-200">{item}</p>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-            {!hasDirectInvite && (isJoined && !isSubmissionClosed ? (
-              <Link href={recordHref} className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
-                Record for this event
-                <ArrowRight className="h-5 w-5" />
-              </Link>
-            ) : isJoined ? (
-              <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
-                Submissions closed
-              </div>
-            ) : inviteUnavailable ? (
-              <div className="mt-5 inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 font-heading font-black text-slate-400">
-                Invitation unavailable
-              </div>
-            ) : (
-              <a href={`#${JOIN_PANEL_ID}`} className="cta-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black">
-                Join {event.name}
-                <ArrowRight className="h-5 w-5" />
-              </a>
-            ))}
-            {eventState.announcements?.length ? (
-              <div className="mt-5 rounded-3xl border border-white/10 bg-black/25 p-4">
-                <div className="mb-3 flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-neon-lime">
-                  <Bell className="h-4 w-4" />
-                  Founder nudge
-                </div>
-                <h3 className="font-heading text-xl font-bold">{eventState.announcements[0].title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-300">{eventState.announcements[0].body}</p>
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Keep the next take concrete: customer first, one problem, one ask.
-                </p>
-              </div>
-            ) : null}
-          </div>
+          {message ? <p className="mt-4 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-semibold text-slate-200" role="status">{message}</p> : null}
         </section>
 
-        {!hasDirectInvite && <section id={JOIN_PANEL_ID} className="glass-card mt-6 rounded-[2rem] p-5 sm:p-6">
-          {inviteUnavailable ? (
-            <InviteNotice
-              title={
-                invite?.status === 'expired'
-                  ? 'This invitation has expired.'
-                  : invite?.status === 'revoked'
-                    ? 'This invitation was revoked.'
-                    : invite?.status === 'used'
-                      ? 'This invitation has already been used.'
-                      : 'This invitation is not valid.'
-              }
-              copy="Ask the organizer to send a new invitation before joining this event."
-            />
-          ) : authLoading ? (
-            <div className="py-8 text-center text-slate-400">Checking your access...</div>
-          ) : !user ? (
-            <div className="text-center">
-              <Mail className="mx-auto h-8 w-8 text-neon-cyan" />
-              <h2 className="mt-4 font-heading text-3xl font-bold">Sign in to accept your invitation.</h2>
-              <p className="mx-auto mt-2 max-w-xl text-slate-400 [overflow-wrap:anywhere]">
-                {invite?.email ? `This private invitation is for ${invite.email}.` : 'Authentication is required before this event can be joined.'}
-              </p>
-              <button type="button" onClick={() => setShowSignIn(true)} className="cta-primary mt-5 inline-flex rounded-xl px-5 py-3 font-heading font-bold">
-                Sign in to continue
-              </button>
-            </div>
-          ) : inviteEmailMismatch ? (
-            <InviteNotice
-              title="Use the invited account."
-              copy={`This invitation is for ${invite.email}. You are signed in as ${user.email}.`}
-            >
-              <button type="button" onClick={switchAccount} className="cta-primary mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 font-heading font-bold">
-                <LogOut className="h-4 w-4" />
-                Switch account
-              </button>
-            </InviteNotice>
-          ) : !isJoined ? (
-            inviteCode ? (
-              <div className="text-center">
-                <CheckCircle2 className="mx-auto h-8 w-8 text-neon-lime" />
-                <h2 className="mt-4 font-heading text-3xl font-bold">Your invitation is ready.</h2>
-                <p className="mx-auto mt-2 max-w-xl text-slate-400">
-                  Accept once to add {event.name} to your account. Your existing account history and roles stay unchanged.
-                </p>
-                <button onClick={join} disabled={saving} className="cta-primary mt-5 rounded-xl px-5 py-3 font-heading font-bold disabled:opacity-60">
-                  {saving ? 'Accepting invitation...' : `Accept invitation to ${event.name}`}
-                </button>
-              </div>
-            ) : <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-              <label>
-                <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-300">
-                  <Lock className="h-4 w-4" />
-                  {event.visibility === 'private' ? 'Invite code required' : 'Invite code (optional)'}
-                </span>
-                <input
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value)}
-                  className="input-dark"
-                  placeholder={event.visibility === 'private' ? 'Enter invite code' : 'WESTPORT2026'}
-                />
-              </label>
-              <button onClick={join} disabled={saving} className="cta-primary rounded-xl px-5 py-3 font-heading font-bold disabled:opacity-60">
-                Join event
-              </button>
-              <p className="sm:col-span-2 text-sm leading-6 text-slate-400">
-                {inviteCode
-                  ? `Your invite link filled the code for you. Join once, then ${event.name} will stay in your account.`
-                  : event.visibility === 'private'
-                    ? 'Private events need an invite code before you can join, record, or submit.'
-                    : 'Use the invite code if you received one; otherwise this event can be joined with the shared link.'}
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
-              <div>
-                <div className="mb-5 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Submission</p>
-                    <p className="mt-1 font-heading text-xl font-black text-white">
-                      {eventState.userSubmission ? 'Submitted' : 'Ready to submit'}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-400">
-                      {eventState.userSubmission ? 'You already have a pitch attached to this event.' : 'Pick your strongest take or record a new one.'}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Deadline</p>
-                    <p className="mt-1 font-heading text-xl font-black text-white">
-                      {formatDeadline(event.submission_deadline)}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-400">
-                      {isSubmissionClosed ? 'Submissions are closed.' : `${daysUntil(event.event_date)} days until pitch day.`}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Goal</p>
-                    <p className="mt-1 font-heading text-xl font-black text-white">{formatFocus(event.focus)}</p>
-                    <p className="mt-1 text-sm text-slate-400">Keep the pitch within the event limit and submit before the deadline.</p>
-                  </div>
-                </div>
-
-                <div className="mb-6 flex flex-wrap gap-3">
-                  {!isSubmissionClosed && (
-                    <Link href={recordHref} className="cta-primary inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-heading font-black">
-                      Record eligible take
-                      <Video className="h-4 w-4" />
-                    </Link>
-                  )}
-                  {selectedPitch && (
-                    <button
-                      type="button"
-                      onClick={markBestTake}
-                      disabled={saving || Boolean(selectedPitch.is_best_take)}
-                      className="btn-glass inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-heading font-bold disabled:opacity-60"
-                    >
-                      <Trophy className="h-4 w-4" />
-                      {selectedPitch.is_best_take ? 'Best Take saved' : 'Mark Best Take'}
-                    </button>
-                  )}
-                </div>
-
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Final Take</p>
-                <h2 className="mt-2 font-heading text-3xl font-bold">Choose the pitch you want organizers to review.</h2>
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {pitches.map((pitch) => {
-                    const selected = selectedPitchId === pitch.id;
-                    return (
-                      <button
-                        key={pitch.id}
-                        type="button"
-                        onClick={() => setSelectedPitchId(pitch.id)}
-                        className={`relative aspect-[9/16] overflow-hidden rounded-2xl border text-left transition ${
-                          selected ? 'border-neon-lime shadow-[0_0_0_2px_rgba(183,255,42,0.35)]' : 'border-white/10 hover:border-neon-cyan/60'
-                        }`}
-                      >
-                        {pitch.thumbnail_url ? (
-                          <img src={pitch.thumbnail_url} alt={pitch.hook} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-slate-950">
-                            <Play className="h-8 w-8 text-white/40" />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                        {selected && <span className="absolute left-3 top-3 rounded-full bg-neon-lime px-2 py-1 text-xs font-black text-slate-950">Selected</span>}
-                        {pitch.is_best_take && <span className="absolute right-3 top-3 rounded-full bg-toast px-2 py-1 text-xs font-black text-slate-950">Best Take</span>}
-                        {eventState.userSubmission?.pitch_id === pitch.id && <span className="absolute left-3 top-10 rounded-full bg-neon-cyan px-2 py-1 text-xs font-black text-slate-950">Submitted</span>}
-                        <p className="absolute bottom-3 left-3 right-3 line-clamp-2 text-sm font-bold text-white">{pitch.hook}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="glass-card rounded-3xl p-5">
-                <Trophy className="mb-4 h-8 w-8 text-neon-lime" />
-                <h3 className="font-heading text-2xl font-bold">{eventState.userSubmission ? 'Submitted' : 'Ready to submit?'}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  {isSubmissionClosed
-                    ? 'The deadline has passed, so submission changes are closed.'
-                    : 'You can change your final take until the organizer locks submissions.'}
-                </p>
-                {selectedPitch && (
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Selected take</p>
-                    <p className="mt-2 font-bold text-white">{selectedPitch.hook}</p>
-                    <p className="mt-1 text-sm text-slate-400">
-                      {selectedPitch.is_best_take ? 'This is your Best Take already.' : 'You can submit this pitch or mark it as your Best Take.'}
-                    </p>
-                  </div>
-                )}
-                {submittedPitch && (
-                  <div className="mt-4 rounded-2xl bg-white/[0.05] p-4">
-                    <p className="text-sm font-bold text-white">{submittedPitch.hook}</p>
-                  </div>
-                )}
-                <button
-                  onClick={submitFinalTake}
-                  disabled={!selectedPitchId || saving || isSubmissionClosed}
-                  className="cta-primary mt-5 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : isSubmissionClosed ? 'Submissions closed' : eventState.userSubmission ? 'Update final take' : 'Submit final take'}
-                </button>
-                {eventState.isTeamMember && (
-                  <Link href={`/events/${slug}/dashboard`} className="mt-3 inline-flex w-full justify-center rounded-2xl border border-white/10 px-5 py-4 font-heading font-bold text-white">
-                    Open team dashboard
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
-
-          {message && <p className="mt-4 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm font-semibold text-slate-200">{message}</p>}
-        </section>}
+        <details className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025]">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-bold text-slate-300 focus-visible:ring-2 focus-visible:ring-neon-cyan">
+            Event details <span aria-hidden="true">+</span>
+          </summary>
+          <div className="space-y-4 border-t border-white/10 p-4 text-sm leading-6 text-slate-300 sm:p-5">
+            {event.description ? <p>{event.description}</p> : null}
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <EventFact icon={CalendarDays} label="Pitch day" value={new Date(`${event.event_date}T12:00:00`).toLocaleDateString()} />
+              <EventFact icon={Clock} label="Submission deadline" value={formatDeadline(event.submission_deadline)} />
+              <EventFact icon={Video} label="Pitch length" value={formatPitchLength(event.pitch_length_seconds)} />
+              {event.focus ? <EventFact label="Focus" value={String(event.focus).replace(/[-_]/g, ' ')} /> : null}
+            </dl>
+          </div>
+        </details>
       </main>
-      <SignInModal
-        isOpen={showSignIn}
-        onClose={() => setShowSignIn(false)}
-        initialEmail={invite?.email || ''}
-        nextPath={inviteNextPath}
-      />
+
+      <SignInModal isOpen={showSignIn} onClose={() => setShowSignIn(false)} initialEmail={invite?.email || ''} nextPath={inviteNextPath} />
     </div>
   );
 }
 
-function InviteNotice({ title, copy, children }: { title: string; copy: string; children?: ReactNode }) {
+function TaskCopy({ title, copy, children }: { title: string; copy: string; children?: ReactNode }) {
   return (
-    <div className="py-4 text-center" role="alert">
-      <Lock className="mx-auto h-8 w-8 text-neon-cyan" />
-      <h2 className="mt-4 font-heading text-3xl font-bold">{title}</h2>
-      <p className="mx-auto mt-2 max-w-xl break-words text-slate-400">{copy}</p>
+    <div>
+      <h2 className="font-heading text-2xl font-black text-white">{title}</h2>
+      <p className="mt-2 max-w-xl text-base leading-7 text-slate-300">{copy}</p>
       {children}
     </div>
   );
 }
 
-function InfoCard({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function InviteNotice({ title, copy }: { title: string; copy: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-      <Icon className="mb-3 h-5 w-5 text-neon-cyan" />
-      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-1 font-heading text-xl font-black text-white">{value}</p>
+    <div role="alert">
+      <Lock className="h-7 w-7 text-neon-cyan" />
+      <h2 className="mt-3 font-heading text-2xl font-black">{title}</h2>
+      <p className="mt-2 text-slate-400">{copy}</p>
+    </div>
+  );
+}
+
+function EventFact({ icon: Icon, label, value }: { icon?: any; label: string; value: string }) {
+  return (
+    <div>
+      <dt className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+        {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}{label}
+      </dt>
+      <dd className="mt-1 capitalize text-white">{value}</dd>
     </div>
   );
 }
