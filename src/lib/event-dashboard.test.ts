@@ -17,6 +17,7 @@ import {
   parseEventListView,
   publicInviteDeliveryError,
   publicInviteError,
+  resolveEventListView,
   scopePitchFeedbackToEvent,
   submissionMatchesFilter,
 } from './event-dashboard';
@@ -100,6 +101,30 @@ test('classifies event workspaces and accepts only supported event views', () =>
   assert.equal(classifyEventRole('judge'), 'team');
   assert.equal(parseEventListView('?view=managed'), 'managed');
   assert.equal(parseEventListView('?view=unknown'), null);
+});
+
+test('opens the event view with the most immediate role value', () => {
+  assert.equal(resolveEventListView({
+    requestedView: null,
+    availableViews: ['joined', 'managed'],
+    canCreateEvents: true,
+    joinedCount: 1,
+    teamCount: 0,
+  }), 'managed');
+  assert.equal(resolveEventListView({
+    requestedView: null,
+    availableViews: ['joined', 'team'],
+    canCreateEvents: false,
+    joinedCount: 0,
+    teamCount: 1,
+  }), 'team');
+  assert.equal(resolveEventListView({
+    requestedView: 'joined',
+    availableViews: ['joined', 'team'],
+    canCreateEvents: false,
+    joinedCount: 0,
+    teamCount: 1,
+  }), 'joined');
 });
 
 test('formats deadline states without hiding passed deadlines', () => {

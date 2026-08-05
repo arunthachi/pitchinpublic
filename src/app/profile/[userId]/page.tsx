@@ -30,7 +30,7 @@ import { isUuidLike, pitchPath } from '@/lib/public-routes';
 import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
 import { SignInModal } from '@/components/SignInModal';
 import { ActionPageNav } from '@/components/ActionPageNav';
-import { destination } from '@/lib/app-navigation';
+import { profileNavigationLinks } from '@/lib/app-navigation';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
 
@@ -316,7 +316,7 @@ export default function UserProfilePage() {
   return (
     <div className="min-h-dvh bg-black text-white">
       <ActionPageNav
-        links={isOwnProfile ? [destination('feed'), destination('myPitches', true)] : [destination('feed')]}
+        links={profileNavigationLinks(isOwnProfile)}
         account={isOwnProfile ? {
           email: currentUser?.email,
           profileHref: '/me',

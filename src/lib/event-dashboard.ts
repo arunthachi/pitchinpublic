@@ -79,6 +79,25 @@ export function classifyEventRole(role?: string | null): EventListView {
   return 'joined';
 }
 
+export function resolveEventListView({
+  requestedView,
+  availableViews,
+  canCreateEvents,
+  joinedCount,
+  teamCount,
+}: {
+  requestedView: EventListView | null;
+  availableViews: EventListView[];
+  canCreateEvents: boolean;
+  joinedCount: number;
+  teamCount: number;
+}): EventListView {
+  if (requestedView && availableViews.includes(requestedView)) return requestedView;
+  if (canCreateEvents && availableViews.includes('managed')) return 'managed';
+  if (joinedCount === 0 && teamCount > 0 && availableViews.includes('team')) return 'team';
+  return availableViews[0] || 'joined';
+}
+
 export function parseDashboardState(search: string): { tab: DashboardTab; filter: DashboardFilter | null } {
   const params = new URLSearchParams(search);
   const tabValue = params.get('tab');
