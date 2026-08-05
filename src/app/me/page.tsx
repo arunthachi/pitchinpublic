@@ -32,7 +32,7 @@ export default function MePage() {
 
   if (!loading && !user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-black px-4 text-center text-white">
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-black px-4 text-center text-white">
         <h1 className="font-heading text-4xl font-black">Sign in to open your pitch portfolio.</h1>
         <p className="mt-3 max-w-md text-slate-400">
           Your profile becomes the home for practice reps, final takes, and feedback signals.
@@ -45,7 +45,7 @@ export default function MePage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black text-white">
+    <div className="flex min-h-dvh items-center justify-center bg-black text-white">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
     </div>
   );

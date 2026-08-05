@@ -35,21 +35,32 @@ export const dynamic = 'force-dynamic';
  * }
  */
 export async function GET(request: NextRequest) {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set() {},
-        remove() {},
-      },
-    }
-  );
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({
+      success: true,
+      leaderboard: [],
+      total: 0,
+      limit: 20,
+      offset: 0,
+      type: new URL(request.url).searchParams.get('type') || 'streaks',
+    });
+  }
 
   try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set() {},
+          remove() {},
+        },
+      }
+    );
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'streaks';
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
@@ -153,7 +164,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch leaderboard',
+        error: 'Failed to fetch leaderboard',
       },
       { status: 500 }
     );

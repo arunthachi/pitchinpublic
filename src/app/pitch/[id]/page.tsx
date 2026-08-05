@@ -1,13 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
-  Eye,
-  TrendingUp,
-  Calendar,
   Flame,
   Sparkles,
   Target,
@@ -16,16 +13,17 @@ import {
 import { getLegacyPitchById } from '@/lib/data';
 import { FeedbackModal } from '@/components/FeedbackModal';
 import { PivotHistory } from '@/components/PivotHistory';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FeedbackFormData, LegacyPitch } from '@/types';
-import { formatNumber, formatDate } from '@/lib/utils';
-import { isUuidLike } from '@/lib/public-routes';
+import { isPublicPitchId, isUuidLike } from '@/lib/public-routes';
 import { getPitchFeedbackAskFromFields, getPitchStartupNameFromFields } from '@/lib/pitch-copy';
 import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
 import { FeedbackQualityControls } from '@/components/FeedbackQualityControls';
 import { useAuth } from '@/contexts/AuthContext';
+import { ActionPageNav } from '@/components/ActionPageNav';
+import { destination, eventDashboardDestination } from '@/lib/app-navigation';
+import { VideoPlayer } from '@/components/VideoPlayer';
 
 function readinessLabel(value?: number) {
   if (!value) return 'Getting there';
@@ -77,10 +75,11 @@ function convertApiPitchToLegacy(pitch: any, viewerId?: string): LegacyPitch {
   };
 }
 
-export default function PitchDetailPage() {
-  const { user } = useAuth();
+function PitchDetailContent() {
+  const { user, loading: authLoading, signOut } = useAuth();
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const pitchId = params.id as string;
   const mockPitch = getLegacyPitchById(pitchId);
   const [remotePitch, setRemotePitch] = useState<LegacyPitch | null>(null);
@@ -88,6 +87,26 @@ export default function PitchDetailPage() {
   const pitch = mockPitch || remotePitch;
   const [localFeedback, setLocalFeedback] = useState(mockPitch?.feedback || []);
   const feedbackSubmissionKeyRef = React.useRef<string | null>(null);
+  const feedbackHandoffHandledRef = React.useRef(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackEligibility, setFeedbackEligibility] = useState<'idle' | 'loading' | 'eligible' | 'ineligible'>('idle');
+  const [feedbackEligibilityError, setFeedbackEligibilityError] = useState('');
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const eventSlugValue = searchParams.get('event');
+  const eventSlug = eventSlugValue && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(eventSlugValue)
+    ? eventSlugValue
+    : null;
+  const wantsEventFeedback = searchParams.get('feedback') === '1' && Boolean(eventSlug);
+  const dashboardHref = eventSlug
+    ? `/events/${encodeURIComponent(eventSlug)}/dashboard?tab=submissions&filter=needs-feedback#dashboard-panel-submissions`
+    : null;
+
+  const removeFeedbackOpenParam = React.useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('feedback');
+    const query = next.toString();
+    router.replace(query ? `/pitch/${encodeURIComponent(pitchId)}?${query}` : `/pitch/${encodeURIComponent(pitchId)}`, { scroll: false });
+  }, [pitchId, router, searchParams]);
 
   useEffect(() => {
     if (mockPitch) return;
@@ -95,6 +114,7 @@ export default function PitchDetailPage() {
     const loadPitch = async () => {
       try {
         setLoadingPitch(true);
+        if (!isUuidLike(pitchId) && !isPublicPitchId(pitchId)) return;
         const queryKey = isUuidLike(pitchId) ? 'pitchId' : 'publicId';
         const response = await fetch(`/api/pitches?${queryKey}=${encodeURIComponent(pitchId)}&limit=1`);
         if (!response.ok) return;
@@ -116,25 +136,81 @@ export default function PitchDetailPage() {
     loadPitch();
   }, [mockPitch, pitchId, router, user?.id]);
 
+  useEffect(() => {
+    if (!searchParams.has('feedback') || feedbackHandoffHandledRef.current) return;
+    if (searchParams.get('feedback') !== '1' || !eventSlug) {
+      feedbackHandoffHandledRef.current = true;
+      setFeedbackEligibility('ineligible');
+      setFeedbackEligibilityError('This feedback link is not valid.');
+      return;
+    }
+    if (authLoading || loadingPitch || !pitch) return;
+    if (!user) {
+      feedbackHandoffHandledRef.current = true;
+      setFeedbackEligibility('ineligible');
+      setFeedbackEligibilityError('Sign in with an active event-team account to give feedback.');
+      return;
+    }
+    if (pitch.isOwnedByViewer) {
+      feedbackHandoffHandledRef.current = true;
+      setFeedbackEligibility('ineligible');
+      setFeedbackEligibilityError('You cannot leave feedback on your own pitch.');
+      return;
+    }
+
+    let cancelled = false;
+    setFeedbackEligibility('loading');
+    setFeedbackEligibilityError('');
+    void fetch(`/api/events/${encodeURIComponent(eventSlug)}`, { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.success) throw new Error(payload.error || 'Event access could not be verified.');
+        const exactSubmission = (payload.submissions || []).some((submission: any) =>
+          submission.pitch?.public_id === pitch.publicId || submission.pitch_id === pitch.id
+        );
+        if (!payload.isTeamMember || !exactSubmission) {
+          throw new Error('This pitch is not available for feedback from this event workspace.');
+        }
+        if (cancelled) return;
+        feedbackHandoffHandledRef.current = true;
+        setFeedbackEligibility('eligible');
+        setFeedbackOpen(true);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        feedbackHandoffHandledRef.current = true;
+        setFeedbackEligibility('ineligible');
+        setFeedbackEligibilityError(error instanceof Error ? error.message : 'Feedback access could not be verified.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, eventSlug, loadingPitch, pitch, searchParams, user]);
+
   if (loadingPitch) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
+      <div className="min-h-dvh bg-black">
+        <ActionPageNav links={[destination('feed')]} ariaLabel="Pitch navigation" />
+        <div className="flex min-h-[calc(100dvh-68px)] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
+        </div>
       </div>
     );
   }
 
   if (!pitch) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-dvh">
+        <ActionPageNav links={[destination('feed')]} ariaLabel="Pitch navigation" />
+        <div className="flex min-h-[calc(100dvh-68px)] items-center justify-center px-4 text-center">
           <h1 className="text-2xl font-heading font-bold text-slate-100 mb-2">
             Pitch Not Found
           </h1>
           <p className="text-slate-400 mb-4 font-body">
             The pitch you&apos;re looking for doesn&apos;t exist.
           </p>
-          <Button onClick={() => router.push('/')}>Back to Stage</Button>
+          <Button onClick={() => router.push('/')}>Back to feed</Button>
         </div>
       </div>
     );
@@ -149,7 +225,7 @@ export default function PitchDetailPage() {
         'Content-Type': 'application/json',
         'Idempotency-Key': submissionKey,
       },
-      body: JSON.stringify(feedbackData),
+      body: JSON.stringify({ ...feedbackData, ...(eventSlug ? { eventSlug } : {}) }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.feedback) {
@@ -162,23 +238,25 @@ export default function PitchDetailPage() {
     });
     feedbackSubmissionKeyRef.current = null;
     setLocalFeedback((current) => [...current, savedFeedback]);
+    setFeedbackSaved(true);
   };
 
   return (
-    <div className="min-h-screen pb-12">
-      {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800">
-        <div className="container mx-auto px-4 py-4">
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/')}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Stage
-          </Button>
-        </div>
-      </header>
+    <div className="min-h-dvh pb-12">
+      <ActionPageNav
+        links={dashboardHref
+          ? [eventDashboardDestination(eventSlug as string), destination('feed')]
+          : [destination('feed')]}
+        account={user ? {
+          email: user.email,
+          profileHref: '/me',
+          onSignOut: async () => {
+            await signOut();
+            router.replace('/');
+          },
+        } : undefined}
+        ariaLabel="Pitch navigation"
+      />
 
       <div className="container mx-auto px-4 py-8">
         {/* Desktop: Split Layout, Mobile: Stacked */}
@@ -189,34 +267,18 @@ export default function PitchDetailPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="relative aspect-video rounded-lg overflow-hidden bg-slate-900 border border-slate-800"
+              className="relative mx-auto aspect-[9/16] w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-black"
             >
-              <img
-                src={pitch.thumbnailUrl}
-                alt={pitch.companyName}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                <button className="w-20 h-20 rounded-full bg-neon-cyan/90 flex items-center justify-center hover:scale-110 transition-transform">
-                  <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-slate-900 border-b-[12px] border-b-transparent ml-1" />
-                </button>
-              </div>
+              {pitch.videoUrl ? (
+                <VideoPlayer url={pitch.videoUrl} playing />
+              ) : (
+                <img
+                  src={pitch.thumbnailUrl}
+                  alt={pitch.companyName}
+                  className="h-full w-full object-cover"
+                />
+              )}
 
-              {/* Stats overlay */}
-              <div className="absolute top-4 right-4 flex gap-2">
-                <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-sm px-3 py-1.5 rounded-md">
-                  <Eye className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-200">
-                    {formatNumber(pitch.views)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 bg-neon-cyan/20 backdrop-blur-sm px-3 py-1.5 rounded-md border border-neon-cyan/30">
-                  <TrendingUp className="w-4 h-4 text-neon-cyan" />
-                  <span className="text-sm font-bold text-neon-cyan">
-                    {pitch.interestScore}
-                  </span>
-                </div>
-              </div>
             </motion.div>
 
             {/* Pitch Details */}
@@ -237,16 +299,7 @@ export default function PitchDetailPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{pitch.stage}</Badge>
-                  <Badge variant="outline">{pitch.industry}</Badge>
-                  <Badge variant="lime" className="gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {formatDate(pitch.createdAt)}
-                  </Badge>
-                </div>
-
-                <div className="pt-4 border-t border-slate-800">
+                <div className="border-t border-slate-800 pt-4">
                   <div className="flex items-center gap-3 mb-4">
                     <img
                       src={pitch.founderAvatar}
@@ -295,29 +348,54 @@ export default function PitchDetailPage() {
                 <h2 className="text-2xl font-heading font-bold text-slate-100">
                   Feedback
                 </h2>
-                <FeedbackModal
-                  pitchId={pitch.id}
-                  onSubmit={handleFeedbackSubmit}
-                />
+                {!pitch.isOwnedByViewer && feedbackEligibility !== 'ineligible' ? (
+                  <FeedbackModal
+                    pitchId={pitch.id}
+                    onSubmit={handleFeedbackSubmit}
+                    open={feedbackOpen}
+                    onOpenChange={(open) => {
+                      setFeedbackOpen(open);
+                      if (open) {
+                        setFeedbackSaved(false);
+                        return;
+                      }
+                      if (searchParams.get('feedback') === '1') removeFeedbackOpenParam();
+                    }}
+                    triggerLabel={eventSlug ? 'Give feedback' : 'Leave feedback'}
+                  />
+                ) : null}
               </div>
+
+              {feedbackEligibility === 'loading' ? (
+                <p className="mb-4 rounded-2xl border border-neon-cyan/20 bg-neon-cyan/10 px-4 py-3 text-sm font-semibold text-slate-200" role="status">
+                  Checking event feedback access...
+                </p>
+              ) : null}
+
+              {feedbackEligibility === 'ineligible' ? (
+                <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm text-amber-100" role="alert">
+                  <p className="font-semibold">{feedbackEligibilityError}</p>
+                  {dashboardHref ? <Link href={dashboardHref} className="mt-3 inline-flex min-h-11 items-center font-bold underline">Back to event dashboard</Link> : null}
+                </div>
+              ) : null}
+
+              {feedbackSaved ? (
+                <div className="mb-4 rounded-2xl border border-neon-lime/25 bg-neon-lime/10 px-4 py-3 text-sm text-slate-100" role="status">
+                  <p className="font-bold">Feedback saved.</p>
+                  {dashboardHref ? <Link href={dashboardHref} className="mt-3 inline-flex min-h-11 items-center font-bold text-neon-lime underline">Back to event dashboard</Link> : null}
+                </div>
+              ) : dashboardHref && feedbackEligibility !== 'ineligible' ? (
+                <Link href={dashboardHref} className="mb-4 inline-flex min-h-11 items-center text-sm font-bold text-neon-cyan underline">
+                  Back to event dashboard
+                </Link>
+              ) : null}
 
               {/* Feedback List */}
               <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
                 {localFeedback.length === 0 ? (
-                  <Card className="p-8 text-center">
-                    <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4">
-                      <Sparkles className="w-8 h-8 text-slate-600" />
-                    </div>
-                    <h3 className="font-heading font-bold text-lg text-slate-100 mb-2">
-                      No feedback yet
-                    </h3>
-                    <p className="text-slate-400 font-body mb-4">
-                      Be the first to give feedback on this pitch!
-                    </p>
-                    <FeedbackModal
-                      pitchId={pitch.id}
-                      onSubmit={handleFeedbackSubmit}
-                    />
+                  <Card className="p-6 text-center">
+                    <h3 className="font-heading font-bold text-lg text-slate-100">No feedback yet</h3>
+                    <p className="mt-2 text-slate-400 font-body">Give the founder one clear signal they can use in the next take.</p>
                   </Card>
                 ) : (
                   localFeedback.map((feedback) => {
@@ -441,5 +519,13 @@ export default function PitchDetailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PitchDetailPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-black text-white">Loading pitch...</div>}>
+      <PitchDetailContent />
+    </Suspense>
   );
 }

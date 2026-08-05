@@ -207,7 +207,7 @@ function FounderInviteContent() {
                   {emailMismatch ? (
                     <div className="mt-5 rounded-3xl border border-amber-300/25 bg-amber-400/10 p-4" role="alert">
                       <p className="font-heading text-lg font-black text-white">Use another account</p>
-                      <p className="mt-2 break-words text-sm leading-6 text-amber-50/80">
+                      <p className="mt-2 break-words text-sm leading-6 text-amber-50/80 [overflow-wrap:anywhere]">
                         This invitation belongs to {invitation?.email}. You are signed in as {user?.email}.
                       </p>
                       <button

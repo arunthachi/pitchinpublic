@@ -53,8 +53,16 @@ function createInviteCode() {
   return randomBytes(5).toString('hex').toUpperCase();
 }
 
-function normalizeEmail(value?: string | null) {
+export function normalizeEmail(value?: string | null) {
   return value?.trim().toLowerCase() || '';
+}
+
+export function inviteOperationFlags(inviteCreated: boolean, emailStatus?: string | null) {
+  return {
+    invite_created: inviteCreated,
+    email_sent: emailStatus === 'sent',
+    email_failed: emailStatus === 'failed' || emailStatus === 'not_configured',
+  };
 }
 
 async function getEventAndAccess(supabase: ReturnType<typeof createSupabase>, slug: string, userId: string) {
@@ -142,10 +150,49 @@ function invitationResponse(invitation: any, inviteUrl: string) {
   return {
     ...invitation,
     invite_code: undefined,
+    dedupe_email: undefined,
     invite_url: inviteUrl,
     email_error: publicInviteDeliveryError(invitation.email_status),
     health: getInvitationHealth(invitation),
   };
+}
+
+async function findActiveInvitation(
+  supabase: ReturnType<typeof createSupabase>,
+  eventId: string,
+  email: string,
+  role: (typeof INVITE_ROLES)[number]
+) {
+  if (!email) return null;
+
+  const canonicalResult = await supabase
+    .from('pitch_event_invitations')
+    .select('*')
+    .eq('event_id', eventId)
+    .eq('role', role)
+    .eq('dedupe_email', email)
+    .in('status', ['pending', 'accepted'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (canonicalResult.error) throw canonicalResult.error;
+  if (canonicalResult.data) return canonicalResult.data;
+
+  const escapedEmail = email.replace(/[\\%_]/g, '\\$&');
+  const legacyResult = await supabase
+    .from('pitch_event_invitations')
+    .select('*')
+    .eq('event_id', eventId)
+    .eq('role', role)
+    .ilike('email', escapedEmail)
+    .in('status', ['pending', 'accepted'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (legacyResult.error) throw legacyResult.error;
+  return legacyResult.data;
 }
 
 async function createInvitation({
@@ -165,23 +212,85 @@ async function createInvitation({
   role: (typeof INVITE_ROLES)[number];
   sendEmail: boolean;
 }) {
-  const inviteCode = createInviteCode();
-  const { data: invitation, error } = await supabase
-    .from('pitch_event_invitations')
-    .insert({
-      event_id: event.id,
-      email: email || null,
-      role,
-      invite_code: inviteCode,
-      invited_by: user.id,
-      status: 'pending',
-    })
-    .select('*')
-    .single();
+  let invitation;
+  try {
+    invitation = await findActiveInvitation(supabase, event.id, email, role);
+  } catch (error) {
+    console.error('Error checking for an existing event invitation:', error);
+    return {
+      success: false as const,
+      email,
+      error: publicInviteError('create'),
+      ...inviteOperationFlags(false),
+    };
+  }
+  let inviteCreated = false;
 
-  if (error || !invitation) {
-    console.error('Error creating event invitation:', error);
-    return { success: false as const, email, error: publicInviteError('create') };
+  if (!invitation) {
+    const inviteCode = createInviteCode();
+    const insertResult = await supabase
+      .from('pitch_event_invitations')
+      .insert({
+        event_id: event.id,
+        email: email || null,
+        dedupe_email: email || null,
+        role,
+        invite_code: inviteCode,
+        invited_by: user.id,
+        status: 'pending',
+      })
+      .select('*')
+      .single();
+
+    invitation = insertResult.data;
+    inviteCreated = Boolean(invitation);
+
+    if (insertResult.error?.code === '23505' && email) {
+      try {
+        invitation = await findActiveInvitation(supabase, event.id, email, role);
+      } catch (error) {
+        console.error('Error resolving a concurrent event invitation:', error);
+        invitation = null;
+      }
+      inviteCreated = false;
+    } else if (insertResult.error) {
+      console.error('Error creating event invitation:', insertResult.error);
+    }
+  }
+
+  if (!invitation) {
+    return {
+      success: false as const,
+      email,
+      error: publicInviteError('create'),
+      ...inviteOperationFlags(false),
+    };
+  }
+
+  if (invitation.status === 'accepted') {
+    const inviteUrl = `${request.nextUrl.origin}/events/${event.slug}?invite=${invitation.invite_code}`;
+    return {
+      success: true as const,
+      email,
+      invitation: invitationResponse(invitation, inviteUrl),
+      inviteUrl,
+      emailStatus: invitation.email_status || 'unknown',
+      emailError: null,
+      ...inviteOperationFlags(false),
+    };
+  }
+
+  if (!sendEmail && !inviteCreated) {
+    const inviteUrl = `${request.nextUrl.origin}/events/${event.slug}?invite=${invitation.invite_code}`;
+    return {
+      success: true as const,
+      email,
+      invitation: invitationResponse(invitation, inviteUrl),
+      inviteUrl,
+      emailStatus: invitation.email_status || 'unknown',
+      emailError: publicInviteDeliveryError(invitation.email_status),
+      ...inviteOperationFlags(false),
+    };
   }
 
   const inviteResult = await createOrUpdateInviteResponse({
@@ -204,6 +313,7 @@ async function createInvitation({
     inviteUrl: inviteResult.inviteUrl,
     emailStatus: inviteResult.emailStatus,
     emailError: publicInviteDeliveryError(inviteResult.emailStatus),
+    ...inviteOperationFlags(inviteCreated, sendEmail ? inviteResult.emailStatus : null),
   };
 }
 
@@ -319,9 +429,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({
       success: succeeded.length > 0,
       results,
-      created: succeeded.length,
+      created: succeeded.filter((result) => result.invite_created).length,
+      sent: succeeded.filter((result) => result.email_sent).length,
+      emailFailed: succeeded.filter((result) => result.email_failed).length,
       failed: results.length - succeeded.length,
-    }, { status: succeeded.length ? 201 : 500 });
+    }, { status: succeeded.length ? (succeeded.some((result) => result.invite_created) ? 201 : 200) : 500 });
   }
 
   const inviteResult = results[0];
@@ -336,8 +448,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
       inviteUrl: inviteResult.inviteUrl,
       emailStatus: inviteResult.emailStatus,
       emailError: inviteResult.emailError,
+      invite_created: inviteResult.invite_created,
+      email_sent: inviteResult.email_sent,
+      email_failed: inviteResult.email_failed,
     },
-    { status: 201 }
+    { status: inviteResult.invite_created ? 201 : 200 }
   );
 }
 

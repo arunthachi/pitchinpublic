@@ -36,36 +36,3 @@ export async function GET(
     );
   }
 }
-
-/**
- * DELETE /api/videos/[videoId]
- * Delete a video
- */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ videoId: string }> }
-) {
-  try {
-    const { videoId } = await params;
-    const provider = getVideoProvider();
-    const success = await provider.deleteVideo(videoId);
-
-    if (!success) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to delete video' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting video:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to delete video',
-      },
-      { status: 500 }
-    );
-  }
-}

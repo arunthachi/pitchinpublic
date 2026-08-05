@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
@@ -7,6 +8,45 @@ import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import { createServiceSupabase } from '@/lib/admin';
+import { z } from 'zod';
+
+const idempotencyKeySchema = z.string().uuid();
+
+export function parsePitchIdempotencyKey(value: string | null) {
+  if (!value) return { key: null, valid: true } as const;
+  const parsed = idempotencyKeySchema.safeParse(value.trim());
+  return parsed.success
+    ? ({ key: parsed.data, valid: true } as const)
+    : ({ key: null, valid: false } as const);
+}
+
+export function hashPitchCreationPayload(payload: unknown) {
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+function pitchResponse(pitch: any, fallback: Record<string, any>) {
+  return {
+    id: pitch.id,
+    publicId: pitch.public_id || null,
+    hook: pitch.hook,
+    description: pitch.description,
+    startupName: pitch.startup_name || fallback.startupName || null,
+    oneLinePitch: pitch.one_line_pitch || fallback.oneLinePitch,
+    feedbackAsk: pitch.feedback_ask || fallback.feedbackAsk || null,
+    extraContext: pitch.extra_context || fallback.extraContext || null,
+    companyId: pitch.company_id || fallback.companyId || null,
+    videoId: pitch.video_id,
+    videoUrl: pitch.video_url,
+    thumbnailUrl: pitch.thumbnail_url,
+    duration: pitch.duration,
+    status: pitch.status,
+    versionNumber: pitch.take_version || pitch.version_number || fallback.repNumber || 1,
+    practiceGoalId: pitch.practice_goal_id || fallback.practiceGoalId || null,
+    promptKey: pitch.prompt_key || fallback.promptKey || null,
+    promptText: pitch.prompt_text || fallback.promptText || null,
+    createdAt: pitch.created_at,
+  };
+}
 
 /**
  * POST /api/pitches
@@ -129,19 +169,6 @@ export async function POST(request: NextRequest) {
     window: RATE_LIMITS.UPLOAD.window,
   });
 
-  if (!result.success) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Too many pitch uploads. Please try again later.',
-      },
-      {
-        status: 429,
-        headers: formatRateLimitHeaders(result),
-      }
-    );
-  }
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
@@ -215,11 +242,66 @@ export async function POST(request: NextRequest) {
     }
 
     const pitchData = validation.data;
+    const idempotency = parsePitchIdempotencyKey(request.headers.get('Idempotency-Key'));
+    if (!idempotency.valid) {
+      return NextResponse.json(
+        { success: false, error: 'Idempotency-Key must be a valid UUID.' },
+        { status: 400, headers: formatRateLimitHeaders(result) }
+      );
+    }
+    const creationPayloadHash = idempotency.key ? hashPitchCreationPayload(pitchData) : null;
     const parsedDescription = parsePitchDescription(pitchData.description);
     const startupName = pitchData.startupName || parsedDescription.startupName || '';
     const oneLinePitch = pitchData.oneLinePitch || pitchData.hook;
     const feedbackAsk = pitchData.feedbackAsk || parsedDescription.feedbackAsk || '';
     const extraContext = pitchData.extraContext || parsedDescription.context || '';
+
+    if (idempotency.key) {
+      const { data: existingPitch, error: replayLookupError } = await supabase
+        .from('pitches')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('creation_key', idempotency.key)
+        .maybeSingle();
+
+      if (replayLookupError) throw replayLookupError;
+      if (existingPitch) {
+        if (existingPitch.creation_payload_hash !== creationPayloadHash) {
+          return NextResponse.json(
+            { success: false, error: 'Idempotency-Key was already used with different pitch data.' },
+            { status: 409, headers: formatRateLimitHeaders(result) }
+          );
+        }
+        return NextResponse.json(
+          {
+            success: true,
+            replayed: true,
+            pitch: pitchResponse(existingPitch, {
+              startupName,
+              oneLinePitch,
+              feedbackAsk,
+              extraContext,
+              practiceGoalId: pitchData.practiceGoalId,
+            }),
+          },
+          { status: 200, headers: formatRateLimitHeaders(result) }
+        );
+      }
+    }
+
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Too many pitch uploads. Please try again later.',
+        },
+        {
+          status: 429,
+          headers: formatRateLimitHeaders(result),
+        }
+      );
+    }
+
     const companyId = await resolveCompanyId(supabase, user.id, pitchData.companyId, startupName);
     const prompt = getPromptForDate();
     const promptKey = pitchData.promptKey || prompt.key;
@@ -276,6 +358,8 @@ export async function POST(request: NextRequest) {
       practice_goal_id: pitchData.practiceGoalId || null,
       prompt_key: promptKey,
       prompt_text: promptText,
+      creation_key: idempotency.key,
+      creation_payload_hash: creationPayloadHash,
     };
 
     let insertResult = await supabase
@@ -284,7 +368,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(insertResult.error.message)) {
+    if (!idempotency.key && insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take|creation_key|creation_payload_hash/i.test(insertResult.error.message)) {
       const {
         public_id: _publicId,
         company_id: _companyId,
@@ -296,6 +380,8 @@ export async function POST(request: NextRequest) {
         practice_goal_id: _practiceGoalId,
         prompt_key: _promptKey,
         prompt_text: _promptText,
+        creation_key: _creationKey,
+        creation_payload_hash: _creationPayloadHash,
         ...fallbackPayload
       } = insertPayload;
 
@@ -307,6 +393,43 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: pitch, error: insertError } = insertResult;
+
+    if (insertError?.code === '23505' && idempotency.key) {
+      const { data: racedPitch, error: racedLookupError } = await supabase
+        .from('pitches')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('creation_key', idempotency.key)
+        .maybeSingle();
+
+      if (racedLookupError) throw racedLookupError;
+      if (racedPitch) {
+        if (racedPitch.creation_payload_hash !== creationPayloadHash) {
+          return NextResponse.json(
+            { success: false, error: 'Idempotency-Key was already used with different pitch data.' },
+            { status: 409, headers: formatRateLimitHeaders(result) }
+          );
+        }
+        return NextResponse.json(
+          {
+            success: true,
+            replayed: true,
+            pitch: pitchResponse(racedPitch, {
+              startupName,
+              oneLinePitch,
+              feedbackAsk,
+              extraContext,
+              companyId,
+              repNumber,
+              practiceGoalId: pitchData.practiceGoalId,
+              promptKey,
+              promptText,
+            }),
+          },
+          { status: 200, headers: formatRateLimitHeaders(result) }
+        );
+      }
+    }
 
     if (insertError) {
       console.error('Error creating pitch:', insertError);
@@ -351,27 +474,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        pitch: {
-          id: pitch.id,
-          publicId: pitch.public_id || null,
-          hook: pitch.hook,
-          description: pitch.description,
-          startupName: pitch.startup_name || startupName || null,
-          oneLinePitch: pitch.one_line_pitch || oneLinePitch,
-          feedbackAsk: pitch.feedback_ask || feedbackAsk || null,
-          extraContext: pitch.extra_context || extraContext || null,
-          companyId: pitch.company_id || companyId,
-          videoId: pitch.video_id,
-          videoUrl: pitch.video_url,
-          thumbnailUrl: pitch.thumbnail_url,
-          duration: pitch.duration,
-          status: pitch.status,
-          versionNumber: pitch.take_version || pitch.version_number || repNumber,
-          practiceGoalId: pitch.practice_goal_id || pitchData.practiceGoalId || null,
+        replayed: false,
+        pitch: pitchResponse(pitch, {
+          startupName,
+          oneLinePitch,
+          feedbackAsk,
+          extraContext,
+          companyId,
+          repNumber,
+          practiceGoalId: pitchData.practiceGoalId,
           promptKey,
           promptText,
-          createdAt: pitch.created_at,
-        },
+        }),
       },
       {
         status: 201,

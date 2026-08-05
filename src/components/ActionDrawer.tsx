@@ -37,6 +37,9 @@ export function ActionDrawer({
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookmarkState, setBookmarkState] = useState(isBookmarked);
   const dragX = useRef(0);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  const toggleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Fetch follow status on mount
   React.useEffect(() => {
@@ -56,6 +59,50 @@ export function ActionDrawer({
       fetchFollowStatus();
     }
   }, [pitch.userId, isGuest, isOpen]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : toggleButtonRef.current;
+    const focusCloseButton = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsOpen(false);
+        return;
+      }
+
+      if (event.key !== 'Tab' || !drawerRef.current) return;
+      const focusable = [...drawerRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )];
+      if (!focusable.length) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusCloseButton);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [isOpen]);
 
   const handleFollowClick = async () => {
     if (isGuest && onSignInClick) {
@@ -118,12 +165,17 @@ export function ActionDrawer({
     <>
       {/* Drawer Toggle Button - Right Edge */}
       <motion.button
+        ref={toggleButtonRef}
+        type="button"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.3 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed right-4 bottom-8 z-40 w-12 h-12 rounded-full bg-gradient-to-br from-neon-cyan to-neon-cyan/60 flex items-center justify-center shadow-lg hover:shadow-xl transition-all hover:scale-110"
+        className="fixed bottom-[max(1rem,calc(env(safe-area-inset-bottom)+1rem))] right-[max(1rem,env(safe-area-inset-right))] z-40 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan to-neon-cyan/60 shadow-lg transition-all hover:scale-110 hover:shadow-xl"
         title="Open actions menu"
+        aria-label={isOpen ? 'Close actions menu' : 'Open actions menu'}
+        aria-expanded={isOpen}
+        aria-controls="pitch-actions-drawer"
       >
         <AnimatePresence mode="wait">
           {isOpen ? (
@@ -141,12 +193,14 @@ export function ActionDrawer({
       {/* Semi-transparent Backdrop */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <motion.button
+            type="button"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30"
+            className="fixed inset-0 z-30 h-full w-full cursor-default bg-black/40 backdrop-blur-sm"
+            aria-label="Close actions menu"
           />
         )}
       </AnimatePresence>
@@ -155,18 +209,27 @@ export function ActionDrawer({
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            ref={drawerRef}
+            id="pitch-actions-drawer"
             initial={{ x: 400, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 400, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             onTouchStart={handleDragStart}
             onTouchEnd={handleDragEnd}
-            className="fixed right-0 top-0 bottom-0 w-80 bg-gradient-to-b from-slate-950 via-slate-900 to-black z-40 shadow-2xl flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Pitch actions"
+            className="fixed bottom-0 right-0 top-0 z-40 flex h-[100dvh] w-[min(20rem,100vw)] min-h-0 flex-col overflow-y-auto overscroll-contain bg-gradient-to-b from-slate-950 via-slate-900 to-black pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl"
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {/* Close Button Inside Drawer */}
             <motion.button
+              ref={closeButtonRef}
+              type="button"
               onClick={() => setIsOpen(false)}
-              className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg transition-colors"
+              className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))] z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/20 transition-colors hover:bg-white/10"
+              aria-label="Close actions menu"
             >
               <X className="w-5 h-5 text-white" />
             </motion.button>

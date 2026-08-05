@@ -8,7 +8,7 @@ import { Leaderboard } from '@/components/Leaderboard';
 
 export default function LeaderboardPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-dvh bg-slate-950 text-white">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800">
         <div className="max-w-6xl mx-auto px-4 py-4 sm:px-6">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { getInvitationHealth, publicInviteDeliveryError } from '@/lib/event-dashboard';
+import { getInvitationHealth, publicInviteDeliveryError, scopePitchFeedbackToEvent } from '@/lib/event-dashboard';
 import { createServiceSupabase } from '@/lib/admin';
 import { canManageEvent, firstEventUpdateIssue, parseEventUpdate } from './_server';
 
@@ -120,6 +120,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   let reviewCoverage = null;
   let isTeamMember = false;
   let canManageEvent = false;
+  let completedFeedbackIds = new Set<string>();
 
   if (user) {
     const { data: participant } = await supabase
@@ -260,9 +261,17 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       });
 
       const { data: assignmentRows } = await supabase
-        .from('review_assignments')
-        .select('id,pitch_id,status,completed_feedback_id,completed_at')
-        .eq('event_id', event.id);
+        .rpc('get_event_review_assignments', { target_event_id: event.id });
+
+      completedFeedbackIds = new Set(
+        (assignmentRows || [])
+          .filter((row: any) => row.status === 'submitted' && row.completed_feedback_id)
+          .map((row: any) => row.completed_feedback_id),
+      );
+      submissions = (submissionRows || []).map((row: any) => ({
+        ...row,
+        pitch: row.pitch ? scopePitchFeedbackToEvent(row.pitch, completedFeedbackIds) : row.pitch,
+      }));
 
       const { data: qualitySummaryRows } = await supabase
         .rpc('get_event_review_quality_summary', { target_event_id: event.id });
@@ -350,7 +359,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
           .is('deleted_at', null)
           .order('created_at', { ascending: false });
 
-        pitches = pitchRows || [];
+        pitches = (pitchRows || []).map((pitch: any) => scopePitchFeedbackToEvent(pitch, completedFeedbackIds));
       }
     }
 

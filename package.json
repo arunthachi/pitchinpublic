@@ -7,13 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:e2e": "playwright test",
+    "test:e2e:public": "playwright test e2e/responsive-route-matrix.spec.ts",
+    "test:e2e:events-new": "playwright test e2e/events-new-responsive.spec.ts",
+    "test:unit:mobile-pwa": "tsx --test src/contexts/AuthContext.test.ts src/lib/pilot-admin-access.test.ts src/lib/supabase/middleware.test.ts src/lib/supabase/server.test.ts src/app/api/leaderboard/route.test.ts 'src/app/api/videos/[videoId]/route.test.ts'",
     "test:nudges": "tsx --test src/lib/nudges.test.ts",
     "test:founder-invites": "tsx --test src/app/api/founder-invites/_server.test.ts",
     "test:events": "tsx --test 'src/app/api/events/[slug]/_server.test.ts'",
     "test:pilot-access": "tsx --test src/lib/pilot-access.test.ts",
     "test:reviewers": "tsx --test src/lib/review-marketplace.test.ts",
     "test:event-outcomes": "tsx --test src/lib/event-outcomes.test.ts src/lib/event-outcomes-server.test.ts",
-    "test:event-dashboard": "tsx --test src/lib/event-dashboard.test.ts"
+    "test:event-dashboard": "tsx --test src/lib/event-dashboard.test.ts",
+    "test:unit:navigation-continuity": "tsx --test src/lib/app-navigation.test.ts src/lib/public-routes.test.ts src/lib/email.test.ts src/lib/idempotency.test.ts src/components/founder-event-flow.test.ts src/app/api/pitches/route.test.ts src/app/api/events/route.test.ts 'src/app/api/events/[slug]/invites/route.test.ts' 'src/app/api/pitches/[pitchId]/feedback/route.test.ts'"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",
@@ -38,6 +43,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "^20.14.12",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

@@ -83,7 +83,7 @@ function OrganizerInviteContent() {
   }, [code, loading, router, state, user]);
 
   return (
-    <main className="min-h-screen bg-background px-4 py-8 text-white sm:px-6">
+    <main className="min-h-dvh bg-background px-4 py-8 text-white sm:px-6">
       <div className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl items-center justify-center">
         <section className="glass-panel w-full rounded-[2rem] p-6 text-center sm:p-10">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-neon-cyan/15 text-neon-cyan shadow-[0_16px_50px_rgba(34,211,238,0.14)]">
@@ -113,7 +113,7 @@ function OrganizerInviteContent() {
                 <p className="mt-1 break-all font-mono text-lg font-black text-white">
                   {code || 'Missing code'}
                 </p>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
+                <p className="mt-2 text-sm leading-6 text-slate-400 [overflow-wrap:anywhere]">
                   {loading
                     ? 'Checking your session...'
                     : !code
@@ -179,10 +179,10 @@ function OrganizerInviteContent() {
                   <p className="font-heading text-xs font-black uppercase tracking-[0.18em] text-amber-100">
                     Different account needed
                   </p>
-                  <h2 className="mt-2 font-heading text-2xl font-black text-white sm:text-3xl">
+                  <h2 className="mt-2 font-heading text-2xl font-black text-white sm:text-3xl [overflow-wrap:anywhere]">
                     This invite is locked to {invitedEmail}.
                   </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-50/80 sm:text-base">
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-50/80 sm:text-base [overflow-wrap:anywhere]">
                     You are currently signed in as {user?.email}. Switch accounts to accept the invite and unlock organizer tools.
                   </p>
                 </div>
@@ -287,7 +287,7 @@ function OrganizerInviteContent() {
 
 export default function OrganizerInvitePage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background text-white">Loading invite...</div>}>
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-background text-white">Loading invite...</div>}>
       <OrganizerInviteContent />
     </Suspense>
   );
@@ -305,7 +305,7 @@ function StatusLine({ label, value, tone }: { label: string; value: string; tone
       }`}
     >
       <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{label}</span>
-      <span className="max-w-[60%] text-right text-sm font-semibold text-white">{value}</span>
+      <span className="min-w-0 max-w-[60%] break-all text-right text-sm font-semibold text-white">{value}</span>
     </div>
   );
 }

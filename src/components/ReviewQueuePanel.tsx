@@ -6,7 +6,7 @@ import type { ReviewQueueSummary } from '@/types';
 
 interface ReviewQueuePanelProps {
   queue: ReviewQueueSummary | null;
-  onSelectPitch: (publicPitchId: string) => void;
+  onSelectPitch: (publicPitchId: string, eventSlug: string | null | undefined, assignmentId: string) => void;
 }
 
 export function ReviewQueuePanel({ queue, onSelectPitch }: ReviewQueuePanelProps) {
@@ -41,10 +41,10 @@ export function ReviewQueuePanel({ queue, onSelectPitch }: ReviewQueuePanelProps
       <div className="mt-3 space-y-2">
         {activeItems.map((item, index) => (
           <button
-            key={item.publicPitchId}
+            key={item.assignmentId}
             type="button"
             onClick={() => {
-              onSelectPitch(item.publicPitchId);
+              onSelectPitch(item.publicPitchId, item.eventSlug, item.assignmentId);
               setMobileOpen(false);
             }}
             className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-white/10 bg-black/25 p-2.5 text-left transition hover:border-neon-cyan/30 hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-neon-cyan/60"

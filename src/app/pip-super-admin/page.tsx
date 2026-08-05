@@ -559,7 +559,7 @@ export default function AdminPage() {
 
   if (loading || (user && (loadState === 'idle' || (loadState === 'loading' && !overview)))) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+      <main className="flex min-h-dvh items-center justify-center bg-background px-4 text-white">
         <section className="glass-panel w-full max-w-xl rounded-[2rem] p-8 text-center">
           <Loader2 className="mx-auto h-11 w-11 animate-spin text-neon-cyan" />
           <h1 className="mt-5 font-heading text-3xl font-black">Checking admin access</h1>
@@ -571,7 +571,7 @@ export default function AdminPage() {
 
   if (isSignedOut) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+      <main className="flex min-h-dvh items-center justify-center bg-background px-4 text-white">
         <section className="glass-panel max-w-xl rounded-[2rem] p-8 text-center">
           <ShieldCheck className="mx-auto h-12 w-12 text-neon-cyan" />
           <h1 className="mt-5 font-heading text-4xl font-black">Platform admin</h1>
@@ -592,12 +592,12 @@ export default function AdminPage() {
     };
 
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+      <main className="flex min-h-dvh items-center justify-center bg-background px-4 text-white">
         <section className="glass-panel w-full max-w-xl rounded-[2rem] p-8 text-center">
           <ShieldCheck className="mx-auto h-12 w-12 text-red-300" />
           <h1 className="mt-5 font-heading text-4xl font-black">Admin access required</h1>
           <p className="mt-3 text-slate-300">
-            Signed in as <span className="font-semibold text-white">{user?.email}</span>. This account cannot access platform controls.
+            Signed in as <span className="break-all font-semibold text-white">{user?.email}</span>. This account cannot access platform controls.
           </p>
           <p className="mt-3 text-sm text-slate-400">{error}</p>
           <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
@@ -616,7 +616,7 @@ export default function AdminPage() {
 
   if (loadState === 'error' || !overview) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-4 text-white">
+      <main className="flex min-h-dvh items-center justify-center bg-background px-4 text-white">
         <section className="glass-panel w-full max-w-xl rounded-[2rem] p-8 text-center">
           <ShieldCheck className="mx-auto h-12 w-12 text-amber-300" />
           <h1 className="mt-5 font-heading text-4xl font-black">Admin dashboard unavailable</h1>
@@ -635,7 +635,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 py-6 text-white sm:px-6">
+    <main className="min-h-dvh bg-background px-4 py-6 text-white sm:px-6">
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -649,7 +649,7 @@ export default function AdminPage() {
               Refresh
             </button>
             <Link href="/" className="btn-glass inline-flex items-center gap-2 rounded-full px-4 py-3 font-heading font-bold">
-              Founder app
+              Feed
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -676,13 +676,17 @@ export default function AdminPage() {
         </section>
 
         <section className="mt-6">
-          <div className="inline-flex min-h-12 w-full rounded-full border border-white/10 bg-white/[0.04] p-1 sm:w-auto" role="tablist" aria-label="Invitation type">
+          <div
+            className="grid min-h-12 w-full grid-cols-1 gap-1 rounded-3xl border border-white/10 bg-white/[0.04] p-1 sm:inline-grid sm:w-auto sm:grid-cols-3 sm:rounded-full"
+            role="tablist"
+            aria-label="Invitation type"
+          >
             <button
               type="button"
               role="tab"
               aria-selected={inviteTab === 'founders'}
               onClick={() => setInviteTab('founders')}
-              className={`min-h-11 flex-1 rounded-full px-5 text-sm font-black transition sm:flex-none ${inviteTab === 'founders' ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/[0.06]'}`}
+              className={`min-h-11 rounded-full px-5 text-sm font-black transition ${inviteTab === 'founders' ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/[0.06]'}`}
             >
               Founder invites
             </button>
@@ -691,7 +695,7 @@ export default function AdminPage() {
               role="tab"
               aria-selected={inviteTab === 'organizers'}
               onClick={() => setInviteTab('organizers')}
-              className={`min-h-11 flex-1 rounded-full px-5 text-sm font-black transition sm:flex-none ${inviteTab === 'organizers' ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/[0.06]'}`}
+              className={`min-h-11 rounded-full px-5 text-sm font-black transition ${inviteTab === 'organizers' ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/[0.06]'}`}
             >
               Organizer invites
             </button>
@@ -700,7 +704,7 @@ export default function AdminPage() {
               role="tab"
               aria-selected={inviteTab === 'reviewers'}
               onClick={() => setInviteTab('reviewers')}
-              className={`min-h-11 flex-1 rounded-full px-5 text-sm font-black transition sm:flex-none ${inviteTab === 'reviewers' ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/[0.06]'}`}
+              className={`min-h-11 rounded-full px-5 text-sm font-black transition ${inviteTab === 'reviewers' ? 'bg-white text-slate-950' : 'text-slate-300 hover:bg-white/[0.06]'}`}
             >
               Trusted reviewers
             </button>
@@ -780,7 +784,7 @@ export default function AdminPage() {
                     <div key={invite.actionKey} className="rounded-2xl border border-white/10 bg-black/20 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate font-heading text-lg font-black">{invite.email}</p>
+                          <p className="break-all font-heading text-lg font-black">{invite.email}</p>
                           <p className="mt-1 text-sm text-slate-400">{[invite.title, invite.organization].filter(Boolean).join(' · ') || 'Trusted reviewer'}</p>
                         </div>
                         <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-200">{invite.status}</span>
@@ -811,7 +815,7 @@ export default function AdminPage() {
                   return (
                     <div key={reviewer.email} className="rounded-2xl border border-white/10 bg-black/20 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div><p className="font-heading text-lg font-black">{reviewer.name || reviewer.email}</p><p className="text-sm text-slate-400">{reviewer.email}</p></div>
+                        <div className="min-w-0"><p className="break-words font-heading text-lg font-black">{reviewer.name || reviewer.email}</p><p className="break-all text-sm text-slate-400">{reviewer.email}</p></div>
                         <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-200">Active</span>
                       </div>
                       <p className="mt-2 text-sm text-slate-300">{[reviewer.title, reviewer.organization].filter(Boolean).join(' · ') || 'Trusted reviewer'}</p>
@@ -906,7 +910,7 @@ export default function AdminPage() {
                   <div key={invite.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate font-heading text-lg font-black">{invite.email}</p>
+                        <p className="break-all font-heading text-lg font-black">{invite.email}</p>
                         <p className="mt-1 text-sm text-slate-400">{invite.cohort || 'Direct invite'}</p>
                       </div>
                       <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-200">{invite.status}</span>
@@ -990,7 +994,7 @@ export default function AdminPage() {
                 {organizerInvites.length ? organizerInvites.map((invite) => (
                   <div key={invite.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0"><p className="font-heading text-lg font-black">{invite.organization_name || invite.email}</p><p className="truncate text-sm text-slate-400">{invite.email}</p></div>
+                      <div className="min-w-0"><p className="break-words font-heading text-lg font-black">{invite.organization_name || invite.email}</p><p className="break-all text-sm text-slate-400">{invite.email}</p></div>
                       <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-200">{invite.status}</span>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1143,8 +1147,8 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function PersonRow({ name, email, meta }: { name: string; email: string; meta: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <p className="font-heading text-lg font-black text-white">{name}</p>
-      <p className="mt-1 truncate text-sm text-slate-400">{email}</p>
+      <p className="break-words font-heading text-lg font-black text-white">{name}</p>
+      <p className="mt-1 break-all text-sm text-slate-400">{email}</p>
       <p className="mt-2 text-xs text-slate-500">{meta}</p>
     </div>
   );
@@ -1180,9 +1184,9 @@ function LeadRow({
   return (
     <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-heading text-lg font-black text-white">{lead.name}</p>
-          <p className="mt-1 truncate text-sm text-slate-400">{lead.email}</p>
+        <div className="min-w-0">
+          <p className="break-words font-heading text-lg font-black text-white">{lead.name}</p>
+          <p className="mt-1 break-all text-sm text-slate-400">{lead.email}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <span className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${requestStatusClass(lead.status)}`}>

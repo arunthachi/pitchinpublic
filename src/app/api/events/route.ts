@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
@@ -32,6 +33,27 @@ const createEventSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pitchHourEndsAt'], message: 'Pitch Hour must end after it starts.' });
   }
 });
+
+const idempotencyKeySchema = z.string().uuid();
+
+export function parseEventIdempotencyKey(value: string | null) {
+  if (!value) return { key: null, valid: true } as const;
+  const parsed = idempotencyKeySchema.safeParse(value.trim());
+  return parsed.success
+    ? ({ key: parsed.data, valid: true } as const)
+    : ({ key: null, valid: false } as const);
+}
+
+export function hashEventCreationPayload(payload: unknown) {
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+function eventResponse(event: Record<string, unknown>) {
+  const safeEvent = { ...event };
+  delete safeEvent.creation_key;
+  delete safeEvent.creation_payload_hash;
+  return safeEvent;
+}
 
 function createSupabase(request: NextRequest) {
   return createServerClient(
@@ -88,6 +110,32 @@ async function canCreatePitchEvents(supabase: ReturnType<typeof createSupabase>,
   return Boolean(data?.length);
 }
 
+export function buildOrganizerParticipantUpsert(eventId: string, userId: string) {
+  return {
+    values: {
+      event_id: eventId,
+      user_id: userId,
+      role: 'organizer',
+      status: 'active',
+    },
+    options: { onConflict: 'event_id,user_id' },
+  } as const;
+}
+
+async function ensureOrganizerParticipant(eventId: string, userId: string) {
+  const adminSupabase = createServiceSupabase();
+  if (!adminSupabase) {
+    throw new Error('Event participant setup is not configured in this environment.');
+  }
+
+  const participant = buildOrganizerParticipantUpsert(eventId, userId);
+  const { error } = await adminSupabase
+    .from('pitch_event_participants')
+    .upsert(participant.values, participant.options);
+
+  if (error) throw error;
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createSupabase(request);
 
@@ -123,6 +171,14 @@ export async function POST(request: NextRequest) {
   }
 
   const data = validation.data;
+  const idempotency = parseEventIdempotencyKey(request.headers.get('Idempotency-Key'));
+  if (!idempotency.valid) {
+    return NextResponse.json(
+      { success: false, error: 'Idempotency-Key must be a valid UUID.' },
+      { status: 400 }
+    );
+  }
+  const creationPayloadHash = idempotency.key ? hashEventCreationPayload(data) : null;
   const baseSlug = slugify(data.name) || 'pitch-sprint';
   const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
   const selectedFocuses = data.focuses?.map((item) => item.trim()).filter(Boolean) || [];
@@ -130,6 +186,27 @@ export async function POST(request: NextRequest) {
   const pitchLengthSeconds = data.pitchLengthSeconds ?? Math.round((data.pitchLengthMinutes ?? 1) * 60);
 
   try {
+    if (idempotency.key) {
+      const { data: existingEvent, error: replayLookupError } = await supabase
+        .from('pitch_events')
+        .select('*')
+        .eq('organizer_id', user.id)
+        .eq('creation_key', idempotency.key)
+        .maybeSingle();
+
+      if (replayLookupError) throw replayLookupError;
+      if (existingEvent) {
+        if (existingEvent.creation_payload_hash !== creationPayloadHash) {
+          return NextResponse.json(
+            { success: false, error: 'Idempotency-Key was already used with different event data.' },
+            { status: 409 }
+          );
+        }
+        await ensureOrganizerParticipant(existingEvent.id, user.id);
+        return NextResponse.json({ success: true, replayed: true, event: eventResponse(existingEvent) });
+      }
+    }
+
     const { data: event, error } = await supabase
       .from('pitch_events')
       .insert({
@@ -147,39 +224,38 @@ export async function POST(request: NextRequest) {
         pitch_hour_starts_at: data.pitchHourStartsAt || null,
         pitch_hour_ends_at: data.pitchHourEndsAt || null,
         status: 'active',
+        creation_key: idempotency.key,
+        creation_payload_hash: creationPayloadHash,
       })
       .select('*')
       .single();
 
-    if (error) throw error;
-
-    const adminSupabase = createServiceSupabase();
-    if (!adminSupabase) {
-      throw new Error('Event participant setup is not configured in this environment.');
-    }
-
-    const { error: participantError } = await adminSupabase.from('pitch_event_participants').upsert({
-      event_id: event.id,
-      user_id: user.id,
-      role: 'organizer',
-      status: 'active',
-    });
-
-    if (participantError) {
-      const { error: rollbackError } = await adminSupabase
+    if (error?.code === '23505' && idempotency.key) {
+      const { data: racedEvent, error: racedLookupError } = await supabase
         .from('pitch_events')
-        .delete()
-        .eq('id', event.id)
-        .eq('organizer_id', user.id);
+        .select('*')
+        .eq('organizer_id', user.id)
+        .eq('creation_key', idempotency.key)
+        .maybeSingle();
 
-      if (rollbackError) {
-        console.error('Could not roll back incomplete pitch room:', rollbackError);
+      if (racedLookupError) throw racedLookupError;
+      if (racedEvent) {
+        if (racedEvent.creation_payload_hash !== creationPayloadHash) {
+          return NextResponse.json(
+            { success: false, error: 'Idempotency-Key was already used with different event data.' },
+            { status: 409 }
+          );
+        }
+        await ensureOrganizerParticipant(racedEvent.id, user.id);
+        return NextResponse.json({ success: true, replayed: true, event: eventResponse(racedEvent) });
       }
-
-      throw participantError;
     }
 
-    return NextResponse.json({ success: true, event }, { status: 201 });
+    if (error || !event) throw error || new Error('Failed to create event');
+
+    await ensureOrganizerParticipant(event.id, user.id);
+
+    return NextResponse.json({ success: true, replayed: false, event: eventResponse(event) }, { status: 201 });
   } catch (error) {
     console.error('Error creating pitch room:', error);
     return NextResponse.json(
@@ -231,6 +307,8 @@ export async function GET(request: NextRequest) {
   const events = (data || []).map((event) => {
     const safeEvent = { ...event } as Record<string, unknown>;
     delete safeEvent.access_code;
+    delete safeEvent.creation_key;
+    delete safeEvent.creation_payload_hash;
     return safeEvent;
   });
 

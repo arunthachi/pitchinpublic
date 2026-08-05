@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, VolumeX, Play, Pause, RotateCcw } from 'lucide-react';
-import Hls from 'hls.js';
 
 interface VideoPlayerProps {
   url: string;
@@ -40,7 +39,7 @@ function isHlsUrl(url: string): boolean {
 
 export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionChange }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
+  const hlsRef = useRef<InstanceType<typeof import('hls.js').default> | null>(null);
   const playingRef = useRef(playing);
   const [muted, setMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(playing);
@@ -98,6 +97,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionCh
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !url) return;
+    let disposed = false;
 
     // Clean up previous HLS instance
     if (hlsRef.current) {
@@ -108,25 +108,31 @@ export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionCh
     hlsRecoveryAttemptsRef.current = 0;
 
     if (isHlsUrl(url)) {
-      // HLS stream (Cloudflare Stream, etc.)
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: false,
-          backBufferLength: 30,
-          fragLoadingMaxRetry: 4,
-          manifestLoadingMaxRetry: 4,
-        });
-        hlsRef.current = hls;
-        hls.loadSource(url);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (playingRef.current) {
-            playVideo(video);
-          }
-        });
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari plays HLS natively and does not need the hls.js runtime.
+        video.src = url;
+        if (playingRef.current) {
+          playVideo(video);
+        }
+      } else {
+        // Load the HLS runtime only when this pitch actually needs it.
+        void import('hls.js').then(({ default: Hls }) => {
+          if (disposed || !Hls.isSupported()) return;
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 30,
+            fragLoadingMaxRetry: 4,
+            manifestLoadingMaxRetry: 4,
+          });
+          hlsRef.current = hls;
+          hls.loadSource(url);
+          hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            if (playingRef.current) void playVideo(video);
+          });
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            if (!data.fatal) return;
             hlsRecoveryAttemptsRef.current += 1;
 
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hlsRecoveryAttemptsRef.current <= 3) {
@@ -134,7 +140,6 @@ export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionCh
               hls.startLoad();
               return;
             }
-
             if (data.type === Hls.ErrorTypes.MEDIA_ERROR && hlsRecoveryAttemptsRef.current <= 2) {
               console.warn('Recovering HLS media error:', data.details);
               hls.recoverMediaError();
@@ -148,14 +153,10 @@ export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionCh
             });
             hls.destroy();
             hlsRef.current = null;
-          }
+          });
+        }).catch((error) => {
+          if (!disposed) console.warn('Unable to load HLS playback support:', error);
         });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Native HLS support (Safari)
-        video.src = url;
-        if (playingRef.current) {
-          playVideo(video);
-        }
       }
     } else {
       // Regular MP4 video
@@ -166,6 +167,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionCh
     }
 
     return () => {
+      disposed = true;
       video.pause();
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -301,9 +303,11 @@ export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionCh
       </div>
 
       {/* Tap to Play/Pause Overlay */}
-      <div
+      <button
+        type="button"
         className="absolute inset-0 z-40"
         onClick={togglePlayPause}
+        aria-label={isPlaying ? 'Pause pitch video' : 'Play pitch video'}
       >
         <AnimatePresence>
           {showControls && (
@@ -323,7 +327,7 @@ export function VideoPlayer({ url, playing, onEnded, onProgress, onInteractionCh
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </button>
 
       {showSoundPrompt && playing ? (
         <button type="button" onClick={replayWithSound} className="glass-pill absolute left-3 top-4 z-50 flex min-h-11 items-center gap-2 rounded-full px-3 text-sm font-black text-white shadow-lg focus:outline-none focus:ring-2 focus:ring-neon-cyan sm:px-4" aria-label="Replay pitch from the beginning with sound">
