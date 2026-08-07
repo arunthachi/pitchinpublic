@@ -21,7 +21,9 @@ if (hasOrganizerStorageState && organizerStorageState) {
 
 const organizerViewports = [
   { width: 320, height: 568 },
+  { width: 375, height: 667 },
   { width: 390, height: 844 },
+  { width: 430, height: 932 },
   { width: 768, height: 1024 },
   { width: 1440, height: 900 },
 ] as const;
@@ -64,6 +66,19 @@ for (const viewport of organizerViewports) {
     await founderEmails.fill('ada@startup.com, grace@startup.io ');
     await expect(page.getByRole('button', { name: 'Remove ada@startup.com' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Remove grace@startup.io' })).toBeVisible();
+
+    // Touch targets: chip removal and CSV upload must both give >=44px.
+    for (const target of [
+      page.getByRole('button', { name: 'Remove ada@startup.com' }),
+      page.getByRole('button', { name: 'Upload CSV' }),
+    ]) {
+      const box = await target.boundingBox();
+      expect(box, `${context} touch target has no layout box`).not.toBeNull();
+      if (box) {
+        expect(box.height, `${context} touch target shorter than 44px`).toBeGreaterThanOrEqual(43.5);
+        expect(box.width, `${context} touch target narrower than 44px`).toBeGreaterThanOrEqual(43.5);
+      }
+    }
 
     // Invalid entries become flagged chips and surface a remove-before-sending notice.
     await founderEmails.fill('not-an-email ');

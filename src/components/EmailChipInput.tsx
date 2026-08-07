@@ -133,7 +133,7 @@ export function EmailChipInput({
           return (
             <span
               key={email}
-              className={`inline-flex max-w-full items-center gap-1 rounded-full border py-1 pl-3 pr-1 text-sm font-semibold ${
+              className={`inline-flex max-w-full items-center gap-0.5 rounded-full border pl-3.5 pr-0.5 text-sm font-semibold ${
                 valid
                   ? 'border-white/15 bg-white/[0.08] text-slate-100'
                   : 'border-roast/40 bg-roast/15 text-roast'
@@ -148,7 +148,7 @@ export function EmailChipInput({
                   removeChip(email);
                 }}
                 aria-label={`Remove ${email}`}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-current transition hover:bg-white/15"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-current transition hover:bg-white/15"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -202,7 +202,7 @@ export function EmailChipInput({
                 type="button"
                 disabled={disabled}
                 onClick={() => fileRef.current?.click()}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-bold text-slate-300 transition hover:border-neon-cyan/45 hover:text-white"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-xs font-bold text-slate-300 transition hover:border-neon-cyan/45 hover:text-white"
               >
                 <Upload className="h-3.5 w-3.5" />
                 Upload CSV
