@@ -4,8 +4,40 @@ import {
   DECK_BUCKET,
   DECK_SIGNED_URL_SECONDS,
   canViewDeck,
+  isUuidLike,
   toDeckSummary,
+  type DeckAccessContext,
 } from '@/lib/pitch-deck';
+
+type ParticipantRow = { user_id: string; role?: string | null; status?: string | null };
+
+/**
+ * Assemble the canViewDeck context from the event's participant rows. Exported
+ * for route-level tests: the requester and owner may be the same person (one
+ * row) or absent entirely (no rows), and only rows matching each id count.
+ */
+export function buildDeckAccessContext(input: {
+  requesterId: string;
+  ownerId: string;
+  organizerId: string;
+  participantRows: ParticipantRow[] | null | undefined;
+  isPlatformAdmin: boolean;
+}): DeckAccessContext {
+  const requesterRow = input.participantRows?.find((row) => row.user_id === input.requesterId) || null;
+  const ownerRow = input.participantRows?.find((row) => row.user_id === input.ownerId) || null;
+  return {
+    requesterId: input.requesterId,
+    deckOwnerId: input.ownerId,
+    isPlatformAdmin: input.isPlatformAdmin,
+    event: {
+      organizerId: input.organizerId,
+      requesterRole: requesterRow?.role,
+      requesterStatus: requesterRow?.status,
+      ownerRole: ownerRow?.role,
+      ownerStatus: ownerRow?.status,
+    },
+  };
+}
 
 /**
  * GET /api/events/[slug]/decks/[userId]
@@ -21,6 +53,10 @@ export async function GET(
   { params }: { params: Promise<{ slug: string; userId: string }> }
 ) {
   const { slug, userId } = await params;
+
+  if (!isUuidLike(userId)) {
+    return NextResponse.json({ success: false, error: 'Deck not found.' }, { status: 404 });
+  }
 
   const supabase = createRequestSupabase(request);
   const serviceSupabase = createServiceSupabase();
@@ -61,9 +97,6 @@ export async function GET(
     return NextResponse.json({ success: false, error: 'Could not load the event.' }, { status: 500 });
   }
 
-  const requesterRow = participantRows?.find((row) => row.user_id === user.id) || null;
-  const ownerRow = participantRows?.find((row) => row.user_id === userId) || null;
-
   let isPlatformAdmin = false;
   if (user.email) {
     const { data: adminRow } = await serviceSupabase
@@ -75,28 +108,42 @@ export async function GET(
     isPlatformAdmin = Boolean(adminRow);
   }
 
-  const allowed = canViewDeck({
-    requesterId: user.id,
-    deckOwnerId: userId,
-    isPlatformAdmin,
-    event: {
+  const allowed = canViewDeck(
+    buildDeckAccessContext({
+      requesterId: user.id,
+      ownerId: userId,
       organizerId: event.organizer_id,
-      requesterRole: requesterRow?.role,
-      requesterStatus: requesterRow?.status,
-      ownerRole: ownerRow?.role,
-      ownerStatus: ownerRow?.status,
-    },
-  });
+      participantRows,
+      isPlatformAdmin,
+    })
+  );
   if (!allowed) {
+    return NextResponse.json({ success: false, error: 'Deck not found.' }, { status: 404 });
+  }
+
+  // Resolve the deck through the founder's ACTIVE startup — the same scoping
+  // the owner's own routes use — so an old deactivated company's deck can
+  // never shadow the current one.
+  const { data: activeCompany, error: activeCompanyError } = await serviceSupabase
+    .from('companies')
+    .select('id')
+    .eq('founder_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (activeCompanyError) {
+    console.error('Deck company lookup failed:', activeCompanyError);
+    return NextResponse.json({ success: false, error: 'Could not load the deck.' }, { status: 500 });
+  }
+  if (!activeCompany) {
     return NextResponse.json({ success: false, error: 'Deck not found.' }, { status: 404 });
   }
 
   const { data: deck, error: deckError } = await serviceSupabase
     .from('startup_decks')
     .select('kind, file_name, link_url, storage_path, updated_at')
-    .eq('founder_id', userId)
-    .order('updated_at', { ascending: false })
-    .limit(1)
+    .eq('company_id', activeCompany.id)
     .maybeSingle();
   if (deckError) {
     console.error('Deck lookup failed:', deckError);

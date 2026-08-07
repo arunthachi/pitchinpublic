@@ -20,7 +20,7 @@
     "test:event-dashboard": "tsx --test src/lib/event-dashboard.test.ts",
     "test:unit:navigation-continuity": "tsx --test src/lib/app-navigation.test.ts src/lib/public-routes.test.ts src/lib/email.test.ts src/lib/idempotency.test.ts src/components/founder-event-flow.test.ts src/app/api/pitches/route.test.ts src/app/api/events/route.test.ts 'src/app/api/events/[slug]/invites/route.test.ts' 'src/app/api/pitches/[pitchId]/feedback/route.test.ts'",
     "test:email-chips": "tsx --test src/lib/email-chips.test.ts",
-    "test:pitch-deck": "tsx --test src/lib/pitch-deck.test.ts"
+    "test:pitch-deck": "tsx --test src/lib/pitch-deck.test.ts 'src/app/api/startup/deck/route.test.ts' 'src/app/api/startup/deck/upload-url/route.test.ts' 'src/app/api/events/[slug]/decks/[userId]/route.test.ts'"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",

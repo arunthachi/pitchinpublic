@@ -258,18 +258,35 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       if (participantUserIds.length) {
         const serviceSupabase = createServiceSupabase();
         if (serviceSupabase) {
-          const { data: deckRows, error: deckRowsError } = await serviceSupabase
-            .from('startup_decks')
-            .select('founder_id, kind, file_name, link_url, updated_at')
-            .in('founder_id', participantUserIds);
-          if (deckRowsError) {
-            console.error('Event deck indicators failed:', deckRowsError);
-          } else if (deckRows?.length) {
-            const deckByFounder = new Map(deckRows.map((row: any) => [row.founder_id, toDeckSummary(row)]));
-            participants = participants.map((row: any) => ({
-              ...row,
-              deck: deckByFounder.get(row.user_id) || null,
-            }));
+          // Scope decks through each founder's ACTIVE startup (earliest active
+          // company wins, matching the owner routes) so stale companies' decks
+          // never surface.
+          const { data: companyRows, error: companyRowsError } = await serviceSupabase
+            .from('companies')
+            .select('id, founder_id')
+            .in('founder_id', participantUserIds)
+            .eq('status', 'active')
+            .order('created_at', { ascending: true });
+          if (companyRowsError) {
+            console.error('Event deck company lookup failed:', companyRowsError);
+          } else if (companyRows?.length) {
+            const companyByFounder = new Map<string, string>();
+            for (const row of companyRows) {
+              if (!companyByFounder.has(row.founder_id)) companyByFounder.set(row.founder_id, row.id);
+            }
+            const { data: deckRows, error: deckRowsError } = await serviceSupabase
+              .from('startup_decks')
+              .select('company_id, kind, file_name, link_url, updated_at')
+              .in('company_id', [...companyByFounder.values()]);
+            if (deckRowsError) {
+              console.error('Event deck indicators failed:', deckRowsError);
+            } else if (deckRows?.length) {
+              const deckByCompany = new Map(deckRows.map((row: any) => [row.company_id, toDeckSummary(row)]));
+              participants = participants.map((row: any) => {
+                const companyId = companyByFounder.get(row.user_id);
+                return { ...row, deck: (companyId && deckByCompany.get(companyId)) || null };
+              });
+            }
           }
         }
       }

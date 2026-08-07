@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileText, Link2, Loader2, Trash2, Upload } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { readJsonResponse } from '@/lib/http';
 import { validateDeckFile, validateDeckLink } from '@/lib/pitch-deck';
 
 type DeckSummary = {
@@ -26,20 +27,21 @@ export function DeckManager({ disabled }: { disabled?: boolean }) {
   const [linkDraft, setLinkDraft] = useState('');
   const [showLinkField, setShowLinkField] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const aliveRef = useRef(true);
 
   useEffect(() => {
-    let cancelled = false;
+    aliveRef.current = true;
     fetch('/api/startup/deck')
-      .then((response) => response.json())
+      .then((response) => readJsonResponse(response))
       .then((data) => {
-        if (!cancelled && data?.success) setDeck(data.deck);
+        if (aliveRef.current && data?.success) setDeck(data.deck);
       })
       .catch(() => {})
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (aliveRef.current) setLoading(false);
       });
     return () => {
-      cancelled = true;
+      aliveRef.current = false;
     };
   }, []);
 
@@ -60,7 +62,7 @@ export function DeckManager({ disabled }: { disabled?: boolean }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileName: file.name, fileSize: file.size, mimeType: file.type }),
       });
-      const urlData = await urlResponse.json();
+      const urlData = await readJsonResponse(urlResponse);
       if (!urlResponse.ok || !urlData.success) throw new Error(urlData.error || 'Could not start the upload.');
 
       const supabase = createClient();
@@ -79,15 +81,16 @@ export function DeckManager({ disabled }: { disabled?: boolean }) {
           fileSize: file.size,
         }),
       });
-      const confirmData = await confirmResponse.json();
+      const confirmData = await readJsonResponse(confirmResponse);
       if (!confirmResponse.ok || !confirmData.success) throw new Error(confirmData.error || 'Could not save the deck.');
 
+      if (!aliveRef.current) return;
       setDeck(confirmData.deck);
       setShowLinkField(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not upload the deck.');
+      if (aliveRef.current) setError(err instanceof Error ? err.message : 'Could not upload the deck.');
     } finally {
-      setBusy(null);
+      if (aliveRef.current) setBusy(null);
       if (fileRef.current) fileRef.current.value = '';
     }
   };
@@ -108,15 +111,16 @@ export function DeckManager({ disabled }: { disabled?: boolean }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'link', url: validation.url }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok || !data.success) throw new Error(data.error || 'Could not save the link.');
+      if (!aliveRef.current) return;
       setDeck(data.deck);
       setLinkDraft('');
       setShowLinkField(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save the link.');
+      if (aliveRef.current) setError(err instanceof Error ? err.message : 'Could not save the link.');
     } finally {
-      setBusy(null);
+      if (aliveRef.current) setBusy(null);
     }
   };
 
@@ -126,13 +130,13 @@ export function DeckManager({ disabled }: { disabled?: boolean }) {
     setBusy('remove');
     try {
       const response = await fetch('/api/startup/deck', { method: 'DELETE' });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok || !data.success) throw new Error(data.error || 'Could not remove the deck.');
-      setDeck(null);
+      if (aliveRef.current) setDeck(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not remove the deck.');
+      if (aliveRef.current) setError(err instanceof Error ? err.message : 'Could not remove the deck.');
     } finally {
-      setBusy(null);
+      if (aliveRef.current) setBusy(null);
     }
   };
 

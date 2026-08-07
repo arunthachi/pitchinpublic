@@ -57,6 +57,7 @@ import {
   type DashboardTab,
 } from '@/lib/event-dashboard';
 import { splitEventFocuses } from '@/lib/event-settings';
+import { readJsonResponse } from '@/lib/http';
 import type { EventReviewCoverage } from '@/types';
 import { EventEditDialog } from '@/components/EventEditDialog';
 import { EmailChipInput } from '@/components/EmailChipInput';
@@ -200,19 +201,6 @@ function roleLabel(role: string) {
   return 'Founder';
 }
 
-async function readJsonResponse(response: Response) {
-  const text = await response.text();
-  if (!text) return {};
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return {
-      success: false,
-      error: response.statusText || 'Unexpected response from the event dashboard.',
-    };
-  }
-}
 
 export default function EventDashboardPage() {
   const params = useParams();

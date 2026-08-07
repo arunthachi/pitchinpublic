@@ -86,6 +86,13 @@ export function validateDeckLink(raw: unknown): DeckLinkValidation {
 
 const STORAGE_PATH_PATTERN = /^[0-9a-f-]{36}\/\d+-[a-z0-9]+\.(pdf|ppt|pptx)$/;
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Guards path params that hit uuid columns, so fuzzed values 404 instead of 500. */
+export function isUuidLike(value: unknown): value is string {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
 export function buildDeckStoragePath(companyId: string, extension: string, nonce: string) {
   return `${companyId}/${Date.now()}-${nonce}.${extension}`;
 }
