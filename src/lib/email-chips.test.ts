@@ -32,10 +32,36 @@ test('detects separators that should trigger a chip commit', () => {
   assert.equal(containsEmailSeparator('a@x.com'), false);
 });
 
+test('extracts addresses from pasted mail-client display forms', () => {
+  assert.deepEqual(
+    splitEmailTokens('Jordan Lee <jordan@startup.com>, Sam Field <sam@field.io>'),
+    ['jordan@startup.com', 'sam@field.io'],
+  );
+});
+
+test('extracts multiple display forms inside one segment', () => {
+  assert.deepEqual(
+    splitEmailTokens('A <a@x.com> B <b@y.io>'),
+    ['a@x.com', 'b@y.io'],
+  );
+});
+
+test('strips mailto prefixes and wrapping quotes from typed tokens', () => {
+  assert.deepEqual(
+    splitEmailTokens('mailto:sam@field.io "jordan@startup.com"'),
+    ['sam@field.io', 'jordan@startup.com'],
+  );
+});
+
 test('merging dedupes case-insensitively against existing chips', () => {
   const { chips, overflow } = mergeEmailChips(['a@x.com'], ['A@X.com', 'b@y.io', 'b@y.io']);
   assert.deepEqual(chips, ['a@x.com', 'b@y.io']);
   assert.equal(overflow, 0);
+});
+
+test('merging normalizes the existing side of the dedupe too', () => {
+  const { chips } = mergeEmailChips(['A@X.com'], ['a@x.com']);
+  assert.deepEqual(chips, ['A@X.com']);
 });
 
 test('merging enforces the invite cap and reports overflow', () => {
@@ -72,4 +98,20 @@ test('handles tab-separated exports', () => {
 
 test('returns nothing for files without addresses', () => {
   assert.deepEqual(extractEmailsFromCsvText('Name,Company\nJordan,Acme'), []);
+});
+
+test('skips social-handle columns instead of turning them into chips', () => {
+  const csv = 'Name,Email,Twitter\nJordan,jordan@startup.com,@jordan\nSam,sam@field.io,@samf';
+  assert.deepEqual(extractEmailsFromCsvText(csv), ['jordan@startup.com', 'sam@field.io']);
+});
+
+test('splits space-separated plain-text exports into individual addresses', () => {
+  assert.deepEqual(
+    extractEmailsFromCsvText('a@x.com b@y.io c@z.dev'),
+    ['a@x.com', 'b@y.io', 'c@z.dev'],
+  );
+});
+
+test('drops malformed addresses from file extraction rather than emitting junk chips', () => {
+  assert.deepEqual(extractEmailsFromCsvText('Jordan,user@domain\nSam,sam@field.io'), ['sam@field.io']);
 });

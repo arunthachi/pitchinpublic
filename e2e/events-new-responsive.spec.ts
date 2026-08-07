@@ -65,17 +65,22 @@ for (const viewport of organizerViewports) {
     await expect(page.getByRole('button', { name: 'Remove ada@startup.com' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Remove grace@startup.io' })).toBeVisible();
 
-    // Invalid entries become flagged chips and surface a fix-before-sending notice.
+    // Invalid entries become flagged chips and surface a remove-before-sending notice.
     await founderEmails.fill('not-an-email ');
-    await expect(page.getByText('1 invalid address — remove or fix before sending.')).toBeVisible();
+    await expect(page.getByText('1 invalid address — remove before sending.')).toBeVisible();
     await page.getByRole('button', { name: 'Remove not-an-email' }).click();
-    await expect(page.getByText('1 invalid address — remove or fix before sending.')).toHaveCount(0);
+    await expect(page.getByText('1 invalid address — remove before sending.')).toHaveCount(0);
+
+    // A pasted mail-client "To" line resolves display forms to bare addresses.
+    await founderEmails.fill('Jordan Lee <jordan@startup.com>, ');
+    await expect(page.getByRole('button', { name: 'Remove jordan@startup.com' })).toBeVisible();
+    await page.getByRole('button', { name: 'Remove jordan@startup.com' }).click();
 
     // Chips are removable and the counter tracks them.
     await expect(page.getByText('2/50')).toBeVisible();
     await page.getByRole('button', { name: 'Remove grace@startup.io' }).click();
     await page.getByRole('button', { name: 'Remove ada@startup.com' }).click();
-    await expect(page.getByText('Remove', { exact: false })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
     const advanced = page.getByRole('button', { name: 'Advanced settings' });
     await expect(advanced).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByLabel('Description')).toBeHidden();

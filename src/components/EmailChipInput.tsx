@@ -45,11 +45,21 @@ export function EmailChipInput({
 
   const invalidCount = value.filter((email) => !isValidInviteEmail(email)).length;
 
-  const commitTokens = (tokens: string[]) => {
+  const commitTokens = (tokens: string[], sourceLabel?: string) => {
     if (!tokens.length) return;
     const { chips, overflow } = mergeEmailChips(value, tokens, limit);
-    setNotice(overflow ? `Only the first ${limit} addresses were kept.` : '');
-    if (chips.length !== value.length) onChange(chips);
+    const added = chips.length - value.length;
+    const parts: string[] = [];
+    if (sourceLabel) {
+      parts.push(
+        added
+          ? `Added ${added} address${added === 1 ? '' : 'es'} from ${sourceLabel}.`
+          : `No new addresses found in ${sourceLabel}.`
+      );
+    }
+    if (overflow) parts.push(`Only the first ${limit} addresses were kept.`);
+    setNotice(parts.join(' '));
+    if (added) onChange(chips);
   };
 
   const commitDraft = (text = draft) => {
@@ -80,7 +90,7 @@ export function EmailChipInput({
       commitDraft();
       return;
     }
-    if (event.key === 'Tab' && draft.trim()) {
+    if (event.key === 'Tab' && !event.shiftKey && draft.trim()) {
       event.preventDefault();
       commitDraft();
       return;
@@ -106,7 +116,7 @@ export function EmailChipInput({
         setNotice(`No email addresses found in ${file.name}.`);
         return;
       }
-      commitTokens(emails);
+      commitTokens(emails, file.name);
     } catch {
       setNotice(`Could not read ${file.name}. Try copying the addresses instead.`);
     } finally {
@@ -168,9 +178,14 @@ export function EmailChipInput({
       </div>
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs leading-5 text-slate-500">
-          {invalidCount
-            ? `${invalidCount} invalid address${invalidCount === 1 ? '' : 'es'} — remove or fix before sending.`
-            : notice || 'Type or paste addresses — spreadsheet columns work too.'}
+          {[
+            invalidCount
+              ? `${invalidCount} invalid address${invalidCount === 1 ? '' : 'es'} — remove before sending.`
+              : '',
+            notice,
+          ]
+            .filter(Boolean)
+            .join(' ') || 'Type or paste addresses — spreadsheet columns work too.'}
         </span>
         <span className="flex items-center gap-3">
           {value.length ? (
