@@ -565,7 +565,7 @@ Status definitions:
 | Push notifications | Deferred | Do not block pilot. |
 | SMS login/reminders | Deferred | Do not block pilot. |
 | Multiple startups in UI | Planned | Schema should support future expansion; MVP UI exposes one active startup. |
-| Founder pitch deck upload (PDF/PPT/Drive link) | Planned | Approved 2026-08-07. Needs document storage decision, size/type validation, deck-visibility RLS, and ordered migration before implementation. |
+| Founder pitch deck upload (PDF/PPT/Drive link) | Shipped | One optional deck per startup: PDF/PPT/PPTX (≤25MB) uploaded directly to a private Supabase Storage bucket via server-issued signed URLs, or an https link. Deny-by-default visibility: owner, active event team members of events where the founder actively participates, and platform admin — all server-mediated. Verify on staging per environment. |
 | Payments/paywall | Deferred | Validate paid demand manually first. |
 | Investor discovery marketplace | Deferred | Not core to the practice loop. |
 
