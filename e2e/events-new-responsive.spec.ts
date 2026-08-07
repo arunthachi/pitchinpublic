@@ -21,7 +21,9 @@ if (hasOrganizerStorageState && organizerStorageState) {
 
 const organizerViewports = [
   { width: 320, height: 568 },
+  { width: 375, height: 667 },
   { width: 390, height: 844 },
+  { width: 430, height: 932 },
   { width: 768, height: 1024 },
   { width: 1440, height: 900 },
 ] as const;
@@ -45,7 +47,65 @@ for (const viewport of organizerViewports) {
 
     await expect(page.getByLabel('Event name')).toBeVisible();
     await expect(page.getByLabel('Pitch day')).toBeVisible();
-    await expect(page.getByLabel('Founder emails (optional)')).toBeVisible();
+    const pitchLength = page.getByRole('radiogroup', { name: 'Pitch length' });
+    await expect(pitchLength, `${context} pitch length must be visible without opening advanced settings`).toBeVisible();
+    await expect(pitchLength.getByRole('radio', { name: '1 minute' })).toHaveAttribute('aria-checked', 'true');
+    await pitchLength.getByRole('radio', { name: '3 minutes' }).click();
+    await expect(pitchLength.getByRole('radio', { name: '3 minutes' })).toHaveAttribute('aria-checked', 'true');
+    await pitchLength.getByRole('radio', { name: '3 minutes' }).press('ArrowRight');
+    await expect(pitchLength.getByRole('radio', { name: '5 minutes' })).toHaveAttribute('aria-checked', 'true');
+    await pitchLength.getByRole('radio', { name: '5 minutes' }).press('ArrowLeft');
+    await expect(pitchLength.getByRole('radio', { name: '3 minutes' })).toHaveAttribute('aria-checked', 'true');
+
+    const founderEmails = page.getByLabel('Founder emails (optional)');
+    await expect(founderEmails).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Upload CSV' })).toBeVisible();
+
+    // Separator-committed chips: typing a comma-separated pair yields two chips.
+    await founderEmails.click();
+    await founderEmails.fill('ada@startup.com, grace@startup.io ');
+    await expect(page.getByRole('button', { name: 'Remove ada@startup.com' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove grace@startup.io' })).toBeVisible();
+
+    // Touch targets: chip removal and CSV upload must both give >=44px.
+    for (const target of [
+      page.getByRole('button', { name: 'Remove ada@startup.com' }),
+      page.getByRole('button', { name: 'Upload CSV' }),
+    ]) {
+      const box = await target.boundingBox();
+      expect(box, `${context} touch target has no layout box`).not.toBeNull();
+      if (box) {
+        expect(box.height, `${context} touch target shorter than 44px`).toBeGreaterThanOrEqual(43.5);
+        expect(box.width, `${context} touch target narrower than 44px`).toBeGreaterThanOrEqual(43.5);
+      }
+    }
+
+    // Invalid entries become flagged chips and surface a remove-before-sending notice.
+    await founderEmails.fill('not-an-email ');
+    await expect(page.getByText('1 invalid address — remove before sending.')).toBeVisible();
+    await page.getByRole('button', { name: 'Remove not-an-email' }).click();
+    await expect(page.getByText('1 invalid address — remove before sending.')).toHaveCount(0);
+
+    // A REAL paste (ClipboardEvent, not fill) of a mail-client "To" line onto a
+    // non-empty draft: the draft survives and the display form resolves to a
+    // bare address — the two silent-loss regressions caught in review.
+    await founderEmails.fill('lin@startup.dev');
+    await founderEmails.evaluate((element, pasted) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', pasted);
+      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, 'Jordan Lee <jordan@startup.com>');
+    await expect(page.getByRole('button', { name: 'Remove lin@startup.dev' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove jordan@startup.com' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Remove (jordan|lee)$/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Remove jordan@startup.com' }).click();
+    await page.getByRole('button', { name: 'Remove lin@startup.dev' }).click();
+
+    // Chips are removable and the counter tracks them.
+    await expect(page.getByText('2/50')).toBeVisible();
+    await page.getByRole('button', { name: 'Remove grace@startup.io' }).click();
+    await page.getByRole('button', { name: 'Remove ada@startup.com' }).click();
+    await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
     const advanced = page.getByRole('button', { name: 'Advanced settings' });
     await expect(advanced).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByLabel('Description')).toBeHidden();
