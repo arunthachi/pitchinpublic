@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getInvitationHealth, publicInviteDeliveryError, scopePitchFeedbackToEvent } from '@/lib/event-dashboard';
 import { createServiceSupabase } from '@/lib/admin';
+import { isDeckIndicatorEligible, toDeckSummary } from '@/lib/pitch-deck';
 import { canManageEvent, firstEventUpdateIssue, parseEventUpdate } from './_server';
 
 function createSupabase(request: NextRequest) {
@@ -249,6 +250,53 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         .order('created_at', { ascending: false });
 
       participants = participantRows || [];
+
+      // Lightweight per-founder deck indicator for the team dashboard. Only
+      // kind and display name travel here; the actual URL is signed on demand
+      // by /api/events/[slug]/decks/[userId].
+      // Mirror canViewDeck's owner-eligibility rule: only ACTIVE founder
+      // participants' decks are ever indicated, so the dashboard never leaks
+      // metadata for founders the deck route would refuse to serve.
+      const participantUserIds = participants
+        .filter((row: any) => isDeckIndicatorEligible(row))
+        .map((row: any) => row.user_id)
+        .filter(Boolean);
+      if (participantUserIds.length) {
+        const serviceSupabase = createServiceSupabase();
+        if (serviceSupabase) {
+          // Scope decks through each founder's ACTIVE startup (earliest active
+          // company wins, matching the owner routes) so stale companies' decks
+          // never surface.
+          const { data: companyRows, error: companyRowsError } = await serviceSupabase
+            .from('companies')
+            .select('id, founder_id')
+            .in('founder_id', participantUserIds)
+            .eq('status', 'active')
+            .order('created_at', { ascending: true });
+          if (companyRowsError) {
+            console.error('Event deck company lookup failed:', companyRowsError);
+          } else if (companyRows?.length) {
+            const companyByFounder = new Map<string, string>();
+            for (const row of companyRows) {
+              if (!companyByFounder.has(row.founder_id)) companyByFounder.set(row.founder_id, row.id);
+            }
+            const { data: deckRows, error: deckRowsError } = await serviceSupabase
+              .from('startup_decks')
+              .select('company_id, kind, file_name, link_url, updated_at')
+              .in('company_id', [...companyByFounder.values()]);
+            if (deckRowsError) {
+              console.error('Event deck indicators failed:', deckRowsError);
+            } else if (deckRows?.length) {
+              const deckByCompany = new Map(deckRows.map((row: any) => [row.company_id, toDeckSummary(row)]));
+              participants = participants.map((row: any) => {
+                const companyId = companyByFounder.get(row.user_id);
+                return { ...row, deck: (companyId && deckByCompany.get(companyId)) || null };
+              });
+            }
+          }
+        }
+      }
+
       submissions = submissionRows || [];
       invitations = (invitationRows || []).map((invitation: any) => {
         const { invite_code: inviteCode, ...safeInvitation } = invitation;
