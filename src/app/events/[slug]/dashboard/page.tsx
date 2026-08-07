@@ -496,9 +496,11 @@ export default function EventDashboardPage() {
   };
 
   const viewFounderDeck = async (userId: string) => {
-    // Open the tab synchronously so popup blockers allow it, then point it at
-    // the freshly signed URL (or external link) once the API resolves.
-    const deckWindow = window.open('about:blank', '_blank', 'noopener');
+    // Open the tab synchronously so popup blockers allow it. `noopener` in the
+    // feature string would make window.open return null, so sever the opener
+    // reference manually before navigating to the (possibly external) URL.
+    const deckWindow = window.open('about:blank', '_blank');
+    if (deckWindow) deckWindow.opener = null;
     try {
       const response = await fetch(`/api/events/${slug}/decks/${userId}`);
       const data = await readJsonResponse(response);

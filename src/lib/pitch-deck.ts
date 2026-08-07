@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 export const DECK_MAX_BYTES = 25 * 1024 * 1024;
-export const DECK_SIGNED_URL_SECONDS = 60 * 60;
+// Short-lived: the URL is an unauthenticated bearer capability and is re-signed
+// on every click, so a small window limits exposure after access is revoked.
+export const DECK_SIGNED_URL_SECONDS = 5 * 60;
 export const DECK_BUCKET = 'pitch-decks';
 
 export const DECK_EXTENSIONS: Record<string, string[]> = {
@@ -161,6 +163,21 @@ export function canViewDeck(context: DeckAccessContext): boolean {
     event.requesterStatus === 'active' &&
     DECK_TEAM_ROLES.has(event.requesterRole || '')
   );
+}
+
+/**
+ * Sanitize a display filename for the signed URL's download parameter:
+ * storage-js interpolates it into the query string without encoding, so strip
+ * URL metacharacters and pin the extension to the stored object's.
+ */
+export function safeDownloadName(fileName: string | null | undefined, storedExtension: string) {
+  const base = (fileName || '')
+    .replace(/\.[^.]*$/, '')
+    .replace(/[^\w .()-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+  return `${base || 'pitch-deck'}.${storedExtension}`;
 }
 
 export type DeckSummary = {

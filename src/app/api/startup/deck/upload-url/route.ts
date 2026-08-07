@@ -49,6 +49,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // The IP pre-limit is rotatable behind proxies; the authenticated identity
+  // is the budget that actually matters for storage-cost abuse.
+  const userLimit = await rateLimit({
+    key: `deck-upload-user:${user.id}`,
+    limit: RATE_LIMITS.UPLOAD.limit,
+    window: RATE_LIMITS.UPLOAD.window,
+  });
+  if (!userLimit.success) {
+    return NextResponse.json(
+      { success: false, error: 'Too many deck uploads. Please try again later.' },
+      { status: 429, headers: formatRateLimitHeaders(userLimit) }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

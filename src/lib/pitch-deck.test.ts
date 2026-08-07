@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   DECK_MAX_BYTES,
   buildDeckStoragePath,
+  safeDownloadName,
   canViewDeck,
   deckConfirmSchema,
   isDeckStoragePathForCompany,
@@ -196,6 +197,17 @@ test('organizer of an unrelated event cannot view the deck through it', () => {
     }),
     false,
   );
+});
+
+// ── download name sanitization ───────────────────────────────────────────────
+
+test('download names strip URL metacharacters and pin the stored extension', () => {
+  assert.equal(safeDownloadName('x&token=abc.pdf', 'pdf'), 'x token abc.pdf');
+  assert.equal(safeDownloadName('payroll-2026.pdf.exe', 'pdf'), 'payroll-2026.pdf.pdf');
+  assert.equal(safeDownloadName('deck.html', 'pptx'), 'deck.pptx');
+  assert.equal(safeDownloadName('Seed Round (v3).pdf', 'pdf'), 'Seed Round (v3).pdf');
+  assert.equal(safeDownloadName('', 'pdf'), 'pitch-deck.pdf');
+  assert.equal(safeDownloadName('a"; filename="b.exe', 'ppt'), 'a filename b.ppt');
 });
 
 // ── summary shaping ──────────────────────────────────────────────────────────

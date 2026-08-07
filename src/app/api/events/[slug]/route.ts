@@ -254,7 +254,13 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       // Lightweight per-founder deck indicator for the team dashboard. Only
       // kind and display name travel here; the actual URL is signed on demand
       // by /api/events/[slug]/decks/[userId].
-      const participantUserIds = participants.map((row: any) => row.user_id).filter(Boolean);
+      // Mirror canViewDeck's owner-eligibility rule: only ACTIVE founder
+      // participants' decks are ever indicated, so the dashboard never leaks
+      // metadata for founders the deck route would refuse to serve.
+      const participantUserIds = participants
+        .filter((row: any) => row.status === 'active' && (row.role || 'founder') === 'founder')
+        .map((row: any) => row.user_id)
+        .filter(Boolean);
       if (participantUserIds.length) {
         const serviceSupabase = createServiceSupabase();
         if (serviceSupabase) {

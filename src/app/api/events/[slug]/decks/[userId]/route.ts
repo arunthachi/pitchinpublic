@@ -5,9 +5,11 @@ import {
   DECK_SIGNED_URL_SECONDS,
   canViewDeck,
   isUuidLike,
+  safeDownloadName,
   toDeckSummary,
   type DeckAccessContext,
 } from '@/lib/pitch-deck';
+import { rateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 type ParticipantRow = { user_id: string; role?: string | null; status?: string | null };
 
@@ -72,6 +74,18 @@ export async function GET(
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
+
+  const userLimit = await rateLimit({
+    key: `deck-view:${user.id}`,
+    limit: RATE_LIMITS.API.limit,
+    window: RATE_LIMITS.API.window,
+  });
+  if (!userLimit.success) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    );
   }
 
   const { data: event, error: eventError } = await serviceSupabase
@@ -161,10 +175,11 @@ export async function GET(
     return NextResponse.json({ success: false, error: 'Deck not found.' }, { status: 404 });
   }
 
+  const storedExtension = deck.storage_path.split('.').pop() || 'pdf';
   const { data: signed, error: signError } = await serviceSupabase.storage
     .from(DECK_BUCKET)
     .createSignedUrl(deck.storage_path, DECK_SIGNED_URL_SECONDS, {
-      download: deck.file_name || undefined,
+      download: safeDownloadName(deck.file_name, storedExtension),
     });
   if (signError || !signed?.signedUrl) {
     console.error('Deck signed URL failed:', signError);

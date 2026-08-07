@@ -7,8 +7,10 @@ import {
   deckConfirmSchema,
   isDeckStoragePathForCompany,
   toDeckSummary,
+  validateDeckFile,
   validateDeckLink,
 } from '@/lib/pitch-deck';
+import { rateLimit, getClientIp, RATE_LIMITS } from '@/lib/ratelimit';
 
 type OwnerContext = {
   user: User;
@@ -116,6 +118,18 @@ export async function POST(request: NextRequest) {
   if (!owner.ok) return owner.response;
   const { user, serviceSupabase, companyId } = owner.context;
 
+  const userLimit = await rateLimit({
+    key: `deck-confirm:${user.id}`,
+    limit: RATE_LIMITS.UPLOAD.limit,
+    window: RATE_LIMITS.UPLOAD.window,
+  });
+  if (!userLimit.success) {
+    return NextResponse.json(
+      { success: false, error: 'Too many deck changes. Please try again later.' },
+      { status: 429 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -142,6 +156,23 @@ export async function POST(request: NextRequest) {
   if (parsed.data.kind === 'file') {
     if (!isDeckStoragePathForCompany(parsed.data.storagePath, companyId)) {
       return NextResponse.json({ success: false, error: 'Invalid deck upload reference.' }, { status: 400 });
+    }
+
+    // Re-validate the display name at confirm time: it feeds the signed URL's
+    // Content-Disposition, so it must be a real deck filename whose extension
+    // matches the stored object — no "deck.pdf.exe" downloads, no query-string
+    // metacharacters reaching storage-js's unencoded download parameter.
+    const nameValidation = validateDeckFile({
+      fileName: parsed.data.fileName,
+      fileSize: parsed.data.fileSize,
+      mimeType: '',
+    });
+    const storedExtension = parsed.data.storagePath.split('.').pop();
+    if (!nameValidation.ok || nameValidation.extension !== storedExtension) {
+      return NextResponse.json(
+        { success: false, error: 'The deck file name must end in .pdf, .ppt, or .pptx and match the uploaded file.' },
+        { status: 400 }
+      );
     }
 
     // The signed upload URL was issued server-side, but confirm the client
