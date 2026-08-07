@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Check, Edit3, Building2 } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { DeckManager } from '@/components/DeckManager';
 
 interface ProfileEditModalProps {
   isOpen: boolean;
@@ -414,6 +415,8 @@ export function ProfileEditModal({
                                   </select>
                                 </div>
                               </div>
+
+                              <DeckManager disabled={loading} />
                             </div>
                           )}
                         </section>

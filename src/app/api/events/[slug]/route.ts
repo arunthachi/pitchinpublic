@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getInvitationHealth, publicInviteDeliveryError, scopePitchFeedbackToEvent } from '@/lib/event-dashboard';
 import { createServiceSupabase } from '@/lib/admin';
+import { toDeckSummary } from '@/lib/pitch-deck';
 import { canManageEvent, firstEventUpdateIssue, parseEventUpdate } from './_server';
 
 function createSupabase(request: NextRequest) {
@@ -249,6 +250,30 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         .order('created_at', { ascending: false });
 
       participants = participantRows || [];
+
+      // Lightweight per-founder deck indicator for the team dashboard. Only
+      // kind and display name travel here; the actual URL is signed on demand
+      // by /api/events/[slug]/decks/[userId].
+      const participantUserIds = participants.map((row: any) => row.user_id).filter(Boolean);
+      if (participantUserIds.length) {
+        const serviceSupabase = createServiceSupabase();
+        if (serviceSupabase) {
+          const { data: deckRows, error: deckRowsError } = await serviceSupabase
+            .from('startup_decks')
+            .select('founder_id, kind, file_name, link_url, updated_at')
+            .in('founder_id', participantUserIds);
+          if (deckRowsError) {
+            console.error('Event deck indicators failed:', deckRowsError);
+          } else if (deckRows?.length) {
+            const deckByFounder = new Map(deckRows.map((row: any) => [row.founder_id, toDeckSummary(row)]));
+            participants = participants.map((row: any) => ({
+              ...row,
+              deck: deckByFounder.get(row.user_id) || null,
+            }));
+          }
+        }
+      }
+
       submissions = submissionRows || [];
       invitations = (invitationRows || []).map((invitation: any) => {
         const { invite_code: inviteCode, ...safeInvitation } = invitation;

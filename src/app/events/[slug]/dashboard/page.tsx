@@ -507,6 +507,24 @@ export default function EventDashboardPage() {
     }
   };
 
+  const viewFounderDeck = async (userId: string) => {
+    // Open the tab synchronously so popup blockers allow it, then point it at
+    // the freshly signed URL (or external link) once the API resolves.
+    const deckWindow = window.open('about:blank', '_blank', 'noopener');
+    try {
+      const response = await fetch(`/api/events/${slug}/decks/${userId}`);
+      const data = await readJsonResponse(response);
+      if (!response.ok || !data?.success || !data.url) {
+        throw new Error(data?.error || 'Could not open the deck.');
+      }
+      if (deckWindow) deckWindow.location.href = data.url;
+      else window.open(data.url, '_blank', 'noopener');
+    } catch (error) {
+      deckWindow?.close();
+      setActionMessage(error instanceof Error ? error.message : 'Could not open the deck.');
+    }
+  };
+
   const createFounderInvite = async (event: FormEvent) => {
     event.preventDefault();
     const parsed = parseBulkFounderEmails(founderInviteEmails.join(','));
@@ -822,7 +840,7 @@ export default function EventDashboardPage() {
               <p className="mt-2 text-sm text-slate-400">{submittedCount} of {founderSummaries.length} founders submitted · {feedbackedCount} received feedback</p>
               {founderSummaries.length ? (
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {founderSummaries.slice(0, 6).map((founder) => <FounderRow key={founder.participant.id} founder={founder} />)}
+                  {founderSummaries.slice(0, 6).map((founder) => <FounderRow key={founder.participant.id} founder={founder} onViewDeck={viewFounderDeck} />)}
                 </div>
               ) : (
                 <button type="button" onClick={() => setDashboardView('founders')} className="cta-primary mt-4 inline-flex min-h-11 items-center rounded-full px-5 text-sm font-black">Invite founders</button>
@@ -870,6 +888,7 @@ export default function EventDashboardPage() {
                       canManage={state.canManageEvent && founder.participant.user_id !== event.organizer_id}
                       busyAction={busyAction}
                       onUpdateParticipant={runParticipantMutation}
+                      onViewDeck={viewFounderDeck}
                     />
                   ))}
                   {!filteredFounders.length && (
@@ -1254,12 +1273,14 @@ function FounderRow({
   canManage = false,
   busyAction = '',
   onUpdateParticipant,
+  onViewDeck,
 }: {
   founder: FounderSummary;
   detailed?: boolean;
   canManage?: boolean;
   busyAction?: string;
   onUpdateParticipant?: (participantId: string, patch: { role?: string; status?: 'active' | 'removed' }) => void;
+  onViewDeck?: (userId: string) => void;
 }) {
   const status = getFounderStatus(founder);
   const latestPitch = founder.latestPitch || founder.submittedPitch?.pitch || null;
@@ -1316,6 +1337,17 @@ function FounderRow({
         <MetaPill label="Submitted" value={founder.submitted ? 'Yes' : 'No'} />
         <MetaPill label="Best take" value={founder.hasBestTake ? 'Yes' : 'No'} />
         <MetaPill label="Readiness" value={readinessLabel(founder.readiness)} />
+        {founder.participant.deck && onViewDeck ? (
+          <button
+            type="button"
+            onClick={() => onViewDeck(founder.participant.user_id)}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-neon-cyan/25 bg-neon-cyan/10 px-3.5 text-xs font-bold text-neon-cyan transition hover:bg-neon-cyan/20"
+            title={founder.participant.deck.kind === 'file' ? founder.participant.deck.fileName || 'Pitch deck' : `Deck link on ${founder.participant.deck.linkHost || 'the web'}`}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            View deck
+          </button>
+        ) : null}
       </div>
 
       {latestPitch ? (
