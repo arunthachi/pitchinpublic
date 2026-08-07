@@ -64,6 +64,14 @@ test('plain segments keep invalid tokens so they can be flagged as chips', () =>
   assert.deepEqual(splitEmailTokens('not-an-email a@x.com'), ['not-an-email', 'a@x.com']);
 });
 
+test('malformed addresses in display-form segments surface instead of vanishing', () => {
+  assert.deepEqual(
+    splitEmailTokens('ada@startup Jordan <j@x.com>'),
+    ['ada@startup', 'j@x.com'],
+  );
+  assert.deepEqual(splitEmailTokens('Jordan <user@domain>'), ['user@domain']);
+});
+
 test('strips mailto prefixes and wrapping quotes from typed tokens', () => {
   assert.deepEqual(
     splitEmailTokens('mailto:sam@field.io "jordan@startup.com"'),

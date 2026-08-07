@@ -36,9 +36,10 @@ export function splitEmailTokens(text: string): string[] {
       const token = normalizeToken(raw);
       if (!token) continue;
       // Only a display-form segment may carry bare name words; drop those
-      // while keeping every address-shaped token. Plain segments keep all
-      // tokens so typed mistakes still surface as flagged chips.
-      if (hadDisplayForm && !INVITE_EMAIL_PATTERN.test(token)) continue;
+      // while keeping anything address-like (containing @), so a malformed
+      // address still surfaces as a flagged chip instead of vanishing.
+      // Plain segments keep all tokens so typed mistakes stay flaggable.
+      if (hadDisplayForm && !token.includes('@')) continue;
       results.push(token);
     }
   }
