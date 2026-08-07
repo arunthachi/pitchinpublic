@@ -4,6 +4,7 @@ import {
   DECK_MAX_BYTES,
   buildDeckStoragePath,
   safeDownloadName,
+  isDeckIndicatorEligible,
   canViewDeck,
   deckConfirmSchema,
   isDeckStoragePathForCompany,
@@ -197,6 +198,25 @@ test('organizer of an unrelated event cannot view the deck through it', () => {
     }),
     false,
   );
+});
+
+// ── dashboard indicator eligibility ──────────────────────────────────────────
+
+test('deck indicators only surface for active founder participants', () => {
+  assert.equal(isDeckIndicatorEligible({ role: 'founder', status: 'active' }), true);
+  assert.equal(isDeckIndicatorEligible({ role: 'founder', status: 'removed' }), false);
+  assert.equal(isDeckIndicatorEligible({ role: 'founder', status: 'invited' }), false);
+  for (const role of ['organizer', 'admin', 'coach', 'mentor', 'judge']) {
+    assert.equal(isDeckIndicatorEligible({ role, status: 'active' }), false, `${role} must not be indicated`);
+  }
+});
+
+test('deck indicator eligibility fails closed when fields are missing', () => {
+  // A narrowed participant select must never widen exposure.
+  assert.equal(isDeckIndicatorEligible({}), false);
+  assert.equal(isDeckIndicatorEligible({ role: 'founder' }), false);
+  assert.equal(isDeckIndicatorEligible({ status: 'active' }), false);
+  assert.equal(isDeckIndicatorEligible({ role: null, status: null }), false);
 });
 
 // ── download name sanitization ───────────────────────────────────────────────

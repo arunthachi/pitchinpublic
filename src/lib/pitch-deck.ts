@@ -180,6 +180,15 @@ export function safeDownloadName(fileName: string | null | undefined, storedExte
   return `${base || 'pitch-deck'}.${storedExtension}`;
 }
 
+/**
+ * Dashboard-indicator eligibility, mirroring canViewDeck's owner rule: only an
+ * ACTIVE founder participant's deck may be indicated. Requires status and role
+ * to be present — a narrowed participant select must fail closed, not open.
+ */
+export function isDeckIndicatorEligible(row: { role?: string | null; status?: string | null }) {
+  return row.status === 'active' && row.role === 'founder';
+}
+
 export type DeckSummary = {
   kind: 'file' | 'link';
   fileName: string | null;

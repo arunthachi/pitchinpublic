@@ -237,7 +237,19 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const owner = await requireOwnerContext(request);
   if (!owner.ok) return owner.response;
-  const { serviceSupabase, companyId } = owner.context;
+  const { user, serviceSupabase, companyId } = owner.context;
+
+  const userLimit = await rateLimit({
+    key: `deck-confirm:${user.id}`,
+    limit: RATE_LIMITS.UPLOAD.limit,
+    window: RATE_LIMITS.UPLOAD.window,
+  });
+  if (!userLimit.success) {
+    return NextResponse.json(
+      { success: false, error: 'Too many deck changes. Please try again later.' },
+      { status: 429 }
+    );
+  }
 
   const { data: previous, error: lookupError } = await serviceSupabase
     .from('startup_decks')

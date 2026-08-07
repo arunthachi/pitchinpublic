@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getInvitationHealth, publicInviteDeliveryError, scopePitchFeedbackToEvent } from '@/lib/event-dashboard';
 import { createServiceSupabase } from '@/lib/admin';
-import { toDeckSummary } from '@/lib/pitch-deck';
+import { isDeckIndicatorEligible, toDeckSummary } from '@/lib/pitch-deck';
 import { canManageEvent, firstEventUpdateIssue, parseEventUpdate } from './_server';
 
 function createSupabase(request: NextRequest) {
@@ -258,7 +258,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       // participants' decks are ever indicated, so the dashboard never leaks
       // metadata for founders the deck route would refuse to serve.
       const participantUserIds = participants
-        .filter((row: any) => row.status === 'active' && (row.role || 'founder') === 'founder')
+        .filter((row: any) => isDeckIndicatorEligible(row))
         .map((row: any) => row.user_id)
         .filter(Boolean);
       if (participantUserIds.length) {

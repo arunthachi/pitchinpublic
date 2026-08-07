@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
       token: signed.token,
       bucket: DECK_BUCKET,
     },
-    { headers: formatRateLimitHeaders(result) }
+    // The user-keyed budget is the binding one — report its headroom.
+    { headers: formatRateLimitHeaders(userLimit) }
   );
 }
