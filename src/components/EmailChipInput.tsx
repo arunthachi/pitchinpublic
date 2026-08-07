@@ -51,13 +51,11 @@ export function EmailChipInput({
     const added = chips.length - value.length;
     const parts: string[] = [];
     if (sourceLabel) {
-      parts.push(
-        added
-          ? `Added ${added} address${added === 1 ? '' : 'es'} from ${sourceLabel}.`
-          : `No new addresses found in ${sourceLabel}.`
-      );
+      if (added) parts.push(`Added ${added} address${added === 1 ? '' : 'es'} from ${sourceLabel}.`);
+      else if (overflow) parts.push(`The ${limit}-address limit is already full — nothing added from ${sourceLabel}.`);
+      else parts.push(`No new addresses found in ${sourceLabel}.`);
     }
-    if (overflow) parts.push(`Only the first ${limit} addresses were kept.`);
+    if (overflow && (added || !sourceLabel)) parts.push(`Only the first ${limit} addresses were kept.`);
     setNotice(parts.join(' '));
     if (added) onChange(chips);
   };

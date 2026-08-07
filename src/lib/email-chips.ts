@@ -27,15 +27,19 @@ export function splitEmailTokens(text: string): string[] {
   const results: string[] = [];
 
   for (const segment of text.split(SEGMENT_SEPARATORS)) {
-    const displayForms = [...segment.matchAll(DISPLAY_FORM_EMAILS)];
-    if (displayForms.length) {
-      // "Jordan Lee <jordan@startup.com>" — keep the address, drop the name.
-      for (const match of displayForms) results.push(match[1].toLowerCase());
-      continue;
-    }
-    for (const raw of segment.split(/\s+/)) {
+    // Unwrap "Jordan Lee <jordan@startup.com>" in place so bare addresses
+    // sharing the segment keep their position and are never dropped.
+    const expanded = segment.replace(DISPLAY_FORM_EMAILS, (_, email: string) => ` ${email} `);
+    const hadDisplayForm = expanded !== segment;
+
+    for (const raw of expanded.split(/\s+/)) {
       const token = normalizeToken(raw);
-      if (token) results.push(token);
+      if (!token) continue;
+      // Only a display-form segment may carry bare name words; drop those
+      // while keeping every address-shaped token. Plain segments keep all
+      // tokens so typed mistakes still surface as flagged chips.
+      if (hadDisplayForm && !INVITE_EMAIL_PATTERN.test(token)) continue;
+      results.push(token);
     }
   }
 

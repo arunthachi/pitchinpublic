@@ -46,6 +46,24 @@ test('extracts multiple display forms inside one segment', () => {
   );
 });
 
+test('keeps bare addresses that share a segment with a display form', () => {
+  assert.deepEqual(
+    splitEmailTokens('a@x.com b@y.io <c@z.dev>'),
+    ['a@x.com', 'b@y.io', 'c@z.dev'],
+  );
+});
+
+test('a paste concatenated onto a drafted address loses neither', () => {
+  assert.deepEqual(
+    splitEmailTokens('lin@startup.dev Jordan Lee <jordan@startup.com>'),
+    ['lin@startup.dev', 'jordan@startup.com'],
+  );
+});
+
+test('plain segments keep invalid tokens so they can be flagged as chips', () => {
+  assert.deepEqual(splitEmailTokens('not-an-email a@x.com'), ['not-an-email', 'a@x.com']);
+});
+
 test('strips mailto prefixes and wrapping quotes from typed tokens', () => {
   assert.deepEqual(
     splitEmailTokens('mailto:sam@field.io "jordan@startup.com"'),

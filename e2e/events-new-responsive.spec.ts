@@ -71,10 +71,20 @@ for (const viewport of organizerViewports) {
     await page.getByRole('button', { name: 'Remove not-an-email' }).click();
     await expect(page.getByText('1 invalid address — remove before sending.')).toHaveCount(0);
 
-    // A pasted mail-client "To" line resolves display forms to bare addresses.
-    await founderEmails.fill('Jordan Lee <jordan@startup.com>, ');
+    // A REAL paste (ClipboardEvent, not fill) of a mail-client "To" line onto a
+    // non-empty draft: the draft survives and the display form resolves to a
+    // bare address — the two silent-loss regressions caught in review.
+    await founderEmails.fill('lin@startup.dev');
+    await founderEmails.evaluate((element, pasted) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', pasted);
+      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, 'Jordan Lee <jordan@startup.com>');
+    await expect(page.getByRole('button', { name: 'Remove lin@startup.dev' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Remove jordan@startup.com' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Remove (jordan|lee)$/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Remove jordan@startup.com' }).click();
+    await page.getByRole('button', { name: 'Remove lin@startup.dev' }).click();
 
     // Chips are removable and the counter tracks them.
     await expect(page.getByText('2/50')).toBeVisible();
