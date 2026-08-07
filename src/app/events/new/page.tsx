@@ -17,6 +17,7 @@ import {
 } from '@/lib/event-settings';
 import { getInviteContinuationCounts, parseBulkFounderEmails } from '@/lib/event-dashboard';
 import { createClientIdempotencyKey } from '@/lib/idempotency';
+import { EmailChipInput } from '@/components/EmailChipInput';
 
 const focusOptions = [...EVENT_FOCUS_OPTIONS];
 const visibilityOptions = EVENT_VISIBILITY_OPTIONS;
@@ -50,7 +51,7 @@ function NewEventContent() {
     visibility: 'unlisted' as keyof typeof visibilityOptions,
     accessCode: '',
   });
-  const [founderEmails, setFounderEmails] = useState('');
+  const [founderEmails, setFounderEmails] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const advancedTriggerRef = useRef<HTMLButtonElement>(null);
   const eventCreationKeyRef = useRef('');
@@ -143,7 +144,7 @@ function NewEventContent() {
     setError('');
 
     try {
-      const parsedEmails = parseBulkFounderEmails(founderEmails);
+      const parsedEmails = parseBulkFounderEmails(founderEmails.join(','));
       if (parsedEmails.invalid.length || parsedEmails.overflow) {
         throw new Error(
           parsedEmails.overflow
@@ -295,18 +296,40 @@ function NewEventContent() {
               required
             />
           </Field>
-          <Field label="Founder emails (optional)">
-            <input
-              type="text"
-              inputMode="email"
+          <div role="radiogroup" aria-labelledby="pitch-length-label">
+            <span id="pitch-length-label" className="mb-2 block text-sm font-bold text-slate-300">Pitch length</span>
+            <div className="flex flex-wrap gap-2">
+              {EVENT_PITCH_LENGTH_OPTIONS.map((option) => {
+                const selected = form.pitchLengthSeconds === option.seconds;
+                return (
+                  <button
+                    key={option.seconds}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setForm({ ...form, pitchLengthSeconds: option.seconds })}
+                    className={`min-h-11 rounded-full border px-4 text-sm font-bold transition ${
+                      selected
+                        ? 'border-neon-cyan bg-neon-cyan text-slate-950 shadow-lg shadow-neon-cyan/15'
+                        : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-neon-cyan/45 hover:text-white'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="founder-emails-input" className="mb-2 block text-sm font-bold text-slate-300">Founder emails (optional)</label>
+            <EmailChipInput
+              inputId="founder-emails-input"
               value={founderEmails}
-              onChange={(e) => setFounderEmails(e.target.value)}
-              className="input-dark"
-              placeholder="founder@startup.com, cofounder@startup.com"
-              aria-describedby="founder-email-help"
+              onChange={setFounderEmails}
+              placeholder="founder@startup.com"
             />
-            <span id="founder-email-help" className="mt-1.5 block text-xs leading-5 text-slate-500">Separate multiple addresses with commas.</span>
-          </Field>
+          </div>
 
           <button
             ref={advancedTriggerRef}
@@ -328,18 +351,11 @@ function NewEventContent() {
               <Field label="Submission deadline">
                 <input type="date" value={form.submissionDeadline} max={form.eventDate} onClick={(e) => openNativeDatePicker(e.currentTarget)} onChange={(e) => setForm({ ...form, submissionDeadline: e.target.value })} className="input-dark cursor-pointer" />
               </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Pitch length">
-                  <select value={form.pitchLengthSeconds} onChange={(e) => setForm({ ...form, pitchLengthSeconds: Number(e.target.value) })} className="input-dark">
-                    {EVENT_PITCH_LENGTH_OPTIONS.map((option) => <option key={option.seconds} value={option.seconds}>{option.label}</option>)}
-                  </select>
-                </Field>
-                <Field label="Practice focus">
-                  <select value={form.focus} onChange={(e) => setForm({ ...form, focus: e.target.value as typeof form.focus })} className="input-dark">
-                    {focusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                  </select>
-                </Field>
-              </div>
+              <Field label="Practice focus">
+                <select value={form.focus} onChange={(e) => setForm({ ...form, focus: e.target.value as typeof form.focus })} className="input-dark">
+                  {focusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </Field>
               <Field label="Founder access">
                 <select value={form.visibility} onChange={(e) => setForm({ ...form, visibility: e.target.value as keyof typeof visibilityOptions })} className="input-dark">
                   {Object.entries(visibilityOptions).map(([value, option]) => <option key={value} value={value}>{option.label}</option>)}
@@ -355,7 +371,7 @@ function NewEventContent() {
           {error ? <p role="alert" className="rounded-xl border border-roast/25 bg-roast/10 px-4 py-3 text-sm font-semibold text-roast">{error}</p> : null}
 
           <button disabled={isSaving} className="cta-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-5 font-heading font-black disabled:opacity-60">
-            {isSaving ? 'Creating event...' : founderEmails.trim() ? 'Create and invite founders' : 'Create event'}
+            {isSaving ? 'Creating event...' : founderEmails.length ? 'Create and invite founders' : 'Create event'}
             <ArrowRight className="h-5 w-5" />
           </button>
         </form>

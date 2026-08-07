@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Supabase CLI local metadata
 supabase/.temp/
+
+# ship-loop run state and artifacts
+.ship-loop/

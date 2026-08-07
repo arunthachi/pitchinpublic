@@ -45,7 +45,13 @@ for (const viewport of organizerViewports) {
 
     await expect(page.getByLabel('Event name')).toBeVisible();
     await expect(page.getByLabel('Pitch day')).toBeVisible();
+    const pitchLength = page.getByRole('radiogroup', { name: 'Pitch length' });
+    await expect(pitchLength, `${context} pitch length must be visible without opening advanced settings`).toBeVisible();
+    await expect(pitchLength.getByRole('radio', { name: '1 minute' })).toHaveAttribute('aria-checked', 'true');
+    await pitchLength.getByRole('radio', { name: '3 minutes' }).click();
+    await expect(pitchLength.getByRole('radio', { name: '3 minutes' })).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByLabel('Founder emails (optional)')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Upload CSV' })).toBeVisible();
     const advanced = page.getByRole('button', { name: 'Advanced settings' });
     await expect(advanced).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByLabel('Description')).toBeHidden();
