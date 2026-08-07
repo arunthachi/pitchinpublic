@@ -51,7 +51,8 @@ export function scopePitchFeedbackToEvent<T extends {
   };
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const INVITE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = INVITE_EMAIL_PATTERN;
 export const MAX_BULK_FOUNDER_INVITES = 50;
 
 const FILTER_TABS: Record<DashboardFilter, DashboardTab> = {

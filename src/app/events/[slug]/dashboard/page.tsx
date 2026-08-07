@@ -59,6 +59,7 @@ import {
 import { splitEventFocuses } from '@/lib/event-settings';
 import type { EventReviewCoverage } from '@/types';
 import { EventEditDialog } from '@/components/EventEditDialog';
+import { EmailChipInput } from '@/components/EmailChipInput';
 import { ActionPageNav } from '@/components/ActionPageNav';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 
@@ -224,7 +225,7 @@ export default function EventDashboardPage() {
   const [copied, setCopied] = useState('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [activeFilter, setActiveFilter] = useState<DashboardFilter | null>(null);
-  const [founderInviteEmail, setFounderInviteEmail] = useState('');
+  const [founderInviteEmails, setFounderInviteEmails] = useState<string[]>([]);
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'organizer', sendEmail: true });
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
   const [lastInvite, setLastInvite] = useState<{ url: string; role: string; email: string; emailStatus?: string | null; emailError?: string | null } | null>(null);
@@ -508,7 +509,7 @@ export default function EventDashboardPage() {
 
   const createFounderInvite = async (event: FormEvent) => {
     event.preventDefault();
-    const parsed = parseBulkFounderEmails(founderInviteEmail);
+    const parsed = parseBulkFounderEmails(founderInviteEmails.join(','));
     if (parsed.invalid.length || parsed.overflow || !parsed.emails.length) {
       setActionMessage(
         parsed.invalid.length
@@ -532,7 +533,7 @@ export default function EventDashboardPage() {
       if (!response.ok || !data?.success) throw new Error(data?.error || 'Could not create founder invite.');
       const results = Array.isArray(data.results) ? data.results : [];
       const firstCreated = results.find((result: any) => result.success);
-      setFounderInviteEmail('');
+      setFounderInviteEmails([]);
       const created = Number(data.created || 0);
       const sent = Number(data.sent || 0);
       const failed = Number(data.failed || 0);
@@ -703,10 +704,16 @@ export default function EventDashboardPage() {
             {createdState.failed ? <p role="alert" className="mt-2 text-sm font-semibold text-amber-300">{createdState.failed} invite{createdState.failed === 1 ? '' : 's'} could not be sent. Retry below.</p> : null}
             {!hasFounderAccess ? (
               <form onSubmit={createFounderInvite} className="mt-4 flex flex-col gap-3 sm:flex-row">
-                <label className="min-w-0 flex-1">
-                  <span className="sr-only">Founder emails</span>
-                  <input autoFocus value={founderInviteEmail} onChange={(e) => setFounderInviteEmail(e.target.value)} className="input-dark" placeholder="founder@startup.com" required />
-                </label>
+                <div className="min-w-0 flex-1">
+                  <label htmlFor="quick-founder-emails-input" className="sr-only">Founder emails</label>
+                  <EmailChipInput
+                    inputId="quick-founder-emails-input"
+                    autoFocus
+                    value={founderInviteEmails}
+                    onChange={setFounderInviteEmails}
+                    placeholder="founder@startup.com"
+                  />
+                </div>
                 <button disabled={saving} className="cta-primary inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 font-black disabled:opacity-60"><UserPlus className="h-4 w-4" />Send invites</button>
               </form>
             ) : (
@@ -828,17 +835,15 @@ export default function EventDashboardPage() {
               <Panel title="Invite founders" eyebrow={state.canManageEvent ? 'Founder access' : 'Read only'}>
                 {state.canManageEvent ? (
                   <form onSubmit={createFounderInvite} className="space-y-4">
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-bold text-slate-300">Founder emails</span>
-                      <textarea
-                        value={founderInviteEmail}
-                        onChange={(e) => setFounderInviteEmail(e.target.value)}
-                        className="input-dark min-h-28 resize-y"
-                        placeholder={'founder@company.com\ncofounder@startup.io'}
-                        required
+                    <div>
+                      <label htmlFor="panel-founder-emails-input" className="mb-2 block text-sm font-bold text-slate-300">Founder emails</label>
+                      <EmailChipInput
+                        inputId="panel-founder-emails-input"
+                        value={founderInviteEmails}
+                        onChange={setFounderInviteEmails}
+                        placeholder="founder@company.com"
                       />
-                      <p className="mt-2 text-xs leading-5 text-slate-500">Paste up to 50 addresses separated by commas, spaces, or new lines.</p>
-                    </label>
+                    </div>
                     <button
                       disabled={saving}
                       className="cta-primary inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 font-heading font-bold disabled:opacity-60"

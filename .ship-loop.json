@@ -1,0 +1,17 @@
+{
+  "staging_url": "https://staging-pip.pitchinpublic.io",
+  "prod_url": "https://app.pitchinpublic.io",
+  "health_path": "/api/health",
+  "deploy": {
+    "mode": "branch-auto",
+    "staging_branch": "test-env",
+    "prod_branch": "main",
+    "wait_timeout_s": 600
+  },
+  "devtools": {
+    "flows": ["/", "/events/new", "/for-events"],
+    "perf_budget_lcp_ms": 2500,
+    "fail_on_console_error": true,
+    "fail_on_network_4xx_5xx": true
+  }
+}

@@ -445,7 +445,7 @@ Event setup fields:
 - Description.
 - Pitch day.
 - Submission deadline.
-- Pitch duration, displayed in minutes.
+- Pitch duration, displayed in minutes. This is a primary setup field selected with one tap; it must not be hidden behind an advanced or collapsed section.
 - One or more practice focus areas.
 - Access model described in plain language.
 - Optional access code as a fallback, not the primary invitation experience.
@@ -461,7 +461,7 @@ Visibility copy must explain the outcome, for example:
 
 Founder invitation flow:
 
-- Organizer enters an email.
+- Organizer enters emails with zero format learning: typed addresses become removable chips, pasted spreadsheet columns split automatically, and a CSV/TXT file can be uploaded. Invalid addresses are flagged inline before anything is sent.
 - Recipient receives a branded email with an "View invitation" or "Join [Event Name]" button.
 - Raw URLs are not the primary CTA.
 - The event page displays the event name and one state-aware action.
@@ -565,6 +565,7 @@ Status definitions:
 | Push notifications | Deferred | Do not block pilot. |
 | SMS login/reminders | Deferred | Do not block pilot. |
 | Multiple startups in UI | Planned | Schema should support future expansion; MVP UI exposes one active startup. |
+| Founder pitch deck upload (PDF/PPT/Drive link) | Planned | Approved 2026-08-07. Needs document storage decision, size/type validation, deck-visibility RLS, and ordered migration before implementation. |
 | Payments/paywall | Deferred | Validate paid demand manually first. |
 | Investor discovery marketplace | Deferred | Not core to the practice loop. |
 
