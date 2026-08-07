@@ -50,8 +50,32 @@ for (const viewport of organizerViewports) {
     await expect(pitchLength.getByRole('radio', { name: '1 minute' })).toHaveAttribute('aria-checked', 'true');
     await pitchLength.getByRole('radio', { name: '3 minutes' }).click();
     await expect(pitchLength.getByRole('radio', { name: '3 minutes' })).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByLabel('Founder emails (optional)')).toBeVisible();
+    await pitchLength.getByRole('radio', { name: '3 minutes' }).press('ArrowRight');
+    await expect(pitchLength.getByRole('radio', { name: '5 minutes' })).toHaveAttribute('aria-checked', 'true');
+    await pitchLength.getByRole('radio', { name: '5 minutes' }).press('ArrowLeft');
+    await expect(pitchLength.getByRole('radio', { name: '3 minutes' })).toHaveAttribute('aria-checked', 'true');
+
+    const founderEmails = page.getByLabel('Founder emails (optional)');
+    await expect(founderEmails).toBeVisible();
     await expect(page.getByRole('button', { name: 'Upload CSV' })).toBeVisible();
+
+    // Separator-committed chips: typing a comma-separated pair yields two chips.
+    await founderEmails.click();
+    await founderEmails.fill('ada@startup.com, grace@startup.io ');
+    await expect(page.getByRole('button', { name: 'Remove ada@startup.com' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove grace@startup.io' })).toBeVisible();
+
+    // Invalid entries become flagged chips and surface a fix-before-sending notice.
+    await founderEmails.fill('not-an-email ');
+    await expect(page.getByText('1 invalid address — remove or fix before sending.')).toBeVisible();
+    await page.getByRole('button', { name: 'Remove not-an-email' }).click();
+    await expect(page.getByText('1 invalid address — remove or fix before sending.')).toHaveCount(0);
+
+    // Chips are removable and the counter tracks them.
+    await expect(page.getByText('2/50')).toBeVisible();
+    await page.getByRole('button', { name: 'Remove grace@startup.io' }).click();
+    await page.getByRole('button', { name: 'Remove ada@startup.com' }).click();
+    await expect(page.getByText('Remove', { exact: false })).toHaveCount(0);
     const advanced = page.getByRole('button', { name: 'Advanced settings' });
     await expect(advanced).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByLabel('Description')).toBeHidden();

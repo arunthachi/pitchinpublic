@@ -296,7 +296,24 @@ function NewEventContent() {
               required
             />
           </Field>
-          <div role="radiogroup" aria-labelledby="pitch-length-label">
+          <div
+            role="radiogroup"
+            aria-labelledby="pitch-length-label"
+            onKeyDown={(event) => {
+              const options = EVENT_PITCH_LENGTH_OPTIONS;
+              const index = options.findIndex((option) => option.seconds === form.pitchLengthSeconds);
+              let nextIndex = index;
+              if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (index + 1) % options.length;
+              else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (index - 1 + options.length) % options.length;
+              else return;
+              event.preventDefault();
+              setForm({ ...form, pitchLengthSeconds: options[nextIndex].seconds });
+              const group = event.currentTarget;
+              window.requestAnimationFrame(() => {
+                group.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+              });
+            }}
+          >
             <span id="pitch-length-label" className="mb-2 block text-sm font-bold text-slate-300">Pitch length</span>
             <div className="flex flex-wrap gap-2">
               {EVENT_PITCH_LENGTH_OPTIONS.map((option) => {
@@ -307,6 +324,7 @@ function NewEventContent() {
                     type="button"
                     role="radio"
                     aria-checked={selected}
+                    tabIndex={selected ? 0 : -1}
                     onClick={() => setForm({ ...form, pitchLengthSeconds: option.seconds })}
                     className={`min-h-11 rounded-full border px-4 text-sm font-bold transition ${
                       selected
