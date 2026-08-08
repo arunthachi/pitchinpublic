@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRequestSupabase } from '@/lib/admin';
 import { isUuidLike } from '@/lib/pitch-deck';
+import { rateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 export const visibilityUpdateSchema = z
   .object({
@@ -39,6 +40,18 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
+
+  const userLimit = await rateLimit({
+    key: `pitch-visibility:${user.id}`,
+    limit: RATE_LIMITS.API.limit,
+    window: RATE_LIMITS.API.window,
+  });
+  if (!userLimit.success) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please try again later.' },
+      { status: 429 }
+    );
   }
 
   let body: unknown;

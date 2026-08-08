@@ -424,7 +424,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (!idempotency.key && insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take|creation_key|creation_payload_hash/i.test(insertResult.error.message)) {
+    if (!idempotency.key && insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take|creation_key|creation_payload_hash|event_id|visibility/i.test(insertResult.error.message)) {
       const {
         public_id: _publicId,
         company_id: _companyId,
@@ -784,7 +784,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take/i.test(error.message)) {
+    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take|event_id|visibility/i.test(error.message)) {
       const fallbackResult = await buildDataQuery(fallbackSelect)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);

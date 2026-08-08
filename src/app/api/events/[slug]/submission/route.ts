@@ -81,7 +81,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
   let pitchQuery = supabase
     .from('pitches')
-    .select('id, public_id, user_id')
+    .select('id, public_id, user_id, event_id, visibility')
     .eq('user_id', user.id)
     .is('deleted_at', null);
 
@@ -125,6 +125,21 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   if (error) {
     console.error('Error submitting final take:', error);
     return NextResponse.json({ success: false, error: 'Could not submit final take' }, { status: 500 });
+  }
+
+  // Submitting binds the pitch to this event and makes it private the first
+  // time, matching the record-from-event path. A pitch already bound to an
+  // event keeps its current visibility — the founder may have shared it to
+  // the feed deliberately, and that stays their call.
+  if (!pitch.event_id) {
+    const { error: bindError } = await supabase
+      .from('pitches')
+      .update({ event_id: event.id, visibility: 'private', updated_at: new Date().toISOString() })
+      .eq('id', pitch.id)
+      .eq('user_id', user.id);
+    if (bindError) {
+      console.error('Could not bind submitted pitch to the event:', bindError);
+    }
   }
 
   return NextResponse.json(buildSubmissionSuccessResponse(submission, pitch));

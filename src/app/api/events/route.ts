@@ -354,10 +354,7 @@ async function fetchPendingInvitationsForUser(email: string | null | undefined) 
   const adminSupabase = createServiceSupabase();
   if (!adminSupabase) return [];
 
-  const { data, error } = await adminSupabase
-    .from('pitch_event_invitations')
-    .select(
-      `
+  const invitationSelect = `
       id,
       status,
       email,
@@ -370,11 +367,36 @@ async function fetchPendingInvitationsForUser(email: string | null | undefined) 
         name,
         event_date
       )
-    `
-    )
-    .eq('dedupe_email', normalizedEmail)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true });
+    `;
+
+  // Canonical rows carry dedupe_email; legacy duplicate rows predate the
+  // backfill and have it null, so match those on the raw email column with a
+  // wildcard-escaped exact ilike. Both result sets still pass through
+  // filterPendingInvitationsForEmail as the DB-independent guard.
+  const escapedEmail = normalizedEmail.replace(/([\\%_])/g, '\\$1');
+  const [canonical, legacy] = await Promise.all([
+    adminSupabase
+      .from('pitch_event_invitations')
+      .select(invitationSelect)
+      .eq('dedupe_email', normalizedEmail)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true }),
+    adminSupabase
+      .from('pitch_event_invitations')
+      .select(invitationSelect)
+      .is('dedupe_email', null)
+      .ilike('email', escapedEmail)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true }),
+  ]);
+
+  const error = canonical.error || legacy.error;
+  const seenIds = new Set<string>();
+  const data = [...(canonical.data || []), ...(legacy.data || [])].filter((row: any) => {
+    if (seenIds.has(row.id)) return false;
+    seenIds.add(row.id);
+    return true;
+  });
 
   if (error) {
     console.error('Error fetching pending event invitations:', error);

@@ -144,6 +144,7 @@ export interface Database {
           extra_context: string | null
           take_version: number | null
           visibility: string
+          event_id: string | null
           source: string
           video_url: string
           video_provider: string
@@ -172,6 +173,7 @@ export interface Database {
           extra_context?: string | null
           take_version?: number | null
           visibility?: string
+          event_id?: string | null
           source?: string
           video_url: string
           video_provider?: string
@@ -200,6 +202,7 @@ export interface Database {
           extra_context?: string | null
           take_version?: number | null
           visibility?: string
+          event_id?: string | null
           source?: string
           video_url?: string
           video_provider?: string

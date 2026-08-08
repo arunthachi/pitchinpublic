@@ -93,6 +93,20 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
 
     const pitchId = params.pitchId;
 
+    // Existence gate under RLS: bookmarking must neither write against nor
+    // confirm the existence of a pitch the caller cannot read.
+    const { data: visiblePitch } = await supabase
+      .from('pitches')
+      .select('id')
+      .eq('id', pitchId)
+      .maybeSingle();
+    if (!visiblePitch) {
+      return NextResponse.json(
+        { success: false, error: 'Pitch not found.' },
+        { status: 404, headers: formatRateLimitHeaders(result) }
+      );
+    }
+
     // Try to create a bookmark
     const { data: bookmark, error: bookmarkError } = await supabase
       .from('bookmarks')

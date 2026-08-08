@@ -109,7 +109,7 @@ function RecordingContextStrip({
       </div>
       {!compact && (
         <p className="mt-0.5 pl-5 text-[11px] leading-tight text-slate-400">
-          Private to the event
+          Private to the event — its team and participants can see your takes
           {shortDeadline ? ` · Due ${shortDeadline}` : ''}
         </p>
       )}

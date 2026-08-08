@@ -46,11 +46,22 @@ test('event privacy migration enforces visibility, member reads, and the approve
     new URL('../../../../supabase/migrations/20260808180000_enforce_event_pitch_privacy.sql', import.meta.url),
     'utf8',
   );
-  assert.match(migration, /visibility IN \('public', 'unlisted'\)/);
+  assert.match(
+    migration,
+    /ALTER TABLE public\.pitches\s+ADD COLUMN IF NOT EXISTS event_id UUID REFERENCES public\.pitch_events\(id\)/,
+    'pitches.event_id must be created by this migration - it does not pre-exist',
+  );
+  assert.match(migration, /AND visibility = 'public'\s*\)/, 'public reads must not widen to unlisted');
+  assert.doesNotMatch(migration, /'unlisted'\)\s*\)/, 'no unlisted widening in any policy');
+  assert.match(migration, /DROP POLICY IF EXISTS "Pitches are viewable by everyone"/);
+  assert.match(migration, /DROP POLICY IF EXISTS "Published pitches are viewable by everyone"/);
   assert.match(migration, /is_pitch_event_member\(event_id\)/);
   assert.match(migration, /is_pitch_event_owner\(event_id\)/);
-  assert.match(migration, /SET\s+visibility = 'private'/);
-  assert.match(migration, /FROM public\.pitch_event_submissions/);
+  assert.match(migration, /SELECT DISTINCT ON \(pitch_id\)/, 'multi-event backfill must be deterministic');
+  assert.match(migration, /ORDER BY pitch_id, submitted_at DESC/);
   assert.match(migration, /p\.visibility = 'public'/, 'backfill must only touch currently-public rows');
+  assert.match(migration, /DELETE FROM public\.review_assignments/, 'stranded assignments must be cleaned up');
+  assert.match(migration, /ra\.status IN \('pending', 'started'\)/);
   assert.match(migration, /idx_pitches_public_feed/);
+  assert.match(migration, /idx_pitches_event/);
 });

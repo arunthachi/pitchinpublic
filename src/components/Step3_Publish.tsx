@@ -43,7 +43,7 @@ export function Step3_Publish({
         </p>
         {eventName ? (
           <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-500">
-            Private to the event — only the event team and members can see it. You can share it to the public feed from your pitch page.
+            Private to the event — its team and participants can see it, and it stays out of the public feed. You can share it to the public feed from your pitch page.
           </p>
         ) : null}
         <p className="mx-auto mt-2 line-clamp-2 max-w-sm text-sm text-slate-500">{pitchTitle}</p>
