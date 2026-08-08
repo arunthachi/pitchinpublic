@@ -260,7 +260,11 @@ export default function EventPage() {
       };
       setSubmissionSuccess(successPitch);
       clearPendingSubmission();
-      setMessage('Take submitted.');
+      setMessage(
+        data.visibilityChanged
+          ? 'Take submitted. It is now private to this event — you can share it back to the public feed anytime from your pitch page.'
+          : 'Take submitted.'
+      );
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not submit this take.');

@@ -12,12 +12,14 @@ const submissionSchema = z.object({
 export function buildSubmissionSuccessResponse(
   submission: Record<string, unknown>,
   pitch: { id: string; public_id?: string | null },
+  visibilityChanged = false,
 ) {
   return {
     success: true,
     submission,
     pitchId: pitch.id,
     publicId: pitch.public_id || null,
+    visibilityChanged,
   };
 }
 
@@ -130,8 +132,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
   // Submitting binds the pitch to this event and makes it private the first
   // time, matching the record-from-event path. A pitch already bound to an
   // event keeps its current visibility — the founder may have shared it to
-  // the feed deliberately, and that stays their call.
+  // the feed deliberately, and that stays their call. When a previously
+  // public take is privatized here, the response says so and the UI tells
+  // the founder rather than pulling it from the feed silently.
+  let visibilityChanged = false;
   if (!pitch.event_id) {
+    const wasPublic = pitch.visibility === 'public';
     const { error: bindError } = await supabase
       .from('pitches')
       .update({ event_id: event.id, visibility: 'private', updated_at: new Date().toISOString() })
@@ -139,10 +145,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
       .eq('user_id', user.id);
     if (bindError) {
       console.error('Could not bind submitted pitch to the event:', bindError);
+    } else {
+      visibilityChanged = wasPublic;
     }
   }
 
-  return NextResponse.json(buildSubmissionSuccessResponse(submission, pitch));
+  return NextResponse.json(buildSubmissionSuccessResponse(submission, pitch, visibilityChanged));
 }
 
 export async function DELETE(request: NextRequest, props: { params: Promise<{ slug: string }> }) {

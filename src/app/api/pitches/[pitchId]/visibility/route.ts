@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createRequestSupabase } from '@/lib/admin';
 import { isUuidLike } from '@/lib/pitch-deck';
-import { rateLimit, RATE_LIMITS } from '@/lib/ratelimit';
+import { formatRateLimitHeaders, rateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 export const visibilityUpdateSchema = z
   .object({
@@ -50,7 +50,7 @@ export async function POST(
   if (!userLimit.success) {
     return NextResponse.json(
       { success: false, error: 'Too many requests. Please try again later.' },
-      { status: 429 }
+      { status: 429, headers: formatRateLimitHeaders(userLimit) }
     );
   }
 

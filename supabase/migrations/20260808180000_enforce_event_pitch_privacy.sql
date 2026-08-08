@@ -42,18 +42,53 @@ CREATE POLICY "Published active pitches are viewable by everyone"
   );
 
 -- 2. Active event members and team (any role) plus the event owner can read
---    the event's pitches regardless of visibility. Owner reads are already
+--    the event's pitches regardless of visibility. A pitch submitted to
+--    multiple events stays readable through EVERY submission's event, not
+--    only the one denormalized on pitches.event_id. Owner reads are already
 --    covered by "Users can view their own pitches".
+CREATE OR REPLACE FUNCTION public.can_view_pitch_via_event_submission(target_pitch_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.pitch_event_submissions s
+    JOIN public.pitch_event_participants pep
+      ON pep.event_id = s.event_id
+     AND pep.user_id = auth.uid()
+     AND pep.status = 'active'
+    WHERE s.pitch_id = target_pitch_id
+  )
+  OR EXISTS (
+    SELECT 1
+    FROM public.pitch_event_submissions s
+    JOIN public.pitch_events pe
+      ON pe.id = s.event_id
+     AND pe.organizer_id = auth.uid()
+    WHERE s.pitch_id = target_pitch_id
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.can_view_pitch_via_event_submission(uuid) TO anon, authenticated;
+
 DROP POLICY IF EXISTS "Event members can view event pitches" ON public.pitches;
 CREATE POLICY "Event members can view event pitches"
   ON public.pitches FOR SELECT
   USING (
     status = 'published'
     AND deleted_at IS NULL
-    AND event_id IS NOT NULL
     AND (
-      public.is_pitch_event_member(event_id)
-      OR public.is_pitch_event_owner(event_id)
+      (
+        event_id IS NOT NULL
+        AND (
+          public.is_pitch_event_member(event_id)
+          OR public.is_pitch_event_owner(event_id)
+        )
+      )
+      OR public.can_view_pitch_via_event_submission(id)
     )
   );
 
@@ -99,6 +134,17 @@ WHERE ra.pitch_id = p.id
     FROM public.pitch_events AS pe
     WHERE pe.id = p.event_id
       AND pe.organizer_id = ra.reviewer_user_id
+  )
+  -- Reviewers reachable through ANY submission event keep their assignments
+  -- (multi-event pitches remain reviewable via each event's membership).
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.pitch_event_submissions AS s
+    JOIN public.pitch_event_participants AS pep
+      ON pep.event_id = s.event_id
+     AND pep.user_id = ra.reviewer_user_id
+     AND pep.status = 'active'
+    WHERE s.pitch_id = p.id
   );
 
 -- 5. Feed-shaped partial index for the listing predicate.

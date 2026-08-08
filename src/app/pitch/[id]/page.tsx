@@ -76,6 +76,7 @@ function convertApiPitchToLegacy(pitch: any, viewerId?: string): LegacyPitch {
     isOwnedByViewer: Boolean(viewerId && pitch.user_id === viewerId),
     visibility: pitch.visibility || 'public',
     eventId: pitch.event_id || null,
+    eventSlug: (Array.isArray(pitch.pitch_events) ? pitch.pitch_events[0]?.slug : pitch.pitch_events?.slug) || null,
     feedback: parseFeedback(pitch.feedback),
   };
 }
@@ -230,7 +231,13 @@ function PitchDetailContent() {
         'Content-Type': 'application/json',
         'Idempotency-Key': submissionKey,
       },
-      body: JSON.stringify({ ...feedbackData, ...(eventSlug ? { eventSlug } : {}) }),
+      // Prefer the URL's event handoff, but fall back to the pitch's own
+      // event so feedback on a private event pitch scopes correctly no matter
+      // which link the reviewer arrived through.
+      body: JSON.stringify({
+        ...feedbackData,
+        ...((eventSlug || pitch.eventSlug) ? { eventSlug: eventSlug || pitch.eventSlug } : {}),
+      }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.feedback) {

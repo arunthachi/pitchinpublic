@@ -438,6 +438,8 @@ export async function POST(request: NextRequest) {
         prompt_text: _promptText,
         creation_key: _creationKey,
         creation_payload_hash: _creationPayloadHash,
+        event_id: _eventId,
+        visibility: _visibility,
         ...fallbackPayload
       } = insertPayload;
 
@@ -664,6 +666,9 @@ export async function GET(request: NextRequest) {
         is_best_take,
         visibility,
         event_id,
+        pitch_events:event_id (
+          slug
+        ),
         created_at,
         user_id,
         profiles:user_id (

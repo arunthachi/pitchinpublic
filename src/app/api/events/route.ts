@@ -390,18 +390,18 @@ async function fetchPendingInvitationsForUser(email: string | null | undefined) 
       .order('created_at', { ascending: true }),
   ]);
 
-  const error = canonical.error || legacy.error;
+  // A transient failure on one lookup must not hide the other's results —
+  // log independently and keep whatever succeeded.
+  if (canonical.error) console.error('Error fetching pending event invitations:', canonical.error);
+  if (legacy.error) console.error('Error fetching legacy event invitations:', legacy.error);
+  if (canonical.error && legacy.error) return [];
+
   const seenIds = new Set<string>();
   const data = [...(canonical.data || []), ...(legacy.data || [])].filter((row: any) => {
     if (seenIds.has(row.id)) return false;
     seenIds.add(row.id);
     return true;
   });
-
-  if (error) {
-    console.error('Error fetching pending event invitations:', error);
-    return [];
-  }
 
   const pending = filterPendingInvitationsForEmail(data || [], normalizedEmail);
 

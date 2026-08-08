@@ -64,4 +64,14 @@ test('event privacy migration enforces visibility, member reads, and the approve
   assert.match(migration, /ra\.status IN \('pending', 'started'\)/);
   assert.match(migration, /idx_pitches_public_feed/);
   assert.match(migration, /idx_pitches_event/);
+  assert.match(
+    migration,
+    /can_view_pitch_via_event_submission/,
+    'multi-event pitches stay readable via every submission event',
+  );
+  assert.equal(
+    (migration.match(/NOT EXISTS/g) || []).length >= 3,
+    true,
+    'assignment cleanup must spare event members, organizers, and submission-event members',
+  );
 });
