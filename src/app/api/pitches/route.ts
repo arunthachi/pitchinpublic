@@ -250,6 +250,60 @@ export async function POST(request: NextRequest) {
       );
     }
     const creationPayloadHash = idempotency.key ? hashPitchCreationPayload(pitchData) : null;
+
+    // Event recordings bind to their event and start private to it. The
+    // membership check is server-side: a client cannot attach a pitch to an
+    // event it is not an active participant of.
+    let eventTarget: { eventId: string } | null = null;
+    if (pitchData.eventSlug) {
+      const serviceSupabase = createServiceSupabase();
+      if (!serviceSupabase) {
+        return NextResponse.json(
+          { success: false, error: 'Event recording is not configured in this environment.' },
+          { status: 503, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      const { data: event, error: eventError } = await serviceSupabase
+        .from('pitch_events')
+        .select('id')
+        .eq('slug', pitchData.eventSlug)
+        .maybeSingle();
+      if (eventError) {
+        console.error('Event lookup for pitch creation failed:', eventError);
+        return NextResponse.json(
+          { success: false, error: 'Could not verify the event.' },
+          { status: 500, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      if (!event) {
+        return NextResponse.json(
+          { success: false, error: 'That event no longer exists.' },
+          { status: 404, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      const { data: participant, error: participantError } = await serviceSupabase
+        .from('pitch_event_participants')
+        .select('id')
+        .eq('event_id', event.id)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      if (participantError) {
+        console.error('Event membership check for pitch creation failed:', participantError);
+        return NextResponse.json(
+          { success: false, error: 'Could not verify your event membership.' },
+          { status: 500, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      if (!participant) {
+        return NextResponse.json(
+          { success: false, error: 'Join the event before recording for it.' },
+          { status: 403, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      eventTarget = { eventId: event.id };
+    }
+
     const parsedDescription = parsePitchDescription(pitchData.description);
     const startupName = pitchData.startupName || parsedDescription.startupName || '';
     const oneLinePitch = pitchData.oneLinePitch || pitchData.hook;
@@ -350,6 +404,8 @@ export async function POST(request: NextRequest) {
       thumbnail_url: pitchData.thumbnailUrl || null,
       duration: pitchData.duration,
       status: 'published',
+      event_id: eventTarget?.eventId || null,
+      visibility: eventTarget ? 'private' : 'public',
       version_number: repNumber,
       views_count: 0,
       roast_count: 0,
@@ -606,6 +662,8 @@ export async function GET(request: NextRequest) {
         prompt_key,
         prompt_text,
         is_best_take,
+        visibility,
+        event_id,
         created_at,
         user_id,
         profiles:user_id (
@@ -667,6 +725,15 @@ export async function GET(request: NextRequest) {
       .eq('status', 'published')
       .is('deleted_at', null);
 
+      // The open feed and other users' profile grids list only
+      // explicitly-public pitches. The caller's own listing keeps every
+      // visibility (their portfolio), and direct fetches by id/publicId/
+      // videoId rely on RLS instead, so owners and event members can still
+      // open private event pitches.
+      if (!videoId && !publicId && !pitchId && userId !== user.id) {
+        query = query.eq('visibility', 'public');
+      }
+
       if (userId) {
         query = query.eq('user_id', userId);
       }
@@ -687,6 +754,10 @@ export async function GET(request: NextRequest) {
     };
 
     let dataQuery = buildDataQuery(fullSelect);
+
+    if (!videoId && !publicId && !pitchId && userId !== user.id) {
+      countQuery = countQuery.eq('visibility', 'public');
+    }
 
     // Filter by userId if provided
     if (userId) {

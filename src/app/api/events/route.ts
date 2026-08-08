@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
-import { createServiceSupabase } from '@/lib/admin';
+import { createServiceSupabase, normalizeEmail } from '@/lib/admin';
 
 const createEventSchema = z.object({
   name: z.string().min(3).max(120).trim(),
@@ -108,6 +108,36 @@ async function canCreatePitchEvents(supabase: ReturnType<typeof createSupabase>,
   }
 
   return Boolean(data?.length);
+}
+
+export type PendingEventInvitationRow = {
+  id: string;
+  status?: string | null;
+  email?: string | null;
+  dedupe_email?: string | null;
+  expires_at?: string | null;
+};
+
+/**
+ * Security boundary: only rows whose normalized email matches the signed-in
+ * user's normalized email, are still pending, and are not expired make it
+ * into the response. Never widen this to return another founder's invite.
+ */
+export function filterPendingInvitationsForEmail<T extends PendingEventInvitationRow>(
+  rows: T[],
+  email: string | null | undefined,
+  now: Date = new Date()
+): T[] {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return [];
+
+  return rows.filter((row) => {
+    if (row.status !== 'pending') return false;
+    if (normalizeEmail(row.dedupe_email ?? row.email) !== normalized) return false;
+    if (!row.expires_at) return true;
+    const expiresAt = new Date(row.expires_at).getTime();
+    return !(Number.isFinite(expiresAt) && expiresAt <= now.getTime());
+  });
 }
 
 export function buildOrganizerParticipantUpsert(eventId: string, userId: string) {
@@ -312,5 +342,64 @@ export async function GET(request: NextRequest) {
     return safeEvent;
   });
 
-  return NextResponse.json({ success: true, events, canCreateEvents });
+  const invitations = await fetchPendingInvitationsForUser(user.email);
+
+  return NextResponse.json({ success: true, events, canCreateEvents, invitations });
+}
+
+async function fetchPendingInvitationsForUser(email: string | null | undefined) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return [];
+
+  const adminSupabase = createServiceSupabase();
+  if (!adminSupabase) return [];
+
+  const { data, error } = await adminSupabase
+    .from('pitch_event_invitations')
+    .select(
+      `
+      id,
+      status,
+      email,
+      dedupe_email,
+      expires_at,
+      invite_code,
+      pitch_events (
+        id,
+        slug,
+        name,
+        event_date
+      )
+    `
+    )
+    .eq('dedupe_email', normalizedEmail)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching pending event invitations:', error);
+    return [];
+  }
+
+  const pending = filterPendingInvitationsForEmail(data || [], normalizedEmail);
+
+  return pending
+    .map((invitation) => {
+      const eventRow = Array.isArray(invitation.pitch_events)
+        ? invitation.pitch_events[0]
+        : invitation.pitch_events;
+      if (!eventRow) return null;
+
+      return {
+        id: invitation.id,
+        event: {
+          id: eventRow.id,
+          slug: eventRow.slug,
+          name: eventRow.name,
+          event_date: eventRow.event_date,
+        },
+        invite_url: `/events/${eventRow.slug}?invite=${invitation.invite_code}`,
+      };
+    })
+    .filter((invitation): invitation is NonNullable<typeof invitation> => invitation !== null);
 }

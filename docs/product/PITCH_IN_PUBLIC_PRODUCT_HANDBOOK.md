@@ -296,6 +296,7 @@ Required:
 - Processing state must distinguish uploading, processing, ready, and failed.
 - The preview and published confirmation must show the recorded video.
 - Event-associated recording uses the event's configured pitch length.
+- The recording flow states its target from the first screen: an event recording is labeled with the event name and "private to the event" (with the deadline when set); a feed recording is labeled for the public feed.
 
 Video policy:
 
@@ -671,6 +672,7 @@ These identifiers must be verified against deployment configuration before any m
 - Organizers cannot access unrelated organizations or events.
 - Reviewers can access only the scope granted to them.
 - Public pitch visibility is explicit, not assumed from having a URL.
+- Pitches recorded for an event are private to that event by default: readable by the owner and the event's active members/team only, excluded from the public feed, and promoted to public only by the founder's explicit visibility control.
 
 ### RLS test actors
 
