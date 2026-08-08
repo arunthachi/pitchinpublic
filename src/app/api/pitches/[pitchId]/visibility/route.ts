@@ -11,6 +11,25 @@ export const visibilityUpdateSchema = z
   .strict();
 
 /**
+ * The authorization contract, exported for tests: the update is scoped to the
+ * owner's own non-deleted pitch — a non-owner's request matches zero rows and
+ * surfaces as the same 404 a missing pitch produces.
+ */
+export function ownerScopedVisibilityUpdate(
+  supabase: NonNullable<ReturnType<typeof createRequestSupabase>>,
+  input: { pitchId: string; userId: string; visibility: 'public' | 'private' }
+) {
+  return supabase
+    .from('pitches')
+    .update({ visibility: input.visibility, updated_at: new Date().toISOString() })
+    .eq('id', input.pitchId)
+    .eq('user_id', input.userId)
+    .is('deleted_at', null)
+    .select('id, public_id, visibility, event_id')
+    .maybeSingle();
+}
+
+/**
  * POST /api/pitches/[pitchId]/visibility
  * Owner-only switch between the public feed and private. This is the
  * founder-controlled promotion path for event pitches: recording for an event
@@ -69,14 +88,11 @@ export async function POST(
     );
   }
 
-  const { data: updated, error: updateError } = await supabase
-    .from('pitches')
-    .update({ visibility: parsed.data.visibility, updated_at: new Date().toISOString() })
-    .eq('id', pitchId)
-    .eq('user_id', user.id)
-    .is('deleted_at', null)
-    .select('id, public_id, visibility, event_id')
-    .maybeSingle();
+  const { data: updated, error: updateError } = await ownerScopedVisibilityUpdate(supabase, {
+    pitchId,
+    userId: user.id,
+    visibility: parsed.data.visibility,
+  });
 
   if (updateError) {
     console.error('Pitch visibility update failed:', updateError);

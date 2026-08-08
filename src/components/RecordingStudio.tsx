@@ -106,6 +106,11 @@ function RecordingContextStrip({
       <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-white">
         <Lock className="h-3.5 w-3.5 shrink-0 text-neon-cyan" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate">Recording for {eventContext.name}</span>
+        {compact && (
+          <span className="shrink-0 text-[11px] font-medium text-slate-400">
+            Private{shortDeadline ? ` · Due ${shortDeadline}` : ''}
+          </span>
+        )}
       </div>
       {!compact && (
         <p className="mt-0.5 pl-5 text-[11px] leading-tight text-slate-400">
