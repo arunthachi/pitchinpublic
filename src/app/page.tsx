@@ -758,7 +758,7 @@ function HomeContent() {
 
       {/* Event orientation ribbon — founders with an event life only */}
       {!reviewerMode && eventRibbon ? (
-        <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:top-6">
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:hidden">
           <EventRibbon model={eventRibbon} />
         </div>
       ) : null}
