@@ -238,6 +238,9 @@ export interface LegacyPitch {
   isBookmarked?: boolean;
   bookmarkCount?: number;
   isOwnedByViewer?: boolean;
+  visibility?: 'public' | 'unlisted' | 'private';
+  eventId?: string | null;
+  eventSlug?: string | null;
 }
 
 export interface QuickReaction {

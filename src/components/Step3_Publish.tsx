@@ -19,7 +19,7 @@ export function Step3_Publish({
   onPrimaryAction,
   onOpenPitch,
   onRecordAnother,
-  primaryActionLabel = 'View feed',
+  primaryActionLabel = 'View your pitch',
 }: Step3PublishProps) {
   return (
     <motion.div
@@ -41,6 +41,11 @@ export function Step3_Publish({
             ? 'Your take is ready for the event team to review.'
             : 'Your pitch is live and ready for feedback.'}
         </p>
+        {eventName ? (
+          <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-slate-500">
+            Private to the event — its team and participants can see it, and it stays out of the public feed. You can share it to the public feed from your pitch page.
+          </p>
+        ) : null}
         <p className="mx-auto mt-2 line-clamp-2 max-w-sm text-sm text-slate-500">{pitchTitle}</p>
       </div>
 

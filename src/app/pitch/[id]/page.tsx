@@ -6,6 +6,9 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Flame,
+  Globe,
+  Loader2,
+  Lock,
   Sparkles,
   Target,
   User,
@@ -71,6 +74,9 @@ function convertApiPitchToLegacy(pitch: any, viewerId?: string): LegacyPitch {
     promptText: pitch.prompt_text || null,
     isBestTake: Boolean(pitch.is_best_take),
     isOwnedByViewer: Boolean(viewerId && pitch.user_id === viewerId),
+    visibility: pitch.visibility || 'public',
+    eventId: pitch.event_id || null,
+    eventSlug: (Array.isArray(pitch.pitch_events) ? pitch.pitch_events[0]?.slug : pitch.pitch_events?.slug) || null,
     feedback: parseFeedback(pitch.feedback),
   };
 }
@@ -225,7 +231,13 @@ function PitchDetailContent() {
         'Content-Type': 'application/json',
         'Idempotency-Key': submissionKey,
       },
-      body: JSON.stringify({ ...feedbackData, ...(eventSlug ? { eventSlug } : {}) }),
+      // Prefer the URL's event handoff, but fall back to the pitch's own
+      // event so feedback on a private event pitch scopes correctly no matter
+      // which link the reviewer arrived through.
+      body: JSON.stringify({
+        ...feedbackData,
+        ...((eventSlug || pitch.eventSlug) ? { eventSlug: eventSlug || pitch.eventSlug } : {}),
+      }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.feedback) {
@@ -298,6 +310,15 @@ function PitchDetailContent() {
                     </p>
                   </div>
                 </div>
+
+                {pitch.isOwnedByViewer ? (
+                  <PitchVisibilityControl
+                    pitch={pitch}
+                    onChanged={(visibility) =>
+                      setRemotePitch((current) => (current ? { ...current, visibility } : current))
+                    }
+                  />
+                ) : null}
 
                 <div className="border-t border-slate-800 pt-4">
                   <div className="flex items-center gap-3 mb-4">
@@ -518,6 +539,69 @@ function PitchDetailContent() {
           </motion.div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Owner-only visibility switch: event recordings start private to their
+ * event, and this is the founder's explicit control for sharing a take to
+ * the public feed (or pulling it back).
+ */
+function PitchVisibilityControl({
+  pitch,
+  onChanged,
+}: {
+  pitch: LegacyPitch;
+  onChanged: (visibility: 'public' | 'private') => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const isPublic = (pitch.visibility || 'public') === 'public';
+
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    const next = isPublic ? 'private' : 'public';
+    try {
+      const response = await fetch(`/api/pitches/${encodeURIComponent(pitch.id)}/visibility`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: next }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'Could not update visibility.');
+      onChanged(data.pitch.visibility);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update visibility.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {isPublic ? <Globe className="h-4 w-4 shrink-0 text-neon-cyan" /> : <Lock className="h-4 w-4 shrink-0 text-neon-cyan" />}
+        <span className="min-w-0 flex-1 text-sm font-semibold text-slate-200">
+          {isPublic
+            ? 'Public — visible in the feed'
+            : pitch.eventId
+              ? 'Private to your event'
+              : 'Private — only you can see it'}
+        </span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={toggle}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-xs font-bold text-slate-300 transition hover:border-neon-cyan/45 hover:text-white disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {isPublic ? 'Make private' : 'Share to public feed'}
+        </button>
+      </div>
+      {error ? <p role="alert" className="mt-2 text-xs font-semibold text-roast">{error}</p> : null}
     </div>
   );
 }

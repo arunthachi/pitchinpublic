@@ -733,6 +733,7 @@ function HomeContent() {
             onCreateClick={() => isGuest ? promptForRestrictedAction() : setRecordingStudioOpen(true)}
             onProfileClick={() => isGuest ? promptForRestrictedAction() : router.push('/me')}
             onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
+            onEventsClick={() => router.push('/events')}
             isGuest={isGuest}
           />
         </div>

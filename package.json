@@ -18,7 +18,7 @@
     "test:reviewers": "tsx --test src/lib/review-marketplace.test.ts",
     "test:event-outcomes": "tsx --test src/lib/event-outcomes.test.ts src/lib/event-outcomes-server.test.ts",
     "test:event-dashboard": "tsx --test src/lib/event-dashboard.test.ts",
-    "test:unit:navigation-continuity": "tsx --test src/lib/app-navigation.test.ts src/lib/public-routes.test.ts src/lib/email.test.ts src/lib/idempotency.test.ts src/components/founder-event-flow.test.ts src/app/api/pitches/route.test.ts src/app/api/events/route.test.ts 'src/app/api/events/[slug]/invites/route.test.ts' 'src/app/api/pitches/[pitchId]/feedback/route.test.ts'",
+    "test:unit:navigation-continuity": "tsx --test src/lib/app-navigation.test.ts src/lib/public-routes.test.ts src/lib/email.test.ts src/lib/idempotency.test.ts src/components/founder-event-flow.test.ts src/app/api/pitches/route.test.ts src/app/api/events/route.test.ts 'src/app/api/events/[slug]/invites/route.test.ts' 'src/app/api/pitches/[pitchId]/feedback/route.test.ts' 'src/app/api/pitches/[pitchId]/visibility/route.test.ts'",
     "test:email-chips": "tsx --test src/lib/email-chips.test.ts",
     "test:pitch-deck": "tsx --test src/lib/pitch-deck.test.ts 'src/app/api/startup/deck/route.test.ts' 'src/app/api/startup/deck/upload-url/route.test.ts' 'src/app/api/events/[slug]/decks/[userId]/route.test.ts'"
   },
