@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
 interface SidebarNavProps {
+  eventsBadge?: boolean;
   onPostClick: () => void;
   isGuest?: boolean;
   onSignInClick?: () => void;
@@ -63,6 +64,7 @@ function getSevenDayMomentum(streak: Streak) {
 
 export function SidebarNav({
   onPostClick,
+  eventsBadge = false,
   isGuest = false,
   onSignInClick,
   guestActionLabel = 'Log in',
@@ -79,7 +81,7 @@ export function SidebarNav({
     : [
         { label: 'Practice', icon: Video, active: true },
         { label: 'My pitches', icon: UserRound, href: '/me' },
-        { label: 'Pitch rooms', icon: CalendarDays, href: '/events?view=joined#events-joined' },
+        { label: 'Events', icon: CalendarDays, href: '/events?view=joined#events-joined', badge: eventsBadge },
         { label: 'Leaderboard', icon: Trophy, href: '/leaderboard' },
       ];
   const organizerItems = canManageEvents && !reviewerMode
@@ -170,7 +172,12 @@ export function SidebarNav({
             const Icon = item.icon;
             const content = (
               <>
-                <Icon className="h-6 w-6 flex-shrink-0" />
+                <span className="relative flex-shrink-0">
+                  <Icon className="h-6 w-6" />
+                  {'badge' in item && item.badge ? (
+                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-neon-lime" aria-hidden="true" />
+                  ) : null}
+                </span>
                 <span className={`hidden lg:block ${isCollapsed ? 'lg:hidden' : ''} ${item.active ? 'font-heading font-bold' : 'font-body font-semibold'}`}>
                   {item.label}
                 </span>

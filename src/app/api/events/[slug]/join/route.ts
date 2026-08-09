@@ -87,7 +87,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json(
       {
         success: false,
-        error: 'You were removed from this pitch room. Ask the organizer for a new invite or restored access.',
+        error: 'You were removed from this event. Ask the organizer for a new invite or restored access.',
       },
       { status: 403 }
     );
