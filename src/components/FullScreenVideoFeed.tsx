@@ -909,7 +909,7 @@ export function FullScreenVideoFeed({
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
-              className="absolute top-28 left-1/2 -translate-x-1/2 text-white pointer-events-none"
+              className="absolute top-[calc(8rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 text-white pointer-events-none"
             >
               <ChevronUp className="w-8 h-8 animate-bounce" />
             </motion.div>

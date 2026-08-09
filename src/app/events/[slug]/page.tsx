@@ -330,7 +330,7 @@ export default function EventPage() {
                 <button type="button" onClick={switchAccount} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black"><LogOut className="h-5 w-5" />Use invited account</button>
               </TaskCopy>
             ) : hasDirectInvite ? (
-              <TaskCopy title="Accept your invitation" copy="Add this event to your pitch rooms and continue to your take.">
+              <TaskCopy title="Accept your invitation" copy="Add this event to your events and continue to your take.">
                 <button type="button" onClick={join} disabled={saving} className="cta-primary mt-5 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">{saving ? 'Accepting…' : 'Accept invitation'}</button>
               </TaskCopy>
             ) : !user ? (
@@ -343,7 +343,7 @@ export default function EventPage() {
               </TaskCopy>
             ) : !isJoined ? (
               inviteCode ? (
-                <TaskCopy title="Accept your invitation" copy="Join once, then this event stays in your pitch rooms.">
+                <TaskCopy title="Accept your invitation" copy="Join once, then this event stays in your events.">
                   <button type="button" onClick={join} disabled={saving} className="cta-primary mt-5 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">{saving ? 'Accepting…' : 'Accept invitation'}</button>
                 </TaskCopy>
               ) : (

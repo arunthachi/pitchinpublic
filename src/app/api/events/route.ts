@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Organizer access is required to create pitch rooms. Founders can join rooms from an invite link.',
+        error: 'Organizer access is required to create events. Founders can join events from an invite link.',
       },
       { status: 403 }
     );
@@ -287,12 +287,30 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, replayed: false, event: eventResponse(event) }, { status: 201 });
   } catch (error) {
-    console.error('Error creating pitch room:', error);
+    console.error('Error creating event:', error);
     return NextResponse.json(
       { success: false, error: getErrorMessage(error) },
       { status: 500 }
     );
   }
+}
+
+/**
+ * Stamps the caller's submission state onto each event row (and strips the
+ * secret columns). Exported for the route-level test.
+ */
+export function toSafeEventsWithSubmissionFlag(
+  rows: Array<Record<string, unknown> & { id: string }>,
+  submittedEventIds: Set<string>
+) {
+  return rows.map((event) => {
+    const safeEvent = { ...event } as Record<string, unknown>;
+    delete safeEvent.access_code;
+    delete safeEvent.creation_key;
+    delete safeEvent.creation_payload_hash;
+    safeEvent.mySubmission = submittedEventIds.has(event.id);
+    return safeEvent;
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -330,7 +348,7 @@ export async function GET(request: NextRequest) {
     .order('event_date', { ascending: true });
 
   if (error) {
-    console.error('Error fetching pitch rooms:', error);
+    console.error('Error fetching events:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch events' }, { status: 500 });
   }
 
@@ -342,14 +360,7 @@ export async function GET(request: NextRequest) {
     .eq('user_id', user.id);
   const submittedEventIds = new Set((mySubmissions || []).map((row) => row.event_id));
 
-  const events = (data || []).map((event) => {
-    const safeEvent = { ...event } as Record<string, unknown>;
-    delete safeEvent.access_code;
-    delete safeEvent.creation_key;
-    delete safeEvent.creation_payload_hash;
-    safeEvent.mySubmission = submittedEventIds.has(event.id);
-    return safeEvent;
-  });
+  const events = toSafeEventsWithSubmissionFlag(data || [], submittedEventIds);
 
   const invitations = await fetchPendingInvitationsForUser(user.email);
 

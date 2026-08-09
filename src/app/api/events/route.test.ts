@@ -81,14 +81,19 @@ test('pending invitations require a non-empty email to match against', () => {
   assert.deepEqual(filterPendingInvitationsForEmail(rows, null), []);
 });
 
-test('joined events carry a mySubmission flag derived from the caller submissions', async () => {
-  // The flag is computed as set-membership over the caller's own submission
-  // rows; assert the mapping logic via the same shape the route uses.
-  const submittedEventIds = new Set(['e1', 'e3']);
-  const events = [{ id: 'e1' }, { id: 'e2' }].map((event) => ({
-    ...event,
-    mySubmission: submittedEventIds.has(event.id),
-  }));
+test('joined events carry a mySubmission flag and shed secret columns', async () => {
+  const { toSafeEventsWithSubmissionFlag } = await import('./route');
+  const events = toSafeEventsWithSubmissionFlag(
+    [
+      { id: 'e1', name: 'One', access_code: 'secret', creation_key: 'k', creation_payload_hash: 'h' },
+      { id: 'e2', name: 'Two' },
+    ],
+    new Set(['e1', 'e3']),
+  );
   assert.equal(events[0].mySubmission, true);
   assert.equal(events[1].mySubmission, false);
+  assert.equal('access_code' in events[0], false, 'secret columns must not survive');
+  assert.equal('creation_key' in events[0], false);
+  assert.equal('creation_payload_hash' in events[0], false);
+  assert.equal(events[0].name, 'One');
 });

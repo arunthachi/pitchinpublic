@@ -194,7 +194,7 @@ export default function NotificationPreferencesPage() {
               {roles.founder ? (
                 <PreferenceRow
                   icon={<Bell className="h-5 w-5" />}
-                  title="Practice and pitch-room nudges"
+                  title="Practice and event nudges"
                   description="Your daily practice task plus event reminders at 7 days, 72 hours, and 24 hours."
                   checked={preferences?.founder_nudges_enabled ?? true}
                   disabled={saving || !preferences || !emailEnabled}

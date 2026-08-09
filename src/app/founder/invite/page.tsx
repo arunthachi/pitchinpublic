@@ -166,7 +166,7 @@ function FounderInviteContent() {
                   Private founder invitation
                 </p>
                 <h1 className="mt-2 font-heading text-[2rem] font-black leading-[1.05] tracking-normal text-white sm:text-5xl">
-                  {pageState === 'accepted' ? 'Your pitch room is ready.' : 'You’re invited to Pitch in Public.'}
+                  {pageState === 'accepted' ? 'Your event is ready.' : 'You’re invited to Pitch in Public.'}
                 </h1>
                 <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">
                   Record a short pitch, get useful Toast or Roast feedback, and improve your next take with founders who are practicing too.
