@@ -15,6 +15,8 @@ import { WelcomeHero } from '@/components/WelcomeHero';
 import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
 import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
+import { EventRibbon } from '@/components/EventRibbon';
+import { pickRibbon, type RibbonModel } from '@/lib/event-orientation';
 import { getLegacyPitches, profileToUser, authUserToUser } from '@/lib/data';
 import { LegacyPitch, User, Profile } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -108,6 +110,8 @@ function HomeContent() {
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [showDailyChallenge, setShowDailyChallenge] = useState(false);
   const [showPitchGoal, setShowPitchGoal] = useState(false);
+  const [eventRibbon, setEventRibbon] = useState<RibbonModel>(null);
+  const [hasPendingInvitations, setHasPendingInvitations] = useState(false);
   const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
   const [inviteOnlyNotice, setInviteOnlyNotice] = useState(false);
   const [reviewerMode, setReviewerMode] = useState(false);
@@ -153,6 +157,31 @@ function HomeContent() {
     badgeDescription: string;
   } | null>(null);
   const isGuest = !user;
+
+  // One light fetch orients event founders: the home ribbon and the nav
+  // badge. Solo founders get an empty result and see neither.
+  useEffect(() => {
+    if (!user) {
+      setEventRibbon(null);
+      setHasPendingInvitations(false);
+      return;
+    }
+    let cancelled = false;
+    fetch('/api/events')
+      .then((response) => response.json())
+      .then((data) => {
+        if (cancelled || !data?.success) return;
+        setEventRibbon(pickRibbon(data.events, data.invitations));
+        setHasPendingInvitations(Boolean(data.invitations?.length));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // Keyed on the id: TOKEN_REFRESHED republishes a fresh user object hourly
+    // and must not refire this fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
   const accountUser = userProfile || (user ? authUserToUser(user) : null);
   const canManageEvents = userRoles.includes('organizer') || userRoles.includes('admin');
   const showPublicSignIn = isGuest;
@@ -689,6 +718,7 @@ function HomeContent() {
           guestActionLabel="Sign in"
           onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
           canManageEvents={canManageEvents}
+          eventsBadge={hasPendingInvitations}
           reviewerMode={reviewerMode}
           canSwitchMode={reviewerAccess && founderAccess}
           onModeChange={switchAppMode}
@@ -726,6 +756,13 @@ function HomeContent() {
         </div>
       )}
 
+      {/* Event orientation ribbon — founders with an event life only */}
+      {!reviewerMode && eventRibbon ? (
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:hidden">
+          <EventRibbon model={eventRibbon} />
+        </div>
+      ) : null}
+
       {/* Bottom Navigation Bar - Mobile Only */}
       {!reviewerMode ? (
         <div className="lg:hidden">
@@ -734,6 +771,7 @@ function HomeContent() {
             onProfileClick={() => isGuest ? promptForRestrictedAction() : router.push('/me')}
             onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
             onEventsClick={() => router.push('/events')}
+            eventsBadge={hasPendingInvitations}
             isGuest={isGuest}
           />
         </div>

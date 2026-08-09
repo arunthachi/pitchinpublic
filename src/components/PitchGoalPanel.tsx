@@ -563,7 +563,7 @@ export function PitchGoalPanel({
                     </button>
                     {expanded && (
                       <div className="rounded-2xl border border-white/10 bg-black/35 p-5 text-sm leading-7 text-slate-300">
-                        Your selected best take is saved to your practice goal. Event rooms can use
+                        Your selected best take is saved to your practice goal. Events can use
                         that take for founder submissions, judge review, audience voting, and
                         exportable results.
                       </div>

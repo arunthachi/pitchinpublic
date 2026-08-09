@@ -8,10 +8,11 @@ interface BottomNavBarProps {
   onProfileClick: () => void;
   onChallengeClick?: () => void;
   onEventsClick: () => void;
+  eventsBadge?: boolean;
   isGuest?: boolean;
 }
 
-export default function BottomNavBar({ onCreateClick, onProfileClick, onChallengeClick, onEventsClick, isGuest = false }: BottomNavBarProps) {
+export default function BottomNavBar({ onCreateClick, onProfileClick, onChallengeClick, onEventsClick, eventsBadge = false, isGuest = false }: BottomNavBarProps) {
   const [activeTab, setActiveTab] = useState('home');
 
   return (
@@ -45,10 +46,15 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
           aria-current={activeTab === 'events' ? 'page' : undefined}
           aria-label="Events"
         >
-          <Calendar
-            size={26}
-            className={activeTab === 'events' ? 'text-white' : 'text-gray-400'}
-          />
+          <span className="relative">
+            <Calendar
+              size={26}
+              className={activeTab === 'events' ? 'text-white' : 'text-gray-400'}
+            />
+            {eventsBadge && (
+              <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-neon-lime" aria-hidden="true" />
+            )}
+          </span>
           <span className={`text-xs ${activeTab === 'events' ? 'text-white' : 'text-gray-400'}`}>
             Events
           </span>

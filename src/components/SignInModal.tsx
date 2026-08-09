@@ -405,7 +405,7 @@ export function SignInModal({ isOpen, onClose, initialEmail = '', nextPath }: Si
                   <div className="mt-6 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs leading-5 text-slate-400 backdrop-blur-xl">
                     <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
                     <p>
-                      One Google account for practice momentum, feedback, and event rooms. Phone can be linked later in profile for reminders.
+                      One Google account for practice momentum, feedback, and events. Phone can be linked later in profile for reminders.
                     </p>
                   </div>
                 </div>

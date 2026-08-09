@@ -89,8 +89,8 @@ export function buildEventInviteEmail({
       ? `Sign in or create an account with this email, then submit your pitch before ${deadlineLabel}.`
       : 'Sign in or create an account with this email, then submit your pitch when you are ready.';
   const supportLine = isTeamInvite
-    ? 'Once you are in, you can review submissions and help the room improve.'
-    : 'Once you are in, record or upload a pitch and use the invite to join the room.';
+    ? 'Once you are in, you can review submissions and help the event improve.'
+    : 'Once you are in, record or upload a pitch and use the invite to join the event.';
 
   return {
     subject: `Join ${eventName} on Pitch in Public`,

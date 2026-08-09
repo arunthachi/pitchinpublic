@@ -80,3 +80,26 @@ test('pending invitations require a non-empty email to match against', () => {
   assert.deepEqual(filterPendingInvitationsForEmail(rows, ''), []);
   assert.deepEqual(filterPendingInvitationsForEmail(rows, null), []);
 });
+
+test('joined events carry a mySubmission flag and shed secret columns', async () => {
+  const { toSafeEventsWithSubmissionFlag } = await import('./route');
+  const events = toSafeEventsWithSubmissionFlag(
+    [
+      { id: 'e1', name: 'One', access_code: 'secret', creation_key: 'k', creation_payload_hash: 'h' },
+      { id: 'e2', name: 'Two' },
+    ],
+    new Set(['e1', 'e3']),
+  );
+  assert.equal(events[0].mySubmission, true);
+  assert.equal(events[1].mySubmission, false);
+  assert.equal('access_code' in events[0], false, 'secret columns must not survive');
+  assert.equal('creation_key' in events[0], false);
+  assert.equal('creation_payload_hash' in events[0], false);
+  assert.equal(events[0].name, 'One');
+});
+
+test('unknown submission state stamps null so the UI shows no chip', async () => {
+  const { toSafeEventsWithSubmissionFlag } = await import('./route');
+  const events = toSafeEventsWithSubmissionFlag([{ id: 'e1' }], null);
+  assert.equal(events[0].mySubmission, null);
+});
