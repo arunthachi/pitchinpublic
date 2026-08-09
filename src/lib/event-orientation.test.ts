@@ -78,3 +78,7 @@ test('no events and no invitations means no ribbon', () => {
   assert.equal(pickRibbon([], [], NOW), null);
   assert.equal(pickRibbon(null, undefined, NOW), null);
 });
+
+test('unknown submission state renders no chip', () => {
+  assert.equal(founderEventStatusChip({ role: 'founder', mySubmission: null, submissionDeadline: '2026-08-27' }, NOW), null);
+});

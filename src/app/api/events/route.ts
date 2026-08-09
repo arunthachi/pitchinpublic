@@ -301,14 +301,14 @@ export async function POST(request: NextRequest) {
  */
 export function toSafeEventsWithSubmissionFlag(
   rows: Array<Record<string, unknown> & { id: string }>,
-  submittedEventIds: Set<string>
+  submittedEventIds: Set<string> | null
 ) {
   return rows.map((event) => {
     const safeEvent = { ...event } as Record<string, unknown>;
     delete safeEvent.access_code;
     delete safeEvent.creation_key;
     delete safeEvent.creation_payload_hash;
-    safeEvent.mySubmission = submittedEventIds.has(event.id);
+    safeEvent.mySubmission = submittedEventIds ? submittedEventIds.has(event.id) : null;
     return safeEvent;
   });
 }
@@ -354,11 +354,17 @@ export async function GET(request: NextRequest) {
 
   // One flag per event so founder-facing lists can answer "did I submit?"
   // without a second round trip. RLS scopes the read to the caller's rows.
-  const { data: mySubmissions } = await supabase
+  const { data: mySubmissions, error: mySubmissionsError } = await supabase
     .from('pitch_event_submissions')
     .select('event_id')
     .eq('user_id', user.id);
-  const submittedEventIds = new Set((mySubmissions || []).map((row) => row.event_id));
+  if (mySubmissionsError) {
+    console.error('Error fetching caller submissions for event flags:', mySubmissionsError);
+  }
+  // null = unknown: the UI shows no chip rather than a wrong "Not submitted".
+  const submittedEventIds = mySubmissionsError
+    ? null
+    : new Set((mySubmissions || []).map((row) => row.event_id));
 
   const events = toSafeEventsWithSubmissionFlag(data || [], submittedEventIds);
 

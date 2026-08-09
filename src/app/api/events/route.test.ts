@@ -97,3 +97,9 @@ test('joined events carry a mySubmission flag and shed secret columns', async ()
   assert.equal('creation_payload_hash' in events[0], false);
   assert.equal(events[0].name, 'One');
 });
+
+test('unknown submission state stamps null so the UI shows no chip', async () => {
+  const { toSafeEventsWithSubmissionFlag } = await import('./route');
+  const events = toSafeEventsWithSubmissionFlag([{ id: 'e1' }], null);
+  assert.equal(events[0].mySubmission, null);
+});

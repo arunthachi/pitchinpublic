@@ -34,12 +34,15 @@ export type EventStatusChip = {
 export function founderEventStatusChip(
   input: {
     role?: string | null;
-    mySubmission?: boolean;
+    mySubmission?: boolean | null;
     submissionDeadline?: string | null;
   },
   now: Date = new Date()
 ): EventStatusChip | null {
   if ((input.role || 'founder') !== 'founder') return null;
+  // null means the submission state could not be determined — show nothing
+  // rather than a wrong "Not submitted".
+  if (input.mySubmission === null) return null;
   if (input.mySubmission) return { label: 'Submitted', tone: 'ready' };
 
   const countdown = deadlineCountdown(input.submissionDeadline, now);
