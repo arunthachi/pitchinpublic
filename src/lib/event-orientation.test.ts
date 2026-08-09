@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deadlineCountdown, founderEventStatusChip, pickRibbon } from './event-orientation';
 
-const NOW = new Date('2026-08-09T12:00:00Z');
+// Local-time fixture: production compares a local `now` against locally-
+// anchored deadlines, so the tests must too (a UTC instant flips calendar
+// days on UTC+12 runners).
+const NOW = new Date(2026, 7, 9, 12, 0, 0);
 
 test('countdown covers today, tomorrow, future, past, and absent deadlines', () => {
   assert.equal(deadlineCountdown('2026-08-09', NOW), 'due today');

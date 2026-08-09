@@ -178,7 +178,10 @@ function HomeContent() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+    // Keyed on the id: TOKEN_REFRESHED republishes a fresh user object hourly
+    // and must not refire this fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
   const accountUser = userProfile || (user ? authUserToUser(user) : null);
   const canManageEvents = userRoles.includes('organizer') || userRoles.includes('admin');
   const showPublicSignIn = isGuest;
@@ -755,7 +758,7 @@ function HomeContent() {
 
       {/* Event orientation ribbon — founders with an event life only */}
       {!reviewerMode && eventRibbon ? (
-        <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:top-6 lg:pl-72">
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:top-6">
           <EventRibbon model={eventRibbon} />
         </div>
       ) : null}

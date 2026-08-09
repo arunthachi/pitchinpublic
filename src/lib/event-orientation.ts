@@ -101,7 +101,7 @@ export function pickRibbon(
     const time = raw ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T23:59:59` : raw).getTime() : NaN;
     if (Number.isNaN(time)) return Number.MAX_SAFE_INTEGER;
     // Past events sink below upcoming ones but stay eligible.
-    return time >= now.getTime() ? time : time + 2 * Number.MAX_SAFE_INTEGER / 4;
+    return time >= now.getTime() ? time : time + Number.MAX_SAFE_INTEGER / 2;
   };
   const best = [...candidates].sort((a, b) => sortKey(a) - sortKey(b))[0];
 
