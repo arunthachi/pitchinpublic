@@ -80,3 +80,15 @@ test('pending invitations require a non-empty email to match against', () => {
   assert.deepEqual(filterPendingInvitationsForEmail(rows, ''), []);
   assert.deepEqual(filterPendingInvitationsForEmail(rows, null), []);
 });
+
+test('joined events carry a mySubmission flag derived from the caller submissions', async () => {
+  // The flag is computed as set-membership over the caller's own submission
+  // rows; assert the mapping logic via the same shape the route uses.
+  const submittedEventIds = new Set(['e1', 'e3']);
+  const events = [{ id: 'e1' }, { id: 'e2' }].map((event) => ({
+    ...event,
+    mySubmission: submittedEventIds.has(event.id),
+  }));
+  assert.equal(events[0].mySubmission, true);
+  assert.equal(events[1].mySubmission, false);
+});

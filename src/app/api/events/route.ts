@@ -334,11 +334,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Failed to fetch events' }, { status: 500 });
   }
 
+  // One flag per event so founder-facing lists can answer "did I submit?"
+  // without a second round trip. RLS scopes the read to the caller's rows.
+  const { data: mySubmissions } = await supabase
+    .from('pitch_event_submissions')
+    .select('event_id')
+    .eq('user_id', user.id);
+  const submittedEventIds = new Set((mySubmissions || []).map((row) => row.event_id));
+
   const events = (data || []).map((event) => {
     const safeEvent = { ...event } as Record<string, unknown>;
     delete safeEvent.access_code;
     delete safeEvent.creation_key;
     delete safeEvent.creation_payload_hash;
+    safeEvent.mySubmission = submittedEventIds.has(event.id);
     return safeEvent;
   });
 

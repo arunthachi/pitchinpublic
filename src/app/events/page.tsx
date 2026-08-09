@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowRight, CalendarDays } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActionPageNav } from '@/components/ActionPageNav';
+import { founderEventStatusChip } from '@/lib/event-orientation';
 import { destination } from '@/lib/app-navigation';
 import {
   classifyEventRole,
@@ -45,8 +46,8 @@ type PendingInvitation = {
 
 const VIEW_COPY: Record<EventListView, { title: string; empty: string }> = {
   joined: {
-    title: 'Pitch rooms',
-    empty: 'No pitch rooms yet. Check your email for an event invite to join one.',
+    title: 'Events',
+    empty: 'No events yet. Check your email for an event invite to join one.',
   },
   managed: {
     title: 'My events',
@@ -151,7 +152,7 @@ function EventsContent() {
         <section className="w-full max-w-xl text-center">
           <CalendarDays className="mx-auto h-10 w-10 text-neon-cyan" />
           <h1 className="mt-4 font-heading text-4xl font-black">Sign in to see your events.</h1>
-          <p className="mt-3 leading-7 text-slate-400">Joined pitch rooms and organizer events appear here.</p>
+          <p className="mt-3 leading-7 text-slate-400">Events you joined or organize appear here.</p>
           <Link href="/" className="cta-primary mt-6 inline-flex min-h-11 items-center rounded-full px-6 py-3 font-heading font-bold">
             Go to feed
           </Link>
@@ -209,7 +210,7 @@ function EventsContent() {
           id={`events-${primaryView}`}
           title={VIEW_COPY[primaryView].title}
           empty={primaryView === 'joined' && invitations.length > 0
-            ? 'No pitch rooms yet. Accept an invitation above to join one.'
+            ? 'No events yet. Accept an invitation above to join one.'
             : VIEW_COPY[primaryView].empty}
           emptyAction={primaryView === 'managed' && canCreateEvents ? { href: '/events/new', label: 'Create event' } : undefined}
         >
@@ -218,7 +219,7 @@ function EventsContent() {
               key={event.id}
               event={event}
               actionHref={primaryView === 'joined' ? `/events/${event.slug}` : `/events/${event.slug}/dashboard`}
-              actionLabel={primaryView === 'joined' ? 'Open room' : 'Open event'}
+              actionLabel="Open event"
               showDeadline={primaryView === 'joined'}
             />
           ))}
@@ -276,6 +277,27 @@ function RoomCard({ event, actionHref, actionLabel, showDeadline = false }: {
             Pitch day {formatDate(event.event_date)}
             {showDeadline && event.submission_deadline ? ` · Due ${formatDate(event.submission_deadline)}` : ''}
           </p>
+          {(() => {
+            const chip = founderEventStatusChip({
+              role: event.pitch_event_participants?.[0]?.role,
+              mySubmission: Boolean(event.mySubmission),
+              submissionDeadline: event.submission_deadline,
+            });
+            if (!chip) return null;
+            return (
+              <span
+                className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-black ${
+                  chip.tone === 'ready'
+                    ? 'bg-neon-lime text-slate-950'
+                    : chip.tone === 'warn'
+                      ? 'bg-roast/15 text-roast'
+                      : 'bg-white/10 text-slate-300'
+                }`}
+              >
+                {chip.label}
+              </span>
+            );
+          })()}
         </div>
         <Link href={actionHref} className="cta-primary inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold">
           {actionLabel}<ArrowRight className="h-4 w-4" />

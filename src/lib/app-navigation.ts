@@ -2,7 +2,7 @@ export const APP_DESTINATIONS = {
   feed: { label: 'Feed', href: '/' },
   myPitches: { label: 'My pitches', href: '/me' },
   events: { label: 'Events', href: '/events' },
-  pitchRooms: { label: 'Pitch rooms', href: '/events?view=joined#events-joined' },
+  pitchRooms: { label: 'Events', href: '/events?view=joined#events-joined' },
   myEvents: { label: 'My events', href: '/events?view=managed#events-managed' },
   eventWorkspaces: { label: 'Event workspaces', href: '/events?view=team#events-team' },
   createEvent: { label: 'Create event', href: '/events/new' },
