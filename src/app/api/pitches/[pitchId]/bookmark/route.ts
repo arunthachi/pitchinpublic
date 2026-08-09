@@ -267,11 +267,23 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ pi
       throw deleteError;
     }
 
-    // Get updated bookmark count
-    const { count } = await supabase
-      .from('bookmarks')
-      .select('*', { count: 'exact', head: true })
-      .eq('pitch_id', pitchId);
+    // Removing your own bookmark always succeeds, but the aggregate count is
+    // only reported when the caller can still see the pitch — same gate as
+    // GET/POST, so a lost-access pitch reveals nothing.
+    const { data: visiblePitch } = await supabase
+      .from('pitches')
+      .select('id')
+      .eq('id', pitchId)
+      .maybeSingle();
+
+    let count: number | null = null;
+    if (visiblePitch) {
+      const counted = await supabase
+        .from('bookmarks')
+        .select('*', { count: 'exact', head: true })
+        .eq('pitch_id', pitchId);
+      count = counted.count;
+    }
 
     return NextResponse.json(
       {
@@ -332,6 +344,17 @@ export async function GET(request: NextRequest, props: { params: Promise<{ pitch
     } = await supabase.auth.getUser();
 
     const pitchId = params.pitchId;
+
+    // Same existence gate as POST: counts for a pitch the caller cannot see
+    // are not served, and the response never confirms such a pitch exists.
+    const { data: visiblePitch } = await supabase
+      .from('pitches')
+      .select('id')
+      .eq('id', pitchId)
+      .maybeSingle();
+    if (!visiblePitch) {
+      return NextResponse.json({ success: false, error: 'Pitch not found.' }, { status: 404 });
+    }
 
     // Get total bookmark count
     const { count: bookmarkCount } = await supabase

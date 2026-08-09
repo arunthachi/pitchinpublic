@@ -75,3 +75,19 @@ test('event privacy migration enforces visibility, member reads, and the approve
     'assignment cleanup must spare event members, organizers, and submission-event members',
   );
 });
+
+test('feedback visibility migration scopes feedback to its pitch', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const migration = await readFile(
+    new URL('../../../../supabase/migrations/20260808190000_scope_feedback_to_pitch_visibility.sql', import.meta.url),
+    'utf8',
+  );
+  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.can_view_pitch\(target_pitch_id uuid\)/);
+  assert.match(migration, /SECURITY DEFINER/);
+  assert.match(migration, /p\.visibility = 'public'/, 'helper must mirror the strict public policy — no unlisted');
+  assert.doesNotMatch(migration, /'unlisted'/);
+  assert.match(migration, /can_trusted_reviewer_view_pitch\(p\.id\)/);
+  assert.match(migration, /can_view_pitch_via_event_submission\(p\.id\)/);
+  assert.match(migration, /ON public\.feedback FOR SELECT/);
+  assert.match(migration, /is_public = true AND public\.can_view_pitch\(pitch_id\)/, 'anon feedback reads must require pitch visibility');
+});
