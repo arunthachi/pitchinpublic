@@ -48,5 +48,6 @@ test('submission response exposes the authoritative pitch identity', () => {
     submission: { id: 'submission-id', status: 'submitted' },
     pitchId: 'pitch-id',
     publicId: 'p_abc123def456',
+    visibilityChanged: false,
   });
 });

@@ -57,7 +57,10 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ pi
   const mutationSupabase = createServiceSupabase() || supabase;
 
   async function getPitchCounts() {
-    const { data } = await mutationSupabase
+    // Read counts through the request-scoped client so RLS applies: counters
+    // of a pitch the caller cannot see must not leak through the service
+    // client used for count mutations.
+    const { data } = await supabase
       .from('pitches')
       .select('roast_count, toast_count')
       .eq('id', params.pitchId)

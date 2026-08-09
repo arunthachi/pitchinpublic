@@ -1530,13 +1530,16 @@ function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug:
   const readiness = readinessFromFeedback(submission.pitch?.feedback || []);
   const takeLabel = getTakeLabelFromFields(submission.pitch || {});
   const detailPath = pitchPath(submission.pitch?.public_id, submission.pitch_id) || '#';
+  // Every entry into the pitch page from an event surface carries the event
+  // context, so feedback scopes to the event even off the thumbnail link.
+  const detailHref = detailPath === '#' ? '#' : `${detailPath}?event=${encodeURIComponent(eventSlug)}`;
   const feedbackHref = detailPath === '#'
     ? '#'
     : `${detailPath}?feedback=1&event=${encodeURIComponent(eventSlug)}`;
 
   return (
     <article className="overflow-hidden rounded-3xl border border-white/10 bg-black/35">
-      <Link href={detailPath} className="group relative block aspect-[9/16] bg-slate-950">
+      <Link href={detailHref} className="group relative block aspect-[9/16] bg-slate-950">
         {submission.pitch?.thumbnail_url ? (
           <img src={submission.pitch.thumbnail_url} alt={submission.pitch.hook} className="h-full w-full object-cover transition group-hover:scale-105" />
         ) : (

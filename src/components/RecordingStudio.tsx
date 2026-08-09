@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw } from 'lucide-react';
+import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClientIdempotencyKey, getEventSubmissionRetryKey } from '@/lib/idempotency';
 import { Step2_AddDetails } from './Step2_AddDetails';
@@ -70,6 +70,56 @@ interface CreatedPitchIdentity {
 
 export function buildEventSubmissionBody(pitch: CreatedPitchIdentity) {
   return pitch.publicId ? { pitchPublicId: pitch.publicId } : { pitchId: pitch.id };
+}
+
+function formatShortEventDate(value: string) {
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+type StudioEventContext = NonNullable<RecordingStudioProps['eventContext']>;
+
+/**
+ * Persistent context strip shown across the choose/record/preview modes so
+ * founders always know where a take is headed before they submit it.
+ */
+function RecordingContextStrip({
+  eventContext,
+  compact = false,
+}: {
+  eventContext: StudioEventContext | null;
+  compact?: boolean;
+}) {
+  if (!eventContext) {
+    return (
+      <p className={`text-[11px] text-slate-500 ${compact ? 'mb-3' : 'mb-4'}`}>For the public feed</p>
+    );
+  }
+
+  const shortDeadline = eventContext.deadline ? formatShortEventDate(eventContext.deadline) : '';
+
+  return (
+    <div
+      className={`rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 ${compact ? 'mb-3' : 'mb-4'}`}
+    >
+      <div className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-white">
+        <Lock className="h-3.5 w-3.5 shrink-0 text-neon-cyan" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate">Recording for {eventContext.name}</span>
+        {compact && (
+          <span className="shrink-0 text-[11px] font-medium text-slate-400">
+            Private{shortDeadline ? ` · Due ${shortDeadline}` : ''}
+          </span>
+        )}
+      </div>
+      {!compact && (
+        <p className="mt-0.5 pl-5 text-[11px] leading-tight text-slate-400">
+          Private to the event — its team and participants can see your takes
+          {shortDeadline ? ` · Due ${shortDeadline}` : ''}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function RecordingStudio({
@@ -682,6 +732,12 @@ export function RecordingStudio({
         pitchPayload.promptText = practicePrompt.prompt;
       }
 
+      // Event recordings bind server-side to the event and start private to
+      // it; the server verifies membership before accepting the association.
+      if (eventContext?.slug) {
+        pitchPayload.eventSlug = eventContext.slug;
+      }
+
       const response = await fetch('/api/pitches', {
         method: 'POST',
         headers: {
@@ -922,16 +978,15 @@ export function RecordingStudio({
                   pitchTitle={pitchHook}
                   eventName={eventContext?.name}
                   onPrimaryAction={() => {
-                    const publicId = createdPitch?.publicId;
-                    const pitchId = publicId || createdPitch?.id;
+                    const pitchId = createdPitch?.publicId || createdPitch?.id;
                     handleClose();
-                    if (eventContext?.slug && publicId) {
-                      router.push(`/?mode=founder&pitch=${encodeURIComponent(publicId)}`);
+                    if (eventContext?.slug) {
+                      router.push(`/events/${encodeURIComponent(eventContext.slug)}`);
                     } else if (pitchId) {
                       router.push(`/pitch/${encodeURIComponent(pitchId)}`);
                     }
                   }}
-                  onOpenPitch={createdPitch?.publicId || createdPitch?.id ? () => {
+                  onOpenPitch={eventContext?.slug && (createdPitch?.publicId || createdPitch?.id) ? () => {
                     const pitchId = createdPitch?.publicId || createdPitch?.id;
                     handleClose();
                     router.push(`/pitch/${encodeURIComponent(pitchId || '')}`);
@@ -939,13 +994,14 @@ export function RecordingStudio({
                   onRecordAnother={() => {
                     goBack();
                   }}
-                  primaryActionLabel={eventContext?.slug ? 'Watch your pitch' : 'View feed'}
+                  primaryActionLabel={eventContext?.slug ? `Back to ${eventContext.name}` : 'View your pitch'}
                 />
               )}
 
               {/* Choose Mode */}
               {mode === 'choose' && (
                 <>
+                  <RecordingContextStrip eventContext={eventContext} />
 	                  <div className="text-center mb-6">
 	                    <h2 className="text-2xl font-bold text-white mb-1">
                         {practicePrompt ? "Record today's rep" : 'Post your pitch'}
@@ -1012,6 +1068,7 @@ export function RecordingStudio({
               {/* Record Mode */}
               {mode === 'record' && (
                 <>
+                  <RecordingContextStrip eventContext={eventContext} compact />
                   <div className="relative aspect-[9/16] max-h-[min(58dvh,560px)] mx-auto bg-black rounded-xl overflow-hidden mb-4">
                     <video
                       ref={videoRef}
@@ -1113,6 +1170,7 @@ export function RecordingStudio({
               {/* Preview Mode */}
               {mode === 'preview' && (
                 <>
+                  <RecordingContextStrip eventContext={eventContext} />
                   <div className="text-center mb-4">
                     <h2 className="text-xl font-bold text-white">Review your take</h2>
                     <p className="text-sm text-slate-400 mt-1">Check the video, then continue to submit.</p>

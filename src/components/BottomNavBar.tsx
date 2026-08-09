@@ -1,16 +1,17 @@
 'use client';
 
-import { Trophy, User, Video } from 'lucide-react';
+import { Calendar, Trophy, User, Video } from 'lucide-react';
 import { useState } from 'react';
 
 interface BottomNavBarProps {
   onCreateClick: () => void;
   onProfileClick: () => void;
   onChallengeClick?: () => void;
+  onEventsClick: () => void;
   isGuest?: boolean;
 }
 
-export default function BottomNavBar({ onCreateClick, onProfileClick, onChallengeClick, isGuest = false }: BottomNavBarProps) {
+export default function BottomNavBar({ onCreateClick, onProfileClick, onChallengeClick, onEventsClick, isGuest = false }: BottomNavBarProps) {
   const [activeTab, setActiveTab] = useState('home');
 
   return (
@@ -30,6 +31,26 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
           />
           <span className={`text-xs ${activeTab === 'home' ? 'text-white' : 'text-gray-400'}`}>
             Practice
+          </span>
+        </button>
+
+        {/* Events */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('events');
+            onEventsClick();
+          }}
+          className="flex min-h-11 min-w-11 flex-col items-center gap-1 rounded-xl px-2 py-1 focus-visible:ring-2 focus-visible:ring-neon-cyan"
+          aria-current={activeTab === 'events' ? 'page' : undefined}
+          aria-label="Events"
+        >
+          <Calendar
+            size={26}
+            className={activeTab === 'events' ? 'text-white' : 'text-gray-400'}
+          />
+          <span className={`text-xs ${activeTab === 'events' ? 'text-white' : 'text-gray-400'}`}>
+            Events
           </span>
         </button>
 

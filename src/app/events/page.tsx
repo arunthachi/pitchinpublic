@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CalendarDays, ExternalLink } from 'lucide-react';
+import { ArrowRight, CalendarDays } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActionPageNav } from '@/components/ActionPageNav';
 import { destination } from '@/lib/app-navigation';
@@ -32,10 +32,21 @@ function getStatus(event: any) {
   return participant?.status || event.status || 'active';
 }
 
+type PendingInvitation = {
+  id: string;
+  event: {
+    id: string;
+    slug: string;
+    name: string;
+    event_date: string | null;
+  };
+  invite_url: string;
+};
+
 const VIEW_COPY: Record<EventListView, { title: string; empty: string }> = {
   joined: {
     title: 'Pitch rooms',
-    empty: 'No pitch rooms yet. Open an event invite to join one.',
+    empty: 'No pitch rooms yet. Check your email for an event invite to join one.',
   },
   managed: {
     title: 'My events',
@@ -51,6 +62,7 @@ function EventsContent() {
   const { user, loading, signOut } = useAuth();
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [canCreateEvents, setCanCreateEvents] = useState(false);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [error, setError] = useState('');
@@ -60,6 +72,7 @@ function EventsContent() {
 
     if (!user) {
       setEvents([]);
+      setInvitations([]);
       setCanCreateEvents(false);
       setIsLoadingEvents(false);
       return;
@@ -76,6 +89,7 @@ function EventsContent() {
         if (!response.ok || !data.success) throw new Error(data.error || 'Could not load events.');
         if (!cancelled) {
           setEvents(data.events || []);
+          setInvitations(data.invitations || []);
           setCanCreateEvents(Boolean(data.canCreateEvents));
         }
       } catch (err) {
@@ -180,10 +194,23 @@ function EventsContent() {
         {viewNotice ? <p role="status" className="mb-5 rounded-xl border border-neon-cyan/20 bg-neon-cyan/10 px-4 py-3 text-sm text-slate-200">{viewNotice}</p> : null}
         {error ? <p className="mb-5 rounded-xl border border-roast/25 bg-roast/10 px-4 py-3 text-sm font-semibold text-roast">{error}</p> : null}
 
+        {primaryView === 'joined' && invitations.length > 0 ? (
+          <section aria-label="Invited" className="mb-6">
+            <h2 className="mb-3 font-heading text-lg font-black text-white">Invited</h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              {invitations.map((invitation) => (
+                <InvitationCard key={invitation.id} invitation={invitation} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <RoomSection
           id={`events-${primaryView}`}
           title={VIEW_COPY[primaryView].title}
-          empty={VIEW_COPY[primaryView].empty}
+          empty={primaryView === 'joined' && invitations.length > 0
+            ? 'No pitch rooms yet. Accept an invitation above to join one.'
+            : VIEW_COPY[primaryView].empty}
           emptyAction={primaryView === 'managed' && canCreateEvents ? { href: '/events/new', label: 'Create event' } : undefined}
         >
           {groupedEvents[primaryView].map((event) => (
@@ -251,7 +278,23 @@ function RoomCard({ event, actionHref, actionLabel, showDeadline = false }: {
           </p>
         </div>
         <Link href={actionHref} className="cta-primary inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold">
-          {actionLabel}<ExternalLink className="h-4 w-4" />
+          {actionLabel}<ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function InvitationCard({ invitation }: { invitation: PendingInvitation }) {
+  return (
+    <article className="rounded-2xl border border-neon-cyan/25 bg-neon-cyan/[0.06] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate font-heading text-xl font-black text-white">{invitation.event.name}</h3>
+          <p className="mt-2 text-sm text-slate-400">Pitch day {formatDate(invitation.event.event_date)}</p>
+        </div>
+        <Link href={invitation.invite_url} className="cta-primary inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-sm font-bold">
+          View invitation<ArrowRight className="h-4 w-4" />
         </Link>
       </div>
     </article>
