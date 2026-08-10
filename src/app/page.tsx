@@ -548,6 +548,20 @@ function HomeContent() {
     setSignInModalOpen(true);
   }, [accessCheckComplete, loading, reviewerMode, searchParams, user]);
 
+  // Deep link used by the profile page, whose deck card and edit affordances
+  // live here in the home shell rather than on /profile.
+  useEffect(() => {
+    if (loading || !accessCheckComplete || reviewerMode || !user) return;
+    if (searchParams.get('profileEdit') !== '1') return;
+
+    setShowProfileEdit(true);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('profileEdit');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+    }
+  }, [accessCheckComplete, loading, reviewerMode, searchParams, user]);
+
   useEffect(() => {
     if (loading || user) return;
 

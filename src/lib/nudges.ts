@@ -459,7 +459,7 @@ export function buildOrganizerReadinessEmail({
       '',
       urgent
         ? `${missingCount} founder${missingCount === 1 ? ' has' : 's have'} not submitted before the approaching deadline.`
-        : 'Here is your weekly pitch-room readiness snapshot.',
+        : 'Here is your weekly event readiness snapshot.',
       `Founders: ${founderCount}`,
       `Submitted: ${submissionCount}`,
       `Missing: ${missingCount}`,

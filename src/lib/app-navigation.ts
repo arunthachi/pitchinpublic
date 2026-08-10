@@ -10,6 +10,29 @@ export const APP_DESTINATIONS = {
 
 export type AppDestinationKey = keyof typeof APP_DESTINATIONS;
 
+/** Where the close control on every action page returns the user. */
+export const APP_HOME_HREF = APP_DESTINATIONS.feed.href;
+
+export type AppTabKey = 'feed' | 'events' | 'record' | 'profile';
+
+export type AppTab = {
+  key: AppTabKey;
+  label: string;
+  shortLabel: string;
+  href: string;
+};
+
+/**
+ * Tabs for the routed bottom bar. `record` deep-links into the home screen's
+ * recorder via the existing `?record=1` handler rather than duplicating it.
+ */
+export const APP_TAB_BAR_TABS: readonly AppTab[] = [
+  { key: 'feed', label: 'Practice feed', shortLabel: 'Practice', href: '/' },
+  { key: 'events', label: 'Events', shortLabel: 'Events', href: '/events' },
+  { key: 'record', label: 'Record pitch', shortLabel: 'Record', href: '/?record=1' },
+  { key: 'profile', label: 'Profile', shortLabel: 'Profile', href: '/me' },
+] as const;
+
 export type ActionNavLink = {
   label: string;
   href: string;

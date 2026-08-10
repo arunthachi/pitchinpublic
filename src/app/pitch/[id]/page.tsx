@@ -25,6 +25,7 @@ import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-m
 import { FeedbackQualityControls } from '@/components/FeedbackQualityControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActionPageNav } from '@/components/ActionPageNav';
+import AppTabBar from '@/components/AppTabBar';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 import { VideoPlayer } from '@/components/VideoPlayer';
 
@@ -254,7 +255,8 @@ function PitchDetailContent() {
   };
 
   return (
-    <div className="min-h-dvh pb-12">
+    <div className={`min-h-dvh ${user ? 'pb-28 lg:pb-12' : 'pb-12'}`}>
+      {user ? <AppTabBar /> : null}
       <ActionPageNav
         links={dashboardHref
           ? [eventDashboardDestination(eventSlug as string), destination('feed')]

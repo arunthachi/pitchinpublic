@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, LogOut, UserRound } from 'lucide-react';
-import type { ActionNavLink } from '@/lib/app-navigation';
+import { ChevronDown, LogOut, UserRound, X } from 'lucide-react';
+import { APP_HOME_HREF, type ActionNavLink } from '@/lib/app-navigation';
 
 type ActionPageNavProps = {
   links: ActionNavLink[];
@@ -14,6 +14,9 @@ type ActionPageNavProps = {
   };
   ariaLabel?: string;
   className?: string;
+  /** Set false only where the feed is not a meaningful destination. */
+  showClose?: boolean;
+  closeHref?: string;
 };
 
 export function ActionPageNav({
@@ -21,6 +24,8 @@ export function ActionPageNav({
   account,
   ariaLabel = 'App navigation',
   className = '',
+  showClose = true,
+  closeHref = APP_HOME_HREF,
 }: ActionPageNavProps) {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -130,6 +135,17 @@ export function ActionPageNav({
               </div>
             ) : null}
           </div>
+        ) : null}
+
+        {showClose ? (
+          <Link
+            href={closeHref}
+            aria-label="Close and return to the feed"
+            title="Close"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-200 outline-none transition hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-neon-cyan"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </Link>
         ) : null}
       </div>
     </nav>

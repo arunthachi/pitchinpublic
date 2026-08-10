@@ -511,8 +511,8 @@ export function WelcomeHero({ showSignIn = false, onSignIn }: WelcomeHeroProps) 
               },
               {
                 icon: Users,
-                title: 'Event-ready rooms',
-                description: 'Use pitch rooms for speed networking, demo nights, and founder feedback circles.',
+                title: 'Event-ready',
+                description: 'Run events for speed networking, demo nights, and founder feedback circles.',
               },
             ].map((feature) => {
               const Icon = feature.icon;

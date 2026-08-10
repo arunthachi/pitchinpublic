@@ -1,0 +1,121 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
+
+/**
+ * Wiring assertions, deliberately source-level. A previous slice shipped two
+ * fixes whose helper unit tests passed while the components never received the
+ * props — the mobile render sites were missed. These tests fail if a founder
+ * surface stops rendering the shell.
+ */
+
+const ROOT = path.join(process.cwd(), 'src');
+
+function read(relativePath: string) {
+  return readFileSync(path.join(ROOT, relativePath), 'utf8');
+}
+
+const TAB_BAR_PAGES = [
+  'app/events/page.tsx',
+  'app/events/[slug]/page.tsx',
+  'app/profile/[userId]/page.tsx',
+  'app/pitch/[id]/page.tsx',
+];
+
+test('every founder surface renders the routed tab bar', () => {
+  for (const page of TAB_BAR_PAGES) {
+    const source = read(page);
+    assert.match(
+      source,
+      /import AppTabBar from '@\/components\/AppTabBar';/,
+      `${page} does not import AppTabBar`,
+    );
+    assert.match(source, /<AppTabBar\b/, `${page} imports AppTabBar but never renders it`);
+  }
+});
+
+test('tab-bar pages reserve space so the fixed bar cannot cover content', () => {
+  for (const page of TAB_BAR_PAGES) {
+    assert.match(read(page), /pb-28/, `${page} has no bottom padding for the fixed tab bar`);
+  }
+});
+
+test('the tab bar is mobile-only so it never collides with the desktop sidebar', () => {
+  assert.match(read('components/AppTabBar.tsx'), /lg:hidden/);
+});
+
+test('action pages expose a close control back to the feed', () => {
+  const nav = read('components/ActionPageNav.tsx');
+  assert.match(nav, /showClose = true/, 'the close control must be on by default');
+  assert.match(nav, /aria-label="Close and return to the feed"/);
+  assert.match(nav, /closeHref = APP_HOME_HREF/);
+});
+
+test('every nav badge dot carries a screen-reader equivalent', () => {
+  for (const component of ['components/BottomNavBar.tsx', 'components/SidebarNav.tsx', 'components/AppTabBar.tsx']) {
+    const source = read(component);
+    const dots = source.match(/rounded-full bg-neon-lime/g) || [];
+    const labels = source.match(/sr-only">New event invitation/g) || [];
+    assert.equal(
+      labels.length,
+      dots.length,
+      `${component} has ${dots.length} badge dot(s) but ${labels.length} screen-reader label(s)`,
+    );
+  }
+});
+
+test('the founder deck card is rendered only on the owner own profile', () => {
+  const profile = read('app/profile/[userId]/page.tsx');
+  assert.match(profile, /import ProfileDeckCard from '@\/components\/ProfileDeckCard';/);
+  assert.match(profile, /\{isOwnProfile \? \(\s*<ProfileDeckCard/);
+});
+
+test('the own-deck endpoint resolves the company from the session, not from input', () => {
+  const route = read('app/api/startup/deck/view/route.ts');
+  assert.match(route, /requireDeckOwnerContext\(request\)/);
+  assert.doesNotMatch(
+    route,
+    /searchParams\.get|params\./,
+    'the own-deck endpoint must not accept a caller-supplied identifier',
+  );
+});
+
+test('the profile edit deep link is handled on the home shell', () => {
+  const home = read('app/page.tsx');
+  assert.match(home, /searchParams\.get\('profileEdit'\) !== '1'/);
+  assert.match(home, /url\.searchParams\.delete\('profileEdit'\)/);
+});
+
+test('no user-facing copy calls an event a pitch room', () => {
+  const offenders: string[] = [];
+  for (const file of [
+    'app/organizer/invite/page.tsx',
+    'app/pip-super-admin/page.tsx',
+    'components/WelcomeHero.tsx',
+    'lib/nudges.ts',
+  ]) {
+    if (/pitch[ -]?room/i.test(read(file))) offenders.push(file);
+  }
+  assert.deepEqual(offenders, []);
+});
+
+test('signing out cannot leave a verified-access ref behind', () => {
+  const home = read('app/page.tsx');
+  // The reset branch must clear every piece of access state, and the async
+  // verifier must never write after its effect run was cancelled — otherwise a
+  // request in flight during sign-out re-marks the session as verified.
+  for (const reset of [
+    /hasVerifiedAccessOnceRef\.current = false;/,
+    /setHasVerifiedAccessOnce\(false\);/,
+    /lastAccessCheckAtRef\.current = null;/,
+    /verifyPilotAccessRef\.current = null;/,
+  ]) {
+    assert.match(home, reset, `sign-out reset is missing ${reset}`);
+  }
+  assert.match(
+    home,
+    /finally \{\s*if \(!cancelled\) \{\s*setAccessCheckComplete\(true\);\s*hasVerifiedAccessOnceRef\.current = true;/,
+    'the verifier must gate its completion writes on the cancelled flag',
+  );
+});

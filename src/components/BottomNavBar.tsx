@@ -52,7 +52,10 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
               className={activeTab === 'events' ? 'text-white' : 'text-gray-400'}
             />
             {eventsBadge && (
-              <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-neon-lime" aria-hidden="true" />
+              <>
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-neon-lime" aria-hidden="true" />
+                <span className="sr-only">New event invitation</span>
+              </>
             )}
           </span>
           <span className={`text-xs ${activeTab === 'events' ? 'text-white' : 'text-gray-400'}`}>
