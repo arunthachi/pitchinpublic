@@ -738,6 +738,11 @@ function HomeContent() {
           onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
           canManageEvents={canManageEvents}
           eventsBadge={hasPendingInvitations}
+          inEventScope={
+            eventFeedSlug
+              ? { name: eventFeedName || 'this event', href: `/events/${encodeURIComponent(eventFeedSlug)}` }
+              : null
+          }
           reviewerMode={reviewerMode}
           canSwitchMode={reviewerAccess && founderAccess}
           onModeChange={switchAppMode}
