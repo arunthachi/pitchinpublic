@@ -255,7 +255,7 @@ function PitchDetailContent() {
   };
 
   return (
-    <div className={`min-h-dvh ${user ? 'pb-28 lg:pb-12' : 'pb-12'}`}>
+    <div className={`min-h-dvh ${user ? 'pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-12' : 'pb-12'}`}>
       {user ? <AppTabBar /> : null}
       <ActionPageNav
         links={dashboardHref

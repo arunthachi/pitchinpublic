@@ -179,6 +179,7 @@ function HomeContent() {
   const userId = accessCheckKey(user?.id) || null;
   const lastAccessCheckAtRef = useRef<number | null>(null);
   const verifyPilotAccessRef = useRef<(() => Promise<void>) | null>(null);
+  const handledRecordQueryRef = useRef(false);
   const handledProfileEditQueryRef = useRef(false);
   const signOutRef = useRef(signOut);
   useEffect(() => {
@@ -533,10 +534,18 @@ function HomeContent() {
     router.replace('/');
   }, [router, signOut]);
 
+  // Same one-shot contract as the profile-edit link below: history.replaceState
+  // does not refresh useSearchParams, so ?record=1 stays set for the life of
+  // the page. Keyed on the user OBJECT this effect re-ran on every hourly token
+  // refresh and tab refocus, reopening the recorder after the founder closed
+  // it. The Record tab in AppTabBar routes through here, so this path is now
+  // the common way into the studio.
   useEffect(() => {
     if (loading || !accessCheckComplete || reviewerMode || searchParams.get('record') !== '1') return;
+    if (handledRecordQueryRef.current) return;
 
-    if (user) {
+    if (userId) {
+      handledRecordQueryRef.current = true;
       setRecordingStudioOpen(true);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
@@ -547,7 +556,7 @@ function HomeContent() {
     }
 
     setSignInModalOpen(true);
-  }, [accessCheckComplete, loading, reviewerMode, searchParams, user]);
+  }, [accessCheckComplete, loading, reviewerMode, searchParams, userId]);
 
   // Deep link used by the profile page, whose deck card and edit affordances
   // live here in the home shell rather than on /profile. Stripping the param
@@ -555,9 +564,22 @@ function HomeContent() {
   // one-shot ref this effect would reopen the modal on every later render —
   // including the auth republishes that fire on token refresh and refocus.
   useEffect(() => {
-    if (loading || !accessCheckComplete || reviewerMode || !userId) return;
+    if (loading || !accessCheckComplete || !userId) return;
     if (searchParams.get('profileEdit') !== '1') return;
     if (handledProfileEditQueryRef.current) return;
+    // Wait for the profile fetch to settle. ProfileEditModal resets its fields
+    // whenever the current* props change, so opening it mid-fetch would wipe
+    // whatever the founder had already typed.
+    if (!userProfile) return;
+
+    // The founder asked to edit their founder profile, so honour that over a
+    // remembered reviewer session — the editor does not render in reviewer
+    // mode. A reviewer with no founder access has nothing to edit.
+    if (reviewerMode) {
+      if (!founderAccess) return;
+      window.localStorage.setItem(APP_MODE_KEY, 'founder');
+      setReviewerMode(false);
+    }
 
     handledProfileEditQueryRef.current = true;
     setShowProfileEdit(true);
@@ -566,7 +588,7 @@ function HomeContent() {
       url.searchParams.delete('profileEdit');
       window.history.replaceState(null, '', `${url.pathname}${url.search}`);
     }
-  }, [accessCheckComplete, loading, reviewerMode, searchParams, userId]);
+  }, [accessCheckComplete, founderAccess, loading, reviewerMode, searchParams, userId, userProfile]);
 
   useEffect(() => {
     if (loading || user) return;

@@ -35,9 +35,15 @@ test('every founder surface renders the routed tab bar', () => {
   }
 });
 
-test('tab-bar pages reserve space so the fixed bar cannot cover content', () => {
+test('tab-bar pages reserve space including the home-indicator inset', () => {
   for (const page of TAB_BAR_PAGES) {
-    assert.match(read(page), /pb-28/, `${page} has no bottom padding for the fixed tab bar`);
+    // A flat 7rem covered the bar's nominal height but not the safe-area inset,
+    // so on a 34px home-indicator iPhone the bar sat over the last line.
+    assert.match(
+      read(page),
+      /pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\]/,
+      `${page} does not reserve safe-area space for the fixed tab bar`,
+    );
   }
 });
 
@@ -128,7 +134,15 @@ test('the profile edit deep link fires once, not on every auth republish', () =>
   assert.match(home, /if \(handledProfileEditQueryRef\.current\) return;/);
   assert.match(home, /handledProfileEditQueryRef\.current = true;/);
   // Keyed on the id, never the user object — see the access-gate regression.
-  assert.match(home, /\}, \[accessCheckComplete, loading, reviewerMode, searchParams, userId\]\);/);
+  assert.match(home, /searchParams, userId, userProfile\]\);/);
+  // The recorder deep link shares the contract: the Record tab routes through
+  // it, and reopening the studio after the founder closed it loses the take.
+  assert.match(home, /if \(handledRecordQueryRef\.current\) return;/);
+  assert.doesNotMatch(
+    home,
+    /\}, \[accessCheckComplete, loading, reviewerMode, searchParams, user\]\);/,
+    'a query-param effect is still keyed on the user object',
+  );
 });
 
 test('the deck opens in a new tab rather than replacing the profile', () => {
@@ -139,4 +153,14 @@ test('the deck opens in a new tab rather than replacing the profile', () => {
   assert.doesNotMatch(card, /window\.open\([^)]*noopener/);
   assert.match(card, /window\.open\('', '_blank'\)/);
   assert.match(card, /target\.opener = null/);
+});
+
+test('the profile edit deep link waits for the profile fetch and honours founder intent', () => {
+  const home = read('app/page.tsx');
+  // Opening mid-fetch would let ProfileEditModal's reset effect wipe fields the
+  // founder had already typed, because it re-runs when the current* props land.
+  assert.match(home, /if \(!userProfile\) return;/);
+  // A dual-role user clicking "edit my founder profile" gets the founder editor
+  // rather than a dead button; a reviewer with no founder access is left alone.
+  assert.match(home, /if \(reviewerMode\) \{\s*if \(!founderAccess\) return;/);
 });

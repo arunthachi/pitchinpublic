@@ -311,7 +311,7 @@ export default function EventPage() {
         account={user ? { email: user.email, profileHref: '/me', onSignOut: signOut } : undefined}
       />
       {user ? <AppTabBar active="events" /> : null}
-      <main className={`mx-auto max-w-3xl px-4 pt-4 sm:px-6 sm:pt-6 ${user ? 'pb-28 lg:pb-10' : 'pb-10'}`}>
+      <main className={`mx-auto max-w-3xl px-4 pt-4 sm:px-6 sm:pt-6 ${user ? 'pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10' : 'pb-10'}`}>
         <section aria-labelledby="event-task-title" className="glass-panel rounded-[1.75rem] p-5 sm:p-7">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-neon-cyan">
             {currentSubmittedPitch || eventState.userSubmission ? 'Submitted' : hasDirectInvite ? 'Your invitation' : isJoined ? 'Your next step' : 'Pitch event'}
