@@ -94,3 +94,13 @@ test('revocation stays enforceable: a long-open tab re-checks without blanking',
     false,
   );
 });
+
+test('reviewer mode is adopted only on the first check, never on a re-check', async () => {
+  const { shouldAdoptReviewerMode } = await import('./access-gate');
+  assert.equal(shouldAdoptReviewerMode(false), true, 'first verification may set the mode');
+  assert.equal(
+    shouldAdoptReviewerMode(true),
+    false,
+    'a background re-check must not flip modes — that unmounts a recording in progress',
+  );
+});

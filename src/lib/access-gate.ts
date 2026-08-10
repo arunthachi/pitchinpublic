@@ -57,3 +57,12 @@ export function shouldReverifyAccess(input: {
   if (input.reason === 'focus') return true;
   return elapsed >= (input.intervalMs ?? ACCESS_REVERIFY_INTERVAL_MS);
 }
+
+/**
+ * Reviewer mode may only be adopted from the FIRST access verification.
+ * The recording studio renders under `!reviewerMode`, so a background
+ * re-check that flipped the mode would unmount an in-progress take.
+ */
+export function shouldAdoptReviewerMode(hasVerifiedAccessOnce: boolean) {
+  return !hasVerifiedAccessOnce;
+}

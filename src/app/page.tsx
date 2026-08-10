@@ -20,6 +20,8 @@ import { EventRibbon } from '@/components/EventRibbon';
 import { pickRibbon, type RibbonModel } from '@/lib/event-orientation';
 import {
   ACCESS_REVERIFY_INTERVAL_MS,
+  accessCheckKey,
+  shouldAdoptReviewerMode,
   shouldReverifyAccess,
   shouldShowAccessGate,
 } from '@/lib/access-gate';
@@ -174,7 +176,7 @@ function HomeContent() {
     : null;
 
   const isGuest = !user;
-  const userId = user?.id ?? null;
+  const userId = accessCheckKey(user?.id) || null;
   const lastAccessCheckAtRef = useRef<number | null>(null);
   const verifyPilotAccessRef = useRef<(() => Promise<void>) | null>(null);
   const signOutRef = useRef(signOut);
@@ -594,8 +596,13 @@ function HomeContent() {
         if (cancelled) return;
         setReviewerAccess(isReviewer);
         setFounderAccess(canUseFounderMode);
-        const preferredMode = window.localStorage.getItem(APP_MODE_KEY);
-        setReviewerMode(isReviewer && (!canUseFounderMode || preferredMode === 'reviewer'));
+        // Never switch modes on a background re-check: RecordingStudio renders
+        // under `!reviewerMode`, so flipping it would unmount an in-progress
+        // recording — the very failure this fix exists to prevent.
+        if (shouldAdoptReviewerMode(hasVerifiedAccessOnceRef.current)) {
+          const preferredMode = window.localStorage.getItem(APP_MODE_KEY);
+          setReviewerMode(isReviewer && (!canUseFounderMode || preferredMode === 'reviewer'));
+        }
         if (isReviewer && !canUseFounderMode) return;
 
         const response = await fetch('/api/auth/access', { cache: 'no-store' });
