@@ -575,6 +575,8 @@ function HomeContent() {
       hasVerifiedAccessOnceRef.current = false;
       setHasVerifiedAccessOnce(false);
       lastAccessCheckAtRef.current = null;
+      // Drop the previous user's verifier so nothing can call it later.
+      verifyPilotAccessRef.current = null;
       return;
     }
 
