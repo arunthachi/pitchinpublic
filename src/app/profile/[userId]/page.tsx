@@ -312,6 +312,7 @@ export default function UserProfilePage() {
         >
           Back to feed
         </Link>
+        {currentUser ? <AppTabBar /> : null}
       </div>
     );
   }

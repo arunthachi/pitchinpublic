@@ -296,6 +296,7 @@ export default function EventPage() {
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-5 text-center text-white">
         <p>{eventState?.error || 'Event not found.'}</p>
         <Link href="/" className="btn-glass rounded-xl px-5 py-3 font-bold">Back to feed</Link>
+        {user ? <AppTabBar active="events" /> : null}
       </div>
     );
   }

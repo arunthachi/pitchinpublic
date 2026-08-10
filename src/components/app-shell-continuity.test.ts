@@ -165,15 +165,24 @@ test('the profile edit deep link waits for the profile fetch and honours founder
   assert.match(home, /if \(reviewerMode\) \{\s*if \(!founderAccess\) return;/);
 });
 
-test('the shell survives the loading state, not just the loaded page', () => {
-  // A spinner with no tab bar is exactly the "detached browser page" feel this
-  // work exists to remove, and it is what a founder sees on a slow connection.
+test('the shell survives every early return, not just the loaded page', () => {
+  // A bare spinner or error screen with no tab bar is exactly the "detached
+  // browser page" feel this work exists to remove, and it is what a founder
+  // sees on a slow connection or a stale link. Each page must render the bar
+  // on its loaded path AND on every early return that a signed-in founder can
+  // reach, so the count tracks the number of `return (` branches guarded here.
+  const EXPECTED_RENDER_SITES: Record<string, number> = {
+    'app/events/page.tsx': 2, // loaded + loading (the signed-out branch is its own screen)
+    'app/events/[slug]/page.tsx': 3, // loaded + loading + load failure
+    'app/profile/[userId]/page.tsx': 3, // loaded + loading + not found
+    'app/pitch/[id]/page.tsx': 3, // loaded + loading + not found
+  };
   for (const page of TAB_BAR_PAGES) {
-    const source = read(page);
-    const renders = (source.match(/<AppTabBar\b/g) || []).length;
-    assert.ok(
-      renders >= 2,
-      `${page} renders AppTabBar ${renders} time(s) — the loading branch drops the shell`,
+    const renders = (read(page).match(/<AppTabBar\b/g) || []).length;
+    assert.equal(
+      renders,
+      EXPECTED_RENDER_SITES[page],
+      `${page} renders AppTabBar ${renders} time(s) — an early return drops the shell`,
     );
   }
 });

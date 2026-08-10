@@ -211,6 +211,7 @@ function PitchDetailContent() {
     return (
       <div className="min-h-dvh">
         <ActionPageNav links={[destination('feed')]} ariaLabel="Pitch navigation" />
+        {user ? <AppTabBar /> : null}
         <div className="flex min-h-[calc(100dvh-68px)] items-center justify-center px-4 text-center">
           <h1 className="text-2xl font-heading font-bold text-slate-100 mb-2">
             Pitch Not Found
