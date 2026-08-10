@@ -12,10 +12,13 @@ test('assigned review feedback carries the assignment event', () => {
   );
 });
 
-test('cohort feed feedback carries the feed event', () => {
+test('browsing a cohort feed does NOT scope feedback to the event', () => {
+  // Structured feedback on a private take requires a review assignment
+  // (enforced by the feedback trigger), so the cohort feed never attaches an
+  // event scope on its own — the rail hides the action instead.
   assert.deepEqual(
-    buildFeedbackEventScope({ assignment: null, pitchPublicId: 'p_9', feedEventSlug: 'speed-networking' }),
-    { eventSlug: 'speed-networking' },
+    buildFeedbackEventScope({ assignment: null, pitchPublicId: 'p_9' }),
+    {},
   );
 });
 
@@ -29,20 +32,19 @@ test('an assignment for a different pitch does not leak its event', () => {
   );
 });
 
-test('an assignment for a different pitch still falls back to the feed event', () => {
+test('an assignment for a different pitch never leaks its scope', () => {
   assert.deepEqual(
     buildFeedbackEventScope({
       assignment: { eventSlug: 'demo-day', publicPitchId: 'p_other' },
       pitchPublicId: 'p_1',
-      feedEventSlug: 'speed-networking',
     }),
-    { eventSlug: 'speed-networking' },
+    {},
   );
 });
 
 test('the open feed sends no event scope', () => {
   assert.deepEqual(buildFeedbackEventScope({ pitchPublicId: 'p_1' }), {});
-  assert.deepEqual(buildFeedbackEventScope({ assignment: null, pitchPublicId: null, feedEventSlug: null }), {});
+  assert.deepEqual(buildFeedbackEventScope({ assignment: null, pitchPublicId: null }), {});
 });
 
 test('feed scope changes reset position; identity-only changes do not', async () => {

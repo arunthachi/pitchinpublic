@@ -29,13 +29,14 @@ export function feedScopeChanged(previousScope: string, nextScope: string) {
 export function buildFeedbackEventScope(input: {
   assignment?: { eventSlug?: string | null; publicPitchId?: string | null } | null;
   pitchPublicId?: string | null;
-  feedEventSlug?: string | null;
 }): { eventSlug: string } | Record<string, never> {
-  const assignmentSlug =
+  // Only an assignment for THIS pitch carries event scope. Browsing a cohort
+  // feed does not: the database requires a review assignment for any
+  // private-pitch feedback, so structured review stays assignment-driven.
+  const slug =
     input.assignment?.eventSlug && input.assignment.publicPitchId === input.pitchPublicId
       ? input.assignment.eventSlug
       : null;
-  const slug = assignmentSlug || input.feedEventSlug || null;
   return slug ? { eventSlug: slug } : {};
 }
 
@@ -657,7 +658,6 @@ export function FullScreenVideoFeed({
           ...buildFeedbackEventScope({
             assignment: reviewAssignmentRef.current,
             pitchPublicId: feedbackPitch.publicId,
-            feedEventSlug,
           }),
         }),
       });
@@ -918,7 +918,13 @@ export function FullScreenVideoFeed({
                 pitch={currentPitch}
                 onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
                 onToast={isGuest && onSignInClick ? onSignInClick : handleToast}
-                onOpenFeedback={isGuest && onSignInClick ? () => onSignInClick() : openFeedback}
+                onOpenFeedback={
+                  isGuest && onSignInClick
+                    ? () => onSignInClick()
+                    : feedEventSlug
+                      ? undefined
+                      : openFeedback
+                }
                 onOpenFeedbackList={openFeedbackList}
                 onShare={isGuest && onSignInClick ? onSignInClick : handleShare}
                 onBookmark={handleBookmark}
