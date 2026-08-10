@@ -347,12 +347,10 @@ function HomeContent() {
 
       const response = await fetch(`/api/pitches?${params.toString()}`);
       if (!response.ok) {
-        // A refusal (429/5xx) must surface as empty, never as demo content.
-        if (response.status === 429 || response.status >= 500) {
-          setLegacyPitches([]);
-          return;
-        }
-        throw new Error('Failed to fetch pitches');
+        // Any refusal surfaces as an empty feed. Demo pitches are a
+        // first-run affordance, never a stand-in for a real API error.
+        setLegacyPitches([]);
+        return;
       }
 
       const data = await response.json();

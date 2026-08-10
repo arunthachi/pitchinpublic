@@ -1007,9 +1007,9 @@ export function FullScreenVideoFeed({
         onAddFeedback={isGuest && onSignInClick ? promptForFeedbackSignIn : openFeedback}
         canRateQuality={Boolean(currentPitch.isOwnedByViewer)}
         composeUnavailableNote={
-          feedEventSlug
-            ? 'Reviews for this event come from your review queue — open an assigned review to leave feedback.'
-            : null
+          canComposeFeedback(feedEventSlug, reviewAssignmentRef.current, currentPitch?.publicId)
+            ? null
+            : 'Reviews for this event come from your review queue — open an assigned review to leave feedback.'
         }
       />
 
