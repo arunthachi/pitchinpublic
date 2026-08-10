@@ -624,6 +624,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const listLimit = await rateLimit({
+      key: `pitch-feed:${user.id}`,
+      limit: RATE_LIMITS.API.limit,
+      window: RATE_LIMITS.API.window,
+    });
+    if (!listLimit.success) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please try again later.' },
+        { status: 429, headers: formatRateLimitHeaders(listLimit) }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
