@@ -22,9 +22,7 @@ interface FloatingReactionsProps {
   pitch: LegacyPitch;
   onRoast: () => void;
   onToast: () => void;
-  /** Omitted where structured feedback is unavailable (e.g. the cohort feed,
-   *  where the database requires a review assignment for private takes). */
-  onOpenFeedback?: (type: 'roast' | 'toast') => void;
+  onOpenFeedback: (type: 'roast' | 'toast') => void;
   onOpenFeedbackList?: () => void;
   onShare: () => void;
   onBookmark?: (isBookmarked: boolean) => boolean | void | Promise<boolean | void>;
@@ -151,7 +149,7 @@ export function FloatingReactions({
       return;
     }
 
-    onOpenFeedback?.(userReaction || 'toast');
+    onOpenFeedback(userReaction || 'toast');
   };
 
   const handleBookmarkClick = async () => {
@@ -348,10 +346,8 @@ export function FloatingReactions({
 
       </motion.button>
 
-      {/* Detailed Feedback - visible entry point for written/scored comments.
-          Hidden when no handler is supplied: reviewing that take happens
-          through an assigned review, not from this rail. */}
-      {onOpenFeedback ? (
+      {/* Detailed Feedback - opens the thread; composing is gated upstream in
+          the studio's openFeedback (see canComposeFeedback). */}
       <motion.button
         onClick={handleDetailedFeedbackClick}
         whileTap={{ scale: 0.85 }}
@@ -370,7 +366,6 @@ export function FloatingReactions({
           {formatNumber(pitch.feedback?.length || 0)}
         </span>
       </motion.button>
-      ) : null}
 
       {/* Bookmark Button - Save pitch for later */}
       <motion.button
