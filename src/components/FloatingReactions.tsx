@@ -346,7 +346,8 @@ export function FloatingReactions({
 
       </motion.button>
 
-      {/* Detailed Feedback - visible entry point for written/scored comments */}
+      {/* Detailed Feedback - opens the thread; composing is gated upstream in
+          the studio's openFeedback (see canComposeFeedback). */}
       <motion.button
         onClick={handleDetailedFeedbackClick}
         whileTap={{ scale: 0.85 }}

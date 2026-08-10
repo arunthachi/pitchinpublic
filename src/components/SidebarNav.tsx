@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 
 interface SidebarNavProps {
+  /** Set while the feed is scoped to an event: names it and offers the way back. */
+  inEventScope?: { name: string; href: string } | null;
   eventsBadge?: boolean;
   onPostClick: () => void;
   isGuest?: boolean;
@@ -65,6 +67,7 @@ function getSevenDayMomentum(streak: Streak) {
 export function SidebarNav({
   onPostClick,
   eventsBadge = false,
+  inEventScope = null,
   isGuest = false,
   onSignInClick,
   guestActionLabel = 'Log in',
@@ -247,6 +250,23 @@ export function SidebarNav({
               })}
             </div>
           </div>
+        ) : null}
+
+        {/* In-event indicator: the desktop counterpart of the mobile chip. */}
+        {!reviewerMode && inEventScope ? (
+          <Link
+            href={inEventScope.href}
+            className={`mt-6 flex w-full items-center gap-2 rounded-xl border border-neon-cyan/30 bg-neon-cyan/[0.08] px-3 py-3 text-slate-100 transition hover:border-neon-cyan/60 ${
+              isCollapsed ? 'lg:justify-center lg:px-3' : ''
+            }`}
+            title={isCollapsed ? `In ${inEventScope.name} — back to event` : undefined}
+          >
+            <CalendarDays className="h-5 w-5 shrink-0 text-neon-cyan" />
+            <span className={`hidden min-w-0 lg:block ${isCollapsed ? 'lg:hidden' : ''}`}>
+              <span className="block truncate text-sm font-bold">In {inEventScope.name}</span>
+              <span className="block text-xs font-semibold text-slate-400">Back to event</span>
+            </span>
+          </Link>
         ) : null}
 
         {/* Post Button */}

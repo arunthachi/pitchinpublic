@@ -193,3 +193,10 @@ test('event dashboards count only feedback completed for the current event', () 
     { id: 'pitch-1', feedback: [{ id: 'feedback-event-b' }] },
   );
 });
+
+test('every event visibility requires an invitation or access code to join', async () => {
+  const { requiresEventInvitation } = await import('./event-settings');
+  for (const visibility of ['private', 'unlisted', 'public', null, undefined, 'something-new']) {
+    assert.equal(requiresEventInvitation(visibility as string), true, `${visibility} must not allow self-join`);
+  }
+});

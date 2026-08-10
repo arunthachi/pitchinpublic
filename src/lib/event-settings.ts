@@ -41,3 +41,14 @@ export function splitEventFocuses(value?: string | null) {
     .map((item) => item.trim())
     .filter(Boolean);
 }
+
+
+/**
+ * Joining any event requires an addressed invitation or the access code —
+ * visibility controls discoverability, not membership. Event membership is
+ * what unlocks the cohort's private takes, so open self-join would make that
+ * privacy promise meaningless.
+ */
+export function requiresEventInvitation(_visibility?: string | null) {
+  return true;
+}
