@@ -130,3 +130,13 @@ test('the profile edit deep link fires once, not on every auth republish', () =>
   // Keyed on the id, never the user object — see the access-gate regression.
   assert.match(home, /\}, \[accessCheckComplete, loading, reviewerMode, searchParams, userId\]\);/);
 });
+
+test('the deck opens in a new tab rather than replacing the profile', () => {
+  const card = read('components/ProfileDeckCard.tsx');
+  // Chrome and Firefox return null from window.open when `noopener` is in the
+  // features string, which would send the fallback down window.location and
+  // navigate the current tab away from the profile.
+  assert.doesNotMatch(card, /window\.open\([^)]*noopener/);
+  assert.match(card, /window\.open\('', '_blank'\)/);
+  assert.match(card, /target\.opener = null/);
+});

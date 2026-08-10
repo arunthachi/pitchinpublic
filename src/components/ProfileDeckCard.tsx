@@ -49,8 +49,12 @@ export default function ProfileDeckCard({ onManage }: ProfileDeckCardProps) {
     setOpening(true);
     setError('');
     // Opened synchronously so the popup blocker attributes it to this click;
-    // the signed URL is filled in once the request resolves.
-    const target = window.open('', '_blank', 'noopener,noreferrer');
+    // the signed URL is filled in once the request resolves. `noopener` must
+    // NOT go in the features string — Chrome and Firefox then return null, and
+    // the fallback below would replace the profile instead of opening a tab.
+    // The opener reference is severed manually instead.
+    const target = window.open('', '_blank');
+    if (target) target.opener = null;
     try {
       const response = await fetch('/api/startup/deck/view');
       const data = await response.json();
