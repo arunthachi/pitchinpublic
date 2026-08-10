@@ -346,7 +346,14 @@ function HomeContent() {
       if (eventFeedSlug) params.set('eventSlug', eventFeedSlug);
 
       const response = await fetch(`/api/pitches?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch pitches');
+      if (!response.ok) {
+        // A refusal (429/5xx) must surface as empty, never as demo content.
+        if (response.status === 429 || response.status >= 500) {
+          setLegacyPitches([]);
+          return;
+        }
+        throw new Error('Failed to fetch pitches');
+      }
 
       const data = await response.json();
 
@@ -366,6 +373,7 @@ function HomeContent() {
     } catch (error) {
       console.error('Failed to fetch pitches:', error);
       // Fall back to mock data on error
+      // Never substitute demo content for a real API refusal (e.g. 429).
       const mockPitches = getLegacyPitches();
       setLegacyPitches(mockPitches);
       setCurrentPitch((current) => current ?? mockPitches[0] ?? null);
@@ -992,6 +1000,8 @@ function HomeContent() {
             onReviewNext={handleReviewNext}
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
+            eventName={eventFeedSlug ? eventFeedName : null}
+            eventSlug={eventFeedSlug}
             isGuest={isGuest}
             onSignInClick={promptForRestrictedAction}
           />

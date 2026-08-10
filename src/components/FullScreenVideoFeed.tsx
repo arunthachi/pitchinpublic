@@ -12,6 +12,19 @@ import { QuickFeedbackPanel } from './QuickFeedbackPanel';
 import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 
 /**
+ * Structured feedback on a private cohort take requires a review assignment
+ * (feedback trigger, 20260722223000). Exported for tests.
+ */
+export function canComposeFeedback(
+  feedEventSlug: string | null,
+  assignment: { publicPitchId?: string | null } | null,
+  pitchPublicId: string | null | undefined
+) {
+  if (!feedEventSlug) return true;
+  return Boolean(assignment?.publicPitchId && assignment.publicPitchId === pitchPublicId);
+}
+
+/**
  * True when the feed's scope changed (open feed <-> a cohort feed, or between
  * two events), which must restart playback at the first item. Exported for
  * tests; identity-only array changes must NOT reset position.
@@ -801,6 +814,15 @@ export function FullScreenVideoFeed({
   };
 
   const openFeedback = (type: 'roast' | 'toast') => {
+    // Structured feedback on a private cohort take requires a review
+    // assignment (enforced by the feedback trigger), so in an event-scoped
+    // feed the compose flow is unavailable — show the thread instead of a
+    // form that would fail on submit.
+    if (!canComposeFeedback(feedEventSlug, reviewAssignmentRef.current, currentPitch?.publicId)) {
+      setFeedbackPanelOpen(false);
+      setFeedbackListOpen(true);
+      return;
+    }
     setFeedbackType(type);
     setFeedbackListOpen(false);
     feedbackPitchRef.current = currentPitch
@@ -918,13 +940,7 @@ export function FullScreenVideoFeed({
                 pitch={currentPitch}
                 onRoast={isGuest && onSignInClick ? onSignInClick : handleRoast}
                 onToast={isGuest && onSignInClick ? onSignInClick : handleToast}
-                onOpenFeedback={
-                  isGuest && onSignInClick
-                    ? () => onSignInClick()
-                    : feedEventSlug
-                      ? undefined
-                      : openFeedback
-                }
+                onOpenFeedback={isGuest && onSignInClick ? () => onSignInClick() : openFeedback}
                 onOpenFeedbackList={openFeedbackList}
                 onShare={isGuest && onSignInClick ? onSignInClick : handleShare}
                 onBookmark={handleBookmark}
@@ -990,6 +1006,11 @@ export function FullScreenVideoFeed({
         onClose={() => setFeedbackListOpen(false)}
         onAddFeedback={isGuest && onSignInClick ? promptForFeedbackSignIn : openFeedback}
         canRateQuality={Boolean(currentPitch.isOwnedByViewer)}
+        composeUnavailableNote={
+          feedEventSlug
+            ? 'Reviews for this event come from your review queue — open an assigned review to leave feedback.'
+            : null
+        }
       />
 
       {/* Quick Feedback Panel renders after the thread panel so the first Toast/Roast tap brings it above the closing thread sheet. */}

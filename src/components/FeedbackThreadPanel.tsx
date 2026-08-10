@@ -13,6 +13,8 @@ interface FeedbackThreadPanelProps {
   feedback: LegacyFeedback[];
   onClose: () => void;
   onAddFeedback: (type: 'roast' | 'toast') => void;
+  /** When set, composing is unavailable here and this explains why. */
+  composeUnavailableNote?: string | null;
   canRateQuality?: boolean;
 }
 
@@ -89,7 +91,7 @@ function getSignals(feedback: LegacyFeedback) {
   return feedback.signals?.length ? feedback.signals : feedback.signal ? [feedback.signal] : [feedback.type];
 }
 
-export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, canRateQuality = false }: FeedbackThreadPanelProps) {
+export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, canRateQuality = false, composeUnavailableNote = null }: FeedbackThreadPanelProps) {
   const [portalNode, setPortalNode] = React.useState<HTMLElement | null>(null);
   const panelRef = React.useRef<HTMLDivElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -297,6 +299,11 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
               )}
             </div>
 
+            {composeUnavailableNote ? (
+              <div className="shrink-0 border-t border-white/10 bg-black/24 px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6">
+                <p className="text-sm leading-6 text-slate-400">{composeUnavailableNote}</p>
+              </div>
+            ) : (
             <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-white/10 bg-black/24 px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(2,6,23,0.55)] sm:px-6">
               <button
                 type="button"
@@ -315,6 +322,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
                 Toast
               </button>
             </div>
+            )}
           </motion.div>
         </>
       )}

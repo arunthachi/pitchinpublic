@@ -55,3 +55,15 @@ test('feed scope changes reset position; identity-only changes do not', async ()
   assert.equal(feedScopeChanged('speed-networking', 'speed-networking'), false, 'same scope keeps position');
   assert.equal(feedScopeChanged('', ''), false, 'open feed refresh keeps position');
 });
+
+test('compose availability: blocked in a cohort feed without a matching assignment', async () => {
+  const { canComposeFeedback } = await import('./FullScreenVideoFeed');
+  // open feed: always composable
+  assert.equal(canComposeFeedback(null, null, 'p_1'), true);
+  // cohort feed, no assignment: blocked (the DB would reject it)
+  assert.equal(canComposeFeedback('speed-networking', null, 'p_1'), false);
+  // cohort feed, assignment for THIS pitch: allowed
+  assert.equal(canComposeFeedback('speed-networking', { publicPitchId: 'p_1' }, 'p_1'), true);
+  // cohort feed, assignment for another pitch: blocked
+  assert.equal(canComposeFeedback('speed-networking', { publicPitchId: 'p_other' }, 'p_1'), false);
+});

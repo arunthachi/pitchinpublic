@@ -624,18 +624,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const listLimit = await rateLimit({
-      key: `pitch-feed:${user.id}`,
-      limit: RATE_LIMITS.API.limit,
-      window: RATE_LIMITS.API.window,
-    });
-    if (!listLimit.success) {
-      return NextResponse.json(
-        { success: false, error: 'Too many requests. Please try again later.' },
-        { status: 429, headers: formatRateLimitHeaders(listLimit) }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
@@ -653,6 +641,21 @@ export async function GET(request: NextRequest) {
     // they already had, because no policy is bypassed here.
     let eventScopeId: string | null = null;
     if (eventSlug) {
+      // Only the cohort listing is throttled: it is the one that can page a
+      // whole event. Pitch detail, profile grids and the open feed share this
+      // route and must not be collaterally limited.
+      const cohortLimit = await rateLimit({
+        key: `cohort-feed:${user.id}`,
+        limit: RATE_LIMITS.API.limit,
+        window: RATE_LIMITS.API.window,
+      });
+      if (!cohortLimit.success) {
+        return NextResponse.json(
+          { success: false, error: 'Too many requests. Please try again later.' },
+          { status: 429, headers: formatRateLimitHeaders(cohortLimit) }
+        );
+      }
+
       const { data: scopedEvent, error: scopedEventError } = await supabase
         .from('pitch_events')
         .select('id')
