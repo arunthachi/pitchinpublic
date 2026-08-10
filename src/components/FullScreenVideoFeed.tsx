@@ -207,6 +207,9 @@ export function FullScreenVideoFeed({
   onSignInClick
 }: FullScreenVideoFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Render-safe mirror of reviewAssignmentRef: reading a ref during render
+  // is neither safe nor reactive.
+  const [assignedComposePitchId, setAssignedComposePitchId] = useState<string | null>(null);
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
   const [feedbackListOpen, setFeedbackListOpen] = useState(false);
   const [playerInteractionActive, setPlayerInteractionActive] = useState(false);
@@ -329,6 +332,7 @@ export function FullScreenVideoFeed({
       publicPitchId: reviewRequest.publicPitchId,
       eventSlug: reviewRequest.eventSlug,
     };
+    setAssignedComposePitchId(reviewRequest.publicPitchId);
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
   }, [reviewRequest, localPitches]);
@@ -829,6 +833,7 @@ export function FullScreenVideoFeed({
       ? { id: currentPitch.id, publicId: currentPitch.publicId }
       : null;
     reviewAssignmentRef.current = null;
+    setAssignedComposePitchId(null);
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
   };
@@ -1007,7 +1012,11 @@ export function FullScreenVideoFeed({
         onAddFeedback={isGuest && onSignInClick ? promptForFeedbackSignIn : openFeedback}
         canRateQuality={Boolean(currentPitch.isOwnedByViewer)}
         composeUnavailableNote={
-          canComposeFeedback(feedEventSlug, reviewAssignmentRef.current, currentPitch?.publicId)
+          canComposeFeedback(
+            feedEventSlug,
+            assignedComposePitchId ? { publicPitchId: assignedComposePitchId } : null,
+            currentPitch?.publicId
+          )
             ? null
             : 'Reviews for this event come from your review queue — open an assigned review to leave feedback.'
         }
