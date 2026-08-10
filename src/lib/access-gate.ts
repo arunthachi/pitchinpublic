@@ -32,3 +32,28 @@ export function shouldShowAccessGate(input: AccessGateInput): boolean {
 export function accessCheckKey(userId: string | null | undefined) {
   return userId || '';
 }
+
+/** How often access is silently re-verified while a tab stays open. */
+export const ACCESS_REVERIFY_INTERVAL_MS = 10 * 60 * 1000;
+/** Floor between verifications, so tab-focus flapping cannot storm the API. */
+export const ACCESS_REVERIFY_MIN_GAP_MS = 60 * 1000;
+
+/**
+ * Access must keep being re-verified while a session stays open — a founder
+ * removed from the pilot should lose access without needing to reload. The
+ * old code got this for free by re-running on every auth event (at the cost
+ * of blanking the app); now it is explicit, silent, and rate-floored.
+ */
+export function shouldReverifyAccess(input: {
+  lastCheckedAt: number | null;
+  now: number;
+  reason: 'interval' | 'focus';
+  minGapMs?: number;
+  intervalMs?: number;
+}): boolean {
+  if (input.lastCheckedAt === null) return false; // the first check owns this
+  const elapsed = input.now - input.lastCheckedAt;
+  if (elapsed < (input.minGapMs ?? ACCESS_REVERIFY_MIN_GAP_MS)) return false;
+  if (input.reason === 'focus') return true;
+  return elapsed >= (input.intervalMs ?? ACCESS_REVERIFY_INTERVAL_MS);
+}

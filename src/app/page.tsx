@@ -18,7 +18,11 @@ import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
 import { EventRibbon } from '@/components/EventRibbon';
 import { pickRibbon, type RibbonModel } from '@/lib/event-orientation';
-import { shouldShowAccessGate } from '@/lib/access-gate';
+import {
+  ACCESS_REVERIFY_INTERVAL_MS,
+  shouldReverifyAccess,
+  shouldShowAccessGate,
+} from '@/lib/access-gate';
 import { getLegacyPitches, profileToUser, authUserToUser } from '@/lib/data';
 import { LegacyPitch, User, Profile } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -171,6 +175,8 @@ function HomeContent() {
 
   const isGuest = !user;
   const userId = user?.id ?? null;
+  const lastAccessCheckAtRef = useRef<number | null>(null);
+  const verifyPilotAccessRef = useRef<(() => Promise<void>) | null>(null);
   const signOutRef = useRef(signOut);
   useEffect(() => {
     signOutRef.current = signOut;
@@ -568,6 +574,7 @@ function HomeContent() {
       setAccessCheckComplete(true);
       hasVerifiedAccessOnceRef.current = false;
       setHasVerifiedAccessOnce(false);
+      lastAccessCheckAtRef.current = null;
       return;
     }
 
@@ -602,10 +609,12 @@ function HomeContent() {
           setAccessCheckComplete(true);
           hasVerifiedAccessOnceRef.current = true;
           setHasVerifiedAccessOnce(true);
+          lastAccessCheckAtRef.current = Date.now();
         }
       }
     };
 
+    verifyPilotAccessRef.current = verifyPilotAccess;
     verifyPilotAccess();
 
     return () => {
@@ -616,6 +625,37 @@ function HomeContent() {
     // for the same person is what produced the recurring access screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, userId]);
+
+  // Access revocation must still take effect while a tab stays open. This
+  // repeats the verification the old buggy effect performed by accident —
+  // now on a deliberate cadence, rate-floored, and never blanking the app.
+  useEffect(() => {
+    if (!userId) return;
+
+    const reverify = (reason: 'interval' | 'focus') => {
+      if (
+        !shouldReverifyAccess({
+          lastCheckedAt: lastAccessCheckAtRef.current,
+          now: Date.now(),
+          reason,
+        })
+      ) {
+        return;
+      }
+      void verifyPilotAccessRef.current?.();
+    };
+
+    const timer = window.setInterval(() => reverify('interval'), ACCESS_REVERIFY_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') reverify('focus');
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [userId]);
 
   const switchAppMode = useCallback((mode: 'founder' | 'reviewer') => {
     if (mode === 'reviewer' && !reviewerAccess) return;
