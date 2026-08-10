@@ -178,7 +178,10 @@ export function SidebarNav({
                 <span className="relative flex-shrink-0">
                   <Icon className="h-6 w-6" />
                   {'badge' in item && item.badge ? (
-                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-neon-lime" aria-hidden="true" />
+                    <>
+                      <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-neon-lime" aria-hidden="true" />
+                      <span className="sr-only">New event invitation</span>
+                    </>
                   ) : null}
                 </span>
                 <span className={`hidden lg:block ${isCollapsed ? 'lg:hidden' : ''} ${item.active ? 'font-heading font-bold' : 'font-body font-semibold'}`}>

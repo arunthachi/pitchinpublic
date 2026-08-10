@@ -9,6 +9,7 @@ import { countEventFeedback, groupEventTakeFeedback } from '@/lib/event-feedback
 import { formatPitchLength } from '@/lib/duration';
 import { SignInModal } from '@/components/SignInModal';
 import { ActionPageNav } from '@/components/ActionPageNav';
+import AppTabBar from '@/components/AppTabBar';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 import { getEventSubmissionRetryKey } from '@/lib/idempotency';
 
@@ -284,6 +285,7 @@ export default function EventPage() {
     return (
       <div className="min-h-dvh bg-background text-white">
         <ActionPageNav links={[destination('feed')]} ariaLabel="Event navigation" />
+        <AppTabBar active="events" />
         <div className="flex min-h-[70dvh] items-center justify-center">Loading event…</div>
       </div>
     );
@@ -294,6 +296,7 @@ export default function EventPage() {
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-5 text-center text-white">
         <p>{eventState?.error || 'Event not found.'}</p>
         <Link href="/" className="btn-glass rounded-xl px-5 py-3 font-bold">Back to feed</Link>
+        {user ? <AppTabBar active="events" /> : null}
       </div>
     );
   }
@@ -309,7 +312,8 @@ export default function EventPage() {
         ]}
         account={user ? { email: user.email, profileHref: '/me', onSignOut: signOut } : undefined}
       />
-      <main className="mx-auto max-w-3xl px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
+      {user ? <AppTabBar active="events" /> : null}
+      <main className={`mx-auto max-w-3xl px-4 pt-4 sm:px-6 sm:pt-6 ${user ? 'pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10' : 'pb-10'}`}>
         <section aria-labelledby="event-task-title" className="glass-panel rounded-[1.75rem] p-5 sm:p-7">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-neon-cyan">
             {currentSubmittedPitch || eventState.userSubmission ? 'Submitted' : hasDirectInvite ? 'Your invitation' : isJoined ? 'Your next step' : 'Pitch event'}

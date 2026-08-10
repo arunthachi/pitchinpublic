@@ -30,6 +30,8 @@ import { isUuidLike, pitchPath } from '@/lib/public-routes';
 import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
 import { SignInModal } from '@/components/SignInModal';
 import { ActionPageNav } from '@/components/ActionPageNav';
+import AppTabBar from '@/components/AppTabBar';
+import ProfileDeckCard from '@/components/ProfileDeckCard';
 import { profileNavigationLinks } from '@/lib/app-navigation';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
@@ -267,6 +269,7 @@ export default function UserProfilePage() {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-black">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
+        {currentUser ? <AppTabBar active="profile" /> : null}
       </div>
     );
   }
@@ -309,6 +312,7 @@ export default function UserProfilePage() {
         >
           Back to feed
         </Link>
+        {currentUser ? <AppTabBar /> : null}
       </div>
     );
   }
@@ -325,7 +329,9 @@ export default function UserProfilePage() {
         ariaLabel="Profile navigation"
       />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+      {currentUser ? <AppTabBar active={isOwnProfile ? 'profile' : undefined} /> : null}
+
+      <main className={`mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10 ${currentUser ? 'pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-10' : ''}`}>
         <section className="glass-panel overflow-hidden rounded-[2rem]">
           <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-[1fr_0.9fr]">
             <div className="flex flex-col gap-5 sm:flex-row">
@@ -390,6 +396,10 @@ export default function UserProfilePage() {
           currentStreak={momentumStats.current}
           longestStreak={momentumStats.longest}
         />
+
+        {isOwnProfile ? (
+          <ProfileDeckCard onManage={() => router.push('/?profileEdit=1')} />
+        ) : null}
 
         <nav className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035] p-1 backdrop-blur-xl">
           {[
