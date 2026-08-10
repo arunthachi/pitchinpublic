@@ -18,6 +18,13 @@ import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
 import { EventRibbon } from '@/components/EventRibbon';
 import { pickRibbon, type RibbonModel } from '@/lib/event-orientation';
+import {
+  ACCESS_REVERIFY_INTERVAL_MS,
+  accessCheckKey,
+  shouldAdoptReviewerMode,
+  shouldReverifyAccess,
+  shouldShowAccessGate,
+} from '@/lib/access-gate';
 import { getLegacyPitches, profileToUser, authUserToUser } from '@/lib/data';
 import { LegacyPitch, User, Profile } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -120,6 +127,10 @@ function HomeContent() {
   const [reviewerAccess, setReviewerAccess] = useState(false);
   const [founderAccess, setFounderAccess] = useState(false);
   const [accessCheckComplete, setAccessCheckComplete] = useState(false);
+  // Once access has been confirmed, later re-verifications must never blank
+  // the app: a re-mount mid-recording or mid-upload loses the take.
+  const hasVerifiedAccessOnceRef = useRef(false);
+  const [hasVerifiedAccessOnce, setHasVerifiedAccessOnce] = useState(false);
   const [desktopFeed, setDesktopFeed] = useState<boolean | null>(null);
   const [practiceToday, setPracticeToday] = useState<PracticeToday>(() => {
     const prompt = getPromptForDate();
@@ -165,6 +176,13 @@ function HomeContent() {
     : null;
 
   const isGuest = !user;
+  const userId = accessCheckKey(user?.id) || null;
+  const lastAccessCheckAtRef = useRef<number | null>(null);
+  const verifyPilotAccessRef = useRef<(() => Promise<void>) | null>(null);
+  const signOutRef = useRef(signOut);
+  useEffect(() => {
+    signOutRef.current = signOut;
+  }, [signOut]);
 
   // One light fetch orients event founders: the home ribbon and the nav
   // badge. Solo founders get an empty result and see neither.
@@ -556,6 +574,11 @@ function HomeContent() {
       setReviewerAccess(false);
       setFounderAccess(false);
       setAccessCheckComplete(true);
+      hasVerifiedAccessOnceRef.current = false;
+      setHasVerifiedAccessOnce(false);
+      lastAccessCheckAtRef.current = null;
+      // Drop the previous user's verifier so nothing can call it later.
+      verifyPilotAccessRef.current = null;
       return;
     }
 
@@ -563,7 +586,8 @@ function HomeContent() {
 
     const verifyPilotAccess = async () => {
       try {
-        setAccessCheckComplete(false);
+        // Only the first verification blocks; re-checks run in the background.
+        if (!hasVerifiedAccessOnceRef.current) setAccessCheckComplete(false);
         const reviewerResponse = await fetch('/api/reviewer/access', { cache: 'no-store' });
         const reviewerPayload: ReviewerAccessPayload = await reviewerResponse.json().catch(() => ({}));
         const isReviewer = reviewerResponse.ok && hasActiveReviewerAccess(reviewerPayload);
@@ -572,29 +596,75 @@ function HomeContent() {
         if (cancelled) return;
         setReviewerAccess(isReviewer);
         setFounderAccess(canUseFounderMode);
-        const preferredMode = window.localStorage.getItem(APP_MODE_KEY);
-        setReviewerMode(isReviewer && (!canUseFounderMode || preferredMode === 'reviewer'));
+        // Never switch modes on a background re-check: RecordingStudio renders
+        // under `!reviewerMode`, so flipping it would unmount an in-progress
+        // recording — the very failure this fix exists to prevent.
+        if (shouldAdoptReviewerMode(hasVerifiedAccessOnceRef.current)) {
+          const preferredMode = window.localStorage.getItem(APP_MODE_KEY);
+          setReviewerMode(isReviewer && (!canUseFounderMode || preferredMode === 'reviewer'));
+        }
         if (isReviewer && !canUseFounderMode) return;
 
         const response = await fetch('/api/auth/access', { cache: 'no-store' });
 
         if (!cancelled && response.status === 403) {
-          await signOut();
+          await signOutRef.current();
           router.replace('/?auth=invite_required');
         }
       } catch (error) {
         console.error('Pilot access check failed:', error);
       } finally {
-        if (!cancelled) setAccessCheckComplete(true);
+        if (!cancelled) {
+          setAccessCheckComplete(true);
+          hasVerifiedAccessOnceRef.current = true;
+          setHasVerifiedAccessOnce(true);
+          lastAccessCheckAtRef.current = Date.now();
+        }
       }
     };
 
+    verifyPilotAccessRef.current = verifyPilotAccess;
     verifyPilotAccess();
 
     return () => {
       cancelled = true;
     };
-  }, [loading, router, signOut, user]);
+    // Keyed on the identity, not the session object: Supabase republishes a
+    // fresh user on every token refresh and tab refocus, and re-running this
+    // for the same person is what produced the recurring access screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, userId]);
+
+  // Access revocation must still take effect while a tab stays open. This
+  // repeats the verification the old buggy effect performed by accident —
+  // now on a deliberate cadence, rate-floored, and never blanking the app.
+  useEffect(() => {
+    if (!userId) return;
+
+    const reverify = (reason: 'interval' | 'focus') => {
+      if (
+        !shouldReverifyAccess({
+          lastCheckedAt: lastAccessCheckAtRef.current,
+          now: Date.now(),
+          reason,
+        })
+      ) {
+        return;
+      }
+      void verifyPilotAccessRef.current?.();
+    };
+
+    const timer = window.setInterval(() => reverify('interval'), ACCESS_REVERIFY_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') reverify('focus');
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [userId]);
 
   const switchAppMode = useCallback((mode: 'founder' | 'reviewer') => {
     if (mode === 'reviewer' && !reviewerAccess) return;
@@ -671,7 +741,7 @@ function HomeContent() {
     user,
   ]);
 
-  if ((loading && isGuest && authPending) || (!isGuest && !accessCheckComplete)) {
+  if (shouldShowAccessGate({ loading, isGuest, authPending, accessCheckComplete, hasVerifiedAccessOnce })) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="glass-panel rounded-3xl px-6 py-5 text-center">
