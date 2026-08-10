@@ -18,6 +18,7 @@ import TopNavBar from '@/components/TopNavBar';
 import BottomNavBar from '@/components/BottomNavBar';
 import { EventRibbon } from '@/components/EventRibbon';
 import { pickRibbon, type RibbonModel } from '@/lib/event-orientation';
+import { shouldShowAccessGate } from '@/lib/access-gate';
 import { getLegacyPitches, profileToUser, authUserToUser } from '@/lib/data';
 import { LegacyPitch, User, Profile } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -120,6 +121,10 @@ function HomeContent() {
   const [reviewerAccess, setReviewerAccess] = useState(false);
   const [founderAccess, setFounderAccess] = useState(false);
   const [accessCheckComplete, setAccessCheckComplete] = useState(false);
+  // Once access has been confirmed, later re-verifications must never blank
+  // the app: a re-mount mid-recording or mid-upload loses the take.
+  const hasVerifiedAccessOnceRef = useRef(false);
+  const [hasVerifiedAccessOnce, setHasVerifiedAccessOnce] = useState(false);
   const [desktopFeed, setDesktopFeed] = useState<boolean | null>(null);
   const [practiceToday, setPracticeToday] = useState<PracticeToday>(() => {
     const prompt = getPromptForDate();
@@ -165,6 +170,11 @@ function HomeContent() {
     : null;
 
   const isGuest = !user;
+  const userId = user?.id ?? null;
+  const signOutRef = useRef(signOut);
+  useEffect(() => {
+    signOutRef.current = signOut;
+  }, [signOut]);
 
   // One light fetch orients event founders: the home ribbon and the nav
   // badge. Solo founders get an empty result and see neither.
@@ -556,6 +566,8 @@ function HomeContent() {
       setReviewerAccess(false);
       setFounderAccess(false);
       setAccessCheckComplete(true);
+      hasVerifiedAccessOnceRef.current = false;
+      setHasVerifiedAccessOnce(false);
       return;
     }
 
@@ -563,7 +575,8 @@ function HomeContent() {
 
     const verifyPilotAccess = async () => {
       try {
-        setAccessCheckComplete(false);
+        // Only the first verification blocks; re-checks run in the background.
+        if (!hasVerifiedAccessOnceRef.current) setAccessCheckComplete(false);
         const reviewerResponse = await fetch('/api/reviewer/access', { cache: 'no-store' });
         const reviewerPayload: ReviewerAccessPayload = await reviewerResponse.json().catch(() => ({}));
         const isReviewer = reviewerResponse.ok && hasActiveReviewerAccess(reviewerPayload);
@@ -579,13 +592,17 @@ function HomeContent() {
         const response = await fetch('/api/auth/access', { cache: 'no-store' });
 
         if (!cancelled && response.status === 403) {
-          await signOut();
+          await signOutRef.current();
           router.replace('/?auth=invite_required');
         }
       } catch (error) {
         console.error('Pilot access check failed:', error);
       } finally {
-        if (!cancelled) setAccessCheckComplete(true);
+        if (!cancelled) {
+          setAccessCheckComplete(true);
+          hasVerifiedAccessOnceRef.current = true;
+          setHasVerifiedAccessOnce(true);
+        }
       }
     };
 
@@ -594,7 +611,11 @@ function HomeContent() {
     return () => {
       cancelled = true;
     };
-  }, [loading, router, signOut, user]);
+    // Keyed on the identity, not the session object: Supabase republishes a
+    // fresh user on every token refresh and tab refocus, and re-running this
+    // for the same person is what produced the recurring access screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, userId]);
 
   const switchAppMode = useCallback((mode: 'founder' | 'reviewer') => {
     if (mode === 'reviewer' && !reviewerAccess) return;
@@ -671,7 +692,7 @@ function HomeContent() {
     user,
   ]);
 
-  if ((loading && isGuest && authPending) || (!isGuest && !accessCheckComplete)) {
+  if (shouldShowAccessGate({ loading, isGuest, authPending, accessCheckComplete, hasVerifiedAccessOnce })) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="glass-panel rounded-3xl px-6 py-5 text-center">
