@@ -11,9 +11,32 @@ import { FloatingReactions } from './FloatingReactions';
 import { QuickFeedbackPanel } from './QuickFeedbackPanel';
 import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 
+/**
+ * Feedback must carry its event scope so private-pitch feedback resolves
+ * against event membership: from an assigned review (the assignment's event)
+ * or from the cohort feed (the event the feed is scoped to). Exported for
+ * tests.
+ */
+export function buildFeedbackEventScope(input: {
+  assignment?: { eventSlug?: string | null; publicPitchId?: string | null } | null;
+  pitchPublicId?: string | null;
+  feedEventSlug?: string | null;
+}): { eventSlug: string } | Record<string, never> {
+  const assignmentSlug =
+    input.assignment?.eventSlug && input.assignment.publicPitchId === input.pitchPublicId
+      ? input.assignment.eventSlug
+      : null;
+  const slug = assignmentSlug || input.feedEventSlug || null;
+  return slug ? { eventSlug: slug } : {};
+}
+
 interface FullScreenVideoFeedProps {
   pitches: LegacyPitch[];
   isLoading?: boolean;
+  /** Set when the feed is scoped to one event — changes the empty copy. */
+  eventName?: string | null;
+  /** Slug of the event this feed is scoped to; travels with feedback. */
+  eventSlug?: string | null;
   selectionRequest?: { publicPitchId: string; nonce: number } | null;
   onPitchSelectionComplete?: (publicPitchId: string, nonce: number) => void;
   reviewRequest?: { assignmentId: string; publicPitchId: string; eventSlug?: string | null; nonce: number } | null;
@@ -148,6 +171,8 @@ function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
 export function FullScreenVideoFeed({
   pitches,
   isLoading = false,
+  eventName = null,
+  eventSlug: feedEventSlug = null,
   selectionRequest = null,
   onPitchSelectionComplete,
   reviewRequest = null,
@@ -607,10 +632,11 @@ export function FullScreenVideoFeed({
           readiness: feedback.readiness,
           scores: feedback.scores,
           notes: feedback.notes,
-          ...(reviewAssignmentRef.current?.eventSlug
-            && reviewAssignmentRef.current.publicPitchId === feedbackPitch.publicId
-            ? { eventSlug: reviewAssignmentRef.current.eventSlug }
-            : {}),
+          ...buildFeedbackEventScope({
+            assignment: reviewAssignmentRef.current,
+            pitchPublicId: feedbackPitch.publicId,
+            feedEventSlug,
+          }),
         }),
       });
 
@@ -801,9 +827,13 @@ export function FullScreenVideoFeed({
             </>
           ) : (
             <div className="mx-auto max-w-xs px-6">
-              <p className="font-heading text-xl font-black text-white">No pitches yet</p>
+              <p className="font-heading text-xl font-black text-white">
+                {eventName ? 'No takes in this event yet' : 'No pitches yet'}
+              </p>
               <p className="mt-2 text-sm leading-6 text-white/55">
-                Record the first pitch or check back when founders begin posting.
+                {eventName
+                  ? `Be the first to record for ${eventName} — your cohort will see it here.`
+                  : 'Record the first pitch or check back when founders begin posting.'}
               </p>
             </div>
           )}
