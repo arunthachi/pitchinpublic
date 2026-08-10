@@ -164,3 +164,16 @@ test('the profile edit deep link waits for the profile fetch and honours founder
   // rather than a dead button; a reviewer with no founder access is left alone.
   assert.match(home, /if \(reviewerMode\) \{\s*if \(!founderAccess\) return;/);
 });
+
+test('the shell survives the loading state, not just the loaded page', () => {
+  // A spinner with no tab bar is exactly the "detached browser page" feel this
+  // work exists to remove, and it is what a founder sees on a slow connection.
+  for (const page of TAB_BAR_PAGES) {
+    const source = read(page);
+    const renders = (source.match(/<AppTabBar\b/g) || []).length;
+    assert.ok(
+      renders >= 2,
+      `${page} renders AppTabBar ${renders} time(s) — the loading branch drops the shell`,
+    );
+  }
+});

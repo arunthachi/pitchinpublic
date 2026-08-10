@@ -199,6 +199,7 @@ function PitchDetailContent() {
     return (
       <div className="min-h-dvh bg-black">
         <ActionPageNav links={[destination('feed')]} ariaLabel="Pitch navigation" />
+        <AppTabBar />
         <div className="flex min-h-[calc(100dvh-68px)] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
         </div>

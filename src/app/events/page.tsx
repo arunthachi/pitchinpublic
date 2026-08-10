@@ -143,6 +143,7 @@ function EventsContent() {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background text-white">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
+        <AppTabBar active="events" />
       </div>
     );
   }

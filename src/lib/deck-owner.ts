@@ -14,6 +14,30 @@ export type DeckOwnerResult =
   | { ok: false; response: NextResponse };
 
 /**
+ * The single place a deck request is bound to a company. Split out from the
+ * guard below so the binding is testable on its own: a review noted that a
+ * source-text assertion would still pass if the founder_id filter were dropped,
+ * which is exactly the mistake that would hand one founder another's deck.
+ *
+ * `founderId` MUST come from the authenticated session, never from the request.
+ */
+export async function resolveOwnerCompany(
+  serviceSupabase: Pick<SupabaseClient, 'from'>,
+  founderId: string
+) {
+  const { data, error } = await serviceSupabase
+    .from('companies')
+    .select('id')
+    .eq('founder_id', founderId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return { company: (data as { id: string } | null) ?? null, error };
+}
+
+/**
  * Resolve the caller's own active company for deck operations. Every deck route
  * that acts on "my deck" funnels through here so the pilot gate and the
  * founder→company binding are enforced in exactly one place.
@@ -51,14 +75,7 @@ export async function requireDeckOwnerContext(request: NextRequest): Promise<Dec
     };
   }
 
-  const { data: company, error: companyError } = await serviceSupabase
-    .from('companies')
-    .select('id')
-    .eq('founder_id', user.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const { company, error: companyError } = await resolveOwnerCompany(serviceSupabase, user.id);
 
   if (companyError) {
     console.error('Deck company lookup failed:', companyError);

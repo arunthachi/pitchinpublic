@@ -269,6 +269,7 @@ export default function UserProfilePage() {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-black">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
+        {currentUser ? <AppTabBar active="profile" /> : null}
       </div>
     );
   }

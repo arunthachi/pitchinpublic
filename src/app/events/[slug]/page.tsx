@@ -285,6 +285,7 @@ export default function EventPage() {
     return (
       <div className="min-h-dvh bg-background text-white">
         <ActionPageNav links={[destination('feed')]} ariaLabel="Event navigation" />
+        <AppTabBar active="events" />
         <div className="flex min-h-[70dvh] items-center justify-center">Loading event…</div>
       </div>
     );
