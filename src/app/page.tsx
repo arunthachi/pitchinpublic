@@ -179,6 +179,7 @@ function HomeContent() {
   const userId = accessCheckKey(user?.id) || null;
   const lastAccessCheckAtRef = useRef<number | null>(null);
   const verifyPilotAccessRef = useRef<(() => Promise<void>) | null>(null);
+  const handledProfileEditQueryRef = useRef(false);
   const signOutRef = useRef(signOut);
   useEffect(() => {
     signOutRef.current = signOut;
@@ -549,18 +550,23 @@ function HomeContent() {
   }, [accessCheckComplete, loading, reviewerMode, searchParams, user]);
 
   // Deep link used by the profile page, whose deck card and edit affordances
-  // live here in the home shell rather than on /profile.
+  // live here in the home shell rather than on /profile. Stripping the param
+  // with history.replaceState does NOT refresh useSearchParams, so without the
+  // one-shot ref this effect would reopen the modal on every later render —
+  // including the auth republishes that fire on token refresh and refocus.
   useEffect(() => {
-    if (loading || !accessCheckComplete || reviewerMode || !user) return;
+    if (loading || !accessCheckComplete || reviewerMode || !userId) return;
     if (searchParams.get('profileEdit') !== '1') return;
+    if (handledProfileEditQueryRef.current) return;
 
+    handledProfileEditQueryRef.current = true;
     setShowProfileEdit(true);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.delete('profileEdit');
       window.history.replaceState(null, '', `${url.pathname}${url.search}`);
     }
-  }, [accessCheckComplete, loading, reviewerMode, searchParams, user]);
+  }, [accessCheckComplete, loading, reviewerMode, searchParams, userId]);
 
   useEffect(() => {
     if (loading || user) return;

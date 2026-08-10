@@ -119,3 +119,14 @@ test('signing out cannot leave a verified-access ref behind', () => {
     'the verifier must gate its completion writes on the cancelled flag',
   );
 });
+
+test('the profile edit deep link fires once, not on every auth republish', () => {
+  const home = read('app/page.tsx');
+  // history.replaceState does not refresh useSearchParams, so the query stays
+  // '1' for the life of the page; without the one-shot ref the modal reopens
+  // itself after the user closes it.
+  assert.match(home, /if \(handledProfileEditQueryRef\.current\) return;/);
+  assert.match(home, /handledProfileEditQueryRef\.current = true;/);
+  // Keyed on the id, never the user object — see the access-gate regression.
+  assert.match(home, /\}, \[accessCheckComplete, loading, reviewerMode, searchParams, userId\]\);/);
+});
