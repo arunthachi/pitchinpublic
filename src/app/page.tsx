@@ -771,7 +771,7 @@ function HomeContent() {
 
       {/* In-event indicator: names the scoped event and exits back to it */}
       {!reviewerMode && eventFeedSlug ? (
-        <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:top-6">
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:hidden">
           <Link
             href={`/events/${encodeURIComponent(eventFeedSlug)}`}
             className="pointer-events-auto flex min-h-11 max-w-full items-center gap-2 rounded-full border border-neon-cyan/30 bg-black/70 px-4 py-2 text-sm font-bold text-white backdrop-blur-xl transition hover:border-neon-cyan/60"

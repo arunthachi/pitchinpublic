@@ -44,3 +44,12 @@ test('the open feed sends no event scope', () => {
   assert.deepEqual(buildFeedbackEventScope({ pitchPublicId: 'p_1' }), {});
   assert.deepEqual(buildFeedbackEventScope({ assignment: null, pitchPublicId: null, feedEventSlug: null }), {});
 });
+
+test('feed scope changes reset position; identity-only changes do not', async () => {
+  const { feedScopeChanged } = await import('./FullScreenVideoFeed');
+  assert.equal(feedScopeChanged('', 'speed-networking'), true, 'open feed -> cohort feed resets');
+  assert.equal(feedScopeChanged('speed-networking', ''), true, 'cohort feed -> open feed resets');
+  assert.equal(feedScopeChanged('demo-day', 'speed-networking'), true, 'event -> event resets');
+  assert.equal(feedScopeChanged('speed-networking', 'speed-networking'), false, 'same scope keeps position');
+  assert.equal(feedScopeChanged('', ''), false, 'open feed refresh keeps position');
+});

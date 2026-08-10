@@ -12,6 +12,15 @@ import { QuickFeedbackPanel } from './QuickFeedbackPanel';
 import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 
 /**
+ * True when the feed's scope changed (open feed <-> a cohort feed, or between
+ * two events), which must restart playback at the first item. Exported for
+ * tests; identity-only array changes must NOT reset position.
+ */
+export function feedScopeChanged(previousScope: string, nextScope: string) {
+  return previousScope !== nextScope;
+}
+
+/**
  * Feedback must carry its event scope so private-pitch feedback resolves
  * against event membership: from an assigned review (the assignment's event)
  * or from the cohort feed (the event the feed is scoped to). Exported for
@@ -250,6 +259,19 @@ export function FullScreenVideoFeed({
   React.useEffect(() => {
     setLocalPitches(pitches);
   }, [pitches]);
+
+  // Switching feed scope (open feed <-> a cohort feed) replaces the list under
+  // a mounted component: restart at the top so the viewer never lands on a
+  // stale index — which previously showed the empty state over a non-empty
+  // feed, or silently swapped in an unrelated pitch at the same position.
+  const feedScopeKey = feedEventSlug || '';
+  const previousFeedScopeRef = useRef(feedScopeKey);
+  React.useEffect(() => {
+    if (!feedScopeChanged(previousFeedScopeRef.current, feedScopeKey)) return;
+    previousFeedScopeRef.current = feedScopeKey;
+    setCurrentIndex(0);
+    setDirection('down');
+  }, [feedScopeKey]);
 
   useEffect(() => {
     if (!selectionRequest) return;
