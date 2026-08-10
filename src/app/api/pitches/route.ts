@@ -631,8 +631,48 @@ export async function GET(request: NextRequest) {
     const videoId = searchParams.get('videoId');
     const publicId = searchParams.get('publicId');
     const pitchId = searchParams.get('pitchId');
+    const eventSlug = searchParams.get('eventSlug');
 
     const offset = (page - 1) * limit;
+
+    // Event-scoped listing: resolve the slug, then filter by event_id and let
+    // RLS decide who sees what. Members read every take in their event
+    // (including private ones); anyone else gains nothing beyond the access
+    // they already had, because no policy is bypassed here.
+    let eventScopeId: string | null = null;
+    if (eventSlug) {
+      // Only the cohort listing is throttled: it is the one that can page a
+      // whole event. Pitch detail, profile grids and the open feed share this
+      // route and must not be collaterally limited.
+      const cohortLimit = await rateLimit({
+        key: `cohort-feed:${user.id}`,
+        limit: RATE_LIMITS.API.limit,
+        window: RATE_LIMITS.API.window,
+      });
+      if (!cohortLimit.success) {
+        return NextResponse.json(
+          { success: false, error: 'Too many requests. Please try again later.' },
+          { status: 429, headers: formatRateLimitHeaders(cohortLimit) }
+        );
+      }
+
+      const { data: scopedEvent, error: scopedEventError } = await supabase
+        .from('pitch_events')
+        .select('id')
+        .eq('slug', eventSlug)
+        .maybeSingle();
+      if (scopedEventError) {
+        console.error('Event scope lookup failed:', scopedEventError);
+        return NextResponse.json(
+          { success: false, error: 'Could not load the event feed.' },
+          { status: 500 }
+        );
+      }
+      if (!scopedEvent) {
+        return NextResponse.json({ success: true, pitches: [], total: 0, page, limit });
+      }
+      eventScopeId = scopedEvent.id;
+    }
 
     // Build query
     let countQuery = supabase
@@ -735,7 +775,10 @@ export async function GET(request: NextRequest) {
       // visibility (their portfolio), and direct fetches by id/publicId/
       // videoId rely on RLS instead, so owners and event members can still
       // open private event pitches.
-      if (!videoId && !publicId && !pitchId && userId !== user.id) {
+      if (eventScopeId) {
+        // Scoped to one event; RLS is the authorization boundary here.
+        query = query.eq('event_id', eventScopeId);
+      } else if (!videoId && !publicId && !pitchId && userId !== user.id) {
         query = query.eq('visibility', 'public');
       }
 
@@ -760,7 +803,9 @@ export async function GET(request: NextRequest) {
 
     let dataQuery = buildDataQuery(fullSelect);
 
-    if (!videoId && !publicId && !pitchId && userId !== user.id) {
+    if (eventScopeId) {
+      countQuery = countQuery.eq('event_id', eventScopeId);
+    } else if (!videoId && !publicId && !pitchId && userId !== user.id) {
       countQuery = countQuery.eq('visibility', 'public');
     }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requiresEventInvitation } from '@/lib/event-settings';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { createServiceSupabase } from '@/lib/admin';
@@ -130,7 +131,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     existingParticipant && existingParticipant.status !== 'removed'
   );
   const isOrganizer = event.organizer_id === user.id;
-  const isInviteOnly = event.visibility === 'private' || event.visibility === 'unlisted';
+  // Every event requires an invitation or the access code — including
+  // 'public' ones. Membership is what grants read access to the cohort's
+  // private takes, so self-join would let any authenticated user become a
+  // "member" and bulk-read them.
+  const isInviteOnly = requiresEventInvitation(event.visibility);
 
   // Never ignore a supplied but invalid bearer code. Otherwise an unlisted URL
   // can accidentally turn a typo, expired invite, or guessed code into access.

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { ArrowRight, CalendarDays, Clock, Lock, LogOut, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { countEventFeedback, groupEventTakeFeedback } from '@/lib/event-feedback';
 import { formatPitchLength } from '@/lib/duration';
 import { SignInModal } from '@/components/SignInModal';
 import { ActionPageNav } from '@/components/ActionPageNav';
@@ -178,6 +179,12 @@ export default function EventPage() {
     hook: submittedPitch.hook,
   } : null);
   const recordHref = event ? buildRecordHref(event) : '/';
+  const eventTakes = groupEventTakeFeedback(pitches, {
+    eventId: event?.id || eventState?.participation?.event_id || null,
+    viewerId: user?.id || null,
+    submittedPitchId: eventState?.userSubmission?.pitch_id || null,
+  });
+  const eventFeedbackCount = countEventFeedback(eventTakes);
 
   useEffect(() => {
     if (!returnedFromLegacyPublish || (!returnedPitchId && !returnedPitchPublicId) || !isJoined || eventState?.userSubmission) return;
@@ -406,7 +413,63 @@ export default function EventPage() {
           </div>
 
           {message ? <p className="mt-4 rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-semibold text-slate-200" role="status">{message}</p> : null}
+
+          {isJoined ? (
+            <Link
+              href={`/?eventFeed=${encodeURIComponent(slug)}`}
+              className="btn-glass mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-bold"
+            >
+              <Video className="h-4 w-4" />
+              Watch cohort takes
+            </Link>
+          ) : null}
         </section>
+
+        {isJoined ? (
+          <section aria-labelledby="event-feedback-title" className="mb-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="event-feedback-title" className="font-heading text-2xl font-black text-white">Your feedback</h2>
+              <p className="text-sm text-slate-400">
+                {eventFeedbackCount
+                  ? `${eventFeedbackCount} response${eventFeedbackCount === 1 ? '' : 's'} across ${eventTakes.length} take${eventTakes.length === 1 ? '' : 's'}`
+                  : 'From your event team and cohort'}
+              </p>
+            </div>
+
+            {eventTakes.length ? (
+              <div className="mt-4 space-y-3">
+                {eventTakes.map((take) => (
+                  <article key={take.pitchId} className="rounded-2xl border border-white/10 bg-black/25 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-neon-cyan/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-neon-cyan">{take.takeLabel}</span>
+                      {take.isSubmitted ? (
+                        <span className="rounded-full bg-neon-lime px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-950">Submitted</span>
+                      ) : null}
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-200">{take.hook}</span>
+                    </div>
+                    {take.feedback.length ? (
+                      <ul className="mt-3 space-y-2">
+                        {take.feedback.map((entry) => (
+                          <li key={entry.id} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                            <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em]">
+                              <span className={entry.type === 'roast' ? 'text-roast' : 'text-neon-lime'}>{entry.type === 'roast' ? 'Roast' : 'Toast'}</span>
+                              <span className="text-slate-500">{entry.roleLabel}</span>
+                            </div>
+                            {entry.content ? <p className="mt-1 text-sm leading-6 text-slate-200">{entry.content}</p> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-3 text-sm text-slate-500">No feedback on this take yet.</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm leading-6 text-slate-400">No takes for this event yet — record one and reviews will land here.</p>
+            )}
+          </section>
+        ) : null}
 
         <details className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025]">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-bold text-slate-300 focus-visible:ring-2 focus-visible:ring-neon-cyan">

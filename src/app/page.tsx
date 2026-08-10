@@ -2,9 +2,10 @@
 
 import React, { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ClipboardCheck, Edit, LogOut, UserCircle } from 'lucide-react';
+import { CalendarDays, ClipboardCheck, Edit, LogOut, UserCircle } from 'lucide-react';
 import { SidebarNav } from '@/components/SidebarNav';
 import { FullScreenVideoFeed } from '@/components/FullScreenVideoFeed';
 import { RecordingStudio } from '@/components/RecordingStudio';
@@ -111,6 +112,7 @@ function HomeContent() {
   const [showDailyChallenge, setShowDailyChallenge] = useState(false);
   const [showPitchGoal, setShowPitchGoal] = useState(false);
   const [eventRibbon, setEventRibbon] = useState<RibbonModel>(null);
+  const [eventFeedName, setEventFeedName] = useState<string | null>(null);
   const [hasPendingInvitations, setHasPendingInvitations] = useState(false);
   const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
   const [inviteOnlyNotice, setInviteOnlyNotice] = useState(false);
@@ -156,6 +158,12 @@ function HomeContent() {
     badgeName: string;
     badgeDescription: string;
   } | null>(null);
+  // Cohort feed: ?eventFeed=<slug> scopes the full-screen feed to one event.
+  const eventFeedSlugParam = searchParams.get('eventFeed');
+  const eventFeedSlug = eventFeedSlugParam && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(eventFeedSlugParam)
+    ? eventFeedSlugParam
+    : null;
+
   const isGuest = !user;
 
   // One light fetch orients event founders: the home ribbon and the nav
@@ -173,6 +181,10 @@ function HomeContent() {
         if (cancelled || !data?.success) return;
         setEventRibbon(pickRibbon(data.events, data.invitations));
         setHasPendingInvitations(Boolean(data.invitations?.length));
+        if (eventFeedSlug) {
+          const scoped = (data.events || []).find((event: any) => event.slug === eventFeedSlug);
+          setEventFeedName(scoped?.name || null);
+        }
       })
       .catch(() => {});
     return () => {
@@ -181,7 +193,7 @@ function HomeContent() {
     // Keyed on the id: TOKEN_REFRESHED republishes a fresh user object hourly
     // and must not refire this fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, eventFeedSlug]);
   const accountUser = userProfile || (user ? authUserToUser(user) : null);
   const canManageEvents = userRoles.includes('organizer') || userRoles.includes('admin');
   const showPublicSignIn = isGuest;
@@ -331,9 +343,15 @@ function HomeContent() {
     try {
       setPitchesLoading(true);
       const params = new URLSearchParams({ limit: '20' });
+      if (eventFeedSlug) params.set('eventSlug', eventFeedSlug);
 
       const response = await fetch(`/api/pitches?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch pitches');
+      if (!response.ok) {
+        // Any refusal surfaces as an empty feed. Demo pitches are a
+        // first-run affordance, never a stand-in for a real API error.
+        setLegacyPitches([]);
+        return;
+      }
 
       const data = await response.json();
 
@@ -353,13 +371,14 @@ function HomeContent() {
     } catch (error) {
       console.error('Failed to fetch pitches:', error);
       // Fall back to mock data on error
+      // Never substitute demo content for a real API refusal (e.g. 429).
       const mockPitches = getLegacyPitches();
       setLegacyPitches(mockPitches);
       setCurrentPitch((current) => current ?? mockPitches[0] ?? null);
     } finally {
       setPitchesLoading(false);
     }
-  }, [convertApiPitch, reviewerMode, user?.id]);
+  }, [convertApiPitch, eventFeedSlug, reviewerMode, user?.id]);
 
   const fetchReviewQueue = useCallback(async () => {
     if (!user) {
@@ -719,6 +738,11 @@ function HomeContent() {
           onChallengeClick={() => isGuest ? promptForRestrictedAction() : setShowPitchGoal(true)}
           canManageEvents={canManageEvents}
           eventsBadge={hasPendingInvitations}
+          inEventScope={
+            eventFeedSlug
+              ? { name: eventFeedName || 'this event', href: `/events/${encodeURIComponent(eventFeedSlug)}` }
+              : null
+          }
           reviewerMode={reviewerMode}
           canSwitchMode={reviewerAccess && founderAccess}
           onModeChange={switchAppMode}
@@ -756,8 +780,22 @@ function HomeContent() {
         </div>
       )}
 
+      {/* In-event indicator: names the scoped event and exits back to it */}
+      {!reviewerMode && eventFeedSlug ? (
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:hidden">
+          <Link
+            href={`/events/${encodeURIComponent(eventFeedSlug)}`}
+            className="pointer-events-auto flex min-h-11 max-w-full items-center gap-2 rounded-full border border-neon-cyan/30 bg-black/70 px-4 py-2 text-sm font-bold text-white backdrop-blur-xl transition hover:border-neon-cyan/60"
+          >
+            <CalendarDays className="h-4 w-4 shrink-0 text-neon-cyan" aria-hidden="true" />
+            <span className="min-w-0 truncate">In {eventFeedName || 'this event'}</span>
+            <span className="shrink-0 text-xs font-semibold text-slate-300">Back to event</span>
+          </Link>
+        </div>
+      ) : null}
+
       {/* Event orientation ribbon — founders with an event life only */}
-      {!reviewerMode && eventRibbon ? (
+      {!reviewerMode && !eventFeedSlug && eventRibbon ? (
         <div className="pointer-events-none absolute inset-x-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-40 flex justify-center px-4 lg:hidden">
           <EventRibbon model={eventRibbon} />
         </div>
@@ -884,6 +922,8 @@ function HomeContent() {
             <FullScreenVideoFeed
               pitches={legacyPitches}
               isLoading={pitchesLoading}
+              eventName={eventFeedSlug ? eventFeedName : null}
+              eventSlug={eventFeedSlug}
               selectionRequest={selectionRequest}
               onPitchSelectionComplete={handlePitchSelectionComplete}
               reviewRequest={reviewRequest}
@@ -963,6 +1003,8 @@ function HomeContent() {
             onReviewNext={handleReviewNext}
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
+            eventName={eventFeedSlug ? eventFeedName : null}
+            eventSlug={eventFeedSlug}
             isGuest={isGuest}
             onSignInClick={promptForRestrictedAction}
           />

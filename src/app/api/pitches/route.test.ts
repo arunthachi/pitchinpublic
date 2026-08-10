@@ -91,3 +91,26 @@ test('feedback visibility migration scopes feedback to its pitch', async () => {
   assert.match(migration, /ON public\.feedback FOR SELECT/);
   assert.match(migration, /is_public = true AND public\.can_view_pitch\(pitch_id\)/, 'anon feedback reads must require pitch visibility');
 });
+
+test('event-scoped feed params are read alongside the existing filters', () => {
+  const params = new URLSearchParams('limit=20&eventSlug=speed-networking');
+  assert.equal(params.get('eventSlug'), 'speed-networking');
+  assert.equal(new URLSearchParams('limit=20').get('eventSlug'), null);
+});
+
+test('the feed route scopes by event and skips the public-only filter', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+  assert.match(source, /const eventSlug = searchParams\.get\('eventSlug'\)/);
+  assert.match(source, /from\('pitch_events'\)[\s\S]{0,200}\.eq\('slug', eventSlug\)/);
+  assert.match(
+    source,
+    /if \(eventScopeId\) \{\s*\/\/[^\n]*\n\s*query = query\.eq\('event_id', eventScopeId\);\s*\} else if/,
+    'event scoping must replace, not stack with, the public-only filter',
+  );
+  assert.match(
+    source,
+    /if \(eventScopeId\) \{\s*countQuery = countQuery\.eq\('event_id', eventScopeId\);\s*\} else if/,
+    'count query must mirror the data query',
+  );
+});

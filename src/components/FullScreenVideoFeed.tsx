@@ -11,9 +11,55 @@ import { FloatingReactions } from './FloatingReactions';
 import { QuickFeedbackPanel } from './QuickFeedbackPanel';
 import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 
+/**
+ * Structured feedback on a private cohort take requires a review assignment
+ * (feedback trigger, 20260722223000). Exported for tests.
+ */
+export function canComposeFeedback(
+  feedEventSlug: string | null,
+  assignment: { publicPitchId?: string | null } | null,
+  pitchPublicId: string | null | undefined
+) {
+  if (!feedEventSlug) return true;
+  return Boolean(assignment?.publicPitchId && assignment.publicPitchId === pitchPublicId);
+}
+
+/**
+ * True when the feed's scope changed (open feed <-> a cohort feed, or between
+ * two events), which must restart playback at the first item. Exported for
+ * tests; identity-only array changes must NOT reset position.
+ */
+export function feedScopeChanged(previousScope: string, nextScope: string) {
+  return previousScope !== nextScope;
+}
+
+/**
+ * Feedback must carry its event scope so private-pitch feedback resolves
+ * against event membership: from an assigned review (the assignment's event)
+ * or from the cohort feed (the event the feed is scoped to). Exported for
+ * tests.
+ */
+export function buildFeedbackEventScope(input: {
+  assignment?: { eventSlug?: string | null; publicPitchId?: string | null } | null;
+  pitchPublicId?: string | null;
+}): { eventSlug: string } | Record<string, never> {
+  // Only an assignment for THIS pitch carries event scope. Browsing a cohort
+  // feed does not: the database requires a review assignment for any
+  // private-pitch feedback, so structured review stays assignment-driven.
+  const slug =
+    input.assignment?.eventSlug && input.assignment.publicPitchId === input.pitchPublicId
+      ? input.assignment.eventSlug
+      : null;
+  return slug ? { eventSlug: slug } : {};
+}
+
 interface FullScreenVideoFeedProps {
   pitches: LegacyPitch[];
   isLoading?: boolean;
+  /** Set when the feed is scoped to one event — changes the empty copy. */
+  eventName?: string | null;
+  /** Slug of the event this feed is scoped to; travels with feedback. */
+  eventSlug?: string | null;
   selectionRequest?: { publicPitchId: string; nonce: number } | null;
   onPitchSelectionComplete?: (publicPitchId: string, nonce: number) => void;
   reviewRequest?: { assignmentId: string; publicPitchId: string; eventSlug?: string | null; nonce: number } | null;
@@ -148,6 +194,8 @@ function FeedReactionBurst({ type }: { type: ReactionBurstType }) {
 export function FullScreenVideoFeed({
   pitches,
   isLoading = false,
+  eventName = null,
+  eventSlug: feedEventSlug = null,
   selectionRequest = null,
   onPitchSelectionComplete,
   reviewRequest = null,
@@ -159,6 +207,9 @@ export function FullScreenVideoFeed({
   onSignInClick
 }: FullScreenVideoFeedProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Render-safe mirror of reviewAssignmentRef: reading a ref during render
+  // is neither safe nor reactive.
+  const [assignedComposePitchId, setAssignedComposePitchId] = useState<string | null>(null);
   const [feedbackPanelOpen, setFeedbackPanelOpen] = useState(false);
   const [feedbackListOpen, setFeedbackListOpen] = useState(false);
   const [playerInteractionActive, setPlayerInteractionActive] = useState(false);
@@ -226,6 +277,19 @@ export function FullScreenVideoFeed({
     setLocalPitches(pitches);
   }, [pitches]);
 
+  // Switching feed scope (open feed <-> a cohort feed) replaces the list under
+  // a mounted component: restart at the top so the viewer never lands on a
+  // stale index — which previously showed the empty state over a non-empty
+  // feed, or silently swapped in an unrelated pitch at the same position.
+  const feedScopeKey = feedEventSlug || '';
+  const previousFeedScopeRef = useRef(feedScopeKey);
+  React.useEffect(() => {
+    if (!feedScopeChanged(previousFeedScopeRef.current, feedScopeKey)) return;
+    previousFeedScopeRef.current = feedScopeKey;
+    setCurrentIndex(0);
+    setDirection('down');
+  }, [feedScopeKey]);
+
   useEffect(() => {
     if (!selectionRequest) return;
     if (handledSelectionNonceRef.current === selectionRequest.nonce) return;
@@ -268,6 +332,7 @@ export function FullScreenVideoFeed({
       publicPitchId: reviewRequest.publicPitchId,
       eventSlug: reviewRequest.eventSlug,
     };
+    setAssignedComposePitchId(reviewRequest.publicPitchId);
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
   }, [reviewRequest, localPitches]);
@@ -607,10 +672,10 @@ export function FullScreenVideoFeed({
           readiness: feedback.readiness,
           scores: feedback.scores,
           notes: feedback.notes,
-          ...(reviewAssignmentRef.current?.eventSlug
-            && reviewAssignmentRef.current.publicPitchId === feedbackPitch.publicId
-            ? { eventSlug: reviewAssignmentRef.current.eventSlug }
-            : {}),
+          ...buildFeedbackEventScope({
+            assignment: reviewAssignmentRef.current,
+            pitchPublicId: feedbackPitch.publicId,
+          }),
         }),
       });
 
@@ -753,12 +818,22 @@ export function FullScreenVideoFeed({
   };
 
   const openFeedback = (type: 'roast' | 'toast') => {
+    // Structured feedback on a private cohort take requires a review
+    // assignment (enforced by the feedback trigger), so in an event-scoped
+    // feed the compose flow is unavailable — show the thread instead of a
+    // form that would fail on submit.
+    if (!canComposeFeedback(feedEventSlug, reviewAssignmentRef.current, currentPitch?.publicId)) {
+      setFeedbackPanelOpen(false);
+      setFeedbackListOpen(true);
+      return;
+    }
     setFeedbackType(type);
     setFeedbackListOpen(false);
     feedbackPitchRef.current = currentPitch
       ? { id: currentPitch.id, publicId: currentPitch.publicId }
       : null;
     reviewAssignmentRef.current = null;
+    setAssignedComposePitchId(null);
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
     setFeedbackPanelOpen(true);
   };
@@ -801,9 +876,13 @@ export function FullScreenVideoFeed({
             </>
           ) : (
             <div className="mx-auto max-w-xs px-6">
-              <p className="font-heading text-xl font-black text-white">No pitches yet</p>
+              <p className="font-heading text-xl font-black text-white">
+                {eventName ? 'No takes in this event yet' : 'No pitches yet'}
+              </p>
               <p className="mt-2 text-sm leading-6 text-white/55">
-                Record the first pitch or check back when founders begin posting.
+                {eventName
+                  ? `Be the first to record for ${eventName} — your cohort will see it here.`
+                  : 'Record the first pitch or check back when founders begin posting.'}
               </p>
             </div>
           )}
@@ -932,6 +1011,15 @@ export function FullScreenVideoFeed({
         onClose={() => setFeedbackListOpen(false)}
         onAddFeedback={isGuest && onSignInClick ? promptForFeedbackSignIn : openFeedback}
         canRateQuality={Boolean(currentPitch.isOwnedByViewer)}
+        composeUnavailableNote={
+          canComposeFeedback(
+            feedEventSlug,
+            assignedComposePitchId ? { publicPitchId: assignedComposePitchId } : null,
+            currentPitch?.publicId
+          )
+            ? null
+            : 'Reviews for this event come from your review queue — open an assigned review to leave feedback.'
+        }
       />
 
       {/* Quick Feedback Panel renders after the thread panel so the first Toast/Roast tap brings it above the closing thread sheet. */}
