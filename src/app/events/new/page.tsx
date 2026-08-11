@@ -275,6 +275,10 @@ function NewEventContent() {
         ariaLabel="Create event navigation"
         links={[destination('myEvents'), destination('createEvent', true), destination('feed')]}
         account={{ email: user.email, profileHref: '/me', onSignOut: signOut }}
+        // A one-tap close next to the account button would discard a
+        // part-filled event and its invite list with no confirmation, and
+        // client-side navigation means beforeunload never fires.
+        showClose={false}
       />
       <main className="mx-auto max-w-2xl px-4 py-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
         <header className="mb-5">

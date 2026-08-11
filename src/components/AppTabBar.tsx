@@ -1,8 +1,14 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Calendar, User, Video } from 'lucide-react';
-import { APP_TAB_BAR_TABS, type AppTabKey } from '@/lib/app-navigation';
+import {
+  APP_MODE_KEY,
+  APP_TAB_BAR_TABS,
+  navBadgeLabel,
+  type AppTabKey,
+} from '@/lib/app-navigation';
 
 type AppTabBarProps = {
   active?: AppTabKey;
@@ -22,13 +28,32 @@ const ICONS = {
  * a detached browser page rather than a tab of the app.
  */
 export default function AppTabBar({ active, eventsBadge = false }: AppTabBarProps) {
+  // The home screen hides its equivalent bar entirely in reviewer mode. A judge
+  // offered a Record tab hits a dead end: the ?record=1 handler short-circuits
+  // on reviewer mode, so the studio never opens. Read the same persisted mode
+  // the home shell writes. Starts false so the common founder case renders the
+  // full bar on the first paint rather than flashing a missing tab.
+  const [reviewerMode, setReviewerMode] = useState(false);
+
+  useEffect(() => {
+    try {
+      setReviewerMode(window.localStorage.getItem(APP_MODE_KEY) === 'reviewer');
+    } catch {
+      // Private-mode storage denial just leaves the founder-shaped default.
+    }
+  }, []);
+
+  const tabs = reviewerMode
+    ? APP_TAB_BAR_TABS.filter((tab) => tab.key !== 'record')
+    : APP_TAB_BAR_TABS;
+
   return (
     <nav
       aria-label="Primary"
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[linear-gradient(180deg,rgba(18,23,34,0.86),rgba(5,7,10,0.96))] shadow-[0_-18px_50px_rgba(0,0,0,0.38)] backdrop-blur-2xl lg:hidden"
     >
       <div className="flex items-center justify-around px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2">
-        {APP_TAB_BAR_TABS.map((tab) => {
+        {tabs.map((tab) => {
           if (tab.key === 'record') {
             return (
               <Link
@@ -60,7 +85,7 @@ export default function AppTabBar({ active, eventsBadge = false }: AppTabBarProp
               key={tab.key}
               href={tab.href}
               aria-current={isActive ? 'page' : undefined}
-              aria-label={tab.label}
+              aria-label={navBadgeLabel(tab.label, showBadge)}
               className="flex min-h-11 min-w-11 flex-col items-center gap-1 rounded-xl px-3 py-1 outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
             >
               <span className="relative">
@@ -70,13 +95,10 @@ export default function AppTabBar({ active, eventsBadge = false }: AppTabBarProp
                   aria-hidden="true"
                 />
                 {showBadge ? (
-                  <>
-                    <span
-                      className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-neon-lime"
-                      aria-hidden="true"
-                    />
-                    <span className="sr-only">New event invitation</span>
-                  </>
+                  <span
+                    className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-neon-lime"
+                    aria-hidden="true"
+                  />
                 ) : null}
               </span>
               <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-400'}`}>

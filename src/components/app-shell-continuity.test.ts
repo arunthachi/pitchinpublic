@@ -58,17 +58,38 @@ test('action pages expose a close control back to the feed', () => {
   assert.match(nav, /closeHref = APP_HOME_HREF/);
 });
 
-test('every nav badge dot carries a screen-reader equivalent', () => {
-  for (const component of ['components/BottomNavBar.tsx', 'components/SidebarNav.tsx', 'components/AppTabBar.tsx']) {
+test('the badge state reaches assistive tech, not just the DOM', () => {
+  // An aria-label REPLACES descendant text for assistive tech, so an sr-only
+  // span nested inside a labelled control is never announced. That is exactly
+  // the bug an earlier span-counting version of this test failed to catch.
+  for (const component of ['components/AppTabBar.tsx', 'components/BottomNavBar.tsx']) {
     const source = read(component);
-    const dots = source.match(/rounded-full bg-neon-lime/g) || [];
-    const labels = source.match(/sr-only">New event invitation/g) || [];
-    assert.equal(
-      labels.length,
-      dots.length,
-      `${component} has ${dots.length} badge dot(s) but ${labels.length} screen-reader label(s)`,
+    const dots = (source.match(/rounded-full bg-neon-lime/g) || []).length;
+    assert.ok(dots > 0, `${component} renders no badge dot`);
+    assert.match(
+      source,
+      /aria-label=\{navBadgeLabel\(/,
+      `${component} must fold the badge state into its accessible name`,
+    );
+    assert.doesNotMatch(
+      source,
+      /aria-label="[^"]*"[\s\S]{0,600}?sr-only">New event invitation/,
+      `${component} nests sr-only badge text inside an aria-labelled control, where it is ignored`,
     );
   }
+
+  // SidebarNav is the exception: its control has no aria-label, so the nested
+  // text IS the accessible name and is announced normally.
+  const sidebar = read('components/SidebarNav.tsx');
+  assert.match(sidebar, /sr-only">New event invitation/);
+});
+
+test('the badge label is appended, not substituted', () => {
+  const nav = read('lib/app-navigation.ts');
+  assert.match(nav, /export function navBadgeLabel/);
+  // The base label must survive: "Events, new invitation", never just
+  // "new invitation", or the tab loses its name when an invite is pending.
+  assert.match(nav, /\$\{baseLabel\}, new invitation/);
 });
 
 test('the founder deck card is rendered only on the owner own profile', () => {
@@ -90,7 +111,7 @@ test('the own-deck endpoint resolves the company from the session, not from inpu
 test('the profile edit deep link is handled on the home shell', () => {
   const home = read('app/page.tsx');
   assert.match(home, /searchParams\.get\('profileEdit'\) !== '1'/);
-  assert.match(home, /url\.searchParams\.delete\('profileEdit'\)/);
+  assert.match(home, /stripQueryParam\('profileEdit'\)/);
 });
 
 test('no user-facing copy calls an event a pitch room', () => {
@@ -121,7 +142,7 @@ test('signing out cannot leave a verified-access ref behind', () => {
   }
   assert.match(
     home,
-    /finally \{\s*if \(!cancelled\) \{\s*setAccessCheckComplete\(true\);\s*hasVerifiedAccessOnceRef\.current = true;/,
+    /finally \{[\s\S]{0,400}?if \(!cancelled\) \{[\s\S]{0,400}?setAccessCheckComplete\(true\);\s*hasVerifiedAccessOnceRef\.current = true;/,
     'the verifier must gate its completion writes on the cancelled flag',
   );
 });
@@ -134,7 +155,7 @@ test('the profile edit deep link fires once, not on every auth republish', () =>
   assert.match(home, /if \(handledProfileEditQueryRef\.current\) return;/);
   assert.match(home, /handledProfileEditQueryRef\.current = true;/);
   // Keyed on the id, never the user object — see the access-gate regression.
-  assert.match(home, /searchParams, userId, userProfile\]\);/);
+  assert.match(home, /stripQueryParam,\s*userId,\s*userProfile,\s*\]\);/);
   // The recorder deep link shares the contract: the Record tab routes through
   // it, and reopening the studio after the founder closed it loses the take.
   assert.match(home, /if \(handledRecordQueryRef\.current\) return;/);
@@ -150,8 +171,10 @@ test('the deck opens in a new tab rather than replacing the profile', () => {
   // Chrome and Firefox return null from window.open when `noopener` is in the
   // features string, which would send the fallback down window.location and
   // navigate the current tab away from the profile.
-  assert.doesNotMatch(card, /window\.open\([^)]*noopener/);
-  assert.match(card, /window\.open\('', '_blank'\)/);
+  // The features string must not carry noopener/noreferrer: Chrome and Firefox
+  // then return null and the fallback navigates the current tab away. Sever the
+  // opener reference on the returned handle instead.
+  assert.doesNotMatch(card, /window\.open\('',\s*'_blank',\s*'[^']*no(opener|referrer)/);
   assert.match(card, /target\.opener = null/);
 });
 
@@ -185,4 +208,74 @@ test('the shell survives every early return, not just the loaded page', () => {
       `${page} renders AppTabBar ${renders} time(s) — an early return drops the shell`,
     );
   }
+});
+
+test('the create-event form opts out of the one-tap close', () => {
+  // The X sits beside the account button as the rightmost thumb target at
+  // 390px; on a form holding a draft event and its invite list, one stray tap
+  // would discard the lot with no confirmation and no beforeunload.
+  assert.match(read('app/events/new/page.tsx'), /showClose=\{false\}/);
+});
+
+test('a reviewer is not offered a Record tab that cannot work', () => {
+  const bar = read('components/AppTabBar.tsx');
+  assert.match(bar, /APP_MODE_KEY/);
+  assert.match(bar, /filter\(\(tab\) => tab\.key !== 'record'\)/);
+
+  // And the handler must consume a stuck ?record=1 rather than leave it armed
+  // to fire when the same session later switches to founder mode.
+  const home = read('app/page.tsx');
+  assert.match(home, /if \(!canOpenRecorder\(\{ roleResolved, reviewerAccess, founderAccess, reviewerMode \}\)\) \{/);
+  assert.match(home, /handledRecordQueryRef\.current = true;\s*stripQueryParam\('record'\);/);
+});
+
+test('no deck response is cacheable, including the shared guard responses', () => {
+  // A signed URL is a bearer capability; a shared cache must not hand one
+  // founder's URL to another client. The guard responses (401/403/409/503)
+  // come from deck-owner.ts, so counting only the route file would miss them —
+  // which is exactly what an earlier version of this assertion did.
+  for (const file of ['app/api/startup/deck/view/route.ts', 'lib/deck-owner.ts']) {
+    const source = read(file);
+    assert.match(source, /'Cache-Control': 'private, no-store'/, `${file} defines no no-store header`);
+    const responses = (source.match(/NextResponse\.json\(/g) || []).length;
+    const noStore = (source.match(/NO_STORE/g) || []).length - 1; // minus the definition
+    assert.equal(noStore, responses, `${file}: ${responses} response(s) but ${noStore} marked no-store`);
+  }
+});
+
+test('every deck failure response carries a machine-readable code', () => {
+  for (const file of ['app/api/startup/deck/view/route.ts', 'lib/deck-owner.ts']) {
+    const source = read(file);
+    const failures = (source.match(/success: false/g) || []).length;
+    const codes = (source.match(/code: '[a-z_]+'/g) || []).length;
+    assert.equal(codes, failures, `${file}: ${failures} failure(s) but ${codes} code field(s)`);
+  }
+});
+
+test('a stored deck link is re-validated before it is handed back', () => {
+  // Validation runs at write today, but a row predating that rule must not
+  // yield a javascript: URL that the opener tab executes in this origin.
+  assert.match(read('app/api/startup/deck/view/route.ts'), /validateDeckLink\(deck\.link_url\)/);
+});
+
+test('the recorder deep link waits until the server has stated the role', () => {
+  const home = read('app/page.tsx');
+  // accessCheckComplete is already true while signed out, so completing an OTP
+  // on /?record=1 would otherwise open the studio on the render before the
+  // access effect re-runs. And "a check ran" is not the same as "the role is
+  // known": a failed lookup still completes the check, so gating on that alone
+  // hands the recorder to a reviewer-only account whenever the network blips.
+  assert.match(home, /if \(!roleResolved\) return;/);
+  assert.match(home, /roleResolved = isRoleResolved\(reviewerResponse\.status\);/);
+  assert.match(home, /roleResolved,\s*searchParams,/);
+});
+
+test('role confidence resets on sign-out and never blocks the UI', () => {
+  const home = read('app/page.tsx');
+  // The reset branch must clear it, or the next account inherits the last
+  // account's role confidence.
+  assert.match(home, /setAccessCheckComplete\(true\);\s*setRoleResolved\(false\);/);
+  // A failed check must still complete: leaving the access gate up is the
+  // roadblock this area exists to prevent.
+  assert.match(home, /setAccessCheckComplete\(true\);\s*hasVerifiedAccessOnceRef\.current = true;/);
 });

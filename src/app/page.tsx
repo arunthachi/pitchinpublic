@@ -21,6 +21,8 @@ import { pickRibbon, type RibbonModel } from '@/lib/event-orientation';
 import {
   ACCESS_REVERIFY_INTERVAL_MS,
   accessCheckKey,
+  canOpenRecorder,
+  isRoleResolved,
   shouldAdoptReviewerMode,
   shouldReverifyAccess,
   shouldShowAccessGate,
@@ -39,6 +41,7 @@ import { normalizeLegacyFeedback, normalizeReviewQueue } from '@/lib/review-mark
 import { ReviewQueuePanel } from '@/components/ReviewQueuePanel';
 import type { ReviewQueueSummary } from '@/types';
 import { isPublicPitchId } from '@/lib/public-routes';
+import { APP_MODE_KEY } from '@/lib/app-navigation';
 
 // Lazy load modal components (not needed on initial page load)
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
@@ -89,8 +92,6 @@ type ReviewerAccessPayload = {
   founderAccess?: boolean;
 };
 
-const APP_MODE_KEY = 'pip.appMode';
-
 function hasActiveReviewerAccess(payload: ReviewerAccessPayload) {
   const access = payload?.access || payload?.reviewerAccess || payload?.membership || payload?.reviewer;
   return payload?.isReviewer === true
@@ -131,6 +132,10 @@ function HomeContent() {
   // the app: a re-mount mid-recording or mid-upload loses the take.
   const hasVerifiedAccessOnceRef = useRef(false);
   const [hasVerifiedAccessOnce, setHasVerifiedAccessOnce] = useState(false);
+  // Distinct from hasVerifiedAccessOnce: that records "a check has run",
+  // this records "the server told us the role". A network failure gives the
+  // first without the second.
+  const [roleResolved, setRoleResolved] = useState(false);
   const [desktopFeed, setDesktopFeed] = useState<boolean | null>(null);
   const [practiceToday, setPracticeToday] = useState<PracticeToday>(() => {
     const prompt = getPromptForDate();
@@ -540,23 +545,49 @@ function HomeContent() {
   // refresh and tab refocus, reopening the recorder after the founder closed
   // it. The Record tab in AppTabBar routes through here, so this path is now
   // the common way into the studio.
+  const stripQueryParam = useCallback((name: string) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(name)) return;
+    url.searchParams.delete(name);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+  }, []);
+
   useEffect(() => {
-    if (loading || !accessCheckComplete || reviewerMode || searchParams.get('record') !== '1') return;
+    if (loading || !accessCheckComplete || searchParams.get('record') !== '1') return;
     if (handledRecordQueryRef.current) return;
 
     if (userId) {
+      // `accessCheckComplete` is already true while signed out, so on the
+      // sign-in that completes an OTP on /?record=1 it stays true for the
+      // render before the access effect re-runs. Opening on that render would
+      // mount the studio for an account whose role is not yet known.
+      if (!roleResolved) return;
+      // Not entitled: consume the param rather than leave it armed, or a
+      // later switch to founder mode pops the recorder open unprompted.
+      if (!canOpenRecorder({ roleResolved, reviewerAccess, founderAccess, reviewerMode })) {
+        handledRecordQueryRef.current = true;
+        stripQueryParam('record');
+        return;
+      }
       handledRecordQueryRef.current = true;
       setRecordingStudioOpen(true);
-      if (typeof window !== 'undefined') {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('record');
-        window.history.replaceState(null, '', `${url.pathname}${url.search}`);
-      }
+      stripQueryParam('record');
       return;
     }
 
     setSignInModalOpen(true);
-  }, [accessCheckComplete, loading, reviewerMode, searchParams, userId]);
+  }, [
+    accessCheckComplete,
+    founderAccess,
+    loading,
+    reviewerAccess,
+    reviewerMode,
+    roleResolved,
+    searchParams,
+    stripQueryParam,
+    userId,
+  ]);
 
   // Deep link used by the profile page, whose deck card and edit affordances
   // live here in the home shell rather than on /profile. Stripping the param
@@ -583,12 +614,17 @@ function HomeContent() {
 
     handledProfileEditQueryRef.current = true;
     setShowProfileEdit(true);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('profileEdit');
-      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
-    }
-  }, [accessCheckComplete, founderAccess, loading, reviewerMode, searchParams, userId, userProfile]);
+    stripQueryParam('profileEdit');
+  }, [
+    accessCheckComplete,
+    founderAccess,
+    loading,
+    reviewerMode,
+    searchParams,
+    stripQueryParam,
+    userId,
+    userProfile,
+  ]);
 
   useEffect(() => {
     if (loading || user) return;
@@ -616,6 +652,7 @@ function HomeContent() {
       setReviewerAccess(false);
       setFounderAccess(false);
       setAccessCheckComplete(true);
+      setRoleResolved(false);
       hasVerifiedAccessOnceRef.current = false;
       setHasVerifiedAccessOnce(false);
       lastAccessCheckAtRef.current = null;
@@ -627,6 +664,7 @@ function HomeContent() {
     let cancelled = false;
 
     const verifyPilotAccess = async () => {
+      let roleResolved = false;
       try {
         // Only the first verification blocks; re-checks run in the background.
         if (!hasVerifiedAccessOnceRef.current) setAccessCheckComplete(false);
@@ -636,6 +674,13 @@ function HomeContent() {
         const canUseFounderMode = reviewerPayload.founderAccess === true;
 
         if (cancelled) return;
+        // "Resolved" means the server gave a DEFINITIVE answer, not a
+        // successful one. 403 is the normal reply for a founder with no
+        // reviewer membership, so treating only `ok` as resolved would leave
+        // every founder unable to open the recorder. Undecided means the
+        // session is invalid (401) or the service failed (5xx/503); a network
+        // throw skips this line entirely and leaves it false.
+        roleResolved = isRoleResolved(reviewerResponse.status);
         setReviewerAccess(isReviewer);
         setFounderAccess(canUseFounderMode);
         // Never switch modes on a background re-check: RecordingStudio renders
@@ -657,10 +702,18 @@ function HomeContent() {
         console.error('Pilot access check failed:', error);
       } finally {
         if (!cancelled) {
+          // Always unblock the UI, even on a failed check — leaving the access
+          // gate up was the roadblock this whole area exists to prevent — and
+          // always mark the first pass done so a background re-check can never
+          // flip modes under an in-progress recording.
           setAccessCheckComplete(true);
           hasVerifiedAccessOnceRef.current = true;
           setHasVerifiedAccessOnce(true);
           lastAccessCheckAtRef.current = Date.now();
+          // Role confidence is tracked separately: on a failed lookup the app
+          // stays usable but must not act as though it knows the user is a
+          // founder, or a reviewer-only account gets the recorder.
+          setRoleResolved(roleResolved);
         }
       }
     };
