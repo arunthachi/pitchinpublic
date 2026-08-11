@@ -228,18 +228,40 @@ test('a reviewer is not offered a Record tab that cannot work', () => {
   assert.match(home, /if \(reviewerMode\) \{\s*handledRecordQueryRef\.current = true;\s*stripQueryParam\('record'\);/);
 });
 
-test('the signed deck URL is never cacheable', () => {
-  const route = read('app/api/startup/deck/view/route.ts');
+test('no deck response is cacheable, including the shared guard responses', () => {
   // A signed URL is a bearer capability; a shared cache must not hand one
-  // founder's URL to another client.
-  assert.match(route, /'Cache-Control': 'private, no-store'/);
-  const responses = (route.match(/NextResponse\.json\(/g) || []).length;
-  const noStore = (route.match(/NO_STORE/g) || []).length - 1; // minus the definition
-  assert.equal(noStore, responses, 'every response on this route must be no-store');
+  // founder's URL to another client. The guard responses (401/403/409/503)
+  // come from deck-owner.ts, so counting only the route file would miss them —
+  // which is exactly what an earlier version of this assertion did.
+  for (const file of ['app/api/startup/deck/view/route.ts', 'lib/deck-owner.ts']) {
+    const source = read(file);
+    assert.match(source, /'Cache-Control': 'private, no-store'/, `${file} defines no no-store header`);
+    const responses = (source.match(/NextResponse\.json\(/g) || []).length;
+    const noStore = (source.match(/NO_STORE/g) || []).length - 1; // minus the definition
+    assert.equal(noStore, responses, `${file}: ${responses} response(s) but ${noStore} marked no-store`);
+  }
+});
+
+test('every deck failure response carries a machine-readable code', () => {
+  for (const file of ['app/api/startup/deck/view/route.ts', 'lib/deck-owner.ts']) {
+    const source = read(file);
+    const failures = (source.match(/success: false/g) || []).length;
+    const codes = (source.match(/code: '[a-z_]+'/g) || []).length;
+    assert.equal(codes, failures, `${file}: ${failures} failure(s) but ${codes} code field(s)`);
+  }
 });
 
 test('a stored deck link is re-validated before it is handed back', () => {
   // Validation runs at write today, but a row predating that rule must not
   // yield a javascript: URL that the opener tab executes in this origin.
   assert.match(read('app/api/startup/deck/view/route.ts'), /validateDeckLink\(deck\.link_url\)/);
+});
+
+test('the recorder deep link waits for this user access to be verified', () => {
+  const home = read('app/page.tsx');
+  // accessCheckComplete is already true while signed out, so completing an OTP
+  // on /?record=1 would otherwise open the studio on the render before the
+  // access effect re-runs — mounting it for a reviewer-only account.
+  assert.match(home, /if \(!hasVerifiedAccessOnce\) return;/);
+  assert.match(home, /hasVerifiedAccessOnce,\s*loading,\s*reviewerMode,/);
 });

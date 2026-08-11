@@ -561,6 +561,12 @@ function HomeContent() {
     }
 
     if (userId) {
+      // `accessCheckComplete` is already true while signed out, so on the
+      // sign-in that completes an OTP on /?record=1 it stays true for the
+      // render before the access effect re-runs. Opening on that render would
+      // mount the studio for a reviewer-only account and then rip it away when
+      // the check resolves. Wait for THIS user to be verified.
+      if (!hasVerifiedAccessOnce) return;
       handledRecordQueryRef.current = true;
       setRecordingStudioOpen(true);
       stripQueryParam('record');
@@ -568,7 +574,15 @@ function HomeContent() {
     }
 
     setSignInModalOpen(true);
-  }, [accessCheckComplete, loading, reviewerMode, searchParams, stripQueryParam, userId]);
+  }, [
+    accessCheckComplete,
+    hasVerifiedAccessOnce,
+    loading,
+    reviewerMode,
+    searchParams,
+    stripQueryParam,
+    userId,
+  ]);
 
   // Deep link used by the profile page, whose deck card and edit affordances
   // live here in the home shell rather than on /profile. Stripping the param
