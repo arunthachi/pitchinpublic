@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
+import { signedUrlsForRows } from '@/lib/video-providers/stream-tokens';
 import { getPromptForDate } from '@/lib/practice';
 import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
@@ -887,8 +888,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Sign playback AFTER RLS has decided which rows come back, so a token is
+    // only ever minted for a video the caller is already allowed to watch.
+    // Phase 1: videos still permit unsigned playback, so a mint failure leaves
+    // the stored URL in place rather than breaking the player.
+    const signedVideoUrls = await signedUrlsForRows((pitches || []) as any[], {
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID || '',
+      apiToken: process.env.CLOUDFLARE_STREAM_API_TOKEN || '',
+    });
+
     const enrichedPitches = (pitches || []).map((pitch: any) => ({
       ...pitch,
+      ...(signedVideoUrls.get(pitch.video_id) ? {
+        video_url: signedVideoUrls.get(pitch.video_id)!.playbackUrl,
+        thumbnail_url: signedVideoUrls.get(pitch.video_id)!.thumbnailUrl,
+      } : {}),
       feedback: (pitch.feedback || []).map((feedback: any) => {
         const vote = Array.isArray(feedback.feedback_quality_votes)
           ? feedback.feedback_quality_votes[0]
