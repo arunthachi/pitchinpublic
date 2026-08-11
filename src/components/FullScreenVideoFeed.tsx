@@ -248,6 +248,11 @@ export function FullScreenVideoFeed({
   const handledSelectionNonceRef = useRef<number | null>(null);
   const feedbackSubmissionKeyRef = useRef<string | null>(null);
   const feedbackPitchRef = useRef<{ id: string; publicId?: string } | null>(null);
+  // The event a composer was opened FROM. Captured at open time, exactly like
+  // feedbackPitchRef: the feed can change scope while the sheet is up, and
+  // reading the live slug at submit would attribute the review to whichever
+  // cohort the feed happens to be showing by then.
+  const feedbackEventSlugRef = useRef<string | null>(null);
   const reviewAssignmentRef = useRef<{
     assignmentId: string;
     publicPitchId: string;
@@ -343,6 +348,7 @@ export function FullScreenVideoFeed({
     setFeedbackListOpen(false);
     setFeedbackType('toast');
     setReviewComplete(false);
+    feedbackEventSlugRef.current = feedEventSlug;
     feedbackPitchRef.current = {
       id: localPitches[requestedIndex].id,
       publicId: localPitches[requestedIndex].publicId,
@@ -695,7 +701,7 @@ export function FullScreenVideoFeed({
           ...buildFeedbackEventScope({
             assignment: reviewAssignmentRef.current,
             pitchPublicId: feedbackPitch.publicId,
-            feedEventSlug: feedEventSlug,
+            feedEventSlug: feedbackEventSlugRef.current,
           }),
         }),
       });
@@ -859,6 +865,7 @@ export function FullScreenVideoFeed({
     feedbackPitchRef.current = currentPitch
       ? { id: currentPitch.id, publicId: currentPitch.publicId }
       : null;
+    feedbackEventSlugRef.current = feedEventSlug;
     reviewAssignmentRef.current = null;
     setAssignedComposePitchId(null);
     feedbackSubmissionKeyRef.current = crypto.randomUUID();

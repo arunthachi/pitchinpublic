@@ -149,3 +149,17 @@ test('the re-created functions are faithful copies plus exactly the intended add
   resolve = resolve.replace(PEER_RESOLVE, '');
   assert.equal(resolve, grab(ORIGINAL, resolveMarker), 'resolve_event_feedback_scope drifted from the original');
 });
+
+test('the composer captures its event at open time, not at submit', () => {
+  const feed = readFileSync(
+    path.join(process.cwd(), 'src/components/FullScreenVideoFeed.tsx'),
+    'utf8',
+  );
+  // Same discipline as feedbackPitchRef: snapshot what the sheet was opened
+  // against, so a scope change underneath it cannot re-target the review.
+  assert.match(feed, /const feedbackEventSlugRef = useRef<string \| null>\(null\);/);
+  assert.match(feed, /feedEventSlug: feedbackEventSlugRef\.current,/);
+  // Both open paths must snapshot it — the peer/open-feed composer and the
+  // assigned-review composer.
+  assert.equal((feed.match(/feedbackEventSlugRef\.current = feedEventSlug;/g) || []).length, 2);
+});

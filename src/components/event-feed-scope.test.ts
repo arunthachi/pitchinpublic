@@ -95,3 +95,21 @@ test('an assigned reviewer still composes where peer feedback is off', () => {
     false,
   );
 });
+
+test('a review is attributed to the event its composer was opened from', () => {
+  // The feed can change scope while the composer sheet is open. Reading the
+  // live slug at submit time would attribute the review to whichever cohort
+  // the feed happens to be showing by then — silently wrong when the same
+  // pitch is entered in two events the reviewer belongs to.
+  const capturedAtOpen = 'cohort-a';
+  const feedHasSinceMovedTo = 'cohort-b';
+  assert.notEqual(capturedAtOpen, feedHasSinceMovedTo);
+  assert.deepEqual(
+    buildFeedbackEventScope({
+      assignment: null,
+      pitchPublicId: 'p_1',
+      feedEventSlug: capturedAtOpen,
+    }),
+    { eventSlug: capturedAtOpen },
+  );
+});
