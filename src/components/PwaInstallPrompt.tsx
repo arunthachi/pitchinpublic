@@ -57,19 +57,48 @@ function getDismissedAt() {
   return timestamp;
 }
 
+/**
+ * Right-edge clearance that keeps this card off the feed's vertical reaction
+ * rail. FullScreenVideoFeed.tsx positions that rail's container
+ * `absolute ... right-2` (0.5rem off the viewport edge, at the `sm:hidden`
+ * width where this prompt can render — the rail only widens to `sm:right-3`
+ * above that breakpoint), and FloatingReactions.tsx's widest buttons (avatar,
+ * roast, toast) are `h-11 w-11` (2.75rem). So the rail's occupied strip
+ * reaches right-2 (0.5rem) + w-11 (2.75rem) = 3.25rem in from the edge.
+ * 3.75rem clears that with 0.5rem of breathing room to spare.
+ *
+ * The class below MUST stay a complete literal. Tailwind scans source text for
+ * whole class names, so composing one with a template placeholder makes it emit
+ * a rule for the raw, uninterpolated text — invalid CSS the browser drops —
+ * while the DOM carries a class with no rule behind it. The element then loses
+ * the property entirely, which is worse than not having made the change.
+ * A repo-wide guard for this lives in app-shell-continuity.test.ts.
+ */
+const RAIL_CLEARANCE_CLASS = 'right-[calc(3.75rem+env(safe-area-inset-right))]';
+
+/**
+ * Pure so the collision-avoidance math is unit-testable without rendering.
+ * Only `bottom` differs between dock modes; `left`/`right` (and therefore the
+ * rail clearance) apply identically either way, since the rail collision does
+ * not depend on whether the card sits above the bottom nav.
+ */
+export function getPwaPromptPositionClasses(dockToBottomNav: boolean) {
+  return {
+    left: 'left-[max(1rem,env(safe-area-inset-left))]',
+    right: RAIL_CLEARANCE_CLASS,
+    bottom: dockToBottomNav
+      ? 'bottom-[calc(5.25rem+env(safe-area-inset-bottom))]'
+      : 'bottom-[max(1rem,env(safe-area-inset-bottom))]',
+  };
+}
+
 export function PwaInstallPrompt({ dockToBottomNav = false, hidden = false }: PwaInstallPromptProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [isIos, setIsIos] = useState(false);
   const [ready, setReady] = useState(false);
 
-  const bottomOffsetClass = useMemo(
-    () =>
-      dockToBottomNav
-        ? 'bottom-[calc(5.25rem+env(safe-area-inset-bottom))]'
-        : 'bottom-[max(1rem,env(safe-area-inset-bottom))]',
-    [dockToBottomNav]
-  );
+  const positionClasses = useMemo(() => getPwaPromptPositionClasses(dockToBottomNav), [dockToBottomNav]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -137,7 +166,7 @@ export function PwaInstallPrompt({ dockToBottomNav = false, hidden = false }: Pw
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 16 }}
           transition={{ duration: 0.22 }}
-          className={`fixed left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] ${bottomOffsetClass} z-[90] mx-auto max-w-md sm:hidden`}
+          className={`fixed ${positionClasses.left} ${positionClasses.right} ${positionClasses.bottom} z-[90] mx-auto max-w-md sm:hidden`}
         >
           <div className="glass-panel rounded-[1.75rem] border-white/15 p-4 shadow-[0_24px_72px_rgba(0,0,0,0.45)]">
             <div className="flex items-start gap-3">

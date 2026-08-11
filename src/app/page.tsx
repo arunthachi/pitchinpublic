@@ -117,6 +117,10 @@ function HomeContent() {
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
+  // Set when the edit modal is opened via the ?profileEdit=1 deep link so it
+  // can land on the deck field instead of the top of the form. Cleared on
+  // close so a later "Edit profile" open from the account menu starts fresh.
+  const [profileEditScrollToDeck, setProfileEditScrollToDeck] = useState(false);
   const [showDailyChallenge, setShowDailyChallenge] = useState(false);
   const [showPitchGoal, setShowPitchGoal] = useState(false);
   const [eventRibbon, setEventRibbon] = useState<RibbonModel>(null);
@@ -622,6 +626,7 @@ function HomeContent() {
     }
 
     handledProfileEditQueryRef.current = true;
+    setProfileEditScrollToDeck(true);
     setShowProfileEdit(true);
     stripQueryParam('profileEdit');
   }, [
@@ -1330,9 +1335,11 @@ function HomeContent() {
           currentWebsite={fullProfile?.website || undefined}
           currentTwitter={fullProfile?.twitter_handle || undefined}
           currentLinkedin={fullProfile?.linkedin_url || undefined}
+          scrollToDeck={profileEditScrollToDeck}
           onComplete={() => {
             // Close the modal
             setShowProfileEdit(false);
+            setProfileEditScrollToDeck(false);
 
             // Refresh profile data after edit (for UI updates)
             const fetchUpdatedProfile = async () => {

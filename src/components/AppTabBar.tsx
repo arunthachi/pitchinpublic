@@ -3,15 +3,27 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Calendar, User, Video } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   APP_MODE_KEY,
   APP_TAB_BAR_TABS,
   navBadgeLabel,
   type AppTabKey,
 } from '@/lib/app-navigation';
+import {
+  getBrowserInvitationsStorage,
+  hasPendingInvitations,
+  readCachedInvitationsBadge,
+  writeCachedInvitationsBadge,
+} from '@/lib/pending-invitations';
 
 type AppTabBarProps = {
   active?: AppTabKey;
+  /**
+   * Explicit override. When omitted, the bar sources the flag itself from
+   * `/api/events` (see the effect below) so every routed page gets the
+   * invitation dot without having to fetch and thread it through as a prop.
+   */
   eventsBadge?: boolean;
 };
 
@@ -27,7 +39,7 @@ const ICONS = {
  * without this the app shell vanished on /events and every action page read as
  * a detached browser page rather than a tab of the app.
  */
-export default function AppTabBar({ active, eventsBadge = false }: AppTabBarProps) {
+export default function AppTabBar({ active, eventsBadge }: AppTabBarProps) {
   // The home screen hides its equivalent bar entirely in reviewer mode. A judge
   // offered a Record tab hits a dead end: the ?record=1 handler short-circuits
   // on reviewer mode, so the studio never opens. Read the same persisted mode
@@ -46,6 +58,49 @@ export default function AppTabBar({ active, eventsBadge = false }: AppTabBarProp
   const tabs = reviewerMode
     ? APP_TAB_BAR_TABS.filter((tab) => tab.key !== 'record')
     : APP_TAB_BAR_TABS;
+
+  // `eventsBadge` left unset (as every current caller leaves it) means "source
+  // it yourself". Passing it — true or false — overrides the sourced value, so
+  // a future caller that already has the answer can skip this fetch entirely.
+  const hasBadgeOverride = eventsBadge !== undefined;
+  const [sourcedEventsBadge, setSourcedEventsBadge] = useState(false);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
+  useEffect(() => {
+    if (hasBadgeOverride) return;
+    if (!userId) {
+      // Signed out (or session not yet restored): no invitations to show,
+      // and no request worth making.
+      setSourcedEventsBadge(false);
+      return;
+    }
+
+    const now = Date.now();
+    const storage = getBrowserInvitationsStorage();
+    const cached = storage ? readCachedInvitationsBadge(storage, userId, now) : null;
+    if (cached !== null) {
+      setSourcedEventsBadge(cached);
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch('/api/events', { signal: controller.signal })
+      .then((response) => response.json())
+      .then((data) => {
+        const value = hasPendingInvitations(data);
+        if (storage) writeCachedInvitationsBadge(storage, userId, value, Date.now());
+        setSourcedEventsBadge(value);
+      })
+      .catch(() => {
+        // Aborted unmount, signed-out response, or a network failure: leave
+        // the badge off rather than surface an error on chrome this small.
+      });
+
+    return () => controller.abort();
+  }, [hasBadgeOverride, userId]);
+
+  const eventsTabBadge = hasBadgeOverride ? Boolean(eventsBadge) : sourcedEventsBadge;
 
   return (
     <nav
@@ -78,7 +133,7 @@ export default function AppTabBar({ active, eventsBadge = false }: AppTabBarProp
 
           const Icon = ICONS[tab.key];
           const isActive = active === tab.key;
-          const showBadge = tab.key === 'events' && eventsBadge;
+          const showBadge = tab.key === 'events' && eventsTabBadge;
 
           return (
             <Link

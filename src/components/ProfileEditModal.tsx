@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, Check, Edit3, Building2 } from 'lucide-react';
@@ -17,6 +17,8 @@ interface ProfileEditModalProps {
   currentTwitter?: string;
   currentLinkedin?: string;
   onComplete: () => void;
+  /** Deep-linked open (ProfileDeckCard's "Add pitch deck"/"Replace" button): land on the deck field instead of the top of the form. */
+  scrollToDeck?: boolean;
 }
 
 interface StartupSnapshot {
@@ -46,6 +48,7 @@ export function ProfileEditModal({
   currentTwitter,
   currentLinkedin,
   onComplete,
+  scrollToDeck,
 }: ProfileEditModalProps) {
   const [fullName, setFullName] = useState(currentFullName || '');
   const [bio, setBio] = useState(currentBio || '');
@@ -63,6 +66,10 @@ export function ProfileEditModal({
   const [error, setError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
   const supabase = useMemo(() => createClient(), []);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const deckSectionRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const scrolledToDeckRef = useRef(false);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -133,6 +140,80 @@ export function ProfileEditModal({
       cancelled = true;
     };
   }, [isOpen, user, supabase]);
+
+  // Move focus into the dialog on open and give it back to whatever
+  // triggered it on close, mirroring ActionPageNav's account-menu pattern.
+  useEffect(() => {
+    if (isOpen) {
+      previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+      const frame = window.requestAnimationFrame(() => {
+        // Deep-linked opens focus the deck section directly (see the scroll
+        // effect below); a normal open focuses the dialog itself.
+        if (!scrollToDeck) dialogRef.current?.focus();
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const trigger = previouslyFocusedRef.current;
+    if (trigger) window.requestAnimationFrame(() => trigger.focus());
+  }, [isOpen, scrollToDeck]);
+
+  // Escape-to-close plus a Tab/Shift+Tab focus trap while the dialog is open.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (loading) return; // mirror the Cancel button: don't interrupt an in-flight save
+        event.preventDefault();
+        onComplete();
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      const focusable = dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, loading, onComplete]);
+
+  // Land deep-linked opens (?profileEdit=1 from ProfileDeckCard) on the deck
+  // field instead of the top of a long form. Wait for the startup fetch to
+  // settle first — the deck section isn't mounted until it does.
+  useEffect(() => {
+    if (!isOpen) {
+      scrolledToDeckRef.current = false;
+      return;
+    }
+    if (!scrollToDeck || startupLoading || scrolledToDeckRef.current) return;
+    scrolledToDeckRef.current = true;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = deckSectionRef.current;
+      if (!target) return;
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      target.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, scrollToDeck, startupLoading]);
 
   if (!user) return null;
 
@@ -282,7 +363,14 @@ export function ProfileEditModal({
               className="relative my-auto w-full max-w-2xl"
             >
               {/* Glass morphism card */}
-              <div className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-900/95 to-slate-950/95 shadow-2xl backdrop-blur-xl [scrollbar-width:thin] sm:max-h-[calc(100dvh-3rem)]">
+              <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="profile-edit-modal-title"
+                tabIndex={-1}
+                className="relative max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl border border-slate-700/50 bg-gradient-to-br from-slate-900/95 to-slate-950/95 shadow-2xl backdrop-blur-xl outline-none [scrollbar-width:thin] sm:max-h-[calc(100dvh-3rem)]"
+              >
                 {/* Gradient accent */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-neon-cyan via-neon-lime to-neon-cyan" />
 
@@ -300,7 +388,7 @@ export function ProfileEditModal({
                         >
                           <Edit3 className="h-7 w-7 text-slate-900 sm:h-8 sm:w-8" />
                         </motion.div>
-                        <h2 className="mt-4 font-heading text-2xl font-bold text-white sm:text-3xl">
+                        <h2 id="profile-edit-modal-title" className="mt-4 font-heading text-2xl font-bold text-white sm:text-3xl">
                           Edit Profile
                         </h2>
                         <p className="mt-2 text-sm text-slate-400">
@@ -416,7 +504,13 @@ export function ProfileEditModal({
                                 </div>
                               </div>
 
-                              <DeckManager disabled={loading} />
+                              <div
+                                ref={deckSectionRef}
+                                tabIndex={-1}
+                                className="rounded-2xl outline-none focus:ring-2 focus:ring-neon-cyan/50"
+                              >
+                                <DeckManager disabled={loading} />
+                              </div>
                             </div>
                           )}
                         </section>
@@ -578,7 +672,7 @@ export function ProfileEditModal({
                         <Check className="w-10 h-10 text-slate-900" />
                       </motion.div>
 
-                      <h3 className="text-2xl font-bold text-white font-heading mb-2">
+                      <h3 id="profile-edit-modal-title" className="text-2xl font-bold text-white font-heading mb-2">
                         Profile Updated!
                       </h3>
 
