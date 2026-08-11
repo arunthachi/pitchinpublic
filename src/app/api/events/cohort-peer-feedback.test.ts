@@ -81,3 +81,71 @@ test('both authorization surfaces gained the peer branch', () => {
   assert.match(MIGRATION, /CREATE OR REPLACE FUNCTION public\.resolve_event_feedback_scope/);
   assert.equal((MIGRATION.match(/peer_feedback_enabled/g) || []).length >= 4, true);
 });
+
+test('the re-created functions are faithful copies plus exactly the intended additions', () => {
+  // This migration re-creates two SECURITY DEFINER functions by copying their
+  // bodies and splicing in one branch. A clause dropped in that copy would
+  // silently delete a security check, so strip the intended additions back out
+  // and require byte equality with the originals.
+  const ORIGINAL = readFileSync(
+    path.join(process.cwd(), 'supabase/migrations/20260805170000_scope_event_feedback_submission.sql'),
+    'utf8',
+  );
+
+  const grab = (src: string, marker: string) => {
+    const i = src.indexOf(marker);
+    assert.notEqual(i, -1, `missing ${marker}`);
+    return src.slice(i, src.indexOf('\n$$;', i) + 4);
+  };
+
+  const PEER_SUBMIT = `    OR EXISTS (
+      SELECT 1
+      FROM public.pitch_events AS peer_event
+      JOIN public.pitch_event_participants AS peer_participant
+        ON peer_participant.event_id = peer_event.id
+       AND peer_participant.user_id = caller_id
+       AND peer_participant.status = 'active'
+      WHERE peer_event.id = target_event_id
+        AND peer_event.peer_feedback_enabled
+        AND peer_event.status <> 'archived'
+    )\n`;
+
+  const PEER_RESOLVE = `      OR EXISTS (
+        SELECT 1
+        FROM public.pitch_event_participants AS peer_participant
+        WHERE peer_participant.event_id = event.id
+          AND peer_participant.user_id = auth.uid()
+          AND peer_participant.status = 'active'
+          AND event.peer_feedback_enabled
+          AND event.status <> 'archived'
+      )\n`;
+
+  const REASON_NEW = `      CASE
+        WHEN EXISTS (
+          SELECT 1
+          FROM public.pitch_events AS team_event
+          WHERE team_event.id = target_event_id
+            AND team_event.organizer_id = caller_id
+        ) OR EXISTS (
+          SELECT 1
+          FROM public.pitch_event_participants AS team_participant
+          WHERE team_participant.event_id = target_event_id
+            AND team_participant.user_id = caller_id
+            AND team_participant.status = 'active'
+            AND team_participant.role IN ('organizer', 'admin', 'coach', 'mentor', 'judge')
+        ) THEN 'event_team_feedback'
+        ELSE 'cohort_peer_feedback'
+      END,`;
+
+  const submitMarker = 'CREATE OR REPLACE FUNCTION public.submit_event_pitch_feedback(';
+  let submit = grab(MIGRATION, submitMarker);
+  assert.ok(submit.includes(PEER_SUBMIT), 'peer branch missing from the write path');
+  submit = submit.replace(PEER_SUBMIT, '').replace(REASON_NEW, `      'event_team_feedback',`);
+  assert.equal(submit, grab(ORIGINAL, submitMarker), 'submit_event_pitch_feedback drifted from the original');
+
+  const resolveMarker = 'CREATE OR REPLACE FUNCTION public.resolve_event_feedback_scope(';
+  let resolve = grab(MIGRATION, resolveMarker);
+  assert.ok(resolve.includes(PEER_RESOLVE), 'peer branch missing from the pre-check');
+  resolve = resolve.replace(PEER_RESOLVE, '');
+  assert.equal(resolve, grab(ORIGINAL, resolveMarker), 'resolve_event_feedback_scope drifted from the original');
+});
