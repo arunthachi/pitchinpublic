@@ -326,7 +326,15 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       const qualitySummary = Array.isArray(qualitySummaryRows) ? qualitySummaryRows[0] : qualitySummaryRows;
 
       const submittedPitchIds = new Set((submissionRows || []).map((row: any) => row.pitch_id).filter(Boolean));
-      const completedAssignments = (assignmentRows || []).filter((row: any) => row.status === 'submitted');
+      // Coverage measures the ORGANIZER'S review programme. Peer feedback is a
+      // welcome extra, but counting it here would let cohort chatter satisfy a
+      // "3 reviews per pitch" target and stop an organizer chasing their
+      // judges. Reported separately below instead.
+      const isPeerReview = (row: any) => row.assignment_reason === 'cohort_peer_feedback';
+      const programmeAssignments = (assignmentRows || []).filter((row: any) => !isPeerReview(row));
+      const peerAssignments = (assignmentRows || []).filter(isPeerReview);
+      const completedAssignments = programmeAssignments.filter((row: any) => row.status === 'submitted');
+      const completedPeerReviews = peerAssignments.filter((row: any) => row.status === 'submitted');
       const pitchesWithFeedback = new Set(completedAssignments.map((row: any) => row.pitch_id));
       const firstReviewMinutes = (submissionRows || []).flatMap((row: any) => {
         const submittedAt = new Date(row.submitted_at || 0).getTime();
@@ -342,14 +350,16 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
 
       reviewCoverage = {
         pitchesSubmitted: submittedPitchIds.size,
-        reviewsAssigned: (assignmentRows || []).length,
+        reviewsAssigned: programmeAssignments.length,
         reviewsCompleted: completedAssignments.length,
         usefulReviews: Number(qualitySummary?.useful_reviews || 0),
         pitchesWithFeedback: pitchesWithFeedback.size,
         pitchesWithoutFeedback: Math.max(0, submittedPitchIds.size - pitchesWithFeedback.size),
         foundersWithoutUsefulFeedback: Math.max(0, submittedPitchIds.size - Number(qualitySummary?.pitches_with_useful_feedback || 0)),
-        completionRate: (assignmentRows || []).length
-          ? Math.round((completedAssignments.length / (assignmentRows || []).length) * 100)
+        peerReviewsCompleted: completedPeerReviews.length,
+        pitchesWithPeerFeedback: new Set(completedPeerReviews.map((row: any) => row.pitch_id)).size,
+        completionRate: programmeAssignments.length
+          ? Math.round((completedAssignments.length / programmeAssignments.length) * 100)
           : 0,
         averageTimeToFirstReviewMinutes: firstReviewMinutes.length
           ? Math.round(firstReviewMinutes.reduce((sum: number, value: number) => sum + value, 0) / firstReviewMinutes.length)
