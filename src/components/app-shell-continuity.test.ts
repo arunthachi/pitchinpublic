@@ -142,7 +142,7 @@ test('signing out cannot leave a verified-access ref behind', () => {
   }
   assert.match(
     home,
-    /finally \{\s*if \(!cancelled\) \{\s*setAccessCheckComplete\(true\);\s*hasVerifiedAccessOnceRef\.current = true;/,
+    /finally \{[\s\S]{0,400}?if \(!cancelled\) \{[\s\S]{0,400}?setAccessCheckComplete\(true\);\s*hasVerifiedAccessOnceRef\.current = true;/,
     'the verifier must gate its completion writes on the cancelled flag',
   );
 });
@@ -257,11 +257,24 @@ test('a stored deck link is re-validated before it is handed back', () => {
   assert.match(read('app/api/startup/deck/view/route.ts'), /validateDeckLink\(deck\.link_url\)/);
 });
 
-test('the recorder deep link waits for this user access to be verified', () => {
+test('the recorder deep link waits until the server has stated the role', () => {
   const home = read('app/page.tsx');
   // accessCheckComplete is already true while signed out, so completing an OTP
   // on /?record=1 would otherwise open the studio on the render before the
-  // access effect re-runs — mounting it for a reviewer-only account.
-  assert.match(home, /if \(!hasVerifiedAccessOnce\) return;/);
-  assert.match(home, /hasVerifiedAccessOnce,\s*loading,\s*reviewerMode,/);
+  // access effect re-runs. And "a check ran" is not the same as "the role is
+  // known": a failed lookup still completes the check, so gating on that alone
+  // hands the recorder to a reviewer-only account whenever the network blips.
+  assert.match(home, /if \(!roleResolved\) return;/);
+  assert.match(home, /roleResolved = reviewerResponse\.ok;/);
+  assert.match(home, /roleResolved, searchParams/);
+});
+
+test('role confidence resets on sign-out and never blocks the UI', () => {
+  const home = read('app/page.tsx');
+  // The reset branch must clear it, or the next account inherits the last
+  // account's role confidence.
+  assert.match(home, /setAccessCheckComplete\(true\);\s*setRoleResolved\(false\);/);
+  // A failed check must still complete: leaving the access gate up is the
+  // roadblock this area exists to prevent.
+  assert.match(home, /setAccessCheckComplete\(true\);\s*hasVerifiedAccessOnceRef\.current = true;/);
 });

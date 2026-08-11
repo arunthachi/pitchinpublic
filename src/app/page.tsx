@@ -130,6 +130,10 @@ function HomeContent() {
   // the app: a re-mount mid-recording or mid-upload loses the take.
   const hasVerifiedAccessOnceRef = useRef(false);
   const [hasVerifiedAccessOnce, setHasVerifiedAccessOnce] = useState(false);
+  // Distinct from hasVerifiedAccessOnce: that records "a check has run",
+  // this records "the server told us the role". A network failure gives the
+  // first without the second.
+  const [roleResolved, setRoleResolved] = useState(false);
   const [desktopFeed, setDesktopFeed] = useState<boolean | null>(null);
   const [practiceToday, setPracticeToday] = useState<PracticeToday>(() => {
     const prompt = getPromptForDate();
@@ -566,7 +570,7 @@ function HomeContent() {
       // render before the access effect re-runs. Opening on that render would
       // mount the studio for a reviewer-only account and then rip it away when
       // the check resolves. Wait for THIS user to be verified.
-      if (!hasVerifiedAccessOnce) return;
+      if (!roleResolved) return;
       handledRecordQueryRef.current = true;
       setRecordingStudioOpen(true);
       stripQueryParam('record');
@@ -574,15 +578,7 @@ function HomeContent() {
     }
 
     setSignInModalOpen(true);
-  }, [
-    accessCheckComplete,
-    hasVerifiedAccessOnce,
-    loading,
-    reviewerMode,
-    searchParams,
-    stripQueryParam,
-    userId,
-  ]);
+  }, [accessCheckComplete, loading, reviewerMode, roleResolved, searchParams, stripQueryParam, userId]);
 
   // Deep link used by the profile page, whose deck card and edit affordances
   // live here in the home shell rather than on /profile. Stripping the param
@@ -647,6 +643,7 @@ function HomeContent() {
       setReviewerAccess(false);
       setFounderAccess(false);
       setAccessCheckComplete(true);
+      setRoleResolved(false);
       hasVerifiedAccessOnceRef.current = false;
       setHasVerifiedAccessOnce(false);
       lastAccessCheckAtRef.current = null;
@@ -658,6 +655,7 @@ function HomeContent() {
     let cancelled = false;
 
     const verifyPilotAccess = async () => {
+      let roleResolved = false;
       try {
         // Only the first verification blocks; re-checks run in the background.
         if (!hasVerifiedAccessOnceRef.current) setAccessCheckComplete(false);
@@ -667,6 +665,8 @@ function HomeContent() {
         const canUseFounderMode = reviewerPayload.founderAccess === true;
 
         if (cancelled) return;
+        // The role is now known from the server, not merely assumed.
+        roleResolved = reviewerResponse.ok;
         setReviewerAccess(isReviewer);
         setFounderAccess(canUseFounderMode);
         // Never switch modes on a background re-check: RecordingStudio renders
@@ -688,10 +688,18 @@ function HomeContent() {
         console.error('Pilot access check failed:', error);
       } finally {
         if (!cancelled) {
+          // Always unblock the UI, even on a failed check — leaving the access
+          // gate up was the roadblock this whole area exists to prevent — and
+          // always mark the first pass done so a background re-check can never
+          // flip modes under an in-progress recording.
           setAccessCheckComplete(true);
           hasVerifiedAccessOnceRef.current = true;
           setHasVerifiedAccessOnce(true);
           lastAccessCheckAtRef.current = Date.now();
+          // Role confidence is tracked separately: on a failed lookup the app
+          // stays usable but must not act as though it knows the user is a
+          // founder, or a reviewer-only account gets the recorder.
+          setRoleResolved(roleResolved);
         }
       }
     };
