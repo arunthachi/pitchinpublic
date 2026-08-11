@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { accessCheckKey, isRoleResolved, shouldShowAccessGate } from './access-gate';
+import {
+  accessCheckKey,
+  canOpenRecorder,
+  isRoleResolved,
+  shouldShowAccessGate,
+} from './access-gate';
 
 const base = {
   loading: false,
@@ -127,5 +132,42 @@ test('every status the reviewer route can return is classified', () => {
   assert.deepEqual(
     [200, 401, 403, 500, 503].map(isRoleResolved),
     [true, false, true, false, false],
+  );
+});
+
+test('a founder can open the recorder from a deep link', () => {
+  assert.equal(
+    canOpenRecorder({ roleResolved: true, reviewerAccess: false, founderAccess: true, reviewerMode: false }),
+    true,
+  );
+});
+
+test('a reviewer-only account cannot, even when the mode flag says founder', () => {
+  // reviewerMode legitimately reads false here: if the first access check
+  // 5xx'd, mode is never adopted from the later background re-check, because
+  // flipping it would unmount an in-progress recording. Entitlement therefore
+  // has to come from the role data, not the display flag.
+  assert.equal(
+    canOpenRecorder({ roleResolved: true, reviewerAccess: true, founderAccess: false, reviewerMode: false }),
+    false,
+  );
+});
+
+test('a dual-role user reading as a founder may record', () => {
+  assert.equal(
+    canOpenRecorder({ roleResolved: true, reviewerAccess: true, founderAccess: true, reviewerMode: false }),
+    true,
+  );
+  // ...but not while actually in reviewer mode, where the studio does not render.
+  assert.equal(
+    canOpenRecorder({ roleResolved: true, reviewerAccess: true, founderAccess: true, reviewerMode: true }),
+    false,
+  );
+});
+
+test('an unresolved role never opens the recorder', () => {
+  assert.equal(
+    canOpenRecorder({ roleResolved: false, reviewerAccess: false, founderAccess: true, reviewerMode: false }),
+    false,
   );
 });

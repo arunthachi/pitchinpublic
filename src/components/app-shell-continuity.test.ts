@@ -225,7 +225,8 @@ test('a reviewer is not offered a Record tab that cannot work', () => {
   // And the handler must consume a stuck ?record=1 rather than leave it armed
   // to fire when the same session later switches to founder mode.
   const home = read('app/page.tsx');
-  assert.match(home, /if \(reviewerMode\) \{\s*handledRecordQueryRef\.current = true;\s*stripQueryParam\('record'\);/);
+  assert.match(home, /if \(!canOpenRecorder\(\{ roleResolved, reviewerAccess, founderAccess, reviewerMode \}\)\) \{/);
+  assert.match(home, /handledRecordQueryRef\.current = true;\s*stripQueryParam\('record'\);/);
 });
 
 test('no deck response is cacheable, including the shared guard responses', () => {
@@ -266,7 +267,7 @@ test('the recorder deep link waits until the server has stated the role', () => 
   // hands the recorder to a reviewer-only account whenever the network blips.
   assert.match(home, /if \(!roleResolved\) return;/);
   assert.match(home, /roleResolved = isRoleResolved\(reviewerResponse\.status\);/);
-  assert.match(home, /roleResolved, searchParams/);
+  assert.match(home, /roleResolved,\s*searchParams,/);
 });
 
 test('role confidence resets on sign-out and never blocks the UI', () => {

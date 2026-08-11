@@ -21,6 +21,7 @@ import { pickRibbon, type RibbonModel } from '@/lib/event-orientation';
 import {
   ACCESS_REVERIFY_INTERVAL_MS,
   accessCheckKey,
+  canOpenRecorder,
   isRoleResolved,
   shouldAdoptReviewerMode,
   shouldReverifyAccess,
@@ -556,22 +557,19 @@ function HomeContent() {
     if (loading || !accessCheckComplete || searchParams.get('record') !== '1') return;
     if (handledRecordQueryRef.current) return;
 
-    // A reviewer cannot open the studio, so consume the param instead of
-    // leaving it armed — otherwise switching to founder mode later in the same
-    // session pops the recorder open unprompted.
-    if (reviewerMode) {
-      handledRecordQueryRef.current = true;
-      stripQueryParam('record');
-      return;
-    }
-
     if (userId) {
       // `accessCheckComplete` is already true while signed out, so on the
       // sign-in that completes an OTP on /?record=1 it stays true for the
       // render before the access effect re-runs. Opening on that render would
-      // mount the studio for a reviewer-only account and then rip it away when
-      // the check resolves. Wait for THIS user to be verified.
+      // mount the studio for an account whose role is not yet known.
       if (!roleResolved) return;
+      // Not entitled: consume the param rather than leave it armed, or a
+      // later switch to founder mode pops the recorder open unprompted.
+      if (!canOpenRecorder({ roleResolved, reviewerAccess, founderAccess, reviewerMode })) {
+        handledRecordQueryRef.current = true;
+        stripQueryParam('record');
+        return;
+      }
       handledRecordQueryRef.current = true;
       setRecordingStudioOpen(true);
       stripQueryParam('record');
@@ -579,7 +577,17 @@ function HomeContent() {
     }
 
     setSignInModalOpen(true);
-  }, [accessCheckComplete, loading, reviewerMode, roleResolved, searchParams, stripQueryParam, userId]);
+  }, [
+    accessCheckComplete,
+    founderAccess,
+    loading,
+    reviewerAccess,
+    reviewerMode,
+    roleResolved,
+    searchParams,
+    stripQueryParam,
+    userId,
+  ]);
 
   // Deep link used by the profile page, whose deck card and edit affordances
   // live here in the home shell rather than on /profile. Stripping the param

@@ -82,3 +82,30 @@ export function isRoleResolved(status: number) {
   if (status === 401) return false;
   return status < 500;
 }
+
+export type RecorderAccessInput = {
+  /** The server has given a definitive answer about the caller's role. */
+  roleResolved: boolean;
+  /** Caller holds trusted-reviewer membership. */
+  reviewerAccess: boolean;
+  /** Caller may also act as a founder. */
+  founderAccess: boolean;
+  /** Current display mode. */
+  reviewerMode: boolean;
+};
+
+/**
+ * May a `?record=1` deep link open the recording studio?
+ *
+ * Decided from role DATA rather than the display flag alone. `reviewerMode` can
+ * legitimately read false for a reviewer-only account — the first check may
+ * have 5xx'd, and mode is deliberately never adopted from a later background
+ * re-check, because flipping it would unmount an in-progress recording. So the
+ * mode flag is a display concern; entitlement is the reviewer/founder pair.
+ */
+export function canOpenRecorder(input: RecorderAccessInput) {
+  if (!input.roleResolved) return false;
+  if (input.reviewerMode) return false;
+  if (input.reviewerAccess && !input.founderAccess) return false;
+  return true;
+}
