@@ -641,7 +641,7 @@ export default function AdminPage() {
           <div>
             <p className="font-heading text-xs font-black uppercase tracking-[0.22em] text-neon-cyan">Platform control</p>
             <h1 className="mt-2 font-heading text-4xl font-black sm:text-5xl">Super admin dashboard</h1>
-            <p className="mt-2 text-slate-400">Founder access, organizer invites, and pitch-room visibility.</p>
+            <p className="mt-2 text-slate-400">Founder access, organizer invites, and event visibility.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button onClick={loadOverview} className="btn-glass inline-flex items-center gap-2 rounded-full px-4 py-3 font-heading font-bold">

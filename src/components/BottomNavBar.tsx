@@ -2,6 +2,7 @@
 
 import { Calendar, Trophy, User, Video } from 'lucide-react';
 import { useState } from 'react';
+import { navBadgeLabel } from '@/lib/app-navigation';
 
 interface BottomNavBarProps {
   onCreateClick: () => void;
@@ -44,7 +45,7 @@ export default function BottomNavBar({ onCreateClick, onProfileClick, onChalleng
           }}
           className="flex min-h-11 min-w-11 flex-col items-center gap-1 rounded-xl px-2 py-1 focus-visible:ring-2 focus-visible:ring-neon-cyan"
           aria-current={activeTab === 'events' ? 'page' : undefined}
-          aria-label="Events"
+          aria-label={navBadgeLabel('Events', eventsBadge)}
         >
           <span className="relative">
             <Calendar

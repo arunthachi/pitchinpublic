@@ -25,6 +25,7 @@ import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-m
 import { FeedbackQualityControls } from '@/components/FeedbackQualityControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActionPageNav } from '@/components/ActionPageNav';
+import AppTabBar from '@/components/AppTabBar';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 import { VideoPlayer } from '@/components/VideoPlayer';
 
@@ -198,6 +199,7 @@ function PitchDetailContent() {
     return (
       <div className="min-h-dvh bg-black">
         <ActionPageNav links={[destination('feed')]} ariaLabel="Pitch navigation" />
+        <AppTabBar />
         <div className="flex min-h-[calc(100dvh-68px)] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-neon-cyan border-t-transparent" />
         </div>
@@ -209,6 +211,7 @@ function PitchDetailContent() {
     return (
       <div className="min-h-dvh">
         <ActionPageNav links={[destination('feed')]} ariaLabel="Pitch navigation" />
+        {user ? <AppTabBar /> : null}
         <div className="flex min-h-[calc(100dvh-68px)] items-center justify-center px-4 text-center">
           <h1 className="text-2xl font-heading font-bold text-slate-100 mb-2">
             Pitch Not Found
@@ -254,7 +257,8 @@ function PitchDetailContent() {
   };
 
   return (
-    <div className="min-h-dvh pb-12">
+    <div className={`min-h-dvh ${user ? 'pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-12' : 'pb-12'}`}>
+      {user ? <AppTabBar /> : null}
       <ActionPageNav
         links={dashboardHref
           ? [eventDashboardDestination(eventSlug as string), destination('feed')]

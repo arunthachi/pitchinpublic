@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { createRequestSupabase, createServiceSupabase } from '@/lib/admin';
-import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { requireDeckOwnerContext } from '@/lib/deck-owner';
 import {
   DECK_BUCKET,
   deckConfirmSchema,
@@ -12,75 +11,6 @@ import {
 } from '@/lib/pitch-deck';
 import { rateLimit, getClientIp, RATE_LIMITS } from '@/lib/ratelimit';
 
-type OwnerContext = {
-  user: User;
-  serviceSupabase: SupabaseClient;
-  companyId: string;
-};
-
-async function requireOwnerContext(
-  request: NextRequest
-): Promise<{ ok: true; context: OwnerContext } | { ok: false; response: NextResponse }> {
-  const supabase = createRequestSupabase(request);
-  const serviceSupabase = createServiceSupabase();
-  if (!supabase || !serviceSupabase) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, error: 'Decks are not configured in this environment.' },
-        { status: 503 }
-      ),
-    };
-  }
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return {
-      ok: false,
-      response: NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 }),
-    };
-  }
-  if (!(await isUserAllowedForPilot(user))) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, error: INVITE_ONLY_MESSAGE, code: 'invite_required' },
-        { status: 403 }
-      ),
-    };
-  }
-
-  const { data: company, error: companyError } = await serviceSupabase
-    .from('companies')
-    .select('id')
-    .eq('founder_id', user.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (companyError) {
-    console.error('Deck company lookup failed:', companyError);
-    return {
-      ok: false,
-      response: NextResponse.json({ success: false, error: 'Could not load your startup.' }, { status: 500 }),
-    };
-  }
-  if (!company) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, error: 'Set up your startup profile before adding a deck.' },
-        { status: 409 }
-      ),
-    };
-  }
-
-  return { ok: true, context: { user, serviceSupabase, companyId: company.id } };
-}
 
 async function removeStoredObject(serviceSupabase: SupabaseClient, storagePath?: string | null) {
   if (!storagePath) return;
@@ -90,7 +20,7 @@ async function removeStoredObject(serviceSupabase: SupabaseClient, storagePath?:
 
 /** GET /api/startup/deck — the caller's own deck summary. */
 export async function GET(request: NextRequest) {
-  const owner = await requireOwnerContext(request);
+  const owner = await requireDeckOwnerContext(request);
   if (!owner.ok) return owner.response;
   const { serviceSupabase, companyId } = owner.context;
 
@@ -114,7 +44,7 @@ export async function GET(request: NextRequest) {
  * any previous deck and cleans up the superseded stored object.
  */
 export async function POST(request: NextRequest) {
-  const owner = await requireOwnerContext(request);
+  const owner = await requireDeckOwnerContext(request);
   if (!owner.ok) return owner.response;
   const { user, serviceSupabase, companyId } = owner.context;
 
@@ -235,7 +165,7 @@ export async function POST(request: NextRequest) {
 
 /** DELETE /api/startup/deck — remove the deck and its stored object. */
 export async function DELETE(request: NextRequest) {
-  const owner = await requireOwnerContext(request);
+  const owner = await requireDeckOwnerContext(request);
   if (!owner.ok) return owner.response;
   const { user, serviceSupabase, companyId } = owner.context;
 

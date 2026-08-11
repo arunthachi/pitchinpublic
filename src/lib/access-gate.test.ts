@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { accessCheckKey, shouldShowAccessGate } from './access-gate';
+import {
+  accessCheckKey,
+  canOpenRecorder,
+  isRoleResolved,
+  shouldShowAccessGate,
+} from './access-gate';
 
 const base = {
   loading: false,
@@ -102,5 +107,67 @@ test('reviewer mode is adopted only on the first check, never on a re-check', as
     shouldAdoptReviewerMode(true),
     false,
     'a background re-check must not flip modes — that unmounts a recording in progress',
+  );
+});
+
+test('a founder 403 from the reviewer lookup is a definitive role answer', () => {
+  // /api/reviewer/access replies 403 'reviewer_access_required' to any founder
+  // without reviewer membership. Treating only 2xx as resolved would gate the
+  // recorder shut for nearly every user of the product.
+  assert.equal(isRoleResolved(403), true);
+  assert.equal(isRoleResolved(200), true);
+});
+
+test('an undecided role never counts as resolved', () => {
+  // 401: the session is not valid, so we know nothing about the role.
+  assert.equal(isRoleResolved(401), false);
+  // 5xx: the service failed, including the 503 for unconfigured reviewer storage.
+  for (const status of [500, 502, 503, 504]) {
+    assert.equal(isRoleResolved(status), false, `${status} must not resolve the role`);
+  }
+});
+
+test('every status the reviewer route can return is classified', () => {
+  // Mirrors src/app/api/reviewer/access/route.ts.
+  assert.deepEqual(
+    [200, 401, 403, 500, 503].map(isRoleResolved),
+    [true, false, true, false, false],
+  );
+});
+
+test('a founder can open the recorder from a deep link', () => {
+  assert.equal(
+    canOpenRecorder({ roleResolved: true, reviewerAccess: false, founderAccess: true, reviewerMode: false }),
+    true,
+  );
+});
+
+test('a reviewer-only account cannot, even when the mode flag says founder', () => {
+  // reviewerMode legitimately reads false here: if the first access check
+  // 5xx'd, mode is never adopted from the later background re-check, because
+  // flipping it would unmount an in-progress recording. Entitlement therefore
+  // has to come from the role data, not the display flag.
+  assert.equal(
+    canOpenRecorder({ roleResolved: true, reviewerAccess: true, founderAccess: false, reviewerMode: false }),
+    false,
+  );
+});
+
+test('a dual-role user reading as a founder may record', () => {
+  assert.equal(
+    canOpenRecorder({ roleResolved: true, reviewerAccess: true, founderAccess: true, reviewerMode: false }),
+    true,
+  );
+  // ...but not while actually in reviewer mode, where the studio does not render.
+  assert.equal(
+    canOpenRecorder({ roleResolved: true, reviewerAccess: true, founderAccess: true, reviewerMode: true }),
+    false,
+  );
+});
+
+test('an unresolved role never opens the recorder', () => {
+  assert.equal(
+    canOpenRecorder({ roleResolved: false, reviewerAccess: false, founderAccess: true, reviewerMode: false }),
+    false,
   );
 });

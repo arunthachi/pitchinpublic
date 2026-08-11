@@ -97,7 +97,7 @@ function OrganizerInviteContent() {
             Accept your organizer invite.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-            Sign in with the invited email, enable organizer access, then create pitch rooms, invite founders and judges,
+            Sign in with the invited email, enable organizer access, then create events, invite founders and judges,
             review submissions, and post announcements.
           </p>
 
