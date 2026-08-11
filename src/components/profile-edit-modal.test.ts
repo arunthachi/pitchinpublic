@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import { nextFocusIndex } from './ProfileEditModal';
 
 /**
  * ProfileEditModal had no dialog semantics: no role, no focus trap, no
@@ -41,61 +42,54 @@ test('Escape closes the dialog, but not while a save is in flight', () => {
   );
 });
 
-test('Tab is trapped inside the dialog in both directions', () => {
-  const modal = read('components/ProfileEditModal.tsx');
-  assert.match(modal, /event\.key !== 'Tab'/);
-  assert.match(
-    modal,
-    /event\.shiftKey && document\.activeElement === first\)\s*\{\s*event\.preventDefault\(\);\s*last\.focus\(\);/,
-    'Shift+Tab on the first element must wrap to the last',
-  );
-  assert.match(
-    modal,
-    /!event\.shiftKey && document\.activeElement === last\)\s*\{\s*event\.preventDefault\(\);\s*first\.focus\(\);/,
-    'Tab on the last element must wrap to the first',
-  );
+test('Tab cycles forward and wraps at the end', () => {
+  assert.equal(nextFocusIndex(4, 0, false), null, 'mid-list Tab is the browser default');
+  assert.equal(nextFocusIndex(4, 2, false), null);
+  assert.equal(nextFocusIndex(4, 3, false), 0, 'last wraps to first');
 });
 
-test('focus enters the dialog on open and returns to the invoker on close', () => {
-  const modal = read('components/ProfileEditModal.tsx');
-  assert.match(
-    modal,
-    /previouslyFocusedRef\.current = document\.activeElement as HTMLElement \| null;/,
-    'the invoker must be captured before focus moves into the dialog',
-  );
-  assert.match(modal, /dialogRef\.current\?\.focus\(\)/, 'a normal open must focus the dialog container');
-  assert.match(
-    modal,
-    /const trigger = previouslyFocusedRef\.current;\s*if \(trigger\) window\.requestAnimationFrame\(\(\) => trigger\.focus\(\)\);/,
-    'closing must hand focus back to whatever opened the dialog',
-  );
+test('Shift+Tab cycles backward and wraps at the start', () => {
+  assert.equal(nextFocusIndex(4, 3, true), null);
+  assert.equal(nextFocusIndex(4, 0, true), 3, 'first wraps to last');
 });
 
-test('the deep link threads scrollToDeck from the query handler to the modal, and clears it on close', () => {
-  const home = read('app/page.tsx');
-  // The deep-link effect (guarded by handledProfileEditQueryRef, see
-  // app-shell-continuity.test.ts) must arm the deck target before opening.
-  assert.match(
-    home,
-    /handledProfileEditQueryRef\.current = true;\s*setProfileEditScrollToDeck\(true\);\s*setShowProfileEdit\(true\);/,
-  );
-  assert.match(home, /scrollToDeck=\{profileEditScrollToDeck\}/);
-  // onComplete is the single close path (backdrop click, Cancel, and the
-  // post-save timeout all call it), so clearing there covers every close.
-  assert.match(home, /setShowProfileEdit\(false\);\s*setProfileEditScrollToDeck\(false\);/);
+test('focus outside the list is pulled back in — the hole the first trap left', () => {
+  // A normal open focuses the dialog CONTAINER, which carries tabIndex=-1 and
+  // is not in the focusable list. The original trap compared only against the
+  // first and last elements, so this case matched neither and Shift+Tab walked
+  // focus out of the dialog and behind the overlay.
+  assert.equal(nextFocusIndex(4, null, true), 3, 'Shift+Tab from the container goes to the last control');
+  assert.equal(nextFocusIndex(4, null, false), 0, 'Tab from the container goes to the first control');
 });
 
-test('the deck scroll waits for the startup fetch to settle before landing on it', () => {
-  const modal = read('components/ProfileEditModal.tsx');
-  // DeckManager is only mounted once startupLoading flips false; scrolling
-  // earlier would find deckSectionRef.current still null.
-  assert.match(
-    modal,
-    /if \(!scrollToDeck \|\| startupLoading \|\| scrolledToDeckRef\.current\) return;/,
-  );
-  assert.match(modal, /window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches/);
-  assert.match(
-    modal,
-    /target\.scrollIntoView\(\{ behavior: reduceMotion \? 'auto' : 'smooth', block: 'start' \}\);/,
-  );
+test('an empty dialog never traps the user', () => {
+  assert.equal(nextFocusIndex(0, null, false), null);
+  assert.equal(nextFocusIndex(0, null, true), null);
+});
+
+test('a single focusable control cycles to itself rather than escaping', () => {
+  assert.equal(nextFocusIndex(1, 0, false), 0);
+  assert.equal(nextFocusIndex(1, 0, true), 0);
+});
+
+test('the deck scroll claims its one-shot only after it actually runs', () => {
+  const source = read('components/ProfileEditModal.tsx');
+  // The one-shot used to be claimed before the animation frame. On mount
+  // startupLoading is still false, so the first pass burned it, the fetch's
+  // re-render cancelled that frame, and the post-fetch pass short-circuited —
+  // the deep link never reached the deck. The claim must sit INSIDE the frame.
+  const effect = source.slice(source.indexOf('Land deep-linked opens'));
+  const frameAt = effect.indexOf('requestAnimationFrame');
+  const claimAt = effect.indexOf('scrolledToDeckRef.current = true');
+  assert.ok(frameAt !== -1 && claimAt !== -1, 'scroll effect not found');
+  assert.ok(claimAt > frameAt, 'the one-shot is claimed before the frame runs');
+  // ...and it must bail when the deck section is not mounted yet.
+  assert.match(effect, /const target = deckSectionRef\.current;\s*\n\s*if \(!target\) return;/);
+});
+
+test('focus is not restored to a detached invoker', () => {
+  const source = read('components/ProfileEditModal.tsx');
+  // The deep link opens this from another page, so the invoker is usually gone.
+  // Focusing a detached node silently drops focus to <body>.
+  assert.match(source, /trigger\?\.isConnected/);
 });

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   hasPendingInvitations,
   PENDING_INVITATIONS_CACHE_KEY,
@@ -111,4 +113,37 @@ test('readCachedInvitationsBadge: a throwing storage returns null instead of thr
   assert.doesNotThrow(() => {
     assert.equal(readCachedInvitationsBadge(storage, 'user-1', Date.now()), null);
   });
+});
+
+test('a corrupt or far-future expiry cannot pin the badge forever', () => {
+  const now = 1_000_000;
+  const storage = (raw: string) => ({
+    getItem: () => raw,
+    setItem: () => {},
+  });
+  // Infinity, or a hand-edited far-future date, would otherwise outlive the tab.
+  for (const expiresAt of [Infinity, now + PENDING_INVITATIONS_TTL_MS * 10, Number.MAX_SAFE_INTEGER]) {
+    const raw = JSON.stringify({ userId: 'u1', value: true, expiresAt });
+    assert.equal(
+      readCachedInvitationsBadge(storage(raw), 'u1', now),
+      null,
+      `expiry ${expiresAt} should be rejected as impossible`,
+    );
+  }
+  // A legitimate entry inside the TTL still reads back.
+  const good = JSON.stringify({ userId: 'u1', value: true, expiresAt: now + 1_000 });
+  assert.equal(readCachedInvitationsBadge(storage(good), 'u1', now), true);
+});
+
+test('a failed request is never cached as "no invitations"', () => {
+  const source = readFileSync(
+    path.join(process.cwd(), 'src/components/AppTabBar.tsx'),
+    'utf8',
+  );
+  // Caching a 4xx/5xx as false would hide genuine invitations for the whole
+  // TTL, and an account switch must not leave the previous user's badge up
+  // while the new user's request is in flight.
+  assert.match(source, /response\.ok \? response\.json\(\) : null/);
+  assert.match(source, /if \(data === null\) return;/);
+  assert.match(source, /setSourcedEventsBadge\(false\);\s*\n\s*\n?\s*const controller = new AbortController\(\);/);
 });

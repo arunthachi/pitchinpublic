@@ -84,17 +84,25 @@ export default function AppTabBar({ active, eventsBadge }: AppTabBarProps) {
       return;
     }
 
+    // Clear first: on an account switch this effect re-runs with a new userId
+    // and a cache miss, and the previous account's badge must not survive the
+    // request — least of all if that request then fails.
+    setSourcedEventsBadge(false);
+
     const controller = new AbortController();
     fetch('/api/events', { signal: controller.signal })
-      .then((response) => response.json())
+      .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
+        if (data === null) return; // a 4xx/5xx says nothing about invitations
         const value = hasPendingInvitations(data);
+        // Only a real answer is worth caching. Caching a failure as `false`
+        // would hide genuine invitations for the whole TTL.
         if (storage) writeCachedInvitationsBadge(storage, userId, value, Date.now());
         setSourcedEventsBadge(value);
       })
       .catch(() => {
-        // Aborted unmount, signed-out response, or a network failure: leave
-        // the badge off rather than surface an error on chrome this small.
+        // Aborted unmount or a network failure: leave the badge off rather
+        // than surface an error on chrome this small, and cache nothing.
       });
 
     return () => controller.abort();

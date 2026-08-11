@@ -39,6 +39,30 @@ const startupStageOptions = [
   'Scaling',
 ];
 
+/**
+ * Which element a Tab press should move to inside a modal dialog.
+ *
+ * Pure so the trap is testable without a DOM. `activeIndex` is null when focus
+ * is on the dialog container itself (it carries tabIndex=-1 and is where a
+ * normal open puts focus, so it is NOT part of the focusable list) or anywhere
+ * else outside the list — that case must still be pulled back inside, which is
+ * the hole the first implementation left open.
+ *
+ * Returns null when the browser's own default is already correct.
+ */
+export function nextFocusIndex(
+  focusableCount: number,
+  activeIndex: number | null,
+  shiftKey: boolean
+): number | null {
+  if (focusableCount <= 0) return null;
+  const last = focusableCount - 1;
+  if (activeIndex === null) return shiftKey ? last : 0;
+  if (shiftKey && activeIndex === 0) return last;
+  if (!shiftKey && activeIndex === last) return 0;
+  return null;
+}
+
 export function ProfileEditModal({
   isOpen,
   user,
@@ -155,7 +179,11 @@ export function ProfileEditModal({
     }
 
     const trigger = previouslyFocusedRef.current;
-    if (trigger) window.requestAnimationFrame(() => trigger.focus());
+    previouslyFocusedRef.current = null;
+    // The deep-link path opens this from another page, so the invoker is often
+    // detached by now. Focusing a detached node silently sends focus to <body>;
+    // skip it and leave focus where the closing view puts it.
+    if (trigger?.isConnected) window.requestAnimationFrame(() => trigger.focus());
   }, [isOpen, scrollToDeck]);
 
   // Escape-to-close plus a Tab/Shift+Tab focus trap while the dialog is open.
@@ -179,15 +207,16 @@ export function ProfileEditModal({
       );
       if (focusable.length === 0) return;
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      const active = document.activeElement as HTMLElement | null;
+      const activeIndex = Array.prototype.indexOf.call(focusable, active);
+      const target = nextFocusIndex(
+        focusable.length,
+        activeIndex === -1 ? null : activeIndex,
+        event.shiftKey
+      );
+      if (target === null) return;
+      event.preventDefault();
+      focusable[target].focus();
     };
 
     document.addEventListener('keydown', onKeyDown);
@@ -203,11 +232,15 @@ export function ProfileEditModal({
       return;
     }
     if (!scrollToDeck || startupLoading || scrolledToDeckRef.current) return;
-    scrolledToDeckRef.current = true;
+    const target = deckSectionRef.current;
+    if (!target) return;
 
     const frame = window.requestAnimationFrame(() => {
-      const target = deckSectionRef.current;
-      if (!target) return;
+      // Claim the one-shot only once the scroll actually runs. Claiming it up
+      // front meant the first pass (startupLoading still false on mount) burned
+      // it, the fetch's re-render cancelled that frame, and the post-fetch pass
+      // then short-circuited — so the deep link never reached the deck at all.
+      scrolledToDeckRef.current = true;
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
       target.focus({ preventScroll: true });

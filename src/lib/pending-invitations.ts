@@ -40,19 +40,17 @@ export function hasPendingInvitations(payload: unknown): boolean {
   return Array.isArray(data.invitations) && data.invitations.length > 0;
 }
 
-function isFreshEntry(
-  candidate: unknown,
-  userId: string,
-  now: number,
-): candidate is CachedInvitationsEntry {
-  if (!candidate || typeof candidate !== 'object') return false;
-  const entry = candidate as Partial<CachedInvitationsEntry>;
-  return (
-    entry.userId === userId &&
-    typeof entry.value === 'boolean' &&
-    typeof entry.expiresAt === 'number' &&
-    entry.expiresAt > now
-  );
+function isFreshEntry(parsed: unknown, userId: string, now: number): parsed is CachedInvitationsEntry {
+  if (typeof parsed !== 'object' || parsed === null) return false;
+  const entry = parsed as Partial<CachedInvitationsEntry>;
+  if (entry.userId !== userId) return false;
+  if (typeof entry.value !== 'boolean') return false;
+  if (typeof entry.expiresAt !== 'number' || !Number.isFinite(entry.expiresAt)) return false;
+  // An expiry further out than the TTL allows cannot have come from this code.
+  // Without the upper bound, corrupt storage (Infinity, or a hand-edited far
+  // future date) would pin the badge for the life of the tab.
+  if (entry.expiresAt > now + PENDING_INVITATIONS_TTL_MS) return false;
+  return entry.expiresAt > now;
 }
 
 /**
