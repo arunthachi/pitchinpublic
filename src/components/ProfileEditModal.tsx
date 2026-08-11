@@ -91,7 +91,11 @@ export function ProfileEditModal({
   const [completed, setCompleted] = useState(false);
   const supabase = useMemo(() => createClient(), []);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const deckSectionRef = useRef<HTMLDivElement>(null);
+  // A callback ref, not useRef: the deck section mounts asynchronously (it is
+  // behind the startup fetch), and a plain ref never re-runs the effect below
+  // when its node appears. Verified on staging — the scroll silently never
+  // happened because the effect's only run saw a null ref.
+  const [deckSection, setDeckSection] = useState<HTMLDivElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const scrolledToDeckRef = useRef(false);
 
@@ -232,7 +236,7 @@ export function ProfileEditModal({
       return;
     }
     if (!scrollToDeck || startupLoading || scrolledToDeckRef.current) return;
-    const target = deckSectionRef.current;
+    const target = deckSection;
     if (!target) return;
 
     const frame = window.requestAnimationFrame(() => {
@@ -246,7 +250,7 @@ export function ProfileEditModal({
       target.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [isOpen, scrollToDeck, startupLoading]);
+  }, [isOpen, scrollToDeck, startupLoading, deckSection]);
 
   if (!user) return null;
 
@@ -538,7 +542,7 @@ export function ProfileEditModal({
                               </div>
 
                               <div
-                                ref={deckSectionRef}
+                                ref={setDeckSection}
                                 tabIndex={-1}
                                 className="rounded-2xl outline-none focus:ring-2 focus:ring-neon-cyan/50"
                               >

@@ -84,7 +84,7 @@ test('the deck scroll claims its one-shot only after it actually runs', () => {
   assert.ok(frameAt !== -1 && claimAt !== -1, 'scroll effect not found');
   assert.ok(claimAt > frameAt, 'the one-shot is claimed before the frame runs');
   // ...and it must bail when the deck section is not mounted yet.
-  assert.match(effect, /const target = deckSectionRef\.current;\s*\n\s*if \(!target\) return;/);
+  assert.match(effect, /const target = deckSection;\s*\n\s*if \(!target\) return;/);
 });
 
 test('focus is not restored to a detached invoker', () => {
@@ -92,4 +92,19 @@ test('focus is not restored to a detached invoker', () => {
   // The deep link opens this from another page, so the invoker is usually gone.
   // Focusing a detached node silently drops focus to <body>.
   assert.match(source, /trigger\?\.isConnected/);
+});
+
+test('the deck section is tracked by a callback ref, not a plain ref', () => {
+  const source = read('components/ProfileEditModal.tsx');
+  // A plain useRef never re-runs the effect when its node mounts, and the deck
+  // section mounts behind the startup fetch. Verified broken on staging: the
+  // effect's only run saw a null ref, so the modal never scrolled — scrollTop
+  // stayed 0 with the deck a full screen below the fold.
+  assert.match(source, /const \[deckSection, setDeckSection\] = useState<HTMLDivElement \| null>\(null\);/);
+  assert.match(source, /ref=\{setDeckSection\}/);
+  assert.doesNotMatch(source, /deckSectionRef/, 'the plain ref must be gone entirely');
+
+  // The node has to be a dependency, or mounting it still would not re-trigger.
+  const effect = source.slice(source.indexOf('Land deep-linked opens'));
+  assert.match(effect, /\}, \[isOpen, scrollToDeck, startupLoading, deckSection\]\);/);
 });
