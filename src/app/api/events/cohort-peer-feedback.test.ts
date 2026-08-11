@@ -159,7 +159,9 @@ test('the composer captures its event at open time, not at submit', () => {
   // against, so a scope change underneath it cannot re-target the review.
   assert.match(feed, /const feedbackEventSlugRef = useRef<string \| null>\(null\);/);
   assert.match(feed, /feedEventSlug: feedbackEventSlugRef\.current,/);
-  // Both open paths must snapshot it — the peer/open-feed composer and the
-  // assigned-review composer.
-  assert.equal((feed.match(/feedbackEventSlugRef\.current = feedEventSlug;/g) || []).length, 2);
+  // Both open paths snapshot a scope. The peer/open-feed composer takes the
+  // feed's event; the assigned-review composer takes the ASSIGNMENT's event,
+  // which need not be the cohort being browsed.
+  assert.equal((feed.match(/feedbackEventSlugRef\.current = feedEventSlug;/g) || []).length, 1);
+  assert.match(feed, /feedbackEventSlugRef\.current = reviewRequest\.eventSlug \?\? null;/);
 });

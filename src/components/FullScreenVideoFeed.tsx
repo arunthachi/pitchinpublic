@@ -348,7 +348,9 @@ export function FullScreenVideoFeed({
     setFeedbackListOpen(false);
     setFeedbackType('toast');
     setReviewComplete(false);
-    feedbackEventSlugRef.current = feedEventSlug;
+    // An assigned review belongs to the event that allocated it, which need
+    // not be the cohort the reviewer is browsing.
+    feedbackEventSlugRef.current = reviewRequest.eventSlug ?? null;
     feedbackPitchRef.current = {
       id: localPitches[requestedIndex].id,
       publicId: localPitches[requestedIndex].publicId,
