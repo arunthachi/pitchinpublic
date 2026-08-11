@@ -33,7 +33,7 @@ export default function ProfileDeckCard({ onManage }: ProfileDeckCardProps) {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/startup/deck', { signal: controller.signal })
+    fetch('/api/startup/deck', { signal: controller.signal, cache: 'no-store' })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (data?.success) setDeck(data.deck || null);
@@ -41,7 +41,11 @@ export default function ProfileDeckCard({ onManage }: ProfileDeckCardProps) {
       .catch(() => {
         /* A missing startup profile or transient failure just shows the add prompt. */
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        // Skip on the aborted path, otherwise the AbortController buys nothing
+        // and an unmounted card still sets state.
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, []);
 
@@ -56,8 +60,16 @@ export default function ProfileDeckCard({ onManage }: ProfileDeckCardProps) {
     const target = window.open('', '_blank');
     if (target) target.opener = null;
     try {
-      const response = await fetch('/api/startup/deck/view');
-      const data = await response.json();
+      const response = await fetch('/api/startup/deck/view', { cache: 'no-store' });
+      // A 502 from the edge returns HTML; raw .json() would surface
+      // "Unexpected token <" to the founder as if it were our copy.
+      const raw = await response.text();
+      let data: { success?: boolean; url?: string; error?: string } = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = {};
+      }
       if (!response.ok || !data.success || !data.url) {
         throw new Error(data.error || 'Could not open your deck.');
       }

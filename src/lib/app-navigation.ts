@@ -10,6 +10,12 @@ export const APP_DESTINATIONS = {
 
 export type AppDestinationKey = keyof typeof APP_DESTINATIONS;
 
+/**
+ * localStorage key holding the founder/reviewer app mode. Shared so routed
+ * surfaces can respect the mode the home shell persists.
+ */
+export const APP_MODE_KEY = 'pip.appMode';
+
 /** Where the close control on every action page returns the user. */
 export const APP_HOME_HREF = APP_DESTINATIONS.feed.href;
 
@@ -38,6 +44,19 @@ export type ActionNavLink = {
   href: string;
   current?: boolean;
 };
+
+/**
+ * The accessible name for a nav control that can carry the invitation badge.
+ *
+ * An `aria-label` on an element REPLACES its descendant text for assistive
+ * tech, so an `sr-only` span nested inside a labelled link or button is never
+ * announced. The badge state therefore has to live in the label itself.
+ * SidebarNav is the exception — its anchor has no aria-label, so the nested
+ * text is its accessible name and is read normally.
+ */
+export function navBadgeLabel(baseLabel: string, hasBadge: boolean) {
+  return hasBadge ? `${baseLabel}, new invitation` : baseLabel;
+}
 
 export function destination(key: AppDestinationKey, current = false): ActionNavLink {
   return { ...APP_DESTINATIONS[key], current };

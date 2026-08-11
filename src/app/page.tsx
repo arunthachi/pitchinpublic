@@ -39,6 +39,7 @@ import { normalizeLegacyFeedback, normalizeReviewQueue } from '@/lib/review-mark
 import { ReviewQueuePanel } from '@/components/ReviewQueuePanel';
 import type { ReviewQueueSummary } from '@/types';
 import { isPublicPitchId } from '@/lib/public-routes';
+import { APP_MODE_KEY } from '@/lib/app-navigation';
 
 // Lazy load modal components (not needed on initial page load)
 const DailyChallengeBanner = dynamic(() => import('@/components/DailyChallengeBanner').then(mod => ({ default: mod.DailyChallengeBanner })), {
@@ -88,8 +89,6 @@ type ReviewerAccessPayload = {
   reviewer?: { active?: boolean; status?: string };
   founderAccess?: boolean;
 };
-
-const APP_MODE_KEY = 'pip.appMode';
 
 function hasActiveReviewerAccess(payload: ReviewerAccessPayload) {
   const access = payload?.access || payload?.reviewerAccess || payload?.membership || payload?.reviewer;
@@ -540,23 +539,36 @@ function HomeContent() {
   // refresh and tab refocus, reopening the recorder after the founder closed
   // it. The Record tab in AppTabBar routes through here, so this path is now
   // the common way into the studio.
+  const stripQueryParam = useCallback((name: string) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(name)) return;
+    url.searchParams.delete(name);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+  }, []);
+
   useEffect(() => {
-    if (loading || !accessCheckComplete || reviewerMode || searchParams.get('record') !== '1') return;
+    if (loading || !accessCheckComplete || searchParams.get('record') !== '1') return;
     if (handledRecordQueryRef.current) return;
+
+    // A reviewer cannot open the studio, so consume the param instead of
+    // leaving it armed — otherwise switching to founder mode later in the same
+    // session pops the recorder open unprompted.
+    if (reviewerMode) {
+      handledRecordQueryRef.current = true;
+      stripQueryParam('record');
+      return;
+    }
 
     if (userId) {
       handledRecordQueryRef.current = true;
       setRecordingStudioOpen(true);
-      if (typeof window !== 'undefined') {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('record');
-        window.history.replaceState(null, '', `${url.pathname}${url.search}`);
-      }
+      stripQueryParam('record');
       return;
     }
 
     setSignInModalOpen(true);
-  }, [accessCheckComplete, loading, reviewerMode, searchParams, userId]);
+  }, [accessCheckComplete, loading, reviewerMode, searchParams, stripQueryParam, userId]);
 
   // Deep link used by the profile page, whose deck card and edit affordances
   // live here in the home shell rather than on /profile. Stripping the param
@@ -583,12 +595,17 @@ function HomeContent() {
 
     handledProfileEditQueryRef.current = true;
     setShowProfileEdit(true);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('profileEdit');
-      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
-    }
-  }, [accessCheckComplete, founderAccess, loading, reviewerMode, searchParams, userId, userProfile]);
+    stripQueryParam('profileEdit');
+  }, [
+    accessCheckComplete,
+    founderAccess,
+    loading,
+    reviewerMode,
+    searchParams,
+    stripQueryParam,
+    userId,
+    userProfile,
+  ]);
 
   useEffect(() => {
     if (loading || user) return;
