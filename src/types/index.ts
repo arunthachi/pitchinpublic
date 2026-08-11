@@ -60,6 +60,13 @@ export interface EventReviewCoverage {
   foundersWithoutUsefulFeedback?: number | null;
   completionRate?: number | null;
   averageTimeToFirstReviewMinutes?: number | null;
+  /**
+   * Peer reviews sit beside the organizer's programme, never inside it: every
+   * field above counts only assigned and team reviews, so cohort feedback can
+   * never satisfy a review target on its own. Null for events answered before
+   * this field existed.
+   */
+  peerReviewsCompleted?: number | null;
 }
 
 // Database-aligned types

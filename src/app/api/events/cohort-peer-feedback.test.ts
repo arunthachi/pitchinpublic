@@ -23,12 +23,48 @@ test('an organizer can turn peer feedback off and on', () => {
   assert.equal(on.success && on.update.peer_feedback_enabled, true);
 });
 
-test('an unrelated event edit leaves peer feedback untouched', () => {
-  // An absent field must not silently re-enable a competition organizer's
-  // deliberately closed event.
+test('a payload without the field leaves peer feedback untouched', () => {
+  // Parser-level only. EventEditDialog sends the flag on EVERY save, so this
+  // does not prove the organizer's path — see the round-trip test below, which
+  // is what actually protects a competition organizer's closed event.
   const parsed = parseEventUpdate({ name: 'Speed Networking' }, current);
   assert.equal(parsed.success, true);
   assert.equal(parsed.success && 'peer_feedback_enabled' in parsed.update, false);
+});
+
+test('the organizer dialog round-trips the flag rather than defaulting it', () => {
+  const dialog = readFileSync(
+    path.join(process.cwd(), 'src/components/EventEditDialog.tsx'),
+    'utf8',
+  );
+  // The dialog posts the flag on every save, so its initial value must come
+  // from the event. Read it as `|| true` and an unrelated rename would
+  // silently re-enable peer feedback on a closed competition.
+  assert.match(dialog, /peerFeedbackEnabled: event\.peer_feedback_enabled !== false,/);
+  assert.match(dialog, /peerFeedbackEnabled: form\.peerFeedbackEnabled,/);
+  assert.doesNotMatch(dialog, /peerFeedbackEnabled: event\.peer_feedback_enabled \|\| true/);
+});
+
+test('organizer coverage excludes peer reviews', () => {
+  const route = readFileSync(
+    path.join(process.cwd(), 'src/app/api/events/[slug]/route.ts'),
+    'utf8',
+  );
+  // Tagging peer reviews is pointless unless the consumer reads the tag:
+  // otherwise cohort chatter satisfies a "3 reviews per pitch" target and the
+  // organizer stops chasing their judges.
+  assert.match(route, /row\.assignment_reason === 'cohort_peer_feedback'/);
+  assert.match(route, /reviewsAssigned: programmeAssignments\.length,/);
+  assert.match(route, /completionRate: programmeAssignments\.length/);
+  assert.match(route, /peerReviewsCompleted: completedPeerReviews\.length,/);
+
+  // ...and the tag has to survive the RPC that feeds it.
+  const rpc = readFileSync(
+    path.join(process.cwd(), 'supabase/migrations/20260811070000_expose_assignment_provenance.sql'),
+    'utf8',
+  );
+  assert.match(rpc, /assignment\.assignment_reason::text/);
+  assert.match(rpc, /assignment_reason text/);
 });
 
 test('the peer-feedback flag rejects non-boolean input', () => {

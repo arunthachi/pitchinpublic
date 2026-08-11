@@ -370,6 +370,7 @@ function HomeContent() {
   const fetchPitches = useCallback(async () => {
     try {
       setPitchesLoading(true);
+      setPeerFeedbackEnabled(undefined);
       const params = new URLSearchParams({ limit: '20' });
       if (eventFeedSlug) params.set('eventSlug', eventFeedSlug);
 
@@ -382,6 +383,8 @@ function HomeContent() {
       }
 
       const data = await response.json();
+      // Cleared before the request in the effect below, so cohort A's answer
+      // can never gate cohort B for a render.
       setPeerFeedbackEnabled(
         typeof data.peerFeedbackEnabled === 'boolean' ? data.peerFeedbackEnabled : undefined
       );
