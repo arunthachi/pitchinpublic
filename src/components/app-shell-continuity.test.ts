@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -278,4 +278,30 @@ test('role confidence resets on sign-out and never blocks the UI', () => {
   // A failed check must still complete: leaving the access gate up is the
   // roadblock this area exists to prevent.
   assert.match(home, /setAccessCheckComplete\(true\);\s*hasVerifiedAccessOnceRef\.current = true;/);
+});
+
+test('no Tailwind class is built by interpolation', () => {
+  // Tailwind scans source text for COMPLETE class names. A class composed with
+  // a template placeholder makes it emit a rule for the raw, uninterpolated
+  // text — invalid CSS the browser discards — while the DOM carries a class
+  // with no rule behind it, so the element silently loses that property.
+  // Caught in review once already: an interpolated rail-clearance class left
+  // the PWA prompt with no `right` positioning at all, and every unit test
+  // still passed because they asserted the returned string, not the CSS.
+  const pattern = /\b[a-z][a-z0-9]*(?:-[a-z0-9]+)*-\[[^\]\n]*\$\{[^\]\n]*\]/;
+  const offenders: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(entry.name) && !entry.name.includes('.test.')) {
+        readFileSync(full, 'utf8').split('\n').forEach((line, index) => {
+          const match = pattern.exec(line);
+          if (match) offenders.push(`${path.relative(ROOT, full)}:${index + 1} ${match[0]}`);
+        });
+      }
+    }
+  };
+  walk(ROOT);
+  assert.deepEqual(offenders, []);
 });
