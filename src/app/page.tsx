@@ -121,6 +121,9 @@ function HomeContent() {
   const [showPitchGoal, setShowPitchGoal] = useState(false);
   const [eventRibbon, setEventRibbon] = useState<RibbonModel>(null);
   const [eventFeedName, setEventFeedName] = useState<string | null>(null);
+  // Undefined until the cohort feed responds; the feed treats that as allowed
+  // so a slow response never hides an action the member is entitled to.
+  const [peerFeedbackEnabled, setPeerFeedbackEnabled] = useState<boolean | undefined>(undefined);
   const [hasPendingInvitations, setHasPendingInvitations] = useState(false);
   const [showAchievementUnlock, setShowAchievementUnlock] = useState(false);
   const [inviteOnlyNotice, setInviteOnlyNotice] = useState(false);
@@ -367,6 +370,7 @@ function HomeContent() {
   const fetchPitches = useCallback(async () => {
     try {
       setPitchesLoading(true);
+      setPeerFeedbackEnabled(undefined);
       const params = new URLSearchParams({ limit: '20' });
       if (eventFeedSlug) params.set('eventSlug', eventFeedSlug);
 
@@ -379,6 +383,11 @@ function HomeContent() {
       }
 
       const data = await response.json();
+      // Cleared before the request in the effect below, so cohort A's answer
+      // can never gate cohort B for a render.
+      setPeerFeedbackEnabled(
+        typeof data.peerFeedbackEnabled === 'boolean' ? data.peerFeedbackEnabled : undefined
+      );
 
       const visiblePitches = reviewerMode
         ? data.pitches.filter((pitch: any) => pitch.user_id !== user?.id)
@@ -1089,6 +1098,7 @@ function HomeContent() {
               isLoading={pitchesLoading}
               eventName={eventFeedSlug ? eventFeedName : null}
               eventSlug={eventFeedSlug}
+              peerFeedbackEnabled={peerFeedbackEnabled}
               selectionRequest={selectionRequest}
               onPitchSelectionComplete={handlePitchSelectionComplete}
               reviewRequest={reviewRequest}
@@ -1170,6 +1180,7 @@ function HomeContent() {
             onCurrentPitchChange={handlePitchChange}
             eventName={eventFeedSlug ? eventFeedName : null}
             eventSlug={eventFeedSlug}
+            peerFeedbackEnabled={peerFeedbackEnabled}
             isGuest={isGuest}
             onSignInClick={promptForRestrictedAction}
           />

@@ -168,6 +168,10 @@ export function normalizeEventReviewCoverage(payloadValue: unknown): EventReview
     pitchesWithoutFeedback: finiteNumber(coverage.pitchesWithoutFeedback || coverage.pitches_without_feedback),
     foundersWithoutUsefulFeedback: optionalNumber(coverage.foundersWithoutUsefulFeedback ?? coverage.founders_without_useful_feedback),
     completionRate: optionalNumber(coverage.completionRate ?? coverage.completion_rate),
+    // Peer feedback is reported beside the organizer's programme, never inside
+    // it: counting it as coverage would let cohort chatter satisfy a review
+    // target. Null for events answered before this field existed.
+    peerReviewsCompleted: optionalNumber(coverage.peerReviewsCompleted ?? coverage.peer_reviews_completed),
     averageTimeToFirstReviewMinutes: optionalNumber(coverage.averageTimeToFirstReviewMinutes ?? coverage.average_time_to_first_review_minutes),
   };
 }

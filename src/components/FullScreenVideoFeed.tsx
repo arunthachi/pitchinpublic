@@ -18,10 +18,21 @@ import { FeedbackThreadPanel } from './FeedbackThreadPanel';
 export function canComposeFeedback(
   feedEventSlug: string | null,
   assignment: { publicPitchId?: string | null } | null,
-  pitchPublicId: string | null | undefined
+  pitchPublicId: string | null | undefined,
+  /**
+   * Whether the cohort's event allows peer feedback. Undefined means "not
+   * loaded yet" and is treated as allowed: the server is the authority, and
+   * hiding the action on a slow response is worse than a rare failed submit.
+   */
+  peerFeedbackEnabled?: boolean
 ) {
   if (!feedEventSlug) return true;
-  return Boolean(assignment?.publicPitchId && assignment.publicPitchId === pitchPublicId);
+  // An assigned review always composes, even where peer feedback is off.
+  if (assignment?.publicPitchId && assignment.publicPitchId === pitchPublicId) return true;
+  // Otherwise membership decides. Members can already WATCH these takes, so
+  // commenting is the lesser permission; the event's own toggle is the only
+  // thing that closes it.
+  return peerFeedbackEnabled !== false;
 }
 
 /**
@@ -42,15 +53,21 @@ export function feedScopeChanged(previousScope: string, nextScope: string) {
 export function buildFeedbackEventScope(input: {
   assignment?: { eventSlug?: string | null; publicPitchId?: string | null } | null;
   pitchPublicId?: string | null;
+  /** The event this feed is scoped to, when browsing a cohort feed. */
+  feedEventSlug?: string | null;
 }): { eventSlug: string } | Record<string, never> {
-  // Only an assignment for THIS pitch carries event scope. Browsing a cohort
-  // feed does not: the database requires a review assignment for any
-  // private-pitch feedback, so structured review stays assignment-driven.
-  const slug =
-    input.assignment?.eventSlug && input.assignment.publicPitchId === input.pitchPublicId
-      ? input.assignment.eventSlug
-      : null;
-  return slug ? { eventSlug: slug } : {};
+  // An assignment for THIS pitch wins: it names the exact event the review was
+  // allocated against, which may differ from the feed the reviewer is browsing.
+  if (
+    input.assignment?.eventSlug &&
+    input.assignment.publicPitchId === input.pitchPublicId
+  ) {
+    return { eventSlug: input.assignment.eventSlug };
+  }
+  // Otherwise a cohort feed carries its own event, so the server resolves
+  // scope against membership. Without this, peer feedback would be submitted
+  // unscoped and rejected as feedback on a private pitch.
+  return input.feedEventSlug ? { eventSlug: input.feedEventSlug } : {};
 }
 
 interface FullScreenVideoFeedProps {
@@ -60,6 +77,8 @@ interface FullScreenVideoFeedProps {
   eventName?: string | null;
   /** Slug of the event this feed is scoped to; travels with feedback. */
   eventSlug?: string | null;
+  /** Whether this event allows peer feedback. Undefined = not loaded yet. */
+  peerFeedbackEnabled?: boolean;
   selectionRequest?: { publicPitchId: string; nonce: number } | null;
   onPitchSelectionComplete?: (publicPitchId: string, nonce: number) => void;
   reviewRequest?: { assignmentId: string; publicPitchId: string; eventSlug?: string | null; nonce: number } | null;
@@ -196,6 +215,7 @@ export function FullScreenVideoFeed({
   isLoading = false,
   eventName = null,
   eventSlug: feedEventSlug = null,
+  peerFeedbackEnabled,
   selectionRequest = null,
   onPitchSelectionComplete,
   reviewRequest = null,
@@ -228,6 +248,11 @@ export function FullScreenVideoFeed({
   const handledSelectionNonceRef = useRef<number | null>(null);
   const feedbackSubmissionKeyRef = useRef<string | null>(null);
   const feedbackPitchRef = useRef<{ id: string; publicId?: string } | null>(null);
+  // The event a composer was opened FROM. Captured at open time, exactly like
+  // feedbackPitchRef: the feed can change scope while the sheet is up, and
+  // reading the live slug at submit would attribute the review to whichever
+  // cohort the feed happens to be showing by then.
+  const feedbackEventSlugRef = useRef<string | null>(null);
   const reviewAssignmentRef = useRef<{
     assignmentId: string;
     publicPitchId: string;
@@ -323,6 +348,9 @@ export function FullScreenVideoFeed({
     setFeedbackListOpen(false);
     setFeedbackType('toast');
     setReviewComplete(false);
+    // An assigned review belongs to the event that allocated it, which need
+    // not be the cohort the reviewer is browsing.
+    feedbackEventSlugRef.current = reviewRequest.eventSlug ?? null;
     feedbackPitchRef.current = {
       id: localPitches[requestedIndex].id,
       publicId: localPitches[requestedIndex].publicId,
@@ -675,6 +703,7 @@ export function FullScreenVideoFeed({
           ...buildFeedbackEventScope({
             assignment: reviewAssignmentRef.current,
             pitchPublicId: feedbackPitch.publicId,
+            feedEventSlug: feedbackEventSlugRef.current,
           }),
         }),
       });
@@ -818,11 +847,17 @@ export function FullScreenVideoFeed({
   };
 
   const openFeedback = (type: 'roast' | 'toast') => {
-    // Structured feedback on a private cohort take requires a review
-    // assignment (enforced by the feedback trigger), so in an event-scoped
-    // feed the compose flow is unavailable — show the thread instead of a
+    // Membership authorises feedback on a cohort take. The only closed case is
+    // an organizer turning peer feedback off, where showing the thread beats a
     // form that would fail on submit.
-    if (!canComposeFeedback(feedEventSlug, reviewAssignmentRef.current, currentPitch?.publicId)) {
+    if (
+      !canComposeFeedback(
+        feedEventSlug,
+        reviewAssignmentRef.current,
+        currentPitch?.publicId,
+        peerFeedbackEnabled
+      )
+    ) {
       setFeedbackPanelOpen(false);
       setFeedbackListOpen(true);
       return;
@@ -832,6 +867,7 @@ export function FullScreenVideoFeed({
     feedbackPitchRef.current = currentPitch
       ? { id: currentPitch.id, publicId: currentPitch.publicId }
       : null;
+    feedbackEventSlugRef.current = feedEventSlug;
     reviewAssignmentRef.current = null;
     setAssignedComposePitchId(null);
     feedbackSubmissionKeyRef.current = crypto.randomUUID();
@@ -1015,10 +1051,11 @@ export function FullScreenVideoFeed({
           canComposeFeedback(
             feedEventSlug,
             assignedComposePitchId ? { publicPitchId: assignedComposePitchId } : null,
-            currentPitch?.publicId
+            currentPitch?.publicId,
+            peerFeedbackEnabled
           )
             ? null
-            : 'Reviews for this event come from your review queue — open an assigned review to leave feedback.'
+            : 'The organizer has turned off peer feedback for this event.'
         }
       />
 

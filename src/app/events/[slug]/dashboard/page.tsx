@@ -1603,6 +1603,7 @@ function ReviewCoverageStrip({ coverage }: { coverage: EventReviewCoverage }) {
     { label: 'Completed', value: coverage.reviewsCompleted },
     { label: 'Uncovered pitches', value: coverage.pitchesWithoutFeedback, alert: coverage.pitchesWithoutFeedback > 0 },
     ...(coverage.usefulReviews === null || typeof coverage.usefulReviews === 'undefined' ? [] : [{ label: 'Useful reviews', value: coverage.usefulReviews }]),
+    ...(coverage.peerReviewsCompleted ? [{ label: 'Peer reviews', value: coverage.peerReviewsCompleted }] : []),
     { label: 'First review', value: firstReviewLabel },
   ];
 

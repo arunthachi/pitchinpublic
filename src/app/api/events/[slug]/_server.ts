@@ -18,6 +18,7 @@ export const eventUpdateSchema = z
     reviewTarget: z.coerce.number().int().min(1).max(10).optional(),
     pitchHourStartsAt: optionalDateTimeSchema.optional(),
     pitchHourEndsAt: optionalDateTimeSchema.optional(),
+    peerFeedbackEnabled: z.boolean().optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -90,6 +91,7 @@ export type EventDatabaseUpdate = {
   review_target?: number;
   pitch_hour_starts_at?: string | null;
   pitch_hour_ends_at?: string | null;
+  peer_feedback_enabled?: boolean;
   updated_at: string;
 };
 
@@ -165,6 +167,9 @@ export function parseEventUpdate(
     update.focus = focus;
   }
   if (data.visibility !== undefined) update.visibility = data.visibility;
+  if (data.peerFeedbackEnabled !== undefined) {
+    update.peer_feedback_enabled = data.peerFeedbackEnabled;
+  }
   if (data.reviewTarget !== undefined) update.review_target = data.reviewTarget;
   if (data.pitchHourStartsAt !== undefined && data.pitchHourEndsAt !== undefined) {
     update.pitch_hour_starts_at = data.pitchHourStartsAt || null;
