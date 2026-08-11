@@ -34,6 +34,8 @@ function initialForm(event: any) {
     pitchLengthSeconds: Number(event.pitch_length_seconds || 60),
     focus: splitEventFocuses(event.focus)[0] || EVENT_FOCUS_OPTIONS[0],
     visibility: (event.visibility || 'unlisted') as EventVisibility,
+    // Defaults on for events created before this setting existed.
+    peerFeedbackEnabled: event.peer_feedback_enabled !== false,
     accessCodeAction: 'keep' as AccessCodeAction,
     accessCode: '',
   };
@@ -86,6 +88,7 @@ export function EventEditDialog({ event, onSaved }: EventEditDialogProps) {
           pitchLengthSeconds: form.pitchLengthSeconds,
           focuses: [form.focus],
           visibility: form.visibility,
+          peerFeedbackEnabled: form.peerFeedbackEnabled,
           accessCodeAction: form.accessCodeAction,
           accessCode: form.accessCodeAction === 'replace' ? form.accessCode : undefined,
         }),
@@ -181,6 +184,23 @@ export function EventEditDialog({ event, onSaved }: EventEditDialogProps) {
                   </select>
                   <span className="mt-1.5 block text-xs leading-5 text-slate-500">{EVENT_VISIBILITY_OPTIONS[form.visibility].helper}</span>
                 </EditField>
+
+                <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/25 p-4">
+                  <input
+                    type="checkbox"
+                    checked={form.peerFeedbackEnabled}
+                    onChange={(input) => setForm({ ...form, peerFeedbackEnabled: input.target.checked })}
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-neon-cyan"
+                  />
+                  <span>
+                    <span className="block font-bold text-white">Founders can give each other feedback</span>
+                    <span className="mt-1 block text-sm leading-6 text-slate-400">
+                      {form.peerFeedbackEnabled
+                        ? 'Anyone in this event can respond to takes they can already watch.'
+                        : 'Only your event team can leave feedback. Use this for competitions.'}
+                    </span>
+                  </span>
+                </label>
 
                 <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                   <div className="flex items-start gap-3">
