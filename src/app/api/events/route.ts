@@ -14,6 +14,9 @@ const createEventSchema = z.object({
   focus: z.string().min(2).max(160).optional(),
   focuses: z.array(z.string().trim().min(2).max(40)).optional(),
   visibility: z.enum(['private', 'unlisted', 'public']).default('unlisted'),
+  // Defaults on: an event is a feedback circle unless the organizer says
+  // otherwise (a competition, where peer review is a conflict of interest).
+  peerFeedbackEnabled: z.boolean().default(true),
   accessCode: z.string().min(4).max(32).optional().or(z.literal('')),
   reviewTarget: z.coerce.number().int().min(1).max(10).default(3),
   pitchHourStartsAt: z.string().datetime().optional().or(z.literal('')),
@@ -249,6 +252,7 @@ export async function POST(request: NextRequest) {
         pitch_length_seconds: pitchLengthSeconds,
         focus: focusSummary,
         visibility: data.visibility,
+        peer_feedback_enabled: data.peerFeedbackEnabled,
         access_code: data.accessCode || null,
         review_target: data.reviewTarget,
         pitch_hour_starts_at: data.pitchHourStartsAt || null,

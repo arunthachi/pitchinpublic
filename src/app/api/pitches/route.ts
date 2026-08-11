@@ -640,6 +640,7 @@ export async function GET(request: NextRequest) {
     // (including private ones); anyone else gains nothing beyond the access
     // they already had, because no policy is bypassed here.
     let eventScopeId: string | null = null;
+    let peerFeedbackEnabled: boolean | undefined;
     if (eventSlug) {
       // Only the cohort listing is throttled: it is the one that can page a
       // whole event. Pitch detail, profile grids and the open feed share this
@@ -658,7 +659,7 @@ export async function GET(request: NextRequest) {
 
       const { data: scopedEvent, error: scopedEventError } = await supabase
         .from('pitch_events')
-        .select('id')
+        .select('id,peer_feedback_enabled,status')
         .eq('slug', eventSlug)
         .maybeSingle();
       if (scopedEventError) {
@@ -672,6 +673,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, pitches: [], total: 0, page, limit });
       }
       eventScopeId = scopedEvent.id;
+      // The feed hides the compose action when the organizer has turned peer
+      // feedback off, so the founder never meets a form that would be rejected.
+      peerFeedbackEnabled =
+        scopedEvent.peer_feedback_enabled !== false && scopedEvent.status !== 'archived';
     }
 
     // Build query
@@ -915,6 +920,7 @@ export async function GET(request: NextRequest) {
       total: count || 0,
       page,
       limit,
+      ...(peerFeedbackEnabled === undefined ? {} : { peerFeedbackEnabled }),
     });
   } catch (error) {
     console.error('Error fetching pitches:', error);
