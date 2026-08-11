@@ -66,3 +66,19 @@ export function shouldReverifyAccess(input: {
 export function shouldAdoptReviewerMode(hasVerifiedAccessOnce: boolean) {
   return !hasVerifiedAccessOnce;
 }
+
+/**
+ * Did the reviewer-access lookup give a DEFINITIVE answer about the caller's
+ * role?
+ *
+ * Not the same as "did it succeed". `/api/reviewer/access` answers 403 for a
+ * founder with no reviewer membership — the single most common case — so
+ * treating only 2xx as resolved would leave every founder unable to open the
+ * recorder. Undecided means the session is invalid (401) or the service itself
+ * failed (5xx, including the 503 when reviewer storage is unconfigured); a
+ * network throw never reaches this predicate and leaves the role unresolved.
+ */
+export function isRoleResolved(status: number) {
+  if (status === 401) return false;
+  return status < 500;
+}

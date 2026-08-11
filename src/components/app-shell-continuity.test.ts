@@ -265,7 +265,7 @@ test('the recorder deep link waits until the server has stated the role', () => 
   // known": a failed lookup still completes the check, so gating on that alone
   // hands the recorder to a reviewer-only account whenever the network blips.
   assert.match(home, /if \(!roleResolved\) return;/);
-  assert.match(home, /roleResolved = reviewerResponse\.ok;/);
+  assert.match(home, /roleResolved = isRoleResolved\(reviewerResponse\.status\);/);
   assert.match(home, /roleResolved, searchParams/);
 });
 

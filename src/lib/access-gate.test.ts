@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { accessCheckKey, shouldShowAccessGate } from './access-gate';
+import { accessCheckKey, isRoleResolved, shouldShowAccessGate } from './access-gate';
 
 const base = {
   loading: false,
@@ -102,5 +102,30 @@ test('reviewer mode is adopted only on the first check, never on a re-check', as
     shouldAdoptReviewerMode(true),
     false,
     'a background re-check must not flip modes — that unmounts a recording in progress',
+  );
+});
+
+test('a founder 403 from the reviewer lookup is a definitive role answer', () => {
+  // /api/reviewer/access replies 403 'reviewer_access_required' to any founder
+  // without reviewer membership. Treating only 2xx as resolved would gate the
+  // recorder shut for nearly every user of the product.
+  assert.equal(isRoleResolved(403), true);
+  assert.equal(isRoleResolved(200), true);
+});
+
+test('an undecided role never counts as resolved', () => {
+  // 401: the session is not valid, so we know nothing about the role.
+  assert.equal(isRoleResolved(401), false);
+  // 5xx: the service failed, including the 503 for unconfigured reviewer storage.
+  for (const status of [500, 502, 503, 504]) {
+    assert.equal(isRoleResolved(status), false, `${status} must not resolve the role`);
+  }
+});
+
+test('every status the reviewer route can return is classified', () => {
+  // Mirrors src/app/api/reviewer/access/route.ts.
+  assert.deepEqual(
+    [200, 401, 403, 500, 503].map(isRoleResolved),
+    [true, false, true, false, false],
   );
 });

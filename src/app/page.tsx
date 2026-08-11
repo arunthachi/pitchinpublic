@@ -21,6 +21,7 @@ import { pickRibbon, type RibbonModel } from '@/lib/event-orientation';
 import {
   ACCESS_REVERIFY_INTERVAL_MS,
   accessCheckKey,
+  isRoleResolved,
   shouldAdoptReviewerMode,
   shouldReverifyAccess,
   shouldShowAccessGate,
@@ -665,8 +666,13 @@ function HomeContent() {
         const canUseFounderMode = reviewerPayload.founderAccess === true;
 
         if (cancelled) return;
-        // The role is now known from the server, not merely assumed.
-        roleResolved = reviewerResponse.ok;
+        // "Resolved" means the server gave a DEFINITIVE answer, not a
+        // successful one. 403 is the normal reply for a founder with no
+        // reviewer membership, so treating only `ok` as resolved would leave
+        // every founder unable to open the recorder. Undecided means the
+        // session is invalid (401) or the service failed (5xx/503); a network
+        // throw skips this line entirely and leaves it false.
+        roleResolved = isRoleResolved(reviewerResponse.status);
         setReviewerAccess(isReviewer);
         setFounderAccess(canUseFounderMode);
         // Never switch modes on a background re-check: RecordingStudio renders
