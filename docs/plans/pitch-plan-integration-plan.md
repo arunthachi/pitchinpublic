@@ -1,8 +1,8 @@
 # Pitch Standard and Founder Pitch Plan Integration
 
-Status: proposed implementation plan  
-Target branch: `codex/pitch-plan-integration`  
-Baseline: production `origin/main` at `61eff38`  
+Status: approved implementation plan
+Target branch: `codex/pitch-plan-integration`
+Baseline: production `origin/main` at `61eff38`
 Product north star: structured feedback produces a sharper next pitch.
 
 ## Problem
