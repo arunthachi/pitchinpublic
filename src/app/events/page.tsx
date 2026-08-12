@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowRight, CalendarDays } from 'lucide-react';
+import { ArrowRight, CalendarDays, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActionPageNav } from '@/components/ActionPageNav';
 import AppTabBar from '@/components/AppTabBar';
@@ -47,15 +47,15 @@ type PendingInvitation = {
 
 const VIEW_COPY: Record<EventListView, { title: string; empty: string }> = {
   joined: {
-    title: 'Events',
+    title: 'Participating',
     empty: 'No events yet. Check your email for an event invite to join one.',
   },
   managed: {
-    title: 'My events',
+    title: 'Organizing',
     empty: 'No events yet. Create one to invite founders.',
   },
   team: {
-    title: 'Event workspaces',
+    title: 'Advising',
     empty: 'No team workspaces yet.',
   },
 };
@@ -170,15 +170,24 @@ function EventsContent() {
         links={[
           destination(primaryView === 'managed' ? 'myEvents' : primaryView === 'team' ? 'eventWorkspaces' : 'pitchRooms', true),
           destination('feed'),
-          ...(primaryView === 'managed' && canCreateEvents ? [destination('createEvent')] : []),
         ]}
         account={{ email: user.email, profileHref: '/me', onSignOut: signOut }}
       />
       <AppTabBar active="events" />
       <main className="mx-auto max-w-6xl px-4 py-6 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:py-8 lg:pb-8">
         <header className="mb-6">
-          <h1 className="font-heading text-4xl font-black leading-tight sm:text-5xl">{VIEW_COPY[primaryView].title}</h1>
-          <p className="mt-2 max-w-2xl text-base leading-7 text-slate-300">Open the event where you need to act.</p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-neon-cyan">Events</p>
+              <h1 className="mt-1 font-heading text-4xl font-black leading-tight sm:text-5xl">{VIEW_COPY[primaryView].title}</h1>
+              <p className="mt-2 max-w-2xl text-base leading-7 text-slate-300">Continue in the role and event context you chose.</p>
+            </div>
+            {canCreateEvents ? (
+              <Link href="/events/new" className="cta-primary inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-2 rounded-xl px-5 font-heading font-black sm:w-auto">
+                <Plus className="h-5 w-5" />Create event
+              </Link>
+            ) : null}
+          </div>
           {availableViews.length > 1 ? (
             <nav aria-label="Switch event view" className="mt-4 flex flex-wrap gap-2">
               {availableViews.map((view) => (
