@@ -122,7 +122,16 @@ export async function POST(request: NextRequest) {
     // and the user. Everything downstream — reading its status, attaching it to
     // a pitch, minting a playback token — checks this binding.
     const serviceSupabase = createServiceSupabase();
-    if (serviceSupabase) {
+    if (!serviceSupabase) {
+      // No binding can be recorded, so the resulting id could never be read or
+      // attached — and POST would have nothing to verify against.
+      console.error('Upload ownership unavailable: no service client');
+      return NextResponse.json(
+        { success: false, error: 'Uploads are temporarily unavailable.', code: 'ownership_unavailable' },
+        { status: 503, headers: formatRateLimitHeaders(result) }
+      );
+    }
+    {
       const { error: ownershipError } = await serviceSupabase
         .from('video_uploads')
         .upsert(

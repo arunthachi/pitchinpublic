@@ -392,7 +392,17 @@ export async function POST(request: NextRequest) {
     // video is publicly playable, but once Phase 2 requires signed playback the
     // server would mint a valid token for a video they never uploaded.
     const ownershipClient = createServiceSupabase();
-    if (ownershipClient) {
+    if (!ownershipClient) {
+      // Fail CLOSED. Skipping the check when the service client is missing
+      // would let any caller attach a victim's video id — the exact escalation
+      // this guard exists to stop.
+      console.error('Video ownership check unavailable: no service client');
+      return NextResponse.json(
+        { success: false, error: 'Publishing is temporarily unavailable.', code: 'ownership_unavailable' },
+        { status: 503, headers: formatRateLimitHeaders(result) }
+      );
+    }
+    {
       const { data: videoOwner, error: videoOwnerError } = await ownershipClient
         .from('video_uploads')
         .select('user_id')

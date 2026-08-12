@@ -71,3 +71,26 @@ test('the ownership table is service-write only and backfilled', () => {
   assert.match(migration, /INSERT INTO public\.video_uploads[\s\S]*FROM public\.pitches/);
   assert.match(migration, /ON CONFLICT \(video_id\) DO NOTHING/);
 });
+
+test('the ownership checks fail closed, not open', () => {
+  // A security check that skips itself when its client is missing is not a
+  // check. Both sites previously guarded with `if (client)`, so an absent
+  // service role key silently allowed any caller to attach any video id.
+  const pitches = read('app/api/pitches/route.ts');
+  assert.match(pitches, /if \(!ownershipClient\) \{/);
+  assert.match(pitches, /code: 'ownership_unavailable'/);
+  assert.doesNotMatch(
+    pitches,
+    /const ownershipClient = createServiceSupabase\(\);\s*\n\s*if \(ownershipClient\) \{/,
+    'the pitch ownership check must not be conditional on the client existing',
+  );
+
+  const upload = read('app/api/videos/upload-url/route.ts');
+  assert.match(upload, /if \(!serviceSupabase\) \{/);
+  assert.match(upload, /code: 'ownership_unavailable'/);
+  assert.doesNotMatch(
+    upload,
+    /const serviceSupabase = createServiceSupabase\(\);\s*\n\s*if \(serviceSupabase\) \{/,
+    'upload must not issue an id it cannot bind to a user',
+  );
+});
