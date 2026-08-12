@@ -416,15 +416,16 @@ export async function POST(request: NextRequest) {
           { status: 500, headers: formatRateLimitHeaders(result) }
         );
       }
-      if (videoOwner && videoOwner.user_id !== user.id) {
+      if (!videoOwner || videoOwner.user_id !== user.id) {
+        // Require the row, do not merely reject a mismatch. Both issuers record
+        // ownership and the migration backfilled every existing pitch, so a
+        // missing row means the id did not come from this app for this user.
+        // Allowing it would leave exactly the hole this guard exists to close.
         return NextResponse.json(
           { success: false, error: 'That video belongs to another account.', code: 'video_not_owned' },
           { status: 403, headers: formatRateLimitHeaders(result) }
         );
       }
-      // A missing row means the upload predates ownership tracking; the
-      // backfill covers existing pitches, so only brand-new uploads reach here
-      // and those always have a row.
     }
 
     // Insert pitch into database

@@ -94,3 +94,21 @@ test('the ownership checks fail closed, not open', () => {
     'upload must not issue an id it cannot bind to a user',
   );
 });
+
+test('every upload issuer records ownership', () => {
+  // There are two. Missing the second left ids with no owner row, and publish
+  // accepted a missing row, so anyone obtaining such an id could attach it.
+  for (const issuer of ['app/api/videos/upload-url/route.ts', 'app/api/pitches/upload-url/route.ts']) {
+    const source = read(issuer);
+    assert.match(source, /from\('video_uploads'\)/, `${issuer} issues ids without binding an owner`);
+    assert.match(source, /user_id: user\.id/, `${issuer} does not bind to the caller`);
+    assert.match(source, /code: 'ownership_unavailable'/, `${issuer} does not fail closed`);
+  }
+});
+
+test('publish requires an ownership row, not merely a matching one', () => {
+  const route = read('app/api/pitches/route.ts');
+  // Rejecting only a MISMATCH lets an unbound id through. Both issuers record
+  // and the migration backfilled existing pitches, so absent means not ours.
+  assert.match(route, /if \(!videoOwner \|\| videoOwner\.user_id !== user\.id\)/);
+});
