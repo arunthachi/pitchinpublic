@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
-import { signedUrlsForRows } from '@/lib/video-providers/stream-tokens';
-import { createSupabaseTokenStore } from '@/lib/video-providers/supabase-token-store';
+import { applySignedUrls, signPrivateRows } from '@/lib/video-providers/sign-rows';
 import { getPromptForDate } from '@/lib/practice';
 import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
@@ -24,6 +23,13 @@ export function parsePitchIdempotencyKey(value: string | null) {
 
 export function hashPitchCreationPayload(payload: unknown) {
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+async function pitchResponseSigned(pitch: any, fallback: Record<string, any>) {
+  // A pitch created for an event is private from birth, so the create and
+  // replay responses must sign it exactly like every read path does.
+  const signed = await signPrivateRows([pitch]);
+  return pitchResponse(applySignedUrls(pitch, signed), fallback);
 }
 
 function pitchResponse(pitch: any, fallback: Record<string, any>) {
@@ -332,7 +338,7 @@ export async function POST(request: NextRequest) {
           {
             success: true,
             replayed: true,
-            pitch: pitchResponse(existingPitch, {
+            pitch: await pitchResponseSigned(existingPitch, {
               startupName,
               oneLinePitch,
               feedbackAsk,
@@ -515,7 +521,7 @@ export async function POST(request: NextRequest) {
           {
             success: true,
             replayed: true,
-            pitch: pitchResponse(racedPitch, {
+            pitch: await pitchResponseSigned(racedPitch, {
               startupName,
               oneLinePitch,
               feedbackAsk,
@@ -576,7 +582,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         replayed: false,
-        pitch: pitchResponse(pitch, {
+        pitch: await pitchResponseSigned(pitch, {
           startupName,
           oneLinePitch,
           feedbackAsk,
@@ -788,6 +794,7 @@ export async function GET(request: NextRequest) {
         hook,
         description,
         video_id,
+        visibility,
         video_url,
         thumbnail_url,
         duration,
@@ -936,22 +943,13 @@ export async function GET(request: NextRequest) {
     // only ever minted for a video the caller is already allowed to watch.
     // Phase 1: videos still permit unsigned playback, so a mint failure leaves
     // the stored URL in place rather than breaking the player.
-    const tokenStoreClient = createServiceSupabase();
-    const signedVideoUrls = await signedUrlsForRows((pitches || []) as any[], {
-      accountId: process.env.CLOUDFLARE_ACCOUNT_ID || '',
-      apiToken: process.env.CLOUDFLARE_STREAM_API_TOKEN || '',
-      // Shared so the feed cannot fan out into the account-wide Cloudflare
-      // quota once per serverless instance. Absent store just means more mints,
-      // never a failed response.
-      store: tokenStoreClient ? createSupabaseTokenStore(tokenStoreClient) : undefined,
-    });
+    // Only private pitches are signed; public ones keep a permanent, shareable
+    // URL so a founder can post their best take and have it still render later.
+    const signedVideoUrls = await signPrivateRows((pitches || []) as any[]);
 
     const enrichedPitches = (pitches || []).map((pitch: any) => ({
       ...pitch,
-      ...(signedVideoUrls.get(pitch.video_id) ? {
-        video_url: signedVideoUrls.get(pitch.video_id)!.playbackUrl,
-        thumbnail_url: signedVideoUrls.get(pitch.video_id)!.thumbnailUrl,
-      } : {}),
+      ...applySignedUrls(pitch, signedVideoUrls),
       feedback: (pitch.feedback || []).map((feedback: any) => {
         const vote = Array.isArray(feedback.feedback_quality_votes)
           ? feedback.feedback_quality_votes[0]
