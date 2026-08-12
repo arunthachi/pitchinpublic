@@ -221,19 +221,25 @@ BEGIN
 END $$;
 
 REVOKE ALL ON FUNCTION public.create_event_with_standard_draft(jsonb,uuid,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.create_event_with_standard_draft(jsonb,uuid,text) FROM anon;
 REVOKE ALL ON FUNCTION public.save_event_pitch_guideline_draft(uuid,integer,text,text,jsonb,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.save_event_pitch_guideline_draft(uuid,integer,text,text,jsonb,text) FROM anon;
 REVOKE ALL ON FUNCTION public.publish_event_pitch_guideline_draft(uuid,integer,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.publish_event_pitch_guideline_draft(uuid,integer,uuid) FROM anon;
 REVOKE ALL ON FUNCTION public.start_event_recording_session(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.start_event_recording_session(uuid) FROM anon;
 REVOKE ALL ON FUNCTION public.submit_structured_event_final_take(uuid,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.submit_structured_event_final_take(uuid,uuid) FROM anon;
 GRANT EXECUTE ON FUNCTION public.create_event_with_standard_draft(jsonb,uuid,text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.save_event_pitch_guideline_draft(uuid,integer,text,text,jsonb,text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.publish_event_pitch_guideline_draft(uuid,integer,uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.start_event_recording_session(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.submit_structured_event_final_take(uuid,uuid) TO authenticated;
 REVOKE ALL ON FUNCTION public.submit_structured_event_pitch_feedback(uuid,text,text,uuid,uuid,text,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.submit_structured_event_pitch_feedback(uuid,text,text,uuid,uuid,text,text,text) FROM anon;
 GRANT EXECUTE ON FUNCTION public.submit_structured_event_pitch_feedback(uuid,text,text,uuid,uuid,text,text,text) TO authenticated;
 
 REVOKE ALL ON public.event_pitch_guideline_drafts, public.event_recording_sessions FROM anon, authenticated;
 GRANT SELECT ON public.event_pitch_guideline_drafts, public.event_recording_sessions TO authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.event_pitch_guideline_versions FROM anon, authenticated;
-REVOKE ALL ON FUNCTION public.bind_pitch_guideline_version(), public.consume_bound_recording_session(), public.prevent_pitch_binding_mutation() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.bind_pitch_guideline_version(), public.consume_bound_recording_session(), public.prevent_pitch_binding_mutation() FROM PUBLIC, anon, authenticated;
