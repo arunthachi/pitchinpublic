@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
+import { signedUrlsForRows } from '@/lib/video-providers/stream-tokens';
+import { createSupabaseTokenStore } from '@/lib/video-providers/supabase-token-store';
 import { getPromptForDate } from '@/lib/practice';
 import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
@@ -386,6 +388,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // A caller may only attach a video they uploaded. Without this, anyone could
+    // put someone else's video id on their own pitch — harmless while every
+    // video is publicly playable, but once Phase 2 requires signed playback the
+    // server would mint a valid token for a video they never uploaded.
+    const ownershipClient = createServiceSupabase();
+    if (!ownershipClient) {
+      // Fail CLOSED. Skipping the check when the service client is missing
+      // would let any caller attach a victim's video id — the exact escalation
+      // this guard exists to stop.
+      console.error('Video ownership check unavailable: no service client');
+      return NextResponse.json(
+        { success: false, error: 'Publishing is temporarily unavailable.', code: 'ownership_unavailable' },
+        { status: 503, headers: formatRateLimitHeaders(result) }
+      );
+    }
+    {
+      const { data: videoOwner, error: videoOwnerError } = await ownershipClient
+        .from('video_uploads')
+        .select('user_id')
+        .eq('video_id', pitchData.videoId)
+        .maybeSingle();
+
+      if (videoOwnerError) {
+        console.error('Video ownership check failed:', videoOwnerError);
+        return NextResponse.json(
+          { success: false, error: 'Could not verify the uploaded video.', code: 'video_ownership_failed' },
+          { status: 500, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      if (!videoOwner || videoOwner.user_id !== user.id) {
+        // Require the row, do not merely reject a mismatch. Both issuers record
+        // ownership and the migration backfilled every existing pitch, so a
+        // missing row means the id did not come from this app for this user.
+        // Allowing it would leave exactly the hole this guard exists to close.
+        return NextResponse.json(
+          { success: false, error: 'That video belongs to another account.', code: 'video_not_owned' },
+          { status: 403, headers: formatRateLimitHeaders(result) }
+        );
+      }
+    }
+
     // Insert pitch into database
     const insertPayload = {
       public_id: createPublicPitchId(),
@@ -697,6 +740,7 @@ export async function GET(request: NextRequest) {
         extra_context,
         take_version,
         company_id,
+        video_id,
         video_url,
         thumbnail_url,
         duration,
@@ -743,6 +787,7 @@ export async function GET(request: NextRequest) {
         id,
         hook,
         description,
+        video_id,
         video_url,
         thumbnail_url,
         duration,
@@ -887,8 +932,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Sign playback AFTER RLS has decided which rows come back, so a token is
+    // only ever minted for a video the caller is already allowed to watch.
+    // Phase 1: videos still permit unsigned playback, so a mint failure leaves
+    // the stored URL in place rather than breaking the player.
+    const tokenStoreClient = createServiceSupabase();
+    const signedVideoUrls = await signedUrlsForRows((pitches || []) as any[], {
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID || '',
+      apiToken: process.env.CLOUDFLARE_STREAM_API_TOKEN || '',
+      // Shared so the feed cannot fan out into the account-wide Cloudflare
+      // quota once per serverless instance. Absent store just means more mints,
+      // never a failed response.
+      store: tokenStoreClient ? createSupabaseTokenStore(tokenStoreClient) : undefined,
+    });
+
     const enrichedPitches = (pitches || []).map((pitch: any) => ({
       ...pitch,
+      ...(signedVideoUrls.get(pitch.video_id) ? {
+        video_url: signedVideoUrls.get(pitch.video_id)!.playbackUrl,
+        thumbnail_url: signedVideoUrls.get(pitch.video_id)!.thumbnailUrl,
+      } : {}),
       feedback: (pitch.feedback || []).map((feedback: any) => {
         const vote = Array.isArray(feedback.feedback_quality_votes)
           ? feedback.feedback_quality_votes[0]
