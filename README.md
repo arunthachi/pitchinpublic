@@ -1,8 +1,15 @@
-# Pitch in Public 2.0 - The TikTok for Startup Pitches
+# Pitch in Public — Practice, Feedback, and a Sharper Next Pitch
 
-A **full-screen, immersive, mobile-first** web application where founders post 60-second pitches and get real-time feedback from the community. Think **TikTok meets Product Hunt meets Loom**.
+A mobile-first pitch practice platform where founders prepare against an event-specific Pitch Standard, record short takes, receive structured feedback, and improve the next version. The immersive video feed supports that loop; it is not the product's primary value proposition.
 
 ## 🎬 What's New in 2.0
+
+### **Event Pitch Practice**
+- ✅ Organizers create a short event, then adapt and publish its Pitch Standard
+- ✅ Founders complete one plain-language Pitch plan before recording
+- ✅ Event takes retain the exact standard version used during recording
+- ✅ Reviewers provide criterion-linked observations and practical next steps
+- ✅ Founder preparation works even when mentor feedback begins later
 
 ### **The TikTok Experience**
 - ✅ Full-screen vertical video feed

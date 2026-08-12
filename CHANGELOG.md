@@ -1,0 +1,20 @@
+# Changelog
+
+## [0.2.0] - 2026-08-12
+
+### Added
+
+- Organizers can create an event quickly, then tailor and publish a reusable Pitch Standard with four to six plain-language criteria and founder instructions.
+- Founders see the event’s Pitch plan before recording and inside the recording studio, with their preparation saved while an uploaded take remains intact.
+- Reviewers evaluate each take against the exact Pitch Standard version used to record it and give criterion-bound observations plus a practical next step.
+- Product, roadmap, workflow, and agent guidance now document the founder-improvement loop and the Tiger Shark Tank pilot constraints.
+
+### Changed
+
+- Structured event pitches are private while founders practice and can be submitted only through a trusted event recording session.
+- Feedback identity supports named, role-only, or founder-anonymous disclosure without losing internal accountability.
+
+### Fixed
+
+- Event creation retries, Pitch Standard publishing, all-day deadlines, recording setup failures, legacy pitch candidates, and feedback retries now preserve the correct server-authoritative state.
+- Reviewer and founder views retain Pitch Standard provenance and structured feedback after reload.
