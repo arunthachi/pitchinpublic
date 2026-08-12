@@ -10,7 +10,7 @@ import { Step3_Publish } from './Step3_Publish';
 import type { PracticePrompt } from '@/lib/practice';
 import { createClient } from '@/lib/supabase/client';
 import { formatPitchLength, formatPitchLengthRange } from '@/lib/duration';
-import { PitchPlanFields, PitchPlanSheet, pitchPlanMissingFields, type PitchBriefGroup, type PitchGuidelines } from '@/components/pitch-guidance/EventPitchGuidance';
+import { BUSINESS_STAGE_OPTIONS, INDUSTRY_OPTIONS, PitchPlanFields, PitchPlanSheet, pitchPlanMissingFields, type PitchBriefGroup, type PitchGuidelines } from '@/components/pitch-guidance/EventPitchGuidance';
 
 interface RecordingStudioProps {
   isOpen: boolean;
@@ -237,7 +237,7 @@ export function RecordingStudio({
     const plan: PitchGuidelines = { id: published.id, title: published.title, introduction: published.instructions, version: published.version, updatedAt: published.created_at, criteria: (published.criteria || []).map((criterion: any) => ({ id: criterion.key, label: criterion.label, description: criterion.guidance })) };
     const brief = briefData.brief || {};
     const groups: PitchBriefGroup[] = [
-      { id: 'business', label: 'Who and what', fields: [{ key: 'tagline', label: 'Tagline', value: brief.tagline || '', required: true, maxLength: 60 }, { key: 'businessStage', label: 'Business stage', value: brief.business_stage || '', required: false }, { key: 'industry', label: 'Industry', value: brief.industry || '', required: false }] },
+      { id: 'business', label: 'Who and what', fields: [{ key: 'tagline', label: 'Tagline', value: brief.tagline || '', required: true, maxLength: 60 }, { key: 'businessStage', label: 'Business stage', value: brief.business_stage || '', required: false, kind: 'select', options: BUSINESS_STAGE_OPTIONS }, { key: 'industry', label: 'Industry', value: brief.industry || '', required: false, kind: 'combobox', options: INDUSTRY_OPTIONS }] },
       { id: 'story', label: 'Need and offering', fields: [{ key: 'problem', label: 'Need, problem, or opportunity', value: brief.problem || '', required: true, kind: 'textarea', maxLength: 1200 }, { key: 'businessDescription', label: 'What you offer or propose', value: brief.business_description || '', required: true, kind: 'textarea', maxLength: 1800 }, { key: 'ask', label: 'What should the audience do next?', value: brief.ask || '', required: true, kind: 'textarea', maxLength: 600 }] },
     ];
     setPitchPlan(plan); setPitchPlanGroups(groups); setPitchPlanValues(Object.fromEntries(groups.flatMap((group) => group.fields.map((field) => [field.key, field.value]))));

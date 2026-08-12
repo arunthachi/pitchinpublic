@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2] - 2026-08-12
+
+### Changed
+
+- Founders can select a clear business stage from Idea, Pre-revenue, Revenue-generating, Growth, or Established in the event pitch plan and recording studio.
+- Industry is now a searchable suggestion field with broad cross-sector categories while still accepting a founder’s own description.
+
 ## [0.2.1] - 2026-08-12
 
 ### Fixed
