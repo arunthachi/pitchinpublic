@@ -38,7 +38,11 @@ export const selectGuidanceActionSchema = z.object({ feedbackId: z.string().uuid
 export const addressGuidanceActionSchema = z.object({ laterPitchId: z.string().uuid() }).strict();
 
 export function firstGuidanceIssue(error: z.ZodError) {
-  return error.issues[0]?.message || 'Invalid pitch guidance data.';
+  const issue = error.issues[0];
+  if (issue?.path[0] === 'revision') {
+    return 'This event’s pitch standard setup is incomplete. Reload the page and try again.';
+  }
+  return issue?.message || 'Invalid pitch guidance data.';
 }
 
 export function eligibleEventSubmissionPitches<T extends { event_id?: string | null; event_guideline_version_id?: string | null; event_recording_session_id?: string | null }>(

@@ -112,6 +112,10 @@ export function PitchGuidelinesEditor({ eventSlug, canManage, initiallyOpen = fa
 
   const save = async (action: 'draft' | 'publish') => {
     if (saving || !valid) return;
+    if (!Number.isInteger(draft.revision) || Number(draft.revision) < 1) {
+      setMessage('This event’s pitch standard setup is incomplete. Reload the page and try again.');
+      return;
+    }
     setSaving(action);
     setMessage('');
     setConflict(false);
