@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getVideoProvider } from '@/lib/video-providers';
 import { createRequestSupabase, createServiceSupabase } from '@/lib/admin';
 import { rateLimit, RATE_LIMITS } from '@/lib/ratelimit';
+import { signPrivateRows } from '@/lib/video-providers/sign-rows';
 
 /**
  * GET /api/videos/[videoId] — processing status and playback URL for a video
@@ -89,8 +90,31 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Video not found' }, { status: 404 });
     }
 
+    // The provider returns canonical URLs. That is correct while a video is
+    // freshly uploaded and not yet attached to a pitch — the common case for
+    // this endpoint. But once the video belongs to a PRIVATE pitch, playback is
+    // enforced and a canonical URL 403s, so the recorder would show a broken
+    // preview. Sign it in that case.
+    const { data: owningPitch } = await serviceSupabase
+      .from('pitches')
+      .select('video_id,video_url,visibility')
+      .eq('video_id', videoId)
+      .eq('visibility', 'private')
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle();
+
+    let data = video;
+    if (owningPitch) {
+      const signed = await signPrivateRows([owningPitch]);
+      const urls = signed.get(videoId);
+      if (urls) {
+        data = { ...video, playbackUrl: urls.playbackUrl, thumbnailUrl: urls.thumbnailUrl };
+      }
+    }
+
     return NextResponse.json(
-      { success: true, data: video },
+      { success: true, data },
       { headers: { 'Cache-Control': 'private, no-store' } }
     );
   } catch (error) {

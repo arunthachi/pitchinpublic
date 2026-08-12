@@ -47,3 +47,12 @@ test('the toggle tells the caller whether old links are actually dead', () => {
   const finalReturn = route.slice(route.lastIndexOf('return NextResponse.json({'));
   assert.match(finalReturn, /enforcementSynced,/);
 });
+
+test('the recorder poll signs a video that already belongs to a private pitch', () => {
+  const route = read('app/api/videos/[videoId]/route.ts');
+  // The provider returns canonical URLs, which is right for a fresh upload but
+  // 403s once the video is enforced — the recorder would show a dead preview.
+  assert.match(route, /\.eq\('visibility', 'private'\)/);
+  assert.match(route, /signPrivateRows\(\[owningPitch\]\)/);
+  assert.match(route, /playbackUrl: urls\.playbackUrl/);
+});
