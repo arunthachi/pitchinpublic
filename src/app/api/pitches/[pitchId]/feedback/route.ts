@@ -7,6 +7,7 @@ import {
   reviewerRoleLabel,
 } from '@/lib/review-marketplace-server';
 import { isPublicPitchId, isUuidLike } from '@/lib/public-routes';
+import { feedbackSubmissionRpc } from './_server';
 
 /**
  * POST /api/pitches/[pitchId]/feedback
@@ -64,35 +65,6 @@ const feedbackSchema = z.object({
   }
 });
 
-export function feedbackSubmissionRpc(
-  pitchId: string,
-  type: 'roast' | 'toast',
-  content: string,
-  requestKey: string,
-  eventId?: string | null
-) {
-  return eventId
-    ? {
-        name: 'submit_event_pitch_feedback',
-        args: {
-          target_pitch_id: pitchId,
-          feedback_type: type,
-          feedback_content: content,
-          request_key: requestKey,
-          target_event_id: eventId,
-        },
-      }
-    : {
-        name: 'submit_pitch_feedback',
-        args: {
-          target_pitch_id: pitchId,
-          feedback_type: type,
-          feedback_content: content,
-          request_key: requestKey,
-        },
-      };
-}
-
 function normalizedSignals(feedback: z.infer<typeof feedbackSchema>) {
   const rawSignals = feedback.signals?.length ? feedback.signals : [feedback.signal || 'Clear'];
   return [...new Set(rawSignals.map((item) => item.trim()).filter(Boolean))].slice(0, 3);
@@ -115,6 +87,14 @@ function serializeFeedbackContent(feedback: z.infer<typeof feedbackSchema>) {
     signals,
     readiness: feedback.readiness,
     scores,
+    ...(feedback.structured ? {
+      structured: {
+        criterionKey: feedback.structured.criterionKey,
+        sentiment: feedback.structured.sentiment,
+        observation: feedback.structured.observation.trim(),
+        nextStep: feedback.structured.nextStep.trim(),
+      },
+    } : {}),
   });
 }
 
@@ -318,9 +298,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
         })
       : await supabase.rpc(submission.name, submission.args);
 
-    const feedback = structured
-      ? { feedback_id: submissionRows, submitted_type: feedbackData.type, reviewer_role: 'reviewer', created_at: new Date().toISOString(), assignment_completed: false, idempotent_replay: false }
-      : (Array.isArray(submissionRows) ? submissionRows[0] : submissionRows);
+    const feedback = Array.isArray(submissionRows) ? submissionRows[0] : submissionRows;
     if (submissionError || !feedback) {
       console.error('Error creating feedback:', submissionError);
       throw submissionError || new Error('Feedback could not be saved');

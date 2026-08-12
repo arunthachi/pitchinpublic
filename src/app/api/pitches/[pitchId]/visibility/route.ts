@@ -1,33 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { createRequestSupabase } from '@/lib/admin';
 import { isUuidLike } from '@/lib/pitch-deck';
 import { formatRateLimitHeaders, rateLimit, RATE_LIMITS } from '@/lib/ratelimit';
-
-export const visibilityUpdateSchema = z
-  .object({
-    visibility: z.enum(['public', 'private']),
-  })
-  .strict();
-
-/**
- * The authorization contract, exported for tests: the update is scoped to the
- * owner's own non-deleted pitch — a non-owner's request matches zero rows and
- * surfaces as the same 404 a missing pitch produces.
- */
-export function ownerScopedVisibilityUpdate(
-  supabase: NonNullable<ReturnType<typeof createRequestSupabase>>,
-  input: { pitchId: string; userId: string; visibility: 'public' | 'private' }
-) {
-  return supabase
-    .from('pitches')
-    .update({ visibility: input.visibility, updated_at: new Date().toISOString() })
-    .eq('id', input.pitchId)
-    .eq('user_id', input.userId)
-    .is('deleted_at', null)
-    .select('id, public_id, visibility, event_id')
-    .maybeSingle();
-}
+import { ownerScopedVisibilityUpdate, visibilityUpdateSchema } from './_server';
 
 /**
  * POST /api/pitches/[pitchId]/visibility

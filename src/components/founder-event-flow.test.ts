@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildEventSubmissionBody } from './RecordingStudio';
+import { buildEventSubmissionBody, shouldOpenPitchPlan } from './RecordingStudio';
 import { validatePitchDetails } from './Step2_AddDetails';
-import { buildSubmissionSuccessResponse } from '../app/api/events/[slug]/submission/route';
+import { buildSubmissionSuccessResponse } from '../app/api/events/[slug]/submission/_server';
 import { getEventSubmissionRetryKey } from '@/lib/idempotency';
+import { readFileSync } from 'node:fs';
+
+const studioSource = readFileSync(new URL('./RecordingStudio.tsx', import.meta.url), 'utf8');
 
 test('returning founders can submit with saved one-line pitch and no optional fields', () => {
   assert.deepEqual(validatePitchDetails({
@@ -12,6 +15,28 @@ test('returning founders can submit with saved one-line pitch and no optional fi
     feedbackAsk: '',
     context: '',
   }), {});
+});
+
+test('event final submission requires only the four required pitch-plan fields', () => {
+  const finalSubmissionBlock = studioSource.slice(
+    studioSource.indexOf('const missing = ['),
+    studioSource.indexOf('].filter', studioSource.indexOf('const missing = [')),
+  );
+  assert.match(finalSubmissionBlock, /tagline/);
+  assert.match(finalSubmissionBlock, /business_description/);
+  assert.match(finalSubmissionBlock, /problem/);
+  assert.match(finalSubmissionBlock, /ask/);
+  assert.doesNotMatch(finalSubmissionBlock, /business_stage|industry/);
+});
+
+test('event recording actions stay disabled until a trusted session exists', () => {
+  assert.match(studioSource, /disabled=\{Boolean\(eventSlug && !recordingSessionId\)\}/);
+  assert.match(studioSource, /Retry recording setup/);
+});
+
+test('the pitch plan opens on a founder first visit without repeatedly interrupting practice', () => {
+  assert.equal(shouldOpenPitchPlan(null), true);
+  assert.equal(shouldOpenPitchPlan('1'), false);
 });
 
 test('new founders only need a valid one-line pitch', () => {

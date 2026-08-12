@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NextRequest } from 'next/server';
-import { POST, visibilityUpdateSchema } from './route';
+import { POST } from './route';
+import { ownerScopedVisibilityUpdate, visibilityUpdateSchema } from './_server';
 
 test('visibility accepts only public or private', () => {
   assert.equal(visibilityUpdateSchema.safeParse({ visibility: 'public' }).success, true);
@@ -46,7 +47,6 @@ test('the update is owner-scoped: id, user_id, and deleted_at filters all apply'
     maybeSingle: async () => ({ data: null, error: null }),
   };
 
-  const { ownerScopedVisibilityUpdate } = await import('./route');
   const result = await ownerScopedVisibilityUpdate(stub, {
     pitchId: 'pitch-1',
     userId: 'owner-1',

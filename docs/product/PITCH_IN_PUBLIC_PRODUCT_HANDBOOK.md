@@ -32,18 +32,24 @@ A pitch post or recording is an input to this loop, not the end product. The pil
 ### Controlled pilot contract (August 2026)
 
 ```text
-Organizer publishes versioned pitch guidelines
--> Founder completes an event-specific pitch brief and records a take
+Organizer creates a short event and publishes an editable, versioned Pitch Standard
+-> Founder completes one event-specific Pitch plan and records a take
 -> Reviewer gives criterion-linked observation and next step
 -> Founder selects one or two practice actions
 -> Founder records a later take and marks guidance addressed
 ```
 
-Each published guideline version contains four to six criteria. The founder brief covers the organizer's requested structure, including tagline, business stage, industry, business description, problem, and ask; the existing startup deck remains available through its separately authorized upload or URL flow. Structured review requires both **What I noticed** and **Try this next**, bound to the guideline version and criterion used at review time.
+Each event starts with an unpublished, universal Pitch Standard that works across business types and can be adapted to the organizer's existing application or judging format. It is not an investor-only template. The organizer explicitly publishes it before event recording begins. Each published version contains four to six criteria.
+
+The founder sees one **Pitch plan**, not separate guidelines and brief concepts. It combines the event's standard with the founder's responses: tagline, business description, need/problem/opportunity, and ask are required for final submission; business stage and industry are optional context. The existing startup deck remains available through its separately authorized upload or URL flow. The plan is shown before recording, remains available while preparing and reviewing a take, and cannot cover or interrupt an active recording.
+
+Every event take is bound at creation to the exact published standard version used when its recording session began. Publishing a later version never rewrites historical takes. Structured review requires both **What I noticed** and **Try this next**, bound to that stored version and criterion.
 
 Reviewer identity is always retained for accountability. Founder disclosure is policy-driven (`named`, `role_only`, or `anonymous_to_founder`) and defaults to role-only; authorized organizers retain accountability visibility.
 
 AI guidance is an approved near-term direction, but AI-generated review is not part of this pilot release. Reviewer accountability and immutable guideline versions must remain intact; a future AI release must add explicit source and model provenance before generated guidance is stored.
+
+Participation can be optional within an organizer's program, and mentor review can begin only after finalists are selected. Neither reviewer recruitment nor feedback coverage blocks founder preparation or recording. Once a founder chooses to record for an event, however, the event's published Pitch Standard governs that take.
 
 The organizer wedge extends that loop:
 
@@ -474,6 +480,15 @@ Event setup fields:
 - Optional access code as a fallback, not the primary invitation experience.
 
 Supported pitch duration should include common values from one through six minutes and a safe custom option if validation permits it.
+
+Event creation ends after these basics. The success state immediately presents the event's recommended Pitch Standard as the primary next step:
+
+- `Use and publish this standard` publishes the recommended draft in one action.
+- `Customize` opens plain-language editing for the title, instructions, and four to six criteria.
+- Founder and team invitations remain available while the standard is a draft, with clear copy that founders can join but must wait for publication before recording for the event.
+- A later edit publishes a new immutable version; existing takes retain their original version.
+
+The default standard must be understandable for founders in any category, including local businesses, nonprofits, services, creative work, and technology companies. Do not require venture-stage language.
 
 Visibility copy must explain the outcome, for example:
 

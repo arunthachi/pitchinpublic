@@ -8,15 +8,20 @@ Pitch in Public is a mobile-first pitch practice room where founders record shor
 
 North-star outcome: **structured feedback produces a sharper next pitch**. Recording and posting are supporting actions; success requires an observable feedback-to-practice-to-later-take loop.
 
-## Controlled Pitch-Guidance Pilot
+## Integrated Pitch Standard Pilot
 
-- Organizer publishes a versioned event guideline with four to six rubric criteria.
-- Founder sees an event-specific pitch brief covering the required pitch structure.
+- Short event creation atomically creates an unpublished universal Pitch Standard draft.
+- Organizer uses the recommended draft or customizes it to match the event's application/judging structure, then explicitly publishes it.
+- Founder sees one event-specific Pitch plan that combines the standard and founder responses before recording.
 - Reviewer submits a criterion-linked observation and concrete next step.
 - Founder selects one or two items as the current practice focus.
 - A later event take can mark selected guidance addressed.
 
 Guideline versions and review provenance are immutable historical context. Events created before this contract remain `legacy_open`; publishing the first structured guideline activates the structured workflow. Existing Toast/Roast feedback remains readable.
+
+Tagline, business description, need/problem/opportunity, and ask are required for structured final submission. Business stage and industry are optional. Event recording is unavailable until a standard is published, but founder invitations and preparation remain available. Reviewer supply and completed feedback never gate recording.
+
+The Pitch plan remains accessible throughout preparation and preview. During an active recording it is disabled so it cannot obscure or interrupt the take; at most one selected practice cue is shown.
 
 Disclosure may be `named`, `role_only`, or `anonymous_to_founder`. Identity is always stored; role-only is the default founder view, while authorized organizers retain accountability access.
 

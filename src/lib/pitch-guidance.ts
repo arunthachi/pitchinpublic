@@ -9,16 +9,21 @@ export const guidelineCriterionSchema = z.object({
 }).strict();
 
 export const publishGuidelinesSchema = z.object({
+  revision: z.number().int().positive(),
+  idempotencyKey: z.string().uuid(),
+}).strict();
+
+export const saveGuidelineDraftSchema = z.object({
+  revision: z.number().int().positive(),
   title: z.string().trim().min(3).max(120),
   instructions: z.string().trim().max(4000).default(''),
   criteria: z.array(guidelineCriterionSchema).min(4).max(6),
   disclosureMode: z.enum(feedbackDisclosureModes).default('role_only'),
 }).strict().superRefine((value, context) => {
-  const keys = value.criteria.map((criterion) => criterion.key);
-  if (new Set(keys).size !== keys.length) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ['criteria'], message: 'Criterion keys must be unique.' });
-  }
+  if (new Set(value.criteria.map((criterion) => criterion.key)).size !== value.criteria.length) context.addIssue({ code: z.ZodIssueCode.custom, path: ['criteria'], message: 'Criterion keys must be unique.' });
 });
+
+export const recordingSessionSchema = z.object({ recordingSessionId: z.string().uuid() }).strict();
 
 export const founderBriefSchema = z.object({
   tagline: z.string().trim().max(60).default(''),
@@ -34,4 +39,12 @@ export const addressGuidanceActionSchema = z.object({ laterPitchId: z.string().u
 
 export function firstGuidanceIssue(error: z.ZodError) {
   return error.issues[0]?.message || 'Invalid pitch guidance data.';
+}
+
+export function eligibleEventSubmissionPitches<T extends { event_id?: string | null; event_guideline_version_id?: string | null; event_recording_session_id?: string | null }>(
+  pitches: T[],
+  event: { id: string; guidance_mode?: string | null } | null | undefined,
+) {
+  if (!event || event.guidance_mode !== 'structured_active') return pitches;
+  return pitches.filter((pitch) => pitch.event_id === event.id && Boolean(pitch.event_guideline_version_id) && Boolean(pitch.event_recording_session_id));
 }

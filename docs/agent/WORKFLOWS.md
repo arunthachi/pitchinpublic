@@ -161,7 +161,10 @@ Test:
 - Invite link can be copied.
 - Organizer accepts invite with matching email.
 - Organizer creates event.
-- Organizer can immediately publish four to six versioned pitch-guideline criteria after the short event setup.
+- Short event setup creates an unpublished universal Pitch Standard draft atomically.
+- Organizer can immediately use and publish it or customize four to six plain-language criteria.
+- Founder sees one Pitch plan and cannot start an event recording until the standard is published.
+- A take created from a trusted recording session keeps the exact standard version even if the organizer later publishes an update.
 - Organizer sets pitch length in minutes.
 - Organizer invites team and founders.
 - Founder joins event.
