@@ -387,6 +387,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // A caller may only attach a video they uploaded. Without this, anyone could
+    // put someone else's video id on their own pitch — harmless while every
+    // video is publicly playable, but once Phase 2 requires signed playback the
+    // server would mint a valid token for a video they never uploaded.
+    const ownershipClient = createServiceSupabase();
+    if (ownershipClient) {
+      const { data: videoOwner, error: videoOwnerError } = await ownershipClient
+        .from('video_uploads')
+        .select('user_id')
+        .eq('video_id', pitchData.videoId)
+        .maybeSingle();
+
+      if (videoOwnerError) {
+        console.error('Video ownership check failed:', videoOwnerError);
+        return NextResponse.json(
+          { success: false, error: 'Could not verify the uploaded video.', code: 'video_ownership_failed' },
+          { status: 500, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      if (videoOwner && videoOwner.user_id !== user.id) {
+        return NextResponse.json(
+          { success: false, error: 'That video belongs to another account.', code: 'video_not_owned' },
+          { status: 403, headers: formatRateLimitHeaders(result) }
+        );
+      }
+      // A missing row means the upload predates ownership tracking; the
+      // backfill covers existing pitches, so only brand-new uploads reach here
+      // and those always have a row.
+    }
+
     // Insert pitch into database
     const insertPayload = {
       public_id: createPublicPitchId(),
@@ -698,6 +728,7 @@ export async function GET(request: NextRequest) {
         extra_context,
         take_version,
         company_id,
+        video_id,
         video_url,
         thumbnail_url,
         duration,
@@ -744,6 +775,7 @@ export async function GET(request: NextRequest) {
         id,
         hook,
         description,
+        video_id,
         video_url,
         thumbnail_url,
         duration,

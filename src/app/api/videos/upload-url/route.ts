@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { getVideoProvider } from '@/lib/video-providers';
+import { createServiceSupabase } from '@/lib/admin';
 import { videoUploadSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
@@ -116,6 +117,28 @@ export async function POST(request: NextRequest) {
 
     const provider = getVideoProvider();
     const uploadUrlResult = await provider.getDirectUploadUrl({ maxDurationSeconds });
+
+    // Record who this video belongs to at the only moment we know both the id
+    // and the user. Everything downstream — reading its status, attaching it to
+    // a pitch, minting a playback token — checks this binding.
+    const serviceSupabase = createServiceSupabase();
+    if (serviceSupabase) {
+      const { error: ownershipError } = await serviceSupabase
+        .from('video_uploads')
+        .upsert(
+          { video_id: uploadUrlResult.videoId, user_id: user.id, provider: provider.name },
+          { onConflict: 'video_id' }
+        );
+      if (ownershipError) {
+        // Without the binding the upload cannot later be read or attached, so
+        // fail here rather than hand back an id that is orphaned by design.
+        console.error('Video ownership record failed:', ownershipError);
+        return NextResponse.json(
+          { success: false, error: 'Could not start the upload. Try again.', code: 'ownership_record_failed' },
+          { status: 500, headers: formatRateLimitHeaders(result) }
+        );
+      }
+    }
 
     return NextResponse.json(
       {

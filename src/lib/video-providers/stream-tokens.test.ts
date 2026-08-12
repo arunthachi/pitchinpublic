@@ -161,16 +161,40 @@ test('with no derivable subdomain nothing is signed', async () => {
   assert.equal(calls.length, 0);
 });
 
-test('a token is scoped to one video id', async () => {
+
+test('each video is minted against its own Cloudflare endpoint', () => {
+  // The earlier version of this test had a fake that derived the token from the
+  // requested URL, so "different videos get different tokens" asserted the stub
+  // rather than the code. What is actually ours to guarantee is that we ask
+  // Cloudflare for the right video — the provider scopes the token, not us.
   __resetStreamTokenCacheForTests();
-  const fetchImpl = fakeFetch((url) => ({ result: { token: `T-${url.split('/stream/')[1].split('/')[0]}` } }));
-  const rows = [
-    { video_id: 'alpha', video_url: 'https://customer-zzz.cloudflarestream.com/x/manifest/video.m3u8' },
-    { video_id: 'beta', video_url: null },
-  ];
-  const signed = await signedUrlsForRows(rows, { ...DEPS, fetchImpl });
-  // A token minted for one pitch must not appear in another pitch's URL.
-  assert.notEqual(signed.get('alpha')!.playbackUrl, signed.get('beta')!.playbackUrl);
-  assert.ok(signed.get('alpha')!.playbackUrl.includes('T-alpha'));
-  assert.ok(!signed.get('beta')!.playbackUrl.includes('T-alpha'));
+  const calls: string[] = [];
+  const fetchImpl = fakeFetch(() => ({ result: { token: 'SAME' } }), calls);
+
+  return signedUrlsForRows(
+    [
+      { video_id: 'alpha', video_url: 'https://customer-zzz.cloudflarestream.com/x/manifest/video.m3u8' },
+      { video_id: 'beta', video_url: null },
+    ],
+    { ...DEPS, fetchImpl },
+  ).then(() => {
+    assert.equal(calls.length, 2);
+    assert.ok(calls.some((url) => url.endsWith('/stream/alpha/token')), 'alpha was not requested by id');
+    assert.ok(calls.some((url) => url.endsWith('/stream/beta/token')), 'beta was not requested by id');
+  });
+});
+
+test('a hanging Cloudflare call is abandoned rather than holding the feed open', async () => {
+  __resetStreamTokenCacheForTests();
+  // The feed awaits minting, so without a timeout one stuck request stalls the
+  // entire response.
+  const hanging = ((_url: string, init?: { signal?: AbortSignal }) =>
+    new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+    })) as unknown as typeof fetch;
+
+  const started = Date.now();
+  const entry = await getStreamToken('slow', { ...DEPS, fetchImpl: hanging, timeoutMs: 50 });
+  assert.equal(entry, null, 'a timeout must fall back to the stored URL');
+  assert.ok(Date.now() - started < 2000, 'the call must not wait on the default timeout');
 });

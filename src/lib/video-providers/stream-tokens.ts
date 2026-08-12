@@ -31,6 +31,12 @@ export const STREAM_TOKEN_TTL_SECONDS = 2 * 60 * 60;
  */
 export const STREAM_TOKEN_REFRESH_MARGIN_SECONDS = 10 * 60;
 
+/**
+ * The feed awaits minting, so a hanging Cloudflare call would hold the whole
+ * response open. Abandon quickly and fall back to the stored URL instead.
+ */
+export const STREAM_TOKEN_TIMEOUT_MS = 2_500;
+
 export type CachedStreamToken = {
   token: string;
   /** Epoch ms when Cloudflare stops honouring it. */
@@ -79,6 +85,7 @@ type MintDeps = {
   apiToken: string;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  timeoutMs?: number;
 };
 
 /**
@@ -99,6 +106,8 @@ async function requestToken(videoId: string, deps: MintDeps): Promise<CachedStre
   const doFetch = deps.fetchImpl ?? fetch;
   const now = (deps.now ?? Date.now)();
   const expSeconds = Math.floor(now / 1000) + STREAM_TOKEN_TTL_SECONDS;
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), deps.timeoutMs ?? STREAM_TOKEN_TIMEOUT_MS);
 
   try {
     const response = await doFetch(
@@ -110,6 +119,7 @@ async function requestToken(videoId: string, deps: MintDeps): Promise<CachedStre
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ exp: expSeconds }),
+        signal: abort.signal,
       }
     );
     if (!response.ok) return null;
@@ -119,8 +129,11 @@ async function requestToken(videoId: string, deps: MintDeps): Promise<CachedStre
     return { token, expiresAt: expSeconds * 1000 };
   } catch {
     // Fail closed on the token, open on the URL: the caller keeps today's
-    // unsigned URL rather than rendering a player that cannot load.
+    // unsigned URL rather than rendering a player that cannot load. Covers the
+    // timeout abort as well as network and parse failures.
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
