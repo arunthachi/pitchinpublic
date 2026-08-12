@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { eligibleEventSubmissionPitches, founderBriefSchema, saveGuidelineDraftSchema } from './pitch-guidance';
+import { eligibleEventSubmissionPitches, firstGuidanceIssue, founderBriefSchema, publishGuidelinesSchema, saveGuidelineDraftSchema } from './pitch-guidance';
 
 const criteria = ['clarity', 'problem', 'solution', 'ask'].map((key) => ({ key, label: key, guidance: '' }));
 
@@ -13,6 +13,14 @@ test('accepts a four-to-six criterion immutable guideline payload', () => {
 test('rejects duplicate criterion keys and undersized rubrics', () => {
   assert.equal(saveGuidelineDraftSchema.safeParse({ revision: 1, title: 'Standard', criteria: criteria.slice(0, 3) }).success, false);
   assert.equal(saveGuidelineDraftSchema.safeParse({ revision: 1, title: 'Standard', criteria: [...criteria, criteria[0]] }).success, false);
+});
+
+test('explains a missing legacy-event draft revision instead of exposing Required', () => {
+  const result = publishGuidelinesSchema.safeParse({ idempotencyKey: '00000000-0000-4000-8000-000000000000' });
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(firstGuidanceIssue(result.error), 'This event’s pitch standard setup is incomplete. Reload the page and try again.');
+  }
 });
 
 test('enforces founder brief limits used by the database contract', () => {

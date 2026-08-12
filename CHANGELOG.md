@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.1] - 2026-08-12
+
+### Fixed
+
+- Organizers can now publish the recommended Pitch Standard for events created before Pitch Standards launched; setup errors also explain how to recover instead of displaying “Required.”
+
 ## [0.2.0] - 2026-08-12
 
 ### Added
