@@ -210,6 +210,20 @@ function roleLabel(role: string) {
   return 'Founder';
 }
 
+function participantDisplayName(profile?: {
+  full_name?: string | null;
+  username?: string | null;
+  public_handle?: string | null;
+} | null) {
+  const fullName = profile?.full_name?.trim();
+  if (fullName) return fullName;
+
+  const handle = profile?.public_handle?.trim() || profile?.username?.trim();
+  if (handle) return `@${handle.replace(/^@/, '')}`;
+
+  return 'Unnamed participant';
+}
+
 
 export default function EventDashboardPage() {
   const params = useParams();
@@ -1286,6 +1300,7 @@ function FounderRow({
 }) {
   const status = getFounderStatus(founder);
   const latestPitch = founder.latestPitch || founder.submittedPitch?.pitch || null;
+  const displayName = participantDisplayName(founder.participant.profile);
   const participantActionBusy = busyAction === `participant:${founder.participant.id}`;
   const participantStatus = participantStatusLabel(founder.participant.status);
   const isRemoved = founder.participant.status === 'removed';
@@ -1295,11 +1310,11 @@ function FounderRow({
       <div className="flex items-start gap-3">
         <img
           src={founder.participant.profile?.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP'}
-          alt={founder.participant.profile?.full_name || 'Founder'}
+          alt={displayName}
           className="h-11 w-11 rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-bold text-white">{founder.participant.profile?.full_name || 'Founder'}</p>
+          <p className="truncate font-bold text-white">{displayName}</p>
           <p className="text-sm text-slate-400">{getFounderProgressLabel(founder)}</p>
           <p className="mt-1 text-xs text-slate-500">Joined {formatDate(founder.joinedAt)}</p>
         </div>
@@ -1540,6 +1555,7 @@ function InviteRow({
 
 function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug: string }) {
   const readiness = readinessFromFeedback(submission.pitch?.feedback || []);
+  const displayName = participantDisplayName(submission.profile);
   const takeLabel = getTakeLabelFromFields(submission.pitch || {});
   const detailPath = pitchPath(submission.pitch?.public_id, submission.pitch_id) || '#';
   // Every entry into the pitch page from an event surface carries the event
@@ -1569,11 +1585,11 @@ function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug:
         <div className="flex items-center gap-3">
           <img
             src={submission.profile?.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP'}
-            alt={submission.profile?.full_name || 'Founder'}
+            alt={displayName}
             className="h-10 w-10 rounded-full object-cover"
           />
           <div className="min-w-0">
-            <p className="truncate font-bold text-white">{submission.profile?.full_name || 'Founder'}</p>
+            <p className="truncate font-bold text-white">{displayName}</p>
             <p className="text-xs text-slate-500">{readinessLabel(readiness)}</p>
           </div>
         </div>
