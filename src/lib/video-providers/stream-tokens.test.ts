@@ -198,3 +198,96 @@ test('a hanging Cloudflare call is abandoned rather than holding the feed open',
   assert.equal(entry, null, 'a timeout must fall back to the stored URL');
   assert.ok(Date.now() - started < 2000, 'the call must not wait on the default timeout');
 });
+
+function memoryStore(seed: Record<string, { token: string; expiresAt: number }> = {}) {
+  const rows = new Map(Object.entries(seed));
+  const reads: string[][] = [];
+  return {
+    reads,
+    store: {
+      async read(ids: string[]) {
+        reads.push(ids);
+        const out = new Map<string, { token: string; expiresAt: number }>();
+        for (const id of ids) {
+          const row = rows.get(id);
+          if (row) out.set(id, row);
+        }
+        return out;
+      },
+      async write(id: string, entry: { token: string; expiresAt: number }) {
+        rows.set(id, entry);
+      },
+    },
+    rows,
+  };
+}
+
+test('a token minted by another instance is reused, not re-minted', async () => {
+  // The whole point of the shared store: a cold instance must not re-mint what
+  // a warm one already has, or concurrent cold starts fan out into the
+  // account-wide Cloudflare quota that uploads also depend on.
+  __resetStreamTokenCacheForTests();
+  const calls: string[] = [];
+  const fetchImpl = fakeFetch(() => ({ result: { token: 'FRESH' } }), calls);
+  const { store } = memoryStore({ vidX: { token: 'FROM-OTHER-INSTANCE', expiresAt: NOW + 3_600_000 } });
+
+  const entry = await getStreamToken('vidX', { ...DEPS, fetchImpl, store });
+
+  assert.equal(entry?.token, 'FROM-OTHER-INSTANCE');
+  assert.equal(calls.length, 0, 'a shared hit must not call Cloudflare');
+});
+
+test('a freshly minted token is written back for other instances', async () => {
+  __resetStreamTokenCacheForTests();
+  const fetchImpl = fakeFetch(() => ({ result: { token: 'MINTED' } }));
+  const { store, rows } = memoryStore();
+
+  await getStreamToken('vidY', { ...DEPS, fetchImpl, store });
+
+  assert.equal(rows.get('vidY')?.token, 'MINTED', 'the mint was not shared');
+});
+
+test('an expired shared entry is re-minted rather than served', async () => {
+  __resetStreamTokenCacheForTests();
+  const calls: string[] = [];
+  const fetchImpl = fakeFetch(() => ({ result: { token: 'REMINTED' } }), calls);
+  const { store } = memoryStore({ vidZ: { token: 'STALE', expiresAt: NOW - 1 } });
+
+  const entry = await getStreamToken('vidZ', { ...DEPS, fetchImpl, store });
+
+  assert.equal(entry?.token, 'REMINTED');
+  assert.equal(calls.length, 1);
+});
+
+test('the whole response costs one shared read, not one per video', async () => {
+  __resetStreamTokenCacheForTests();
+  const fetchImpl = fakeFetch(() => ({ result: { token: 'T' } }));
+  const { store, reads } = memoryStore();
+
+  await signedUrlsForRows(
+    [
+      { video_id: 'a', video_url: 'https://customer-zzz.cloudflarestream.com/a/manifest/video.m3u8' },
+      { video_id: 'b', video_url: null },
+      { video_id: 'c', video_url: null },
+    ],
+    { ...DEPS, fetchImpl, store },
+  );
+
+  assert.equal(reads[0].length, 3, 'the batch read must cover every distinct video');
+});
+
+test('a broken shared store degrades to minting, never to a failed response', async () => {
+  __resetStreamTokenCacheForTests();
+  const fetchImpl = fakeFetch(() => ({ result: { token: 'OK' } }));
+  const brokenStore = {
+    async read() {
+      throw new Error('store down');
+    },
+    async write() {
+      throw new Error('store down');
+    },
+  };
+
+  const entry = await getStreamToken('vidBroken', { ...DEPS, fetchImpl, store: brokenStore });
+  assert.equal(entry?.token, 'OK');
+});

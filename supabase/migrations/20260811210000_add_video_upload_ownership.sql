@@ -57,3 +57,36 @@ ON CONFLICT (video_id) DO NOTHING;
 
 COMMENT ON TABLE public.video_uploads IS
   'Maps a provider video id to the user who uploaded it. Recorded when the direct-upload URL is issued; the authority for "may this caller read or attach this video".';
+
+
+-- Shared playback-token cache.
+--
+-- Tokens were cached in process only. Vercel runs one cache per warm instance,
+-- so concurrent cold starts each re-mint every video in the response, and the
+-- feed read path is not rate limited. That fans out into the account-wide
+-- Cloudflare API quota (~1200 requests / 5 minutes) which is the SAME token
+-- uploads and status polling use — so a burst of reads could lock founders out
+-- of recording. Availability is part of the security boundary here.
+--
+-- Persisting the cache makes minting roughly one call per video per TTL for the
+-- whole deployment rather than per instance. It also matters more in Phase 2,
+-- where a failed mint is a black player rather than a graceful fallback.
+--
+-- Tokens are bearer capabilities, so this table is service-role only: no RLS
+-- policy is defined, which with RLS enabled denies every client.
+
+CREATE TABLE IF NOT EXISTS public.video_playback_tokens (
+  video_id text PRIMARY KEY,
+  token text NOT NULL,
+  expires_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS video_playback_tokens_expires_at_idx
+  ON public.video_playback_tokens (expires_at);
+
+ALTER TABLE public.video_playback_tokens ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.video_playback_tokens FROM authenticated, anon;
+
+COMMENT ON TABLE public.video_playback_tokens IS
+  'Deployment-wide cache of Cloudflare Stream playback tokens. Service-role only: a token is a bearer capability for its video. Bounds minting to ~1 call per video per TTL instead of per serverless instance.';

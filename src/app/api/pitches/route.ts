@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { signedUrlsForRows } from '@/lib/video-providers/stream-tokens';
+import { createSupabaseTokenStore } from '@/lib/video-providers/supabase-token-store';
 import { getPromptForDate } from '@/lib/practice';
 import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
@@ -935,9 +936,14 @@ export async function GET(request: NextRequest) {
     // only ever minted for a video the caller is already allowed to watch.
     // Phase 1: videos still permit unsigned playback, so a mint failure leaves
     // the stored URL in place rather than breaking the player.
+    const tokenStoreClient = createServiceSupabase();
     const signedVideoUrls = await signedUrlsForRows((pitches || []) as any[], {
       accountId: process.env.CLOUDFLARE_ACCOUNT_ID || '',
       apiToken: process.env.CLOUDFLARE_STREAM_API_TOKEN || '',
+      // Shared so the feed cannot fan out into the account-wide Cloudflare
+      // quota once per serverless instance. Absent store just means more mints,
+      // never a failed response.
+      store: tokenStoreClient ? createSupabaseTokenStore(tokenStoreClient) : undefined,
     });
 
     const enrichedPitches = (pitches || []).map((pitch: any) => ({

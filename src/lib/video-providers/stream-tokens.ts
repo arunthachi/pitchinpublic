@@ -80,12 +80,24 @@ export function buildSignedVideoUrls(subdomain: string, token: string): SignedVi
   };
 }
 
+/**
+ * A shared store so minting is bounded per DEPLOYMENT, not per serverless
+ * instance. Without it, concurrent cold starts each re-mint every video in a
+ * response and fan out into the account-wide Cloudflare quota — the same quota
+ * uploads use, so a burst of reads can lock founders out of recording.
+ */
+export type SharedTokenStore = {
+  read: (videoIds: string[]) => Promise<Map<string, CachedStreamToken>>;
+  write: (videoId: string, entry: CachedStreamToken) => Promise<void>;
+};
+
 type MintDeps = {
   accountId: string;
   apiToken: string;
   fetchImpl?: typeof fetch;
   now?: () => number;
   timeoutMs?: number;
+  store?: SharedTokenStore;
 };
 
 /**
@@ -154,7 +166,27 @@ export async function getStreamToken(
   const pending = inFlight.get(videoId);
   if (pending) return pending;
 
-  const request = requestToken(videoId, deps)
+  const request = (async () => {
+    // Another instance may already have minted this one.
+    if (deps.store) {
+      try {
+        const shared = await deps.store.read([videoId]);
+        const entry = shared.get(videoId);
+        if (isCachedTokenUsable(entry, now)) return entry;
+      } catch {
+        // A cache miss is never fatal; fall through to minting.
+      }
+    }
+    const minted = await requestToken(videoId, deps);
+    if (minted && deps.store) {
+      try {
+        await deps.store.write(videoId, minted);
+      } catch {
+        // Losing the write only costs an extra mint later.
+      }
+    }
+    return minted;
+  })()
     .then((entry) => {
       if (entry) tokenCache.set(videoId, entry);
       return entry;
@@ -199,6 +231,20 @@ export async function signedUrlsForRows(
     new Set(rows.map((row) => row.video_id).filter((id): id is string => Boolean(id)))
   );
   if (!videoIds.length) return signed;
+
+  // One batched read for the whole response, so a cold instance costs a single
+  // round-trip rather than one per video.
+  if (deps.store) {
+    try {
+      const now = (deps.now ?? Date.now)();
+      const shared = await deps.store.read(videoIds);
+      for (const [videoId, entry] of shared) {
+        if (isCachedTokenUsable(entry, now)) tokenCache.set(videoId, entry);
+      }
+    } catch {
+      // Fall through: every id is simply treated as a miss.
+    }
+  }
 
   const entries = await Promise.all(
     videoIds.map(async (videoId) => [videoId, await getStreamToken(videoId, deps)] as const)
