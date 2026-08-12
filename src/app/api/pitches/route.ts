@@ -43,7 +43,9 @@ function pitchResponse(pitch: any, fallback: Record<string, any>) {
     feedbackAsk: pitch.feedback_ask || fallback.feedbackAsk || null,
     extraContext: pitch.extra_context || fallback.extraContext || null,
     companyId: pitch.company_id || fallback.companyId || null,
-    videoId: pitch.video_id,
+    // Withheld for private pitches: the id plus the well-known delivery host
+    // reconstructs a permanent unsigned URL. See applySignedUrls.
+    videoId: pitch.visibility === 'private' ? undefined : pitch.video_id,
     videoUrl: pitch.video_url,
     thumbnailUrl: pitch.thumbnail_url,
     duration: pitch.duration,

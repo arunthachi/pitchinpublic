@@ -33,9 +33,12 @@ test('a private pitch gets the signed URLs', () => {
 });
 
 test('a private pitch with no minted token keeps its stored URL', () => {
-  // Phase 2a changes no access, so a mint failure must not blank the player.
+  // Phase 2a changes no access, so a mint failure must not blank the player —
+  // but the provider id is still withheld, or the fallback becomes the leak.
   const row = { video_id: 'missing', visibility: 'private', video_url: 'https://cf/x/manifest/video.m3u8' };
-  assert.deepEqual(applySignedUrls(row, SIGNED), row);
+  const out = applySignedUrls(row, SIGNED);
+  assert.equal(out.video_url, row.video_url, 'the player must not go blank');
+  assert.equal(out.video_id, undefined, 'the id must not survive the fallback');
 });
 
 
@@ -72,4 +75,26 @@ test('the event payload signs every pitch it exposes, including the caller own',
   assert.match(route, /userSubmission: signedUserSubmission/, 'the raw userSubmission is still returned');
   // Array embeds must keep every element, not just the first.
   assert.match(route, /row\.pitch\.map\(/, 'array-shaped embeds lose elements when reshaped');
+});
+
+test('a private pitch never ships the ingredients to rebuild its unsigned URL', () => {
+  // A canonical Cloudflare URL is host + video id, and the host is visible in
+  // every public pitch's URL. Serving a signed URL while shipping the id beside
+  // it lets any current event member construct a permanent unsigned URL that
+  // outlives their membership.
+  const row = { video_id: 'v1', visibility: 'private', video_url: 'https://cf/v1/manifest/video.m3u8' };
+  const out = applySignedUrls(row, SIGNED);
+  assert.equal(out.video_id, undefined, 'the provider id leaked on a private pitch');
+  assert.equal(out.video_url, 'https://cf/TOKEN/manifest/video.m3u8');
+});
+
+test('a private pitch withholds its id even when no token could be minted', () => {
+  // The fallback path must not become the leak.
+  const row = { video_id: 'nope', visibility: 'private', video_url: 'https://cf/nope/manifest/video.m3u8' };
+  assert.equal(applySignedUrls(row, SIGNED).video_id, undefined);
+});
+
+test('a public pitch keeps its id, since its URL is meant to be shareable', () => {
+  const row = { video_id: 'v1', visibility: 'public', video_url: 'https://cf/v1/manifest/video.m3u8' };
+  assert.equal(applySignedUrls(row, SIGNED).video_id, 'v1');
 });

@@ -41,7 +41,20 @@ export function applySignedUrls<T extends SignableRow & Record<string, unknown>>
   signed: Map<string, SignedVideoUrls>
 ): T {
   if (!requiresSignedPlayback(row)) return row;
+
+  // Withhold the provider id on private pitches.
+  //
+  // A canonical Cloudflare URL is just the delivery host plus the video id, and
+  // the host is visible in every public pitch's URL. So handing the id to a
+  // client lets any current event member construct a permanent, unsigned URL
+  // for a cohort take — one that keeps working after they leave the event.
+  // Signing the URL we serve is pointless while the ingredients to rebuild the
+  // unsigned one ship beside it.
+  //
+  // Safe to drop: no client reads video_id off a fetched pitch. The upload flow
+  // gets its id from the upload endpoint instead.
   const urls = row.video_id ? signed.get(row.video_id) : undefined;
-  if (!urls) return row;
-  return { ...row, video_url: urls.playbackUrl, thumbnail_url: urls.thumbnailUrl };
+  const withheld = { ...row, video_id: undefined } as T;
+  if (!urls) return withheld;
+  return { ...withheld, video_url: urls.playbackUrl, thumbnail_url: urls.thumbnailUrl };
 }
