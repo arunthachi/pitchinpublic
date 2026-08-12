@@ -141,9 +141,9 @@ test('rows are signed per distinct video, not per row', async () => {
   const fetchImpl = fakeFetch((url) => ({ result: { token: `T-${url.split('/stream/')[1].split('/')[0]}` } }), calls);
 
   const rows = [
-    { video_id: 'a', video_url: 'https://customer-zzz.cloudflarestream.com/a/manifest/video.m3u8' },
-    { video_id: 'a', video_url: null },
-    { video_id: 'b', video_url: null },
+    { video_id: 'a', visibility: 'private', video_url: 'https://customer-zzz.cloudflarestream.com/a/manifest/video.m3u8' },
+    { video_id: 'a', visibility: 'private', video_url: null },
+    { video_id: 'b', visibility: 'private', video_url: null },
   ];
   const signed = await signedUrlsForRows(rows, { ...DEPS, fetchImpl });
 
@@ -157,7 +157,7 @@ test('with no derivable subdomain nothing is signed', async () => {
   const calls: string[] = [];
   const fetchImpl = fakeFetch(() => ({ result: { token: 'T' } }), calls);
   // Guessing a delivery host would produce URLs that 404 for every viewer.
-  const signed = await signedUrlsForRows([{ video_id: 'a', video_url: null }], { ...DEPS, fetchImpl });
+  const signed = await signedUrlsForRows([{ video_id: 'a', visibility: 'private', video_url: null }], { ...DEPS, fetchImpl });
   assert.equal(signed.size, 0);
   assert.equal(calls.length, 0);
 });
@@ -174,8 +174,8 @@ test('each video is minted against its own Cloudflare endpoint', () => {
 
   return signedUrlsForRows(
     [
-      { video_id: 'alpha', video_url: 'https://customer-zzz.cloudflarestream.com/x/manifest/video.m3u8' },
-      { video_id: 'beta', video_url: null },
+      { video_id: 'alpha', visibility: 'private', video_url: 'https://customer-zzz.cloudflarestream.com/x/manifest/video.m3u8' },
+      { video_id: 'beta', visibility: 'private', video_url: null },
     ],
     { ...DEPS, fetchImpl },
   ).then(() => {
@@ -267,9 +267,9 @@ test('the whole response costs one shared read, not one per video', async () => 
 
   await signedUrlsForRows(
     [
-      { video_id: 'a', video_url: 'https://customer-zzz.cloudflarestream.com/a/manifest/video.m3u8' },
-      { video_id: 'b', video_url: null },
-      { video_id: 'c', video_url: null },
+      { video_id: 'a', visibility: 'private', video_url: 'https://customer-zzz.cloudflarestream.com/a/manifest/video.m3u8' },
+      { video_id: 'b', visibility: 'private', video_url: null },
+      { video_id: 'c', visibility: 'private', video_url: null },
     ],
     { ...DEPS, fetchImpl, store },
   );
@@ -303,6 +303,7 @@ test('a single response cannot fan out unbounded mints', async () => {
 
   const rows = Array.from({ length: 40 }, (_, i) => ({
     video_id: `v${i}`,
+    visibility: 'private',
     video_url: i === 0 ? 'https://customer-zzz.cloudflarestream.com/v0/manifest/video.m3u8' : null,
   }));
   const signed = await signedUrlsForRows(rows, { ...DEPS, fetchImpl });
@@ -311,4 +312,25 @@ test('a single response cannot fan out unbounded mints', async () => {
   assert.equal(signed.size, STREAM_MAX_MINTS_PER_REQUEST);
   // Everything beyond the cap simply keeps its stored URL — the Phase 1 path.
   assert.equal(signed.has('v39'), false);
+});
+
+test('public rows are excluded before any Cloudflare call', () => {
+  // The sharing guarantee, enforced at the mint layer as well as the apply
+  // layer: a public pitch must never cost a token or receive an expiring URL.
+  __resetStreamTokenCacheForTests();
+  const calls: string[] = [];
+  const fetchImpl = fakeFetch(() => ({ result: { token: 'T' } }), calls);
+
+  return signedUrlsForRows(
+    [
+      { video_id: 'pub', visibility: 'public', video_url: 'https://customer-zzz.cloudflarestream.com/pub/manifest/video.m3u8' },
+      { video_id: 'priv', visibility: 'private', video_url: null },
+    ],
+    { ...DEPS, fetchImpl },
+  ).then((signed) => {
+    assert.equal(calls.length, 1, 'only the private video may be minted');
+    assert.ok(calls[0].endsWith('/stream/priv/token'));
+    assert.equal(signed.has('pub'), false);
+    assert.equal(signed.has('priv'), true);
+  });
 });

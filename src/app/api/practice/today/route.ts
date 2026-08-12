@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { daysUntil, getPromptForDate, getPracticePrompt, nudgeCopy, readinessLabel } from '@/lib/practice';
 import { buildRecentMomentumDays, toUtcDateKey } from '@/lib/momentum';
+import { applySignedUrls, signPrivateRows } from '@/lib/video-providers/sign-rows';
 
 function createSupabase(request: NextRequest) {
   return createServerClient(
@@ -118,6 +119,9 @@ export async function GET(request: NextRequest) {
           pitches:pitch_id (
             id,
             hook,
+            video_id,
+            visibility,
+            video_url,
             thumbnail_url,
             duration,
             created_at,
@@ -136,6 +140,20 @@ export async function GET(request: NextRequest) {
     const repRows = reps || [];
     const practiceDates = new Set(repRows.map((rep: any) => toUtcDateKey(rep.created_at)).filter(Boolean));
     const bestRep = repRows.find((rep: any) => rep.is_best_take || rep.pitches?.is_best_take) || null;
+    // The practice panel shows the founder's own takes, which are private when
+    // they were recorded for an event.
+    const repPitches = repRows
+      .map((rep: any) => (Array.isArray(rep.pitches) ? rep.pitches[0] : rep.pitches))
+      .filter(Boolean);
+    const signedRepUrls = await signPrivateRows(repPitches);
+    for (const rep of repRows as any[]) {
+      const pitch = Array.isArray(rep.pitches) ? rep.pitches[0] : rep.pitches;
+      if (!pitch) continue;
+      const signedPitch = applySignedUrls(pitch, signedRepUrls);
+      if (Array.isArray(rep.pitches)) rep.pitches[0] = signedPitch;
+      else rep.pitches = signedPitch;
+    }
+
     const latestRep = repRows[0] || null;
     const latestReadiness = latestRep?.readiness || null;
     const recentDays = buildRecentMomentumDays(practiceDates, 7);

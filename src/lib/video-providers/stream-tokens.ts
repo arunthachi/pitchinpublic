@@ -210,7 +210,24 @@ export async function getStreamToken(
 export type SignableRow = {
   video_id?: string | null;
   video_url?: string | null;
+  /** Only 'private' rows are signed. Anything else keeps its canonical URL. */
+  visibility?: string | null;
 };
+
+/**
+ * Signing is bound to visibility, not applied blanket.
+ *
+ * A public pitch is public: its URL should be permanent and shareable, so a
+ * founder can post their best take to LinkedIn and have it still render next
+ * month. Signing those would hand out links that die in two hours.
+ *
+ * A private pitch is the case this exists for: the URL must be short-lived and
+ * revocable, so that flipping a pitch private actually stops the copies already
+ * in circulation from playing.
+ */
+export function requiresSignedPlayback(row: SignableRow): boolean {
+  return row.visibility === 'private';
+}
 
 /**
  * Signed URLs for every distinct video in a set of already-authorized rows.
@@ -229,6 +246,8 @@ export async function signedUrlsForRows(
   const signed = new Map<string, SignedVideoUrls>();
   if (!deps.accountId || !deps.apiToken) return signed;
 
+  // Derive from any row, not just the ones being signed: a response may hold a
+  // single private pitch whose stored URL is missing while public rows carry it.
   const subdomain =
     deps.subdomain ||
     rows.map((row) => customerSubdomainFromUrl(row.video_url)).find(Boolean) ||
@@ -236,7 +255,12 @@ export async function signedUrlsForRows(
   if (!subdomain) return signed;
 
   const videoIds = Array.from(
-    new Set(rows.map((row) => row.video_id).filter((id): id is string => Boolean(id)))
+    new Set(
+      rows
+        .filter(requiresSignedPlayback)
+        .map((row) => row.video_id)
+        .filter((id): id is string => Boolean(id))
+    )
   );
   if (!videoIds.length) return signed;
 
