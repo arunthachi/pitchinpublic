@@ -301,6 +301,10 @@ export default function EventDashboardPage() {
   const reviewCoverage = useMemo(() => normalizeEventReviewCoverage(state), [state]);
   const founderRows = useMemo(() => participants.filter((item: any) => item.role === 'founder'), [participants]);
   const teamRows = useMemo(() => participants.filter((item: any) => TEAM_ROLES.includes(item.role)), [participants]);
+  const activeReviewers = useMemo(
+    () => teamRows.filter((item: any) => item.status !== 'removed' && ['coach', 'mentor', 'judge'].includes(item.role)).length,
+    [teamRows]
+  );
   const founderInvitations = useMemo(
     () => invitations.filter((item: any) => item.role === 'founder'),
     [invitations]
@@ -723,6 +727,11 @@ export default function EventDashboardPage() {
       />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
         {createdState.active ? (
+          <div className="mb-5">
+            <PitchGuidelinesEditor eventSlug={slug} canManage={state.canManageEvent} initiallyOpen />
+          </div>
+        ) : null}
+        {createdState.active ? (
           <section className="mb-5 rounded-2xl border border-neon-lime/25 bg-neon-lime/10 p-4" aria-labelledby="event-created-title">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -731,7 +740,7 @@ export default function EventDashboardPage() {
               </div>
               <button type="button" onClick={dismissCreatedState} className="min-h-11 rounded-full px-3 text-sm font-bold text-slate-300 hover:bg-white/10">Dismiss</button>
             </div>
-            <p className="mt-2 text-sm leading-6 text-slate-200">Publish the pitch standard first, then invite the organizing team and founders who will practice against it.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-200">You can invite the organizing team and founders now. Until the pitch standard is published, invited founders will see that preparation is underway and will wait to record.</p>
             {createdState.invited ? <p className="mt-2 text-sm text-slate-200">{createdState.invited} founder invite{createdState.invited === 1 ? '' : 's'} sent.</p> : null}
             {createdState.failed ? <p role="alert" className="mt-2 text-sm font-semibold text-amber-300">{createdState.failed} invite{createdState.failed === 1 ? '' : 's'} could not be sent. Retry below.</p> : null}
             {!hasFounderAccess ? (
@@ -740,7 +749,6 @@ export default function EventDashboardPage() {
                   <label htmlFor="quick-founder-emails-input" className="sr-only">Founder emails</label>
                   <EmailChipInput
                     inputId="quick-founder-emails-input"
-                    autoFocus
                     value={founderInviteEmails}
                     onChange={setFounderInviteEmails}
                     placeholder="founder@startup.com"
@@ -773,6 +781,15 @@ export default function EventDashboardPage() {
             {actionCounts.notSubmitted > 0 && primaryAction.kind !== 'follow-up' ? <ActionCard icon={Clock3} label="Not submitted" value={actionCounts.notSubmitted} action="Open" urgent onClick={() => setDashboardView('founders', 'not-submitted')} /> : null}
             {actionCounts.notRecorded > 0 ? <ActionCard icon={Video} label="Not recorded" value={actionCounts.notRecorded} action="Open" onClick={() => setDashboardView('founders', 'not-recorded')} /> : null}
           </div>
+          {activeFounderCount > 0 && activeReviewers < 2 ? (
+            <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4 sm:flex-row sm:items-center sm:justify-between" aria-labelledby="reviewer-readiness-title">
+              <div>
+                <h2 id="reviewer-readiness-title" className="font-heading text-sm font-black text-amber-100">Reviewer coverage needs attention</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-300">{activeReviewers} active reviewer{activeReviewers === 1 ? '' : 's'} for {activeFounderCount} founder{activeFounderCount === 1 ? '' : 's'}. Plan enough capacity for two useful reviews per founder.</p>
+              </div>
+              <button type="button" onClick={() => setDashboardView('team')} className="btn-glass min-h-11 shrink-0 rounded-full px-4 text-sm font-black">Invite reviewers</button>
+            </section>
+          ) : null}
         </section>
 
         <div className="mt-5 flex flex-col gap-3">
@@ -849,7 +866,7 @@ export default function EventDashboardPage() {
         >
           {activeTab === 'overview' && (
             <div className="space-y-5">
-              <PitchGuidelinesEditor eventSlug={slug} canManage={state.canManageEvent} initiallyOpen={createdState.active} />
+              {!createdState.active ? <PitchGuidelinesEditor eventSlug={slug} canManage={state.canManageEvent} /> : null}
               <div>
               <h2 className="font-heading text-2xl font-black">Founder progress</h2>
               <p className="mt-2 text-sm text-slate-400">{submittedCount} of {founderSummaries.length} founders submitted · {feedbackedCount} received feedback</p>

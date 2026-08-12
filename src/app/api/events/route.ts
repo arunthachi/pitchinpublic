@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
@@ -74,14 +74,6 @@ function createSupabase(request: NextRequest) {
   );
 }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 72);
-}
-
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
 
@@ -155,20 +147,6 @@ export function buildOrganizerParticipantUpsert(eventId: string, userId: string)
   } as const;
 }
 
-async function ensureOrganizerParticipant(eventId: string, userId: string) {
-  const adminSupabase = createServiceSupabase();
-  if (!adminSupabase) {
-    throw new Error('Event participant setup is not configured in this environment.');
-  }
-
-  const participant = buildOrganizerParticipantUpsert(eventId, userId);
-  const { error } = await adminSupabase
-    .from('pitch_event_participants')
-    .upsert(participant.values, participant.options);
-
-  if (error) throw error;
-}
-
 export async function POST(request: NextRequest) {
   const supabase = createSupabase(request);
 
@@ -211,85 +189,18 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  const creationPayloadHash = idempotency.key ? hashEventCreationPayload(data) : null;
-  const baseSlug = slugify(data.name) || 'pitch-sprint';
-  const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
+  const creationKey = idempotency.key || randomUUID();
+  const creationPayloadHash = hashEventCreationPayload(data);
   const selectedFocuses = data.focuses?.map((item) => item.trim()).filter(Boolean) || [];
   const focusSummary = selectedFocuses.length ? selectedFocuses.join(' · ') : data.focus?.trim() || 'Clarity';
   const pitchLengthSeconds = data.pitchLengthSeconds ?? Math.round((data.pitchLengthMinutes ?? 1) * 60);
 
   try {
-    if (idempotency.key) {
-      const { data: existingEvent, error: replayLookupError } = await supabase
-        .from('pitch_events')
-        .select('*')
-        .eq('organizer_id', user.id)
-        .eq('creation_key', idempotency.key)
-        .maybeSingle();
-
-      if (replayLookupError) throw replayLookupError;
-      if (existingEvent) {
-        if (existingEvent.creation_payload_hash !== creationPayloadHash) {
-          return NextResponse.json(
-            { success: false, error: 'Idempotency-Key was already used with different event data.' },
-            { status: 409 }
-          );
-        }
-        await ensureOrganizerParticipant(existingEvent.id, user.id);
-        return NextResponse.json({ success: true, replayed: true, event: eventResponse(existingEvent) });
-      }
-    }
-
-    const { data: event, error } = await supabase
-      .from('pitch_events')
-      .insert({
-        organizer_id: user.id,
-        name: data.name,
-        slug,
-        description: data.description || null,
-        event_date: data.eventDate,
-        submission_deadline: data.submissionDeadline || null,
-        pitch_length_seconds: pitchLengthSeconds,
-        focus: focusSummary,
-        visibility: data.visibility,
-        peer_feedback_enabled: data.peerFeedbackEnabled,
-        access_code: data.accessCode || null,
-        review_target: data.reviewTarget,
-        pitch_hour_starts_at: data.pitchHourStartsAt || null,
-        pitch_hour_ends_at: data.pitchHourEndsAt || null,
-        status: 'active',
-        creation_key: idempotency.key,
-        creation_payload_hash: creationPayloadHash,
-      })
-      .select('*')
-      .single();
-
-    if (error?.code === '23505' && idempotency.key) {
-      const { data: racedEvent, error: racedLookupError } = await supabase
-        .from('pitch_events')
-        .select('*')
-        .eq('organizer_id', user.id)
-        .eq('creation_key', idempotency.key)
-        .maybeSingle();
-
-      if (racedLookupError) throw racedLookupError;
-      if (racedEvent) {
-        if (racedEvent.creation_payload_hash !== creationPayloadHash) {
-          return NextResponse.json(
-            { success: false, error: 'Idempotency-Key was already used with different event data.' },
-            { status: 409 }
-          );
-        }
-        await ensureOrganizerParticipant(racedEvent.id, user.id);
-        return NextResponse.json({ success: true, replayed: true, event: eventResponse(racedEvent) });
-      }
-    }
-
+    const { data: event, error } = await supabase.rpc('create_event_with_standard_draft', {
+      event_payload: { ...data, pitchLengthSeconds, focus: focusSummary }, request_key: creationKey, payload_hash: creationPayloadHash,
+    });
     if (error || !event) throw error || new Error('Failed to create event');
-
-    await ensureOrganizerParticipant(event.id, user.id);
-
-    return NextResponse.json({ success: true, replayed: false, event: eventResponse(event) }, { status: 201 });
+    return NextResponse.json({ success: true, replayed: Boolean(idempotency.key && event.creation_key === idempotency.key), event: eventResponse(event) }, { status: 201 });
   } catch (error) {
     console.error('Error creating event:', error);
     return NextResponse.json(

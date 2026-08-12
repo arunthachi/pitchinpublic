@@ -9,11 +9,15 @@ This file captures decisions already made in conversation so future agents do no
 - The north star is **structured feedback that produces a sharper next pitch**, not recording or posting volume.
 - Organizer UX centers on guiding founder readiness toward a deadline, not a generic event dashboard.
 - Event creation remains short; organizers publish detailed, versioned pitch structure after creation.
+- The product calls this organizer contract the **Pitch Standard** and the combined founder experience the **Pitch plan**; do not split the founder flow into abstract guideline and brief destinations.
+- New events begin with a category-neutral draft. Recording for the event begins only after explicit publication.
+- Tagline, description, need/problem/opportunity, and ask are required for final submission; stage and industry are optional.
 - Structured feedback binds an observation and next step to the criterion and guideline version reviewed.
 - Reviewer identity is always stored. Founder disclosure is policy-driven and defaults to role-only; authorized organizers retain accountability visibility.
 - AI pitch guidance is planned, but the first release validates the human improvement loop and preserves AI-ready provenance.
 - Manual review seeding is acceptable. Allocation v2 and reviewer-economy redesign wait until reviewer supply is measured.
 - Scale-heavy organizer infrastructure waits until a curated pilot shows manual coordination breaking.
+- Pilot participation may be optional and mentor feedback may be delayed until finalists are chosen; neither reviewer supply nor feedback gates founder practice.
 
 ## Product Positioning Decisions
 

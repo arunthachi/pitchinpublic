@@ -99,6 +99,7 @@ function PitchDetailContent() {
   const [feedbackEligibility, setFeedbackEligibility] = useState<'idle' | 'loading' | 'eligible' | 'ineligible'>('idle');
   const [feedbackEligibilityError, setFeedbackEligibilityError] = useState('');
   const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [pitchBoundGuidelineVersionId, setPitchBoundGuidelineVersionId] = useState<string | null>(null);
   const [eventRubric, setEventRubric] = useState<Array<{ id: string; label: string; description?: string | null }>>([]);
   const eventSlugValue = searchParams.get('event');
   const eventSlug = eventSlugValue && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(eventSlugValue)
@@ -122,17 +123,19 @@ function PitchDetailContent() {
       return;
     }
     let cancelled = false;
-    fetch(`/api/events/${encodeURIComponent(eventSlug)}/guidelines`)
+    const versionId = pitchBoundGuidelineVersionId;
+    const query = versionId ? `?versionId=${encodeURIComponent(versionId)}` : '';
+    fetch(`/api/events/${encodeURIComponent(eventSlug)}/guidelines${query}`)
       .then((response) => response.json())
       .then((data) => {
         if (cancelled) return;
-        const current = Array.isArray(data.guidelines) ? data.guidelines[0] : null;
+        const current = data.published || data.guideline || (Array.isArray(data.guidelines) ? data.guidelines[0] : null);
         const criteria = Array.isArray(current?.criteria) ? current.criteria : [];
         setEventRubric(criteria.map((item: any) => ({ id: item.key, label: item.label, description: item.guidance || null })));
       })
       .catch(() => !cancelled && setEventRubric([]));
     return () => { cancelled = true; };
-  }, [eventSlug, user]);
+  }, [eventSlug, pitchBoundGuidelineVersionId, user]);
 
   useEffect(() => {
     if (mockPitch) return;
@@ -152,6 +155,7 @@ function PitchDetailContent() {
           return;
         }
         const converted = convertApiPitchToLegacy(apiPitch, user?.id);
+        setPitchBoundGuidelineVersionId(apiPitch.event_guideline_version_id || null);
         setRemotePitch(converted);
         setLocalFeedback(converted.feedback || []);
       } finally {
@@ -408,7 +412,7 @@ function PitchDetailContent() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-heading font-bold text-slate-100">
-                  Feedback
+                  {eventRubric.length ? 'Review focus' : 'Feedback'}
                 </h2>
                 {!pitch.isOwnedByViewer && feedbackEligibility !== 'ineligible' ? (
                   <FeedbackModal

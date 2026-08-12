@@ -67,6 +67,18 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
   }
 
+  if (event.guidance_mode === 'structured_active') {
+    let targetPitchId = validation.data.pitchId;
+    if (!targetPitchId && validation.data.pitchPublicId) {
+      const { data: resolved } = await supabase.from('pitches').select('id').eq('public_id', validation.data.pitchPublicId).eq('user_id', user.id).maybeSingle();
+      targetPitchId = resolved?.id;
+    }
+    if (!targetPitchId) return NextResponse.json({ success: false, error: 'You can only submit one of your own active pitches.' }, { status: 403 });
+    const { data: submission, error } = await supabase.rpc('submit_structured_event_final_take', { target_event_id: event.id, target_pitch_id: targetPitchId });
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    return NextResponse.json(buildSubmissionSuccessResponse(submission, { id: targetPitchId }, false));
+  }
+
   if (event.status === 'locked') {
     return NextResponse.json({ success: false, error: 'Submissions are locked for this event.' }, { status: 403 });
   }

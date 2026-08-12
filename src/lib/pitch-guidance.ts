@@ -9,16 +9,21 @@ export const guidelineCriterionSchema = z.object({
 }).strict();
 
 export const publishGuidelinesSchema = z.object({
+  revision: z.number().int().positive(),
+  idempotencyKey: z.string().uuid(),
+}).strict();
+
+export const saveGuidelineDraftSchema = z.object({
+  revision: z.number().int().positive(),
   title: z.string().trim().min(3).max(120),
   instructions: z.string().trim().max(4000).default(''),
   criteria: z.array(guidelineCriterionSchema).min(4).max(6),
   disclosureMode: z.enum(feedbackDisclosureModes).default('role_only'),
 }).strict().superRefine((value, context) => {
-  const keys = value.criteria.map((criterion) => criterion.key);
-  if (new Set(keys).size !== keys.length) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ['criteria'], message: 'Criterion keys must be unique.' });
-  }
+  if (new Set(value.criteria.map((criterion) => criterion.key)).size !== value.criteria.length) context.addIssue({ code: z.ZodIssueCode.custom, path: ['criteria'], message: 'Criterion keys must be unique.' });
 });
+
+export const recordingSessionSchema = z.object({ recordingSessionId: z.string().uuid() }).strict();
 
 export const founderBriefSchema = z.object({
   tagline: z.string().trim().max(60).default(''),

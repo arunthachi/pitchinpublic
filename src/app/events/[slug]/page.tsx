@@ -34,7 +34,7 @@ function deadlineHasPassed(value?: string | null) {
   return Number.isFinite(deadline) && deadline < Date.now();
 }
 
-function buildRecordHref(event: any) {
+function buildRecordHref(event: any, guidelines?: PitchGuidelines | null) {
   const params = new URLSearchParams({
     record: '1',
     pitchMax: String(event.pitch_length_seconds || 60),
@@ -43,6 +43,8 @@ function buildRecordHref(event: any) {
   });
   if (event.submission_deadline) params.set('eventDeadline', event.submission_deadline);
   if (event.focus) params.set('eventFocus', event.focus);
+  if (guidelines?.id) params.set('guidelineVersionId', guidelines.id);
+  if (guidelines?.version) params.set('guidelineVersion', String(guidelines.version));
   return `/?${params.toString()}`;
 }
 
@@ -56,17 +58,19 @@ function normalizeGuidancePayload(data: any): { guidelines: PitchGuidelines | nu
     description: criterion.description || criterion.guidance || null,
   }));
   const guidelines = guidelineSource ? {
+    id: guidelineSource.id || guidelineSource.guideline_version_id || null,
     title: guidelineSource.title || guidelineSource.name || null,
     introduction: guidelineSource.introduction || guidelineSource.description || guidelineSource.instructions || null,
     version: guidelineSource.version || guidelineSource.version_number || null,
+    updatedAt: guidelineSource.created_at || guidelineSource.updated_at || null,
     criteria,
   } : null;
   const answers = source.answers || source.values || source || {};
   const defaultGroups = guidelineSource ? [
     { id: 'business', label: 'Business', fields: [
       { key: 'tagline', label: 'Tagline', required: true, maxLength: 60 },
-      { key: 'businessStage', sourceKey: 'business_stage', label: 'Business stage', required: true },
-      { key: 'industry', label: 'Industry', required: true },
+      { key: 'businessStage', sourceKey: 'business_stage', label: 'Business stage', required: false },
+      { key: 'industry', label: 'Industry', required: false },
     ] },
     { id: 'story', label: 'Pitch story', fields: [
       { key: 'businessDescription', sourceKey: 'business_description', label: 'Business description', required: true, kind: 'textarea', maxLength: 1800 },
@@ -261,7 +265,8 @@ export default function EventPage() {
     publicId: submittedPitch.public_id || null,
     hook: submittedPitch.hook,
   } : null);
-  const recordHref = event ? buildRecordHref(event) : '/';
+  const recordHref = event ? buildRecordHref(event, guidanceState.guidelines) : '/';
+  const recordingAvailable = Boolean(guidanceState.guidelines);
   const eventTakes = groupEventTakeFeedback(pitches, {
     eventId: event?.id || eventState?.participation?.event_id || null,
     viewerId: user?.id || null,
@@ -485,7 +490,7 @@ export default function EventPage() {
                 ) : null}
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {currentSubmittedPitch.publicId ? <Link href={`/pitch/${encodeURIComponent(currentSubmittedPitch.publicId)}`} className="btn-glass inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold">Open pitch</Link> : null}
-                  {!isSubmissionClosed ? <Link href={recordHref} className="inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold text-slate-300 hover:bg-white/[0.05]">Record another</Link> : null}
+                  {!isSubmissionClosed && recordingAvailable ? <Link href={recordHref} className="inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold text-slate-300 hover:bg-white/[0.05]">Record another</Link> : null}
                 </div>
               </TaskCopy>
             ) : pitchesLoading ? (
@@ -499,7 +504,7 @@ export default function EventPage() {
                 </div>
                 <button type="button" onClick={() => submitFinalTake()} disabled={saving} className="cta-primary mt-4 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">{saving ? 'Submitting…' : `Submit to ${event.name}`}</button>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <Link href={recordHref} className="btn-glass inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold"><Video className="mr-2 h-4 w-4" />Record another</Link>
+                  {recordingAvailable ? <Link href={recordHref} className="btn-glass inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold"><Video className="mr-2 h-4 w-4" />Record another</Link> : <span className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 px-4 text-sm text-slate-500">Standard in preparation</span>}
                   {pitches.length > 1 ? (
                     <details className="rounded-2xl border border-white/10">
                       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center px-4 py-3 text-sm font-bold text-slate-300">Change take</summary>
@@ -513,8 +518,8 @@ export default function EventPage() {
                 </div>
               </TaskCopy>
             ) : (
-              <TaskCopy title="Record or upload your take" copy="Create the pitch you want the event team to review.">
-                <Link href={recordHref} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black"><Video className="h-5 w-5" />Record or upload</Link>
+              <TaskCopy title={recordingAvailable ? 'Record or upload your take' : 'Prepare for the pitch standard'} copy={recordingAvailable ? 'Use the pitch plan below to create the take you want the event team to review.' : 'The organizer is preparing this event’s pitch plan. Recording opens after it is published.'}>
+                {recordingAvailable ? <Link href={recordHref} className="cta-primary mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl px-5 py-4 font-heading font-black"><Video className="h-5 w-5" />Record or upload</Link> : null}
               </TaskCopy>
             )}
           </div>
@@ -532,7 +537,7 @@ export default function EventPage() {
           ) : null}
         </section>
 
-        {isJoined && (guidanceState.guidelines || guidanceState.groups.length || guidanceState.actions.length || suggestedActions.length) ? (
+        {isJoined ? (
           <EventPitchGuidance
             slug={slug}
             guidelines={guidanceState.guidelines}

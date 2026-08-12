@@ -264,7 +264,7 @@ export async function POST(request: NextRequest) {
     // Event recordings bind to their event and start private to it. The
     // membership check is server-side: a client cannot attach a pitch to an
     // event it is not an active participant of.
-    let eventTarget: { eventId: string } | null = null;
+    let eventTarget: { eventId: string; guidanceMode: string } | null = null;
     if (pitchData.eventSlug) {
       const serviceSupabase = createServiceSupabase();
       if (!serviceSupabase) {
@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
       }
       const { data: event, error: eventError } = await serviceSupabase
         .from('pitch_events')
-        .select('id')
+        .select('id,guidance_mode')
         .eq('slug', pitchData.eventSlug)
         .maybeSingle();
       if (eventError) {
@@ -311,7 +311,10 @@ export async function POST(request: NextRequest) {
           { status: 403, headers: formatRateLimitHeaders(result) }
         );
       }
-      eventTarget = { eventId: event.id };
+      if (event.guidance_mode === 'structured_active' && !pitchData.recordingSessionId) {
+        return NextResponse.json({ success: false, error: 'Start a new recording from the event pitch plan.', code: 'recording_session_required' }, { status: 409, headers: formatRateLimitHeaders(result) });
+      }
+      eventTarget = { eventId: event.id, guidanceMode: event.guidance_mode };
     }
 
     const parsedDescription = parsePitchDescription(pitchData.description);
@@ -455,7 +458,7 @@ export async function POST(request: NextRequest) {
       thumbnail_url: pitchData.thumbnailUrl || null,
       duration: pitchData.duration,
       status: 'published',
-      event_id: eventTarget?.eventId || null,
+      event_id: eventTarget?.guidanceMode === 'structured_active' ? null : eventTarget?.eventId || null,
       visibility: eventTarget ? 'private' : 'public',
       version_number: repNumber,
       views_count: 0,
@@ -467,6 +470,7 @@ export async function POST(request: NextRequest) {
       prompt_text: promptText,
       creation_key: idempotency.key,
       creation_payload_hash: creationPayloadHash,
+      event_recording_session_id: pitchData.recordingSessionId || null,
     };
 
     let insertResult = await supabase
@@ -475,7 +479,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (!idempotency.key && insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take|creation_key|creation_payload_hash|event_id|visibility/i.test(insertResult.error.message)) {
+    if (!idempotency.key && !eventTarget && insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take|creation_key|creation_payload_hash|event_id|visibility/i.test(insertResult.error.message)) {
       const {
         public_id: _publicId,
         company_id: _companyId,
@@ -491,6 +495,7 @@ export async function POST(request: NextRequest) {
         creation_payload_hash: _creationPayloadHash,
         event_id: _eventId,
         visibility: _visibility,
+        event_recording_session_id: _recordingSessionId,
         ...fallbackPayload
       } = insertPayload;
 

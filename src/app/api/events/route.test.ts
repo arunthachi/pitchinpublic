@@ -103,3 +103,10 @@ test('unknown submission state stamps null so the UI shows no chip', async () =>
   const events = toSafeEventsWithSubmissionFlag([{ id: 'e1' }], null);
   assert.equal(events[0].mySubmission, null);
 });
+
+test('integrated event creation is delegated to one atomic database RPC', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+  assert.match(source, /rpc\('create_event_with_standard_draft'/);
+  assert.doesNotMatch(source, /\.from\('pitch_events'\)\s*\.insert/);
+});
