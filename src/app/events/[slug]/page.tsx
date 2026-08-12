@@ -12,7 +12,7 @@ import { ActionPageNav } from '@/components/ActionPageNav';
 import AppTabBar from '@/components/AppTabBar';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 import { getEventSubmissionRetryKey } from '@/lib/idempotency';
-import { EventPitchGuidance, type GuidanceAction, type PitchBriefGroup, type PitchGuidelines } from '@/components/pitch-guidance/EventPitchGuidance';
+import { BUSINESS_STAGE_OPTIONS, EventPitchGuidance, INDUSTRY_OPTIONS, type GuidanceAction, type PitchBriefGroup, type PitchGuidelines } from '@/components/pitch-guidance/EventPitchGuidance';
 import { eligibleEventSubmissionPitches } from '@/lib/pitch-guidance';
 
 interface PendingSubmission {
@@ -70,8 +70,8 @@ function normalizeGuidancePayload(data: any): { guidelines: PitchGuidelines | nu
   const defaultGroups = guidelineSource ? [
     { id: 'business', label: 'Business', fields: [
       { key: 'tagline', label: 'Tagline', required: true, maxLength: 60 },
-      { key: 'businessStage', sourceKey: 'business_stage', label: 'Business stage', required: false },
-      { key: 'industry', label: 'Industry', required: false },
+      { key: 'businessStage', sourceKey: 'business_stage', label: 'Business stage', required: false, kind: 'select', options: BUSINESS_STAGE_OPTIONS },
+      { key: 'industry', label: 'Industry', required: false, kind: 'combobox', options: INDUSTRY_OPTIONS },
     ] },
     { id: 'story', label: 'Pitch story', fields: [
       { key: 'businessDescription', sourceKey: 'business_description', label: 'Business description', required: true, kind: 'textarea', maxLength: 1800 },
