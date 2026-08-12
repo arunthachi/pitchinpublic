@@ -87,6 +87,14 @@ function serializeFeedbackContent(feedback: z.infer<typeof feedbackSchema>) {
     signals,
     readiness: feedback.readiness,
     scores,
+    ...(feedback.structured ? {
+      structured: {
+        criterionKey: feedback.structured.criterionKey,
+        sentiment: feedback.structured.sentiment,
+        observation: feedback.structured.observation.trim(),
+        nextStep: feedback.structured.nextStep.trim(),
+      },
+    } : {}),
   });
 }
 
@@ -290,9 +298,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
         })
       : await supabase.rpc(submission.name, submission.args);
 
-    const feedback = structured
-      ? { feedback_id: submissionRows, submitted_type: feedbackData.type, reviewer_role: 'reviewer', created_at: new Date().toISOString(), assignment_completed: false, idempotent_replay: false }
-      : (Array.isArray(submissionRows) ? submissionRows[0] : submissionRows);
+    const feedback = Array.isArray(submissionRows) ? submissionRows[0] : submissionRows;
     if (submissionError || !feedback) {
       console.error('Error creating feedback:', submissionError);
       throw submissionError || new Error('Feedback could not be saved');

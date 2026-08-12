@@ -141,11 +141,12 @@ export async function POST(request: NextRequest) {
   const pitchLengthSeconds = data.pitchLengthSeconds ?? Math.round((data.pitchLengthMinutes ?? 1) * 60);
 
   try {
-    const { data: event, error } = await supabase.rpc('create_event_with_standard_draft', {
+    const { data: result, error } = await supabase.rpc('create_event_with_standard_draft', {
       event_payload: { ...data, pitchLengthSeconds, focus: focusSummary }, request_key: creationKey, payload_hash: creationPayloadHash,
     });
+    const event = result?.event as Record<string, unknown> | undefined;
     if (error || !event) throw error || new Error('Failed to create event');
-    return NextResponse.json({ success: true, replayed: Boolean(idempotency.key && event.creation_key === idempotency.key), event: eventResponse(event) }, { status: 201 });
+    return NextResponse.json({ success: true, replayed: Boolean(result.replayed), event: eventResponse(event) }, { status: 201 });
   } catch (error) {
     console.error('Error creating event:', error);
     return NextResponse.json(

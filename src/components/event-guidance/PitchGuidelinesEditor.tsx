@@ -105,7 +105,7 @@ export function PitchGuidelinesEditor({ eventSlug, canManage, initiallyOpen = fa
     revision: draft.revision,
   }), [draft]);
 
-  const valid = draft.title.trim().length >= 2
+  const valid = draft.title.trim().length >= 3
     && draft.criteria.length >= 4
     && draft.criteria.length <= 6
     && draft.criteria.every((item) => item.key.trim() && item.label.trim().length >= 2);

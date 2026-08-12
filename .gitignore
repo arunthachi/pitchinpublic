@@ -51,3 +51,4 @@ supabase/.temp/
 
 # ship-loop run state and artifacts
 .ship-loop/
+.gstack/

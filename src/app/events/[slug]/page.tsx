@@ -13,6 +13,7 @@ import AppTabBar from '@/components/AppTabBar';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 import { getEventSubmissionRetryKey } from '@/lib/idempotency';
 import { EventPitchGuidance, type GuidanceAction, type PitchBriefGroup, type PitchGuidelines } from '@/components/pitch-guidance/EventPitchGuidance';
+import { eligibleEventSubmissionPitches } from '@/lib/pitch-guidance';
 
 interface PendingSubmission {
   id: string;
@@ -245,8 +246,14 @@ export default function EventPage() {
     const returnedPitch = returnedPitchPublicId
       ? pitches.find((pitch) => pitch.public_id === returnedPitchPublicId)
       : null;
-    setSelectedPitchId((current) => returnedPitch?.id || current || pitches[0].id);
-  }, [pitches, returnedPitchPublicId]);
+    const eligible = eligibleEventSubmissionPitches(
+      pitches,
+      event?.id ? { id: event.id, guidance_mode: event.guidance_mode } : null,
+    );
+    if (!eligible.length) return;
+    const eligibleReturnedPitch = returnedPitch && eligible.some((pitch) => pitch.id === returnedPitch.id) ? returnedPitch : null;
+    setSelectedPitchId((current) => eligibleReturnedPitch?.id || (eligible.some((pitch) => pitch.id === current) ? current : eligible[0].id));
+  }, [event?.guidance_mode, event?.id, pitches, returnedPitchPublicId]);
 
   const isSubmissionClosed = deadlineHasPassed(event?.submission_deadline);
   const invite = eventState?.invite;
@@ -255,7 +262,11 @@ export default function EventPage() {
     !isJoined && inviteCode && (!invite?.valid || ['expired', 'invalid', 'revoked', 'used'].includes(invite?.status)),
   );
   const hasDirectInvite = Boolean(inviteCode && !inviteUnavailable && !isJoined);
-  const selectedPitch = pitches.find((pitch) => pitch.id === selectedPitchId);
+  const submissionPitches = eligibleEventSubmissionPitches(
+    pitches,
+    event?.id ? { id: event.id, guidance_mode: event.guidance_mode } : null,
+  );
+  const selectedPitch = submissionPitches.find((pitch) => pitch.id === selectedPitchId);
   const submittedPitch = pitches.find((pitch) => pitch.id === eventState?.userSubmission?.pitch_id);
   const unresolvedPendingSubmission = pendingSubmission?.id === eventState?.userSubmission?.pitch_id
     ? null
@@ -351,7 +362,7 @@ export default function EventPage() {
     }
     if (guidanceState.groups.length && !guidanceState.complete) {
       setMessage('Complete the required pitch brief items below before submitting your final event take. You can still record practice takes.');
-      document.getElementById('pitch-brief-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('your-pitch-plan-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
 
@@ -505,11 +516,11 @@ export default function EventPage() {
                 <button type="button" onClick={() => submitFinalTake()} disabled={saving} className="cta-primary mt-4 min-h-14 w-full rounded-2xl px-5 py-4 font-heading font-black disabled:opacity-60">{saving ? 'Submitting…' : `Submit to ${event.name}`}</button>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   {recordingAvailable ? <Link href={recordHref} className="btn-glass inline-flex min-h-12 items-center justify-center rounded-2xl px-4 py-3 font-bold"><Video className="mr-2 h-4 w-4" />Record another</Link> : <span className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/10 px-4 text-sm text-slate-500">Standard in preparation</span>}
-                  {pitches.length > 1 ? (
+                  {submissionPitches.length > 1 ? (
                     <details className="rounded-2xl border border-white/10">
                       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center px-4 py-3 text-sm font-bold text-slate-300">Change take</summary>
                       <div className="space-y-2 border-t border-white/10 p-2">
-                        {pitches.map((pitch) => (
+                        {submissionPitches.map((pitch) => (
                           <button key={pitch.id} type="button" onClick={() => setSelectedPitchId(pitch.id)} className={`min-h-11 w-full rounded-xl px-3 py-2 text-left text-sm font-semibold ${pitch.id === selectedPitchId ? 'bg-neon-cyan/15 text-neon-cyan' : 'text-slate-300 hover:bg-white/[0.05]'}`}>{pitch.hook}</button>
                         ))}
                       </div>

@@ -5,6 +5,8 @@ import test from 'node:test';
 import * as feedbackRoute from './route';
 import { feedbackSubmissionRpc } from './_server';
 
+const source = readFileSync(new URL('./route.ts', import.meta.url), 'utf8');
+
 test('feedback route keeps event authorization on POST and exposes no destructive handler', () => {
   assert.equal(typeof feedbackRoute.POST, 'function');
   assert.equal(Reflect.has(feedbackRoute, 'DELETE'), false);
@@ -18,6 +20,18 @@ test('event feedback uses the event-scoped RPC while ordinary feedback remains c
   const ordinary = feedbackSubmissionRpc('pitch-id', 'roast', '{}', 'request-id');
   assert.equal(ordinary.name, 'submit_pitch_feedback');
   assert.equal(Reflect.has(ordinary.args, 'target_event_id'), false);
+});
+
+test('structured feedback consumes the authoritative idempotent RPC result', () => {
+  const migration = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20260813120000_integrate_pitch_standard_plan.sql'),
+    'utf8',
+  );
+  assert.doesNotMatch(source, /idempotent_replay: false/);
+  assert.doesNotMatch(source, /reviewer_role: 'reviewer'/);
+  assert.match(source, /structured:\s*\{\s*criterionKey: feedback\.structured\.criterionKey,\s*sentiment: feedback\.structured\.sentiment,\s*observation:/);
+  assert.match(source, /const feedback = Array\.isArray\(submissionRows\) \? submissionRows\[0\] : submissionRows/);
+  assert.match(migration, /IF NOT result_record\.idempotent_replay THEN\s+UPDATE public\.feedback/);
 });
 
 test('event feedback migration completes only an assignment from the requested event', () => {

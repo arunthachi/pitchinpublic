@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import * as eventRoute from './route';
 import {
   buildOrganizerParticipantUpsert,
@@ -103,8 +104,21 @@ test('unknown submission state stamps null so the UI shows no chip', async () =>
 });
 
 test('integrated event creation is delegated to one atomic database RPC', async () => {
-  const { readFile } = await import('node:fs/promises');
   const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
   assert.match(source, /rpc\('create_event_with_standard_draft'/);
   assert.doesNotMatch(source, /\.from\('pitch_events'\)\s*\.insert/);
+});
+
+test('atomic event creation reports first-create and replay state from the database transaction', async () => {
+  const route = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+  const migration = await readFile(new URL('../../../../supabase/migrations/20260813120000_integrate_pitch_standard_plan.sql', import.meta.url), 'utf8');
+  assert.match(route, /replayed: Boolean\(result\.replayed\)/);
+  assert.doesNotMatch(route, /event\.creation_key === idempotency\.key/);
+  assert.match(migration, /'event',to_jsonb\(saved\),'replayed',true/);
+  assert.match(migration, /'event',to_jsonb\(saved\),'replayed',false/);
+});
+
+test('date-only submission deadlines remain open through the selected day', async () => {
+  const migration = await readFile(new URL('../../../../supabase/migrations/20260813120000_integrate_pitch_standard_plan.sql', import.meta.url), 'utf8');
+  assert.match(migration, /::date \+ interval '1 day' - interval '1 second'/);
 });

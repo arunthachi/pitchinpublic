@@ -62,5 +62,10 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     const changed = error.message.includes('draft_changed');
     return NextResponse.json({ success: false, code: changed ? 'draft_changed' : undefined, error: forbidden ? 'Event manager access required' : changed ? 'The pitch standard changed. Reload before publishing.' : 'Could not publish pitch guidelines.' }, { status: forbidden ? 403 : changed ? 409 : 500 });
   }
-  return NextResponse.json({ success: true, guideline: data }, { status: 201 });
+  const { data: draft } = await supabase
+    .from('event_pitch_guideline_drafts')
+    .select('event_id,revision,title,instructions,criteria,disclosure_mode,updated_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  return NextResponse.json({ success: true, guideline: data, draft: draft || null }, { status: 201 });
 }

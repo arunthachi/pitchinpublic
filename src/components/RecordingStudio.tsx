@@ -77,6 +77,10 @@ export function buildEventSubmissionBody(pitch: CreatedPitchIdentity) {
   return pitch.publicId ? { pitchPublicId: pitch.publicId } : { pitchId: pitch.id };
 }
 
+export function shouldOpenPitchPlan(seenChecklistValue: string | null) {
+  return !seenChecklistValue;
+}
+
 function formatShortEventDate(value: string) {
   const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value);
   if (Number.isNaN(date.getTime())) return '';
@@ -164,7 +168,6 @@ export function RecordingStudio({
     guidelineVersion: eventContext.guidelineVersion || queryGuidelineVersion || null,
   } : null;
   const eventSlug = resolvedEventContext?.slug || '';
-  const startedGuidelineVersionId = resolvedEventContext?.guidelineVersionId || null;
   const maxRecordingSeconds = Math.min(180, Math.max(MIN_RECORDING_SECONDS, maxDurationSeconds));
   const [mode, setMode] = useState<Mode>('choose');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -189,7 +192,9 @@ export function RecordingStudio({
   const [planOpen, setPlanOpen] = useState(false);
   const [planSaving, setPlanSaving] = useState(false);
   const [recordingSessionId, setRecordingSessionId] = useState<string | null>(null);
-  const [selectedGuidelineVersionId, setSelectedGuidelineVersionId] = useState<string | null>(startedGuidelineVersionId);
+  const [recordingSessionError, setRecordingSessionError] = useState('');
+  const [recordingSessionAttempt, setRecordingSessionAttempt] = useState(0);
+  const [selectedGuidelineVersionId, setSelectedGuidelineVersionId] = useState<string | null>(null);
   const [versionConflict, setVersionConflict] = useState<{ currentId: string; currentVersion?: string | null } | null>(null);
   const [announcement, setAnnouncement] = useState('');
 
@@ -238,7 +243,7 @@ export function RecordingStudio({
     setPitchPlan(plan); setPitchPlanGroups(groups); setPitchPlanValues(Object.fromEntries(groups.flatMap((group) => group.fields.map((field) => [field.key, field.value]))));
     if (typeof window !== 'undefined') {
       const checklistKey = `pitchinpublic:pitch-plan-seen:${eventSlug}:${published.id}`;
-      if (!window.localStorage.getItem(checklistKey)) {
+      if (shouldOpenPitchPlan(window.localStorage.getItem(checklistKey))) {
         window.localStorage.setItem(checklistKey, '1');
         setPlanOpen(true);
       }
@@ -248,22 +253,27 @@ export function RecordingStudio({
     }
   }, [eventSlug, selectedGuidelineVersionId]);
 
-  useEffect(() => { if (isOpen) void loadPitchPlan(); }, [isOpen, loadPitchPlan]);
+  useEffect(() => {
+    if (isOpen && recordingSessionId && selectedGuidelineVersionId) void loadPitchPlan(selectedGuidelineVersionId);
+  }, [isOpen, loadPitchPlan, recordingSessionId, selectedGuidelineVersionId]);
 
   useEffect(() => {
     if (!isOpen || !resolvedEventContext?.slug || recordingSessionId) return;
+    setRecordingSessionError('');
     void fetch(`/api/events/${encodeURIComponent(resolvedEventContext.slug)}/recording-session`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ guidelineVersionId: selectedGuidelineVersionId || undefined }),
     }).then(async (response) => {
       const data = await response.json().catch(() => ({}));
       const session = data.session || data.recordingSession;
       if (!response.ok || !session?.id) throw new Error(data.error || 'Could not start this event recording.');
       setRecordingSessionId(session.id);
-      if (selectedGuidelineVersionId && session.guidelineVersionId !== selectedGuidelineVersionId) setVersionConflict({ currentId: session.guidelineVersionId });
-    }).catch((error) => setError(error instanceof Error ? error.message : 'Could not start this event recording.'));
-  }, [isOpen, recordingSessionId, resolvedEventContext?.slug, selectedGuidelineVersionId]);
+      setSelectedGuidelineVersionId(session.guidelineVersionId);
+    }).catch((error) => {
+      const message = error instanceof Error ? error.message : 'Could not start this event recording.';
+      setRecordingSessionError(message);
+      setError(message);
+    });
+  }, [isOpen, recordingSessionAttempt, recordingSessionId, resolvedEventContext?.slug]);
 
   const savePitchPlan = async () => {
     if (!resolvedEventContext?.slug) return;
@@ -599,11 +609,12 @@ export function RecordingStudio({
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    if (eventSlug && !recordingSessionId) return;
     const file = e.dataTransfer.files[0];
     if (file) {
       validateAndSetFile(file);
     }
-  }, [validateAndSetFile]);
+  }, [eventSlug, recordingSessionId, validateAndSetFile]);
 
   const uploadFileToProvider = useCallback(
     async (file: File) => {
@@ -755,8 +766,8 @@ export function RecordingStudio({
     if (Array.isArray(guidelinesData.guidelines) && guidelinesData.guidelines.length) {
       const brief = briefData.brief || {};
       const missing = [
-        ['tagline', 'tagline'], ['business_stage', 'business stage'], ['industry', 'industry'],
-        ['business_description', 'business description'], ['problem', 'problem'], ['ask', 'ask'],
+        ['tagline', 'tagline'], ['business_description', 'business description'],
+        ['problem', 'problem'], ['ask', 'ask'],
       ].filter(([key]) => !String(brief[key] || '').trim()).map(([, label]) => label);
       if (missing.length) {
         throw new Error(`Your take is saved as practice. Complete your event pitch brief before final submission: ${missing.join(', ')}.`);
@@ -960,12 +971,14 @@ export function RecordingStudio({
     setUploadedVideo(null);
     setCreatedPitch(null);
     setRecordingSessionId(null);
-    setSelectedGuidelineVersionId(startedGuidelineVersionId);
+    setRecordingSessionError('');
+    setRecordingSessionAttempt(0);
+    setSelectedGuidelineVersionId(null);
     setVersionConflict(null);
     setPlanOpen(false);
     pitchCreateIdempotencyKeyRef.current = '';
     onClose();
-  }, [onClose, startedGuidelineVersionId, stopCamera]);
+  }, [onClose, stopCamera]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1097,7 +1110,7 @@ export function RecordingStudio({
 
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:p-6">
               <div className="sr-only" aria-live="polite">{announcement}</div>
-              {versionConflict ? <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100" role="alert"><p className="font-bold">The organizer published an updated pitch plan.</p><p className="mt-1 leading-6">Your current recording keeps the plan you started with.</p><div className="mt-3 grid gap-2"><button type="button" onClick={() => setVersionConflict(null)} className="min-h-11 rounded-xl bg-white px-4 font-bold text-slate-950">Keep recording with the plan you started</button><button type="button" onClick={() => { if (!createdPitch && !uploadedVideo) { setSelectedGuidelineVersionId(versionConflict.currentId); setRecordingSessionId(null); setVersionConflict(null); } }} disabled={Boolean(createdPitch || uploadedVideo)} className="min-h-11 rounded-xl border border-white/15 px-4 font-bold disabled:opacity-50">Restart with updated plan</button></div></div> : null}
+              {versionConflict ? <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100" role="alert"><p className="font-bold">The organizer published an updated pitch plan.</p><p className="mt-1 leading-6">Your current recording keeps the plan you started with.</p><div className="mt-3 grid gap-2"><button type="button" onClick={() => setVersionConflict(null)} className="min-h-11 rounded-xl bg-white px-4 font-bold text-slate-950">Keep recording with the plan you started</button><button type="button" onClick={() => { if (!createdPitch && !uploadedVideo) { setSelectedGuidelineVersionId(null); setRecordingSessionId(null); setVersionConflict(null); } }} disabled={Boolean(createdPitch || uploadedVideo)} className="min-h-11 rounded-xl border border-white/15 px-4 font-bold disabled:opacity-50">Restart with updated plan</button></div></div> : null}
               {/* Details Mode */}
               {mode === 'details' && previewUrl && (
                 <>
@@ -1165,9 +1178,16 @@ export function RecordingStudio({
                   )}
 
                   <div className="space-y-3">
+                    {eventSlug && !recordingSessionId ? (
+                      <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 p-4 text-left text-sm text-amber-100" role="status">
+                        <p className="font-bold">{recordingSessionError ? 'Recording setup needs another try.' : 'Preparing this event recording…'}</p>
+                        {recordingSessionError ? <button type="button" onClick={() => setRecordingSessionAttempt((value) => value + 1)} className="mt-3 min-h-11 rounded-xl bg-white px-4 font-bold text-slate-950">Retry recording setup</button> : null}
+                      </div>
+                    ) : null}
                     {/* Record Option */}
                     <button
                       onClick={startCamera}
+                      disabled={Boolean(eventSlug && !recordingSessionId)}
                       className="w-full p-5 bg-gradient-to-r from-neon-cyan/20 to-neon-lime/20 border border-neon-cyan/50 rounded-xl hover:border-neon-cyan transition-all group"
                     >
                       <div className="flex items-center gap-4">
@@ -1190,6 +1210,7 @@ export function RecordingStudio({
                       <input
                         type="file"
                         accept="video/*"
+                        disabled={Boolean(eventSlug && !recordingSessionId)}
                         onChange={handleFileSelect}
                         className="hidden"
                       />

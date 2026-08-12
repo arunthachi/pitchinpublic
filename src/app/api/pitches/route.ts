@@ -8,7 +8,7 @@ import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import { createServiceSupabase } from '@/lib/admin';
-import { hashPitchCreationPayload, parsePitchIdempotencyKey } from './_server';
+import { hashPitchCreationPayload, parsePitchIdempotencyKey, structuredFeedbackProvenance } from './_server';
 
 async function pitchResponseSigned(pitch: any, fallback: Record<string, any>) {
   // A pitch created for an event is private from birth, so the create and
@@ -753,6 +753,8 @@ export async function GET(request: NextRequest) {
         is_best_take,
         visibility,
         event_id,
+        event_guideline_version_id,
+        event_recording_session_id,
         pitch_events:event_id (
           slug
         ),
@@ -771,6 +773,11 @@ export async function GET(request: NextRequest) {
           type,
           content,
           reviewer_role,
+          event_guideline_version_id,
+          criterion_key,
+          observation,
+          next_step,
+          disclosure_mode,
           author:user_id (
             full_name
           ),
@@ -883,7 +890,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take|event_id|visibility/i.test(error.message)) {
+    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take|event_id|event_guideline_version_id|criterion_key|observation|next_step|disclosure_mode|visibility/i.test(error.message)) {
       const fallbackResult = await buildDataQuery(fallbackSelect)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -952,11 +959,11 @@ export async function GET(request: NextRequest) {
           type: feedback.type,
           content: feedback.content,
           reviewer_role: feedback.reviewer_role || 'peer_founder',
+          ...structuredFeedbackProvenance(feedback),
           reviewer_badge: feedback.reviewer_role === 'trusted_reviewer'
             ? reviewerBadges.get(feedback.user_id) || null
             : null,
           created_at: feedback.created_at,
-          display_role_only: true,
           can_rate_quality: isOwner,
           quality_rating: vote?.rating || null,
           quality_action: isOwner

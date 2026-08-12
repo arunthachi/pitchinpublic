@@ -40,3 +40,11 @@ export const addressGuidanceActionSchema = z.object({ laterPitchId: z.string().u
 export function firstGuidanceIssue(error: z.ZodError) {
   return error.issues[0]?.message || 'Invalid pitch guidance data.';
 }
+
+export function eligibleEventSubmissionPitches<T extends { event_id?: string | null; event_guideline_version_id?: string | null; event_recording_session_id?: string | null }>(
+  pitches: T[],
+  event: { id: string; guidance_mode?: string | null } | null | undefined,
+) {
+  if (!event || event.guidance_mode !== 'structured_active') return pitches;
+  return pitches.filter((pitch) => pitch.event_id === event.id && Boolean(pitch.event_guideline_version_id) && Boolean(pitch.event_recording_session_id));
+}
