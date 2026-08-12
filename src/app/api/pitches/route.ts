@@ -10,6 +10,7 @@ import { createPublicPitchId } from '@/lib/public-routes';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import { createServiceSupabase } from '@/lib/admin';
 import { z } from 'zod';
+import { getVideoProvider } from '@/lib/video-providers';
 
 const idempotencyKeySchema = z.string().uuid();
 
@@ -432,6 +433,20 @@ export async function POST(request: NextRequest) {
           { success: false, error: 'That video belongs to another account.', code: 'video_not_owned' },
           { status: 403, headers: formatRateLimitHeaders(result) }
         );
+      }
+    }
+
+    // An event submission is private from birth. The upload issuer cannot know
+    // that yet, so enforcement is applied here, once visibility is decided.
+    // Non-fatal: the row is the source of truth and a founder must not lose a
+    // recording to a Cloudflare blip. Toggling visibility reconciles it.
+    if (eventTarget && pitchData.videoId) {
+      const provider = getVideoProvider();
+      if (provider.setRequireSignedUrls) {
+        const locked = await provider.setRequireSignedUrls(pitchData.videoId, true);
+        if (!locked) {
+          console.error('Private pitch created without playback enforcement:', pitchData.videoId);
+        }
       }
     }
 

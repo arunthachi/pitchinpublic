@@ -43,7 +43,11 @@ export interface VideoProvider {
    * Get a direct upload URL for client-side uploads
    * This is the recommended approach for large files
    */
-  getDirectUploadUrl(metadata?: { maxDurationSeconds?: number }): Promise<UploadUrlResult>;
+  getDirectUploadUrl(
+    metadata?: { maxDurationSeconds?: number; requireSignedURLs?: boolean }
+  ): Promise<UploadUrlResult>;
+  /** Enforce (or lift) signed playback for one video. */
+  setRequireSignedUrls?(videoId: string, required: boolean): Promise<boolean>;
 
   /**
    * Upload video from server-side (for smaller files or URL imports)

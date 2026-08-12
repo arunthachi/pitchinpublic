@@ -73,9 +73,15 @@ export class CloudflareStreamProvider implements VideoProvider {
     };
   }
 
-  async getDirectUploadUrl(metadata?: { maxDurationSeconds?: number }): Promise<UploadUrlResult> {
+  async getDirectUploadUrl(
+    metadata?: { maxDurationSeconds?: number; requireSignedURLs?: boolean }
+  ): Promise<UploadUrlResult> {
     const body: Record<string, unknown> = {
       maxDurationSeconds: metadata?.maxDurationSeconds || 60, // Default 60s for pitches
+      // Default OFF: most pitches are public and a public pitch should keep a
+      // permanent shareable URL. Privacy is applied when the pitch is created
+      // private, or when the founder later makes it private.
+      requireSignedURLs: metadata?.requireSignedURLs === true,
     };
 
     const response = await fetch(`${this.baseUrl}/direct_upload`, {
@@ -175,6 +181,27 @@ export class CloudflareStreamProvider implements VideoProvider {
       watchTimeSeconds: totals.watchTimeSeconds || 0,
       completionRate: totals.avgViewDurationPercentage || 0,
     };
+  }
+
+  /**
+   * Turn signed-playback enforcement on or off for one video.
+   *
+   * This is the switch that actually closes the replay gap: with it on, every
+   * URL already in circulation stops working. It is bound to pitch visibility,
+   * so a public pitch keeps a permanent shareable link and only a private one
+   * is locked down. Reversible — publishing a pitch flips it back off.
+   */
+  async setRequireSignedUrls(videoId: string, required: boolean): Promise<boolean> {
+    const response = await fetch(`${this.baseUrl}/${videoId}`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify({ requireSignedURLs: required }),
+    });
+    if (!response.ok) {
+      console.error('Failed to set requireSignedURLs:', videoId, await response.text());
+      return false;
+    }
+    return true;
   }
 
   async getSignedPlaybackUrl(videoId: string, expiresInSeconds: number = 3600): Promise<string> {
