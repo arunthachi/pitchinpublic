@@ -1,20 +1,30 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, BookOpen, Check, ChevronDown, Sparkles, Target, X } from 'lucide-react';
 
 export interface PitchGuidelineCriterion { id: string; label: string; description?: string | null }
 export interface PitchGuidelines { id?: string | null; title?: string | null; introduction?: string | null; version?: number | string | null; updatedAt?: string | null; criteria: PitchGuidelineCriterion[] }
-export interface PitchBriefField { key: string; label: string; value: string; required: boolean; kind?: 'text' | 'textarea' | 'url' | 'select'; maxLength?: number | null; options?: string[] }
+export interface PitchBriefField { key: string; label: string; value: string; required: boolean; kind?: 'text' | 'textarea' | 'url' | 'select' | 'combobox'; maxLength?: number | null; options?: string[] }
 export interface PitchBriefGroup { id: string; label: string; description?: string; fields: PitchBriefField[] }
 export interface GuidanceAction { id: string; text: string; criterionLabel?: string | null; selected?: boolean; completed?: boolean; sourceLabel?: string | null }
+
+export const BUSINESS_STAGE_OPTIONS = ['Idea', 'Pre-revenue', 'Revenue-generating', 'Growth', 'Established'];
+export const INDUSTRY_OPTIONS = [
+  'Agriculture & Food', 'Arts & Entertainment', 'Consumer Products & Services', 'Education',
+  'Energy & Climate', 'Financial Services', 'Government & Public Sector', 'Healthcare',
+  'Hospitality & Travel', 'Manufacturing', 'Media & Communications', 'Nonprofit & Social Impact',
+  'Professional Services', 'Real Estate & Construction', 'Retail & E-commerce', 'Technology',
+  'Transportation & Logistics', 'Other',
+];
 
 export function pitchPlanMissingFields(groups: PitchBriefGroup[], values: Record<string, string>) {
   return groups.flatMap((group) => group.fields).filter((field) => field.required && !String(values[field.key] || '').trim());
 }
 
 export function PitchPlanFields({ groups, values, onChange }: { groups: PitchBriefGroup[]; values: Record<string, string>; onChange: (key: string, value: string) => void }) {
+  const optionsIdPrefix = useId();
   return <div className="space-y-3">{groups.map((group, index) => (
     <details key={group.id} open={index === 0 || group.fields.some((field) => field.required && !values[field.key])} className="group rounded-2xl border border-white/10 bg-black/20">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan">
@@ -23,13 +33,16 @@ export function PitchPlanFields({ groups, values, onChange }: { groups: PitchBri
       </summary>
       <div className="space-y-4 border-t border-white/10 p-4">
         {group.description ? <p className="text-sm text-slate-400">{group.description}</p> : null}
-        {group.fields.map((field) => <label key={field.key} className="block text-sm font-bold text-white">
+        {group.fields.map((field) => {
+          const optionsId = `${optionsIdPrefix}-${field.key.replace(/[^a-z0-9_-]/gi, '-')}-options`;
+          return <label key={field.key} className="block text-sm font-bold text-white">
           {field.label}{field.required ? <span className="ml-1 text-amber-300" aria-label="required">*</span> : <span className="ml-2 text-xs font-medium text-slate-500">Optional</span>}
           {field.kind === 'textarea' ? <textarea value={values[field.key] || ''} onChange={(event) => onChange(field.key, event.target.value)} maxLength={field.maxLength || undefined} rows={4} className="input-dark mt-2 w-full resize-y" />
             : field.kind === 'select' ? <select value={values[field.key] || ''} onChange={(event) => onChange(field.key, event.target.value)} className="input-dark mt-2 w-full"><option value="">Select one</option>{field.options?.map((option) => <option key={option}>{option}</option>)}</select>
+            : field.kind === 'combobox' ? <><input type="text" list={optionsId} value={values[field.key] || ''} onChange={(event) => onChange(field.key, event.target.value)} placeholder="Select or type an industry" className="input-dark mt-2 w-full" /><datalist id={optionsId}>{field.options?.map((option) => <option key={option} value={option} />)}</datalist></>
             : <input type={field.kind === 'url' ? 'url' : 'text'} value={values[field.key] || ''} onChange={(event) => onChange(field.key, event.target.value)} maxLength={field.maxLength || undefined} className="input-dark mt-2 w-full" />}
           {field.maxLength ? <span className="mt-1 block text-right text-xs font-medium text-slate-500">{String(values[field.key] || '').length}/{field.maxLength}</span> : null}
-        </label>)}
+        </label>})}
       </div>
     </details>
   ))}</div>;
