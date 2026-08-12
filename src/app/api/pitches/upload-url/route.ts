@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { getVideoProvider } from '@/lib/video-providers';
 import { rateLimit, getClientIp, RATE_LIMITS, formatRateLimitHeaders } from '@/lib/ratelimit';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
+import { createServiceSupabase } from '@/lib/admin';
 
 /**
  * GET /api/pitches/upload-url
@@ -92,6 +93,31 @@ export async function GET(request: NextRequest) {
     const uploadUrlResult = await provider.getDirectUploadUrl({
       maxDurationSeconds: 60,
     });
+
+    // The second issuer. Missing this binding was a hole in the first pass:
+    // ids from here had no owner row, and publish accepted a missing row, so
+    // anyone who obtained such an id could attach it.
+    const serviceSupabase = createServiceSupabase();
+    if (!serviceSupabase) {
+      console.error('Upload ownership unavailable: no service client');
+      return NextResponse.json(
+        { success: false, error: 'Uploads are temporarily unavailable.', code: 'ownership_unavailable' },
+        { status: 503, headers: formatRateLimitHeaders(result) }
+      );
+    }
+    const { error: ownershipError } = await serviceSupabase
+      .from('video_uploads')
+      .upsert(
+        { video_id: uploadUrlResult.videoId, user_id: user.id, provider: provider.name },
+        { onConflict: 'video_id' }
+      );
+    if (ownershipError) {
+      console.error('Video ownership record failed:', ownershipError);
+      return NextResponse.json(
+        { success: false, error: 'Could not start the upload. Try again.', code: 'ownership_record_failed' },
+        { status: 500, headers: formatRateLimitHeaders(result) }
+      );
+    }
 
     return NextResponse.json(
       {
