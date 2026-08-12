@@ -48,6 +48,12 @@ const feedbackSchema = z.object({
   }).optional(),
   notes: z.string().max(2000).optional(),
   eventSlug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
+  structured: z.object({
+    criterionKey: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,39}$/),
+    sentiment: z.enum(['strength', 'improvement']),
+    observation: z.string().trim().min(2).max(1200),
+    nextStep: z.string().trim().min(2).max(1200),
+  }).optional(),
 }).superRefine((value, ctx) => {
   if (!value.signal && !value.signals?.length) {
     ctx.addIssue({
@@ -298,12 +304,23 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
       submissionKey,
       feedbackEventId
     );
-    const { data: submissionRows, error: submissionError } = await supabase.rpc(
-      submission.name,
-      submission.args
-    );
+    const structured = feedbackData.structured;
+    const { data: submissionRows, error: submissionError } = structured && feedbackEventId
+      ? await supabase.rpc('submit_structured_event_pitch_feedback', {
+          target_pitch_id: pitch.id,
+          feedback_type: feedbackData.type,
+          feedback_content: serializeFeedbackContent(feedbackData),
+          target_event_id: feedbackEventId,
+          submission_key: submissionKey,
+          criterion: structured.criterionKey,
+          observed: structured.observation,
+          recommended_next_step: structured.nextStep,
+        })
+      : await supabase.rpc(submission.name, submission.args);
 
-    const feedback = Array.isArray(submissionRows) ? submissionRows[0] : submissionRows;
+    const feedback = structured
+      ? { feedback_id: submissionRows, submitted_type: feedbackData.type, reviewer_role: 'reviewer', created_at: new Date().toISOString(), assignment_completed: false, idempotent_replay: false }
+      : (Array.isArray(submissionRows) ? submissionRows[0] : submissionRows);
     if (submissionError || !feedback) {
       console.error('Error creating feedback:', submissionError);
       throw submissionError || new Error('Feedback could not be saved');
@@ -350,6 +367,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ pitc
           reviewerRole,
           reviewerRoleLabel: reviewerRoleLabel(reviewerRole),
           createdAt: feedback.created_at,
+          ...(structured ? {
+            criterionKey: structured.criterionKey,
+            sentiment: structured.sentiment,
+            observation: structured.observation,
+            nextStep: structured.nextStep,
+          } : {}),
         },
         assignmentCompleted: Boolean(feedback.assignment_completed),
       },

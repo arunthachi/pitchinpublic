@@ -1,6 +1,6 @@
 # Pitch in Public Context
 
-Last updated: 2026-07-13
+Last updated: 2026-08-12
 
 ## Working Location
 
@@ -33,6 +33,14 @@ The core loop:
 ```text
 First Take -> Roast/Toast feedback -> Better Take -> Best Take -> Featured/Submitted -> Invite another founder
 ```
+
+Current north star:
+
+```text
+Structured feedback -> selected practice focus -> sharper later take
+```
+
+The controlled pilot uses versioned organizer guidelines, an event-specific founder brief, criterion-linked observation plus next-step feedback, and one or two founder-selected practice actions. AI guidance is planned but not shipped.
 
 Near-term launch strategy:
 
@@ -271,7 +279,7 @@ Migrations currently present:
 - `013_add_platform_admins.sql`
 - `014_add_invite_email_delivery_status.sql`
 
-Staging had migrations through `014` applied as of 2026-07-11.
+The ordered migration `20260812160000_add_pitch_guidance_pilot.sql` adds the structured pitch-guidance contract. Its presence in git is not deployment evidence. Before accepting PR #48 in staging, confirm it appears in `supabase migration list`, then exercise organizer, founder, and reviewer actors against the linked staging project.
 
 ## Important Env Vars
 

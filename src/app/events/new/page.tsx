@@ -197,6 +197,7 @@ function NewEventContent() {
       const next = new URLSearchParams({ created: '1' });
       if (invited) next.set('invited', String(invited));
       if (inviteFailed) next.set('inviteFailed', String(inviteFailed));
+      next.set('setup', '1');
       router.push(`/events/${data.event.slug}/dashboard?${next.toString()}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create pitch event.');
@@ -283,7 +284,7 @@ function NewEventContent() {
       <main className="mx-auto max-w-2xl px-4 py-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
         <header className="mb-5">
           <h1 className="font-heading text-3xl font-black leading-tight sm:text-4xl">Create event</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Name it, choose the pitch day, and invite founders.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Start with the essentials. Next, publish pitch guidelines and invite your team and founders.</p>
         </header>
 
         <form onSubmit={submit} className="space-y-4">

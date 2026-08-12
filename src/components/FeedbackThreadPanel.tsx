@@ -246,6 +246,7 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
                     const isRoast = item.type === 'roast';
                     const score = averageScore(item);
                     const reviewer = feedbackReviewerDisplay(item);
+                    const structured = item as LegacyFeedback & { observation?: string; nextStep?: string; next_step?: string; criterionLabel?: string; criterion_label?: string; sentiment?: 'strength' | 'improvement'; sourceLabel?: string };
                     return (
                       <article
                         key={item.id}
@@ -284,7 +285,13 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
                           ))}
                         </div>
 
-                        {item.notes ? (
+                        {structured.observation ? (
+                          <div className="mt-3 space-y-2">
+                            <p className="text-sm leading-6 text-slate-200"><span className="font-bold text-white">What I noticed: </span>{structured.observation}</p>
+                            {structured.nextStep || structured.next_step ? <p className="rounded-xl bg-neon-cyan/[0.07] px-3 py-2 text-sm leading-6 text-slate-200"><span className="font-bold text-neon-cyan">Try this next: </span>{structured.nextStep || structured.next_step}</p> : null}
+                            <p className="text-xs font-bold text-slate-500">{[structured.criterionLabel || structured.criterion_label, structured.sourceLabel || reviewer.role].filter(Boolean).join(' · ')}</p>
+                          </div>
+                        ) : item.notes ? (
                           <p className="mt-3 text-sm leading-6 text-slate-200">&ldquo;{item.notes}&rdquo;</p>
                         ) : (
                           <p className="mt-3 text-sm leading-6 text-slate-500">Signal-only coach note.</p>

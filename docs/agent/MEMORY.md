@@ -1,8 +1,19 @@
 # Pitch in Public Project Memory
 
-Last updated: 2026-07-17
+Last updated: 2026-08-12
 
 This file captures decisions already made in conversation so future agents do not reopen settled issues without a good reason.
+
+## August 2026 Pilot Decisions
+
+- The north star is **structured feedback that produces a sharper next pitch**, not recording or posting volume.
+- Organizer UX centers on guiding founder readiness toward a deadline, not a generic event dashboard.
+- Event creation remains short; organizers publish detailed, versioned pitch structure after creation.
+- Structured feedback binds an observation and next step to the criterion and guideline version reviewed.
+- Reviewer identity is always stored. Founder disclosure is policy-driven and defaults to role-only; authorized organizers retain accountability visibility.
+- AI pitch guidance is planned, but the first release validates the human improvement loop and preserves AI-ready provenance.
+- Manual review seeding is acceptable. Allocation v2 and reviewer-economy redesign wait until reviewer supply is measured.
+- Scale-heavy organizer infrastructure waits until a curated pilot shows manual coordination breaking.
 
 ## Product Positioning Decisions
 
