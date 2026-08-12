@@ -112,3 +112,11 @@ test('publish requires an ownership row, not merely a matching one', () => {
   // and the migration backfilled existing pitches, so absent means not ours.
   assert.match(route, /if \(!videoOwner \|\| videoOwner\.user_id !== user\.id\)/);
 });
+
+test('the video status endpoint is throttled per user', () => {
+  const route = read('app/api/videos/[videoId]/route.ts');
+  // The recorder polls this up to 30 times per upload, and every call hits the
+  // account-wide Cloudflare quota that uploads themselves depend on.
+  assert.match(route, /rateLimit\(\{[\s\S]*?key: `video-status:\$\{user\.id\}`/);
+  assert.match(route, /status: 429/);
+});

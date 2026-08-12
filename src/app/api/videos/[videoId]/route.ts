@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVideoProvider } from '@/lib/video-providers';
 import { createRequestSupabase, createServiceSupabase } from '@/lib/admin';
+import { rateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 /**
  * GET /api/videos/[videoId] — processing status and playback URL for a video
@@ -64,6 +65,21 @@ export async function GET(
 
     if (!ownership || ownership.user_id !== user.id) {
       return NextResponse.json({ success: false, error: 'Video not found' }, { status: 404 });
+    }
+
+    // The recorder polls this up to 30 times per upload and each call hits
+    // Cloudflare's account-wide quota — the same one uploads depend on. Throttle
+    // per user so one founder cannot exhaust it for everyone.
+    const pollLimit = await rateLimit({
+      key: `video-status:${user.id}`,
+      limit: RATE_LIMITS.API.limit,
+      window: RATE_LIMITS.API.window,
+    });
+    if (!pollLimit.success) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Try again shortly.', code: 'rate_limited' },
+        { status: 429, headers: { 'Cache-Control': 'private, no-store' } }
+      );
     }
 
     const provider = getVideoProvider();

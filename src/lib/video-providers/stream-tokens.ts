@@ -37,6 +37,14 @@ export const STREAM_TOKEN_REFRESH_MARGIN_SECONDS = 10 * 60;
  */
 export const STREAM_TOKEN_TIMEOUT_MS = 2_500;
 
+/**
+ * Hard ceiling on mints for a single response. The shared cache makes a cold
+ * fan-out rare, but if the store is unavailable this is what stops one request
+ * from issuing a hundred Cloudflare calls. Anything beyond the cap keeps its
+ * stored URL, which Phase 1 already treats as the graceful path.
+ */
+export const STREAM_MAX_MINTS_PER_REQUEST = 12;
+
 export type CachedStreamToken = {
   token: string;
   /** Epoch ms when Cloudflare stops honouring it. */
@@ -246,8 +254,18 @@ export async function signedUrlsForRows(
     }
   }
 
+  // Cached ids are free; only genuine misses count against the ceiling.
+  const now = (deps.now ?? Date.now)();
+  const misses = videoIds.filter((id) => !isCachedTokenUsable(tokenCache.get(id), now));
+  const allowed = new Set([
+    ...videoIds.filter((id) => !misses.includes(id)),
+    ...misses.slice(0, STREAM_MAX_MINTS_PER_REQUEST),
+  ]);
+
   const entries = await Promise.all(
-    videoIds.map(async (videoId) => [videoId, await getStreamToken(videoId, deps)] as const)
+    Array.from(allowed).map(
+      async (videoId) => [videoId, await getStreamToken(videoId, deps)] as const
+    )
   );
 
   for (const [videoId, entry] of entries) {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  STREAM_MAX_MINTS_PER_REQUEST,
   STREAM_TOKEN_REFRESH_MARGIN_SECONDS,
   STREAM_TOKEN_TTL_SECONDS,
   __resetStreamTokenCacheForTests,
@@ -290,4 +291,24 @@ test('a broken shared store degrades to minting, never to a failed response', as
 
   const entry = await getStreamToken('vidBroken', { ...DEPS, fetchImpl, store: brokenStore });
   assert.equal(entry?.token, 'OK');
+});
+
+test('a single response cannot fan out unbounded mints', async () => {
+  // Backstop for the case the shared store is unavailable: without a ceiling,
+  // one cold request could issue a Cloudflare call per video and pressure the
+  // account-wide quota that uploads share.
+  __resetStreamTokenCacheForTests();
+  const calls: string[] = [];
+  const fetchImpl = fakeFetch(() => ({ result: { token: 'T' } }), calls);
+
+  const rows = Array.from({ length: 40 }, (_, i) => ({
+    video_id: `v${i}`,
+    video_url: i === 0 ? 'https://customer-zzz.cloudflarestream.com/v0/manifest/video.m3u8' : null,
+  }));
+  const signed = await signedUrlsForRows(rows, { ...DEPS, fetchImpl });
+
+  assert.equal(calls.length, STREAM_MAX_MINTS_PER_REQUEST, 'the mint ceiling was not applied');
+  assert.equal(signed.size, STREAM_MAX_MINTS_PER_REQUEST);
+  // Everything beyond the cap simply keeps its stored URL — the Phase 1 path.
+  assert.equal(signed.has('v39'), false);
 });
