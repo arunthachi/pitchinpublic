@@ -1,6 +1,6 @@
 ---
 name: pitch-in-public
-description: Use when working on the Pitch in Public product, including founder pitch recording, Roast/Toast feedback, practice habit loops, organizer pitch rooms, platform admin, Supabase schema, Cloudflare Stream video, Resend email, marketing pages, or launch strategy.
+description: Use when working on Pitch in Public, including structured pitch guidance, founder practice actions, organizer pitch rooms, feedback, recording, platform admin, Supabase, video, email, marketing, or launch strategy.
 ---
 
 # Pitch in Public Skill
@@ -42,6 +42,14 @@ Core loop:
 ```text
 First Take -> Roast/Toast feedback -> Better Take -> Best Take -> Featured/Submitted
 ```
+
+Current north star:
+
+```text
+Structured feedback -> selected practice focus -> sharper next pitch
+```
+
+For event work, preserve the pilot contract: a published guideline version with four to six criteria; an event-specific founder brief; criterion-linked `What I noticed` plus `Try this next`; accountable reviewer identity with policy-based founder disclosure; one or two selected practice actions; and a later event take that can address them. AI guidance is planned, not shipped, so do not present human feedback as AI output or add generation without an approved AI safety and evaluation plan.
 
 ## Main Personas
 
@@ -111,6 +119,6 @@ npx supabase migration list
 
 ## Current Strategic Priority
 
-Prepare the product for a controlled founder/private pilot and invite-only organizer use.
+Verify and run the controlled pitch-guidance pilot. Measure actionable feedback, feedback within 48 hours, later takes, guidance addressed, and repeat reviewers. Seed review supply manually before building allocation v2 or a new credit economy.
 
 Do not let the app drift into a broad social feed before the daily pitch practice and structured feedback behavior is validated.

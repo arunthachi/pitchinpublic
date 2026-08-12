@@ -1,12 +1,38 @@
 # Pitch in Public Roadmap
 
-Last updated: 2026-07-17
+Last updated: 2026-08-12
 
 This roadmap exists to keep future builds focused on the product wedge:
 
 ```text
 Founders practice pitches, receive useful feedback, improve, and repeat.
 ```
+
+North star: **structured feedback produces a sharper next pitch**.
+
+## Current Pilot Gate - Structured Pitch Guidance
+
+Status: implemented in PR #48; staging migration and role-based browser verification required before release acceptance.
+
+Pilot scope:
+
+- Versioned organizer guidelines with four to six criteria.
+- Event-specific founder pitch brief.
+- Criterion-linked `What I noticed` and `Try this next` review.
+- Role-only founder disclosure by default, with stored reviewer accountability.
+- Founder selects one or two practice actions and links them to a later event take.
+- Clear organizer IA: Pitch readiness, Founders, and Pitches & feedback.
+
+Evidence gate:
+
+- At least 90% of pilot feedback contains an actionable next step.
+- At least 70% of active pitches receive structured feedback within 48 hours.
+- At least 60% of founders publish a later take.
+- At least 50% of later takes address selected guidance.
+- At least 60% of reviewers complete another review.
+- Three organizers say they want to run another cohort.
+
+Do not advance allocation v2, a reviewer credit/karma redesign, 100-founder optimization, elaborate outcome reporting, or broad organizer automation until pilot evidence shows that reviewer supply or manual coordination is the actual constraint. Seed review supply manually with organizers, mentors, and trusted founders during the pilot.
 
 ## Phase 0 - Foundation
 
@@ -294,8 +320,9 @@ Your pitch sprint task today: make the customer obvious in sentence one. Record 
 
 ## Next Highest-Leverage Work
 
-1. Run the controlled pilot and monitor useful reviews per active pitch, median time to first useful review, and second-take completion.
-2. Seed the first 50 reviews with organizers and trusted founders so the quality norm is explicit.
-3. Validate the real iOS Safari and Android Chrome camera flow with pilot devices.
-4. Add hard review-credit gating only if the soft reciprocity prompt does not sustain review supply.
-5. Add push notifications only after email nudge engagement and repeat practice are measured.
+1. Apply and verify the pitch-guidance migration in staging, then run organizer, founder, and reviewer journeys.
+2. Run the controlled pilot and monitor actionable feedback, 48-hour coverage, later-take completion, and guidance addressed.
+3. Seed the first 50 reviews with organizers, mentors, and trusted founders so the quality norm and reviewer supply are explicit.
+4. Validate the real iOS Safari and Android Chrome camera flow with pilot devices.
+5. Introduce AI guidance only after the human feedback contract and before/after measures are reliable.
+6. Add hard review-credit gating only if the soft reciprocity prompt does not sustain review supply.

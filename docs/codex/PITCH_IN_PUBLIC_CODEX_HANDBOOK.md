@@ -2,7 +2,7 @@
 
 Status: Canonical engineering and agent operating manual
 Audience: Codex agents, reviewers, maintainers, and release operators
-Last reviewed: 2026-08-03
+Last reviewed: 2026-08-12
 Repository: `arunthachi/pitchinpublic`
 
 This handbook explains how agents must understand, change, test, and ship Pitch in Public. Its purpose is to preserve product intent, reduce hallucination, prevent environment mistakes, and make parallel delivery reliable.
@@ -21,6 +21,8 @@ Every implementation decision should answer four questions:
 2. Does it increase the supply or quality of useful feedback?
 3. Does it preserve founder trust and invite-only access?
 4. Does it work cleanly on a mobile browser?
+
+The current north star is **structured feedback that produces a sharper next pitch**. Event guidance changes must preserve immutable guideline-version and criterion provenance, actionable observation/next-step pairs, stored reviewer accountability with policy-based disclosure, founder-selected practice actions, and later-take evidence. AI guidance is planned but is not part of the current pilot release; generated guidance will require explicit model/source provenance.
 
 Do not optimize for feature count, visual novelty, or passive feed consumption at the expense of this loop.
 
