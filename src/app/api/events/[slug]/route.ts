@@ -4,6 +4,7 @@ import { getInvitationHealth, publicInviteDeliveryError, scopePitchFeedbackToEve
 import { createServiceSupabase } from '@/lib/admin';
 import { isDeckIndicatorEligible, toDeckSummary } from '@/lib/pitch-deck';
 import { canManageEvent, firstEventUpdateIssue, parseEventUpdate } from './_server';
+import { applySignedUrls, signPrivateRows } from '@/lib/video-providers/sign-rows';
 
 function createSupabase(request: NextRequest) {
   return createServerClient(
@@ -142,6 +143,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
           id,
           hook,
           description,
+          video_id,
+          visibility,
           video_url,
           thumbnail_url,
           duration,
@@ -206,6 +209,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
             public_id,
             hook,
             description,
+            video_id,
+            visibility,
             video_url,
             thumbnail_url,
             duration,
@@ -387,6 +392,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
             take_version,
             version_number,
             is_best_take,
+            video_id,
+            visibility,
             video_url,
             thumbnail_url,
             duration,
@@ -508,14 +515,30 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     };
   }
 
+  // Event surfaces carry private takes by definition, so sign them here too.
+  // Done once over everything the payload exposes rather than per query, so a
+  // future select cannot quietly ship an unsigned private URL.
+  const eventPitchRows = [
+    ...(pitches || []),
+    ...(submissions || []).map((row: any) => (Array.isArray(row?.pitch) ? row.pitch[0] : row?.pitch)),
+  ].filter(Boolean);
+  const signedEventUrls = await signPrivateRows(eventPitchRows as any[]);
+  const signedPitches = (pitches || []).map((row: any) => applySignedUrls(row, signedEventUrls));
+  const signedSubmissions = (submissions || []).map((row: any) => {
+    const pitch = Array.isArray(row?.pitch) ? row.pitch[0] : row?.pitch;
+    if (!pitch) return row;
+    const signed = applySignedUrls(pitch, signedEventUrls);
+    return { ...row, pitch: Array.isArray(row.pitch) ? [signed] : signed };
+  });
+
   return NextResponse.json({
     success: true,
     event: safeEvent,
     participation,
     userSubmission,
     participants,
-    submissions,
-    pitches,
+    submissions: signedSubmissions,
+    pitches: signedPitches,
     invitations,
     announcements,
     isOrganizer: Boolean(user && event.organizer_id === user.id),

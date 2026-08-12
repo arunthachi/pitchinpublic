@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMarketplaceClient, getMarketplaceUser } from '@/lib/review-marketplace-server';
+import { applySignedUrls, signPrivateRows } from '@/lib/video-providers/sign-rows';
 
 export async function GET(request: NextRequest) {
   const supabase = createMarketplaceClient(request);
@@ -37,6 +38,8 @@ export async function GET(request: NextRequest) {
         startup_name,
         one_line_pitch,
         feedback_ask,
+        video_id,
+        visibility,
         thumbnail_url,
         duration
       )
@@ -123,8 +126,16 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // A reviewer's queue can hold private event takes; those thumbnails must be
+  // signed or they break once the videos require signatures.
+  const queuedPitches = (data || [])
+    .map((assignment: any) => (Array.isArray(assignment.pitch) ? assignment.pitch[0] : assignment.pitch))
+    .filter(Boolean);
+  const signedQueueUrls = await signPrivateRows(queuedPitches);
+
   const assignments = (data || []).flatMap((assignment: any) => {
-    const pitch = Array.isArray(assignment.pitch) ? assignment.pitch[0] : assignment.pitch;
+    const rawPitch = Array.isArray(assignment.pitch) ? assignment.pitch[0] : assignment.pitch;
+    const pitch = rawPitch ? applySignedUrls(rawPitch, signedQueueUrls) : rawPitch;
     const event = assignment.event_id ? eventIdentityByAssignment.get(assignment.id) : null;
     if (!pitch?.public_id) return [];
     if (assignment.event_id && !event) return [];
