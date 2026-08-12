@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createRequestSupabase } from '@/lib/admin';
 import { isUuidLike } from '@/lib/pitch-deck';
 import { formatRateLimitHeaders, rateLimit, RATE_LIMITS } from '@/lib/ratelimit';
+import { getVideoProvider } from '@/lib/video-providers';
 
 export const visibilityUpdateSchema = z
   .object({
@@ -25,7 +26,7 @@ export function ownerScopedVisibilityUpdate(
     .eq('id', input.pitchId)
     .eq('user_id', input.userId)
     .is('deleted_at', null)
-    .select('id, public_id, visibility, event_id')
+    .select('id, public_id, visibility, event_id, video_id')
     .maybeSingle();
 }
 
@@ -107,7 +108,33 @@ export async function POST(
     return NextResponse.json({ success: false, error: 'Pitch not found.' }, { status: 404 });
   }
 
+  // Move playback enforcement with the row. Going private is what actually
+  // revokes the URLs already in circulation — the whole point of this work.
+  // Going public lifts it again so the founder gets a permanent, shareable
+  // link for social.
+  //
+  // Deliberately AFTER the database write and non-fatal: the row is the source
+  // of truth for what the app serves, and a Cloudflare blip must not leave the
+  // founder unable to change their own visibility. A drifted video is repaired
+  // by the reconcile below on the next toggle.
+  let enforcementSynced = true;
+  if (updated.video_id) {
+    const provider = getVideoProvider();
+    enforcementSynced = provider.setRequireSignedUrls
+      ? await provider.setRequireSignedUrls(updated.video_id, updated.visibility === 'private')
+      : false;
+    if (!enforcementSynced) {
+      console.error('Playback enforcement did not follow visibility:', {
+        pitchId: updated.id,
+        visibility: updated.visibility,
+      });
+    }
+  }
+
   return NextResponse.json({
+    // Surfaced so the client can warn rather than implying the old links are
+    // dead when Cloudflare did not accept the change.
+    enforcementSynced,
     success: true,
     pitch: { id: updated.id, publicId: updated.public_id, visibility: updated.visibility, eventId: updated.event_id },
   });
