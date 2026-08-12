@@ -359,7 +359,111 @@ High-risk objects:
 
 Never infer RLS safety from a successful UI test. Inspect policies and execute both allow and deny cases.
 
+## 11a. Invariants Learned in Production
+
+These were each discovered by shipping something that looked correct. Do not
+re-derive them.
+
+### Access and role state (`src/app/page.tsx`, `src/lib/access-gate.ts`)
+
+1. `AuthContext` republishes a NEW `user` object on every auth event — hourly
+   token refresh and every tab refocus. **Key auth-dependent effects on
+   `user?.id`, never on the object.** Keying on the object once blanked the app
+   mid-recording.
+2. `history.replaceState` does NOT refresh `useSearchParams`. A query param
+   stays set for the life of the page, so every query-param effect needs a
+   one-shot ref (`handledRecordQueryRef`, `handledProfileEditQueryRef`) or it
+   re-fires on every auth republish.
+3. `accessCheckComplete` is already `true` while signed OUT. It is not a valid
+   "this user is verified" signal on the render where sign-in lands.
+4. **`/api/reviewer/access` answers 403 to any founder without reviewer
+   membership — the majority case.** `isRoleResolved()` therefore means
+   DEFINITIVE (200 or 403), not successful. Gating on `response.ok` would make
+   the recorder unreachable for nearly every user.
+5. A failed access check must still complete, or the access gate sticks. Role
+   confidence is tracked separately (`roleResolved`), and entitlement comes from
+   `canOpenRecorder()` using the reviewer/founder pair — never the display flag.
+
+### Video privacy
+
+- Signing is bound to VISIBILITY, not applied blanket. Public pitches keep a
+  permanent canonical URL because founders share best takes on social media;
+  signing them would hand out links that expire. Only `visibility = 'private'`
+  is signed.
+- A canonical Cloudflare URL is the delivery host plus the video id, and the
+  host is visible in every public URL. **Never return `video_id` for a private
+  pitch** — it lets a member rebuild a permanent unsigned URL.
+- Tokens are minted AFTER RLS has selected rows, so they inherit the row's
+  visibility. There is deliberately no second copy of the authorization rules.
+- Minting is bounded: a shared Postgres cache (`video_playback_tokens`), an
+  in-flight de-dupe, a per-response ceiling, and a timeout. The Cloudflare API
+  quota is shared with uploads, so unbounded minting can lock founders out of
+  recording.
+- Attaching a video to a pitch requires having uploaded it (`video_uploads`).
+  Both upload issuers record ownership; there are TWO.
+
+### Feedback authorization
+
+- Membership authorises feedback on a cohort take. Feedback already creates its
+  own review assignment at submit time and a trigger marks it submitted, so
+  nothing lands in `/api/reviews/queue` as pending work. Do NOT add a claim step.
+- `feedback` has no `event_id`. The review assignment IS the event binding.
+- Peer reviews are tagged `cohort_peer_feedback` AND excluded from organizer
+  coverage. Tagging without excluding is useless: cohort activity would satisfy
+  a "3 reviews per pitch" target and stop an organizer chasing their judges.
+
+### Things that are bypassable
+
+- The RLS policy `Users can update their own pitches` is
+  `qual: (user_id = auth.uid())` with **`with_check: NULL`**. An owner can
+  change any column, including `visibility`, straight through PostgREST.
+  **Never bind a required side effect to an API endpoint that writes a
+  client-writable column** — use a database trigger.
+
+### Failure modes to check before claiming a change works
+
+- A Tailwind class built by string interpolation is never generated: Tailwind
+  scans source for complete class names, so the rule ships for the raw
+  placeholder and the element silently loses the property.
+- A plain `useRef` does not re-run an effect when its node mounts. Use a
+  callback ref when the node appears asynchronously.
+- An `aria-label` REPLACES descendant text. An `sr-only` span inside a labelled
+  control is never announced; fold state into the label.
+- A `SELECT` that omits a field makes every downstream decision on that field a
+  silent no-op. This has shipped three times: `video_id`, `visibility`, and the
+  fallback select.
+
 ## 12. Test Strategy
+
+### Mutation-verify anything security- or accessibility-critical
+
+A test that cannot fail is worse than no test: it reports safety that does not
+exist. Before trusting one, reintroduce the defect, confirm the specific test
+fails, then restore. Every claim of "verified" in this repo's PR history that
+survived review was mutation-verified.
+
+Four changes shipped or nearly shipped as DEAD CODE with passing tests, all the
+same shape — the test asserted what a function RETURNED rather than what the
+system DID:
+
+- a deck-authorization test that matched source text and would have passed with
+  the `founder_id` filter deleted;
+- a badge test that counted `sr-only` spans in markup where `aria-label`
+  suppressed them;
+- a signing test fed synthetic rows containing a field the real query never
+  selected;
+- a positioning test that asserted a returned class string while Tailwind
+  emitted no rule for it.
+
+Practical rules that came out of that:
+
+- Assert per select and per response path, never per file. "This file mentions
+  signing somewhere" stayed true while three paths skipped it.
+- When behaviour depends on emitted output — CSS, a served header, a rendered
+  URL — verify the OUTPUT, not the input that should produce it.
+- Pin render-site counts when a component must appear on several branches;
+  `src/components/app-shell-continuity.test.ts` is the pattern.
+
 
 ### Static checks
 
