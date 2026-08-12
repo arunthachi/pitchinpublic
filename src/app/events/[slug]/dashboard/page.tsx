@@ -63,6 +63,15 @@ import { EventEditDialog } from '@/components/EventEditDialog';
 import { EmailChipInput } from '@/components/EmailChipInput';
 import { ActionPageNav } from '@/components/ActionPageNav';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
+import { PitchGuidelinesEditor } from '@/components/event-guidance/PitchGuidelinesEditor';
+
+const DASHBOARD_TAB_LABELS: Record<DashboardTab, string> = {
+  overview: 'Pitch readiness',
+  founders: 'Founders',
+  submissions: 'Pitches & feedback',
+  team: 'Team',
+  announcements: 'Announcements',
+};
 
 const TEAM_ROLES = ['organizer', 'admin', 'coach', 'mentor', 'judge'];
 const INVITE_ROLE_GROUPS = [
@@ -199,6 +208,20 @@ function roleLabel(role: string) {
   if (role === 'judge') return 'Judge';
   if (role === 'organizer') return 'Organizer';
   return 'Founder';
+}
+
+function participantDisplayName(profile?: {
+  full_name?: string | null;
+  username?: string | null;
+  public_handle?: string | null;
+} | null) {
+  const fullName = profile?.full_name?.trim();
+  if (fullName) return fullName;
+
+  const handle = profile?.public_handle?.trim() || profile?.username?.trim();
+  if (handle) return `@${handle.replace(/^@/, '')}`;
+
+  return 'Unnamed participant';
 }
 
 
@@ -704,10 +727,11 @@ export default function EventDashboardPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-neon-lime">Event created</p>
-                <h1 id="event-created-title" className="mt-1 font-heading text-2xl font-black">Invite founders to {event.name}</h1>
+                <h1 id="event-created-title" className="mt-1 font-heading text-2xl font-black">Set up guidance for {event.name}</h1>
               </div>
               <button type="button" onClick={dismissCreatedState} className="min-h-11 rounded-full px-3 text-sm font-bold text-slate-300 hover:bg-white/10">Dismiss</button>
             </div>
+            <p className="mt-2 text-sm leading-6 text-slate-200">Publish the pitch standard first, then invite the organizing team and founders who will practice against it.</p>
             {createdState.invited ? <p className="mt-2 text-sm text-slate-200">{createdState.invited} founder invite{createdState.invited === 1 ? '' : 's'} sent.</p> : null}
             {createdState.failed ? <p role="alert" className="mt-2 text-sm font-semibold text-amber-300">{createdState.failed} invite{createdState.failed === 1 ? '' : 's'} could not be sent. Retry below.</p> : null}
             {!hasFounderAccess ? (
@@ -733,6 +757,7 @@ export default function EventDashboardPage() {
         <section aria-labelledby="action-dashboard-title" className="mb-5">
           <p className="text-sm font-semibold text-slate-400">Pitch day {formatDate(event.event_date)}</p>
           <h1 id="action-dashboard-title" className="mt-1 font-heading text-3xl font-black text-white sm:text-4xl">{event.name}</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Guide founders from a first practice take to a sharper, event-ready pitch.</p>
           {!createdState.active ? (
             <div className="mt-4">
               {primaryAction.kind === 'review' && reviewNextHref ? (
@@ -750,7 +775,7 @@ export default function EventDashboardPage() {
           </div>
         </section>
 
-        <div className="mt-5 flex items-start justify-between gap-3">
+        <div className="mt-5 flex flex-col gap-3">
           <div className="overflow-x-auto">
             <div role="tablist" aria-label="Event dashboard sections" className="inline-flex min-w-max gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1">
             {PERSISTENT_DASHBOARD_TABS.map((tab, index) => (
@@ -768,23 +793,21 @@ export default function EventDashboardPage() {
                   activeTab === tab ? 'bg-white text-slate-950' : 'text-slate-400 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                {tab}
+                  {DASHBOARD_TAB_LABELS[tab]}
               </button>
             ))}
             </div>
           </div>
-          <details className="relative shrink-0">
-            <summary className="btn-glass flex min-h-11 cursor-pointer list-none items-center rounded-full px-4 text-sm font-bold [&::-webkit-details-marker]:hidden">More</summary>
-            <div className="absolute right-0 z-20 mt-2 grid w-64 gap-1 rounded-xl border border-white/10 bg-slate-950 p-2 shadow-2xl">
-              <button type="button" onClick={() => setDashboardView('team')} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-white/10">Team</button>
-              <button type="button" onClick={() => setDashboardView('announcements')} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-white/10">Announcements</button>
-              {state.canManageEvent ? <EventEditDialog event={event} onSaved={handleEventSaved} /> : null}
-              {state.canManageEvent ? <Link href={`/events/${slug}/report`} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-bold hover:bg-white/10">Outcome report</Link> : null}
-              <button type="button" onClick={() => copyText(roomUrl, 'event')} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-white/10">{copied === 'event' ? 'Copied' : 'Copy founder page'}</button>
-              <Link href={`/events/${slug}`} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-bold hover:bg-white/10">View founder page</Link>
-              {state.canManageEvent && submissions.length ? <button type="button" onClick={assignReviews} disabled={busyAction === 'assign-reviews'} className="min-h-11 rounded-lg px-3 text-left text-sm font-bold hover:bg-white/10 disabled:opacity-50">{busyAction === 'assign-reviews' ? 'Assigning...' : 'Assign pitch reviews'}</button> : null}
-            </div>
-          </details>
+          <nav aria-label="Event tools" className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setDashboardView('overview'); window.setTimeout(() => document.getElementById('pitch-guidelines')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); }} className="btn-glass inline-flex min-h-11 items-center rounded-full px-4 text-sm font-bold">Pitch guidelines</button>
+            <button type="button" onClick={() => setDashboardView('team')} className="btn-glass min-h-11 rounded-full px-4 text-sm font-bold">Team</button>
+            <button type="button" onClick={() => setDashboardView('announcements')} className="btn-glass min-h-11 rounded-full px-4 text-sm font-bold">Announcements</button>
+            {state.canManageEvent ? <EventEditDialog event={event} onSaved={handleEventSaved} /> : null}
+            {state.canManageEvent ? <Link href={`/events/${slug}/report`} className="btn-glass inline-flex min-h-11 items-center rounded-full px-4 text-sm font-bold">Outcome report</Link> : null}
+            <Link href={`/events/${slug}`} className="btn-glass inline-flex min-h-11 items-center rounded-full px-4 text-sm font-bold">Founder view</Link>
+            <button type="button" onClick={() => copyText(roomUrl, 'event')} className="btn-glass min-h-11 rounded-full px-4 text-sm font-bold">{copied === 'event' ? 'Founder link copied' : 'Copy founder link'}</button>
+            {state.canManageEvent && submissions.length ? <button type="button" onClick={assignReviews} disabled={busyAction === 'assign-reviews'} className="btn-glass min-h-11 rounded-full px-4 text-sm font-bold disabled:opacity-50">{busyAction === 'assign-reviews' ? 'Assigning…' : 'Coordinate reviews'}</button> : null}
+          </nav>
         </div>
 
         {actionMessage && (
@@ -825,7 +848,9 @@ export default function EventDashboardPage() {
           className="mt-5 outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
         >
           {activeTab === 'overview' && (
-            <div>
+            <div className="space-y-5">
+              <PitchGuidelinesEditor eventSlug={slug} canManage={state.canManageEvent} initiallyOpen={createdState.active} />
+              <div>
               <h2 className="font-heading text-2xl font-black">Founder progress</h2>
               <p className="mt-2 text-sm text-slate-400">{submittedCount} of {founderSummaries.length} founders submitted · {feedbackedCount} received feedback</p>
               {founderSummaries.length ? (
@@ -835,6 +860,7 @@ export default function EventDashboardPage() {
               ) : (
                 <button type="button" onClick={() => setDashboardView('founders')} className="cta-primary mt-4 inline-flex min-h-11 items-center rounded-full px-5 text-sm font-black">Invite founders</button>
               )}
+              </div>
             </div>
           )}
 
@@ -1274,6 +1300,7 @@ function FounderRow({
 }) {
   const status = getFounderStatus(founder);
   const latestPitch = founder.latestPitch || founder.submittedPitch?.pitch || null;
+  const displayName = participantDisplayName(founder.participant.profile);
   const participantActionBusy = busyAction === `participant:${founder.participant.id}`;
   const participantStatus = participantStatusLabel(founder.participant.status);
   const isRemoved = founder.participant.status === 'removed';
@@ -1283,11 +1310,11 @@ function FounderRow({
       <div className="flex items-start gap-3">
         <img
           src={founder.participant.profile?.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP'}
-          alt={founder.participant.profile?.full_name || 'Founder'}
+          alt={displayName}
           className="h-11 w-11 rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-bold text-white">{founder.participant.profile?.full_name || 'Founder'}</p>
+          <p className="truncate font-bold text-white">{displayName}</p>
           <p className="text-sm text-slate-400">{getFounderProgressLabel(founder)}</p>
           <p className="mt-1 text-xs text-slate-500">Joined {formatDate(founder.joinedAt)}</p>
         </div>
@@ -1528,6 +1555,7 @@ function InviteRow({
 
 function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug: string }) {
   const readiness = readinessFromFeedback(submission.pitch?.feedback || []);
+  const displayName = participantDisplayName(submission.profile);
   const takeLabel = getTakeLabelFromFields(submission.pitch || {});
   const detailPath = pitchPath(submission.pitch?.public_id, submission.pitch_id) || '#';
   // Every entry into the pitch page from an event surface carries the event
@@ -1557,11 +1585,11 @@ function SubmissionCard({ submission, eventSlug }: { submission: any; eventSlug:
         <div className="flex items-center gap-3">
           <img
             src={submission.profile?.avatar_url || 'https://api.dicebear.com/7.x/initials/svg?seed=PiP'}
-            alt={submission.profile?.full_name || 'Founder'}
+            alt={displayName}
             className="h-10 w-10 rounded-full object-cover"
           />
           <div className="min-w-0">
-            <p className="truncate font-bold text-white">{submission.profile?.full_name || 'Founder'}</p>
+            <p className="truncate font-bold text-white">{displayName}</p>
             <p className="text-xs text-slate-500">{readinessLabel(readiness)}</p>
           </div>
         </div>

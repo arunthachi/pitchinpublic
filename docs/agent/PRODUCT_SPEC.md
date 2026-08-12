@@ -1,10 +1,26 @@
 # Pitch in Public Product Spec
 
-Last updated: 2026-07-17
+Last updated: 2026-08-12
 
 ## One-Line Product Definition
 
 Pitch in Public is a mobile-first pitch practice room where founders record short pitch takes, get structured Roast/Toast feedback, improve through versions, and submit or share their best take.
+
+North-star outcome: **structured feedback produces a sharper next pitch**. Recording and posting are supporting actions; success requires an observable feedback-to-practice-to-later-take loop.
+
+## Controlled Pitch-Guidance Pilot
+
+- Organizer publishes a versioned event guideline with four to six rubric criteria.
+- Founder sees an event-specific pitch brief covering the required pitch structure.
+- Reviewer submits a criterion-linked observation and concrete next step.
+- Founder selects one or two items as the current practice focus.
+- A later event take can mark selected guidance addressed.
+
+Guideline versions and review provenance are immutable historical context. Events created before this contract remain `legacy_open`; publishing the first structured guideline activates the structured workflow. Existing Toast/Roast feedback remains readable.
+
+Disclosure may be `named`, `role_only`, or `anonymous_to_founder`. Identity is always stored; role-only is the default founder view, while authorized organizers retain accountability access.
+
+AI-generated pitch guidance is planned, not shipped. The pilot schema preserves rubric version, criterion, reviewer accountability, and resulting practice action. A future AI release must add explicit source/model provenance so generated guidance remains comparable and auditable.
 
 ## Product Principles
 
@@ -438,6 +454,8 @@ Fields:
   - Why now.
 
 Date fields should open the calendar when clicking anywhere in the field, not just the icon.
+
+Event creation stays short. Detailed pitch structure is published immediately afterward from the event workspace as a versioned guideline. The organizer workspace is organized around **Pitch readiness**, **Founders**, and **Pitches & feedback**; the public feed is secondary for this role. Avoid vague destinations such as Overview or More when a task label is available.
 
 Organizer and Admin team members can edit these settings from the event dashboard after room creation. Coach, Mentor, and Judge roles remain read-only. Event access labels must distinguish between a hidden private room, a shareable but invitation-required unlisted room, and an open public room.
 

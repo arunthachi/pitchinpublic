@@ -2,7 +2,7 @@
 
 Status: Canonical product specification
 Audience: Product, design, engineering, operations, organizers, and coding agents
-Last reviewed: 2026-08-03
+Last reviewed: 2026-08-12
 Applies to: Pitch in Public web app, marketing site, organizer tools, reviewer tools, and platform administration
 
 This handbook is the product source of truth. It distinguishes current product behavior from planned work. Code, database migrations, and deployed configuration remain the final authority for what is actually running.
@@ -22,6 +22,28 @@ The core loop is:
 ```text
 Record -> Get useful feedback -> Improve -> Repeat -> Select Best Take
 ```
+
+The current product north star is more specific:
+
+> Structured feedback that produces a sharper next pitch.
+
+A pitch post or recording is an input to this loop, not the end product. The pilot must prove that feedback changes what a founder practices and that a later take addresses the selected guidance.
+
+### Controlled pilot contract (August 2026)
+
+```text
+Organizer publishes versioned pitch guidelines
+-> Founder completes an event-specific pitch brief and records a take
+-> Reviewer gives criterion-linked observation and next step
+-> Founder selects one or two practice actions
+-> Founder records a later take and marks guidance addressed
+```
+
+Each published guideline version contains four to six criteria. The founder brief covers the organizer's requested structure, including tagline, business stage, industry, business description, problem, and ask; the existing startup deck remains available through its separately authorized upload or URL flow. Structured review requires both **What I noticed** and **Try this next**, bound to the guideline version and criterion used at review time.
+
+Reviewer identity is always retained for accountability. Founder disclosure is policy-driven (`named`, `role_only`, or `anonymous_to_founder`) and defaults to role-only; authorized organizers retain accountability visibility.
+
+AI guidance is an approved near-term direction, but AI-generated review is not part of this pilot release. Reviewer accountability and immutable guideline versions must remain intact; a future AI release must add explicit source and model provenance before generated guidance is stored.
 
 The organizer wedge extends that loop:
 

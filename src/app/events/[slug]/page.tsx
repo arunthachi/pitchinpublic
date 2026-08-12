@@ -12,6 +12,7 @@ import { ActionPageNav } from '@/components/ActionPageNav';
 import AppTabBar from '@/components/AppTabBar';
 import { destination, eventDashboardDestination } from '@/lib/app-navigation';
 import { getEventSubmissionRetryKey } from '@/lib/idempotency';
+import { EventPitchGuidance, type GuidanceAction, type PitchBriefGroup, type PitchGuidelines } from '@/components/pitch-guidance/EventPitchGuidance';
 
 interface PendingSubmission {
   id: string;
@@ -45,6 +46,61 @@ function buildRecordHref(event: any) {
   return `/?${params.toString()}`;
 }
 
+function normalizeGuidancePayload(data: any): { guidelines: PitchGuidelines | null; groups: PitchBriefGroup[]; actions: GuidanceAction[]; complete: boolean } {
+  const source = data?.brief || data || {};
+  const rawGuidelines = data?.guidelines || source.guidelines || data?.rubric || source.rubric || null;
+  const guidelineSource = Array.isArray(rawGuidelines) ? rawGuidelines[0] || null : rawGuidelines;
+  const criteria = (guidelineSource?.criteria || guidelineSource?.items || []).map((criterion: any, index: number) => ({
+    id: String(criterion.id || criterion.key || index),
+    label: String(criterion.label || criterion.title || criterion.name || 'Pitch criterion'),
+    description: criterion.description || criterion.guidance || null,
+  }));
+  const guidelines = guidelineSource ? {
+    title: guidelineSource.title || guidelineSource.name || null,
+    introduction: guidelineSource.introduction || guidelineSource.description || guidelineSource.instructions || null,
+    version: guidelineSource.version || guidelineSource.version_number || null,
+    criteria,
+  } : null;
+  const answers = source.answers || source.values || source || {};
+  const defaultGroups = guidelineSource ? [
+    { id: 'business', label: 'Business', fields: [
+      { key: 'tagline', label: 'Tagline', required: true, maxLength: 60 },
+      { key: 'businessStage', sourceKey: 'business_stage', label: 'Business stage', required: true },
+      { key: 'industry', label: 'Industry', required: true },
+    ] },
+    { id: 'story', label: 'Pitch story', fields: [
+      { key: 'businessDescription', sourceKey: 'business_description', label: 'Business description', required: true, kind: 'textarea', maxLength: 1800 },
+      { key: 'problem', label: 'Problem it solves', required: true, kind: 'textarea', maxLength: 1200 },
+      { key: 'ask', label: 'What is your ask?', required: true, kind: 'textarea', maxLength: 600 },
+    ] },
+  ] : [];
+  const rawGroups = source.groups || data?.fieldsByGroup || defaultGroups;
+  const groups: PitchBriefGroup[] = Array.isArray(rawGroups) ? rawGroups.map((group: any, groupIndex: number) => ({
+    id: String(group.id || group.key || groupIndex),
+    label: String(group.label || group.title || 'Pitch details'),
+    description: group.description,
+    fields: (group.fields || []).map((field: any, fieldIndex: number) => ({
+      key: String(field.key || field.id || `${groupIndex}-${fieldIndex}`),
+      label: String(field.label || field.title || field.key || 'Answer'),
+      value: String(field.value ?? answers[field.key || field.id] ?? answers[field.sourceKey] ?? ''),
+      required: Boolean(field.required),
+      kind: field.kind || field.type || 'text',
+      maxLength: field.maxLength || field.max_length || null,
+      options: field.options,
+    })),
+  })) : [];
+  const actions = (data?.guidanceActions || data?.guidance_actions || source.guidanceActions || []).map((action: any) => ({
+    id: String(action.id),
+    text: String(action.text || action.nextStep || action.next_step || action.action || ''),
+    criterionLabel: action.criterionLabel || action.criterion_label || action.criterion?.label || null,
+    selected: Boolean(action.selected || action.status === 'selected'),
+    completed: Boolean(action.completed || action.status === 'completed'),
+    sourceLabel: action.sourceLabel || action.source_label || action.feedback?.sourceLabel || null,
+  })).filter((action: GuidanceAction) => action.id && action.text);
+  const missingRequired = groups.flatMap((group) => group.fields).filter((field) => field.required && !field.value.trim());
+  return { guidelines, groups, actions, complete: source.complete ?? source.isComplete ?? missingRequired.length === 0 };
+}
+
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text) return {};
@@ -71,6 +127,7 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
+  const [guidanceState, setGuidanceState] = useState(() => normalizeGuidancePayload({}));
 
   const inviteCode = searchParams.get('invite') || searchParams.get('code') || '';
   const returnedPitchId = searchParams.get('pitchId') || '';
@@ -79,6 +136,8 @@ export default function EventPage() {
   const inviteNextPath = inviteCode
     ? `/events/${slug}?invite=${encodeURIComponent(inviteCode)}`
     : `/events/${slug}`;
+  const event = eventState?.event;
+  const isJoined = Boolean(eventState?.participation);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -152,6 +211,31 @@ export default function EventPage() {
     };
   }, [user?.id]);
 
+  const loadGuidance = useCallback(async (signal?: AbortSignal) => {
+    if (!user?.id) return;
+    try {
+      const [guidelinesResponse, briefResponse] = await Promise.all([
+        fetch(`/api/events/${encodeURIComponent(slug)}/guidelines`, { cache: 'no-store', signal }),
+        fetch(`/api/events/${encodeURIComponent(slug)}/founder-brief`, { cache: 'no-store', signal }),
+      ]);
+      if (!guidelinesResponse.ok) return;
+      const [guidelinesData, briefData] = await Promise.all([
+        readJsonResponse(guidelinesResponse),
+        briefResponse.ok ? readJsonResponse(briefResponse) : Promise.resolve({}),
+      ]);
+      if (!signal?.aborted) setGuidanceState(normalizeGuidancePayload({ guidelines: guidelinesData.guidelines, brief: briefData.brief }));
+    } catch (error) {
+      if (!(signal?.aborted || (error instanceof DOMException && error.name === 'AbortError'))) console.error('Could not load event pitch guidance:', error);
+    }
+  }, [slug, user?.id]);
+
+  useEffect(() => {
+    if (!isJoined) return;
+    const controller = new AbortController();
+    void loadGuidance(controller.signal);
+    return () => controller.abort();
+  }, [isJoined, loadGuidance]);
+
   useEffect(() => {
     if (!pitches.length) return;
     const returnedPitch = returnedPitchPublicId
@@ -160,8 +244,6 @@ export default function EventPage() {
     setSelectedPitchId((current) => returnedPitch?.id || current || pitches[0].id);
   }, [pitches, returnedPitchPublicId]);
 
-  const event = eventState?.event;
-  const isJoined = Boolean(eventState?.participation);
   const isSubmissionClosed = deadlineHasPassed(event?.submission_deadline);
   const invite = eventState?.invite;
   const inviteEmailMismatch = Boolean(user && invite?.email && invite.matchesCurrentUser === false);
@@ -186,6 +268,22 @@ export default function EventPage() {
     submittedPitchId: eventState?.userSubmission?.pitch_id || null,
   });
   const eventFeedbackCount = countEventFeedback(eventTakes);
+  const structuredFeedbackById = new Map<string, any>(pitches.flatMap((pitch) => Array.isArray(pitch.feedback) ? pitch.feedback : []).map((entry: any) => [String(entry.id), entry]));
+  const suggestedActions = eventTakes.reduce<GuidanceAction[]>((actions, take) => {
+    take.feedback.forEach((entry) => {
+      const structured = structuredFeedbackById.get(entry.id);
+      if (!structured?.next_step) return;
+      actions.push({
+        id: entry.id,
+        text: String(structured.next_step),
+        criterionLabel: structured.criterion_label || structured.criterion_key || null,
+        selected: Boolean(structured.guidance_action?.status === 'selected'),
+        completed: Boolean(structured.guidance_action?.status === 'addressed'),
+        sourceLabel: entry.roleLabel,
+      });
+    });
+    return actions;
+  }, []);
 
   useEffect(() => {
     if (!returnedFromLegacyPublish || (!returnedPitchId && !returnedPitchPublicId) || !isJoined || eventState?.userSubmission) return;
@@ -244,6 +342,11 @@ export default function EventPage() {
     if (!body) return;
     if (isSubmissionClosed) {
       setMessage('The submission deadline has passed for this event.');
+      return;
+    }
+    if (guidanceState.groups.length && !guidanceState.complete) {
+      setMessage('Complete the required pitch brief items below before submitting your final event take. You can still record practice takes.');
+      document.getElementById('pitch-brief-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
 
@@ -429,6 +532,17 @@ export default function EventPage() {
           ) : null}
         </section>
 
+        {isJoined && (guidanceState.guidelines || guidanceState.groups.length || guidanceState.actions.length || suggestedActions.length) ? (
+          <EventPitchGuidance
+            slug={slug}
+            guidelines={guidanceState.guidelines}
+            groups={guidanceState.groups}
+            actions={guidanceState.actions.length ? guidanceState.actions : suggestedActions}
+            recordHref={recordHref}
+            onSaved={() => void loadGuidance()}
+          />
+        ) : null}
+
         {isJoined ? (
           <section aria-labelledby="event-feedback-title" className="mb-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -453,15 +567,18 @@ export default function EventPage() {
                     </div>
                     {take.feedback.length ? (
                       <ul className="mt-3 space-y-2">
-                        {take.feedback.map((entry) => (
-                          <li key={entry.id} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                        {take.feedback.map((entry) => {
+                          const structured = structuredFeedbackById.get(entry.id);
+                          return <li key={entry.id} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
                             <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em]">
                               <span className={entry.type === 'roast' ? 'text-roast' : 'text-neon-lime'}>{entry.type === 'roast' ? 'Roast' : 'Toast'}</span>
                               <span className="text-slate-500">{entry.roleLabel}</span>
                             </div>
-                            {entry.content ? <p className="mt-1 text-sm leading-6 text-slate-200">{entry.content}</p> : null}
+                            {structured?.observation || entry.content ? <p className="mt-2 text-sm leading-6 text-slate-200"><span className="font-bold text-white">What I noticed: </span>{structured?.observation || entry.content}</p> : null}
+                            {structured?.next_step ? <p className="mt-2 rounded-lg bg-neon-cyan/[0.07] px-3 py-2 text-sm leading-6 text-slate-200"><span className="font-bold text-neon-cyan">Try this next: </span>{structured.next_step}</p> : null}
+                            {structured?.criterion_label || structured?.criterion_key ? <p className="mt-2 text-xs font-bold text-slate-500">Criterion: {structured.criterion_label || structured.criterion_key}</p> : null}
                           </li>
-                        ))}
+                        })}
                       </ul>
                     ) : (
                       <p className="mt-3 text-sm text-slate-500">No feedback on this take yet.</p>

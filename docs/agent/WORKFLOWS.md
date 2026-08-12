@@ -1,6 +1,6 @@
 # Pitch in Public Agent Workflows
 
-Last updated: 2026-07-17
+Last updated: 2026-08-12
 
 ## Before Building
 
@@ -10,9 +10,10 @@ For non-trivial work:
 2. Read [MEMORY.md](MEMORY.md).
 3. Read the relevant section of [PRODUCT_SPEC.md](PRODUCT_SPEC.md).
 4. If the work touches feedback supply, review quality, assigned queues, credits, or reviewer roles, read [REVIEW_MARKETPLACE_SPEC.md](REVIEW_MARKETPLACE_SPEC.md) and [REVIEW_MARKETPLACE_IMPLEMENTATION_PLAN.md](REVIEW_MARKETPLACE_IMPLEMENTATION_PLAN.md).
-5. Inspect current code before assuming implementation details.
-6. Make a short implementation plan.
-7. If the work affects product strategy, UX, auth, DB, video, or organizer workflow, be explicit about tradeoffs before editing.
+5. If the work touches events, guidelines, feedback capture, founder practice focus, or later takes, preserve the pitch-guidance contract: guideline version + criterion + observation + next step + disclosure/accountability provenance + selected action.
+6. Inspect current code before assuming implementation details.
+7. Make a short implementation plan.
+8. If the work affects product strategy, UX, auth, DB, video, or organizer workflow, be explicit about tradeoffs before editing.
 
 For trivial fixes:
 
@@ -135,6 +136,9 @@ Test:
 - Pitch owner can rate feedback quality when enabled.
 - Assigned review queue updates after feedback when enabled.
 - Review credit state updates after feedback when enabled.
+- Structured event feedback requires one criterion, `What I noticed`, and `Try this next`.
+- Verify founder disclosure for named, role-only, and anonymous-to-founder policies while confirming organizer accountability access.
+- Founder can select no more than two active practice actions and link an addressed action to a later take from the same event.
 - Counts update.
 - Confetti/animation does not block next action.
 
@@ -157,6 +161,7 @@ Test:
 - Invite link can be copied.
 - Organizer accepts invite with matching email.
 - Organizer creates event.
+- Organizer can immediately publish four to six versioned pitch-guideline criteria after the short event setup.
 - Organizer sets pitch length in minutes.
 - Organizer invites team and founders.
 - Founder joins event.
@@ -164,6 +169,8 @@ Test:
 - Organizer/admin opens the outcome report from the dashboard.
 - Invited, joined, first/improved take, feedback, Best Take, submission, and pitch-ready metrics match the event roster fixtures.
 - CSV download contains founder-facing fields only, with no UUIDs, invite codes, or feedback notes.
+- Event list distinguishes Organizing, Participating, and Advising contexts and keeps Create event visually prominent for organizers.
+- Workspace uses task labels Pitch readiness, Founders, and Pitches & feedback; avoid vague Overview/More destinations.
 - Report fits at 375px and desktop print preview preserves headings, metrics, roster, and definitions.
 - Founder, coach, mentor, judge, inactive manager, and unrelated accounts cannot load the report or CSV.
 

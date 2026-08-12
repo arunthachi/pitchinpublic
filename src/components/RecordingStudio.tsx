@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Check, Loader2, Video, Circle, Square, RotateCcw, Lock } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClientIdempotencyKey, getEventSubmissionRetryKey } from '@/lib/idempotency';
 import { Step2_AddDetails } from './Step2_AddDetails';
 import { Step3_Publish } from './Step3_Publish';
@@ -24,6 +24,8 @@ interface RecordingStudioProps {
     deadline?: string | null;
     pitchLengthSeconds?: number | null;
     focus?: string | null;
+    guidanceActionIds?: string[];
+    guidanceText?: string | null;
   } | null;
   userId?: string | null;
 }
@@ -113,10 +115,17 @@ function RecordingContextStrip({
         )}
       </div>
       {!compact && (
-        <p className="mt-0.5 pl-5 text-[11px] leading-tight text-slate-400">
-          Private to the event — its team and participants can see your takes
-          {shortDeadline ? ` · Due ${shortDeadline}` : ''}
-        </p>
+        <>
+          <p className="mt-0.5 pl-5 text-[11px] leading-tight text-slate-400">
+            Private to the event — its team and participants can see your takes
+            {shortDeadline ? ` · Due ${shortDeadline}` : ''}
+          </p>
+          {eventContext.guidanceText ? (
+            <p className="mt-2 rounded-xl border border-neon-lime/20 bg-neon-lime/[0.06] px-3 py-2 text-xs font-semibold leading-5 text-slate-200">
+              <span className="text-neon-lime">Practice focus:</span> {eventContext.guidanceText}
+            </p>
+          ) : null}
+        </>
       )}
     </div>
   );
@@ -133,6 +142,15 @@ export function RecordingStudio({
   userId = null,
 }: RecordingStudioProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryGuidanceText = searchParams.get('guidance');
+  const queryGuidanceActionIds = (searchParams.get('guidanceActionIds') || '').split(',').filter(Boolean);
+  const isPracticeRecording = searchParams.get('practice') === '1';
+  const resolvedEventContext = eventContext ? {
+    ...eventContext,
+    guidanceText: eventContext.guidanceText || queryGuidanceText || null,
+    guidanceActionIds: eventContext.guidanceActionIds?.length ? eventContext.guidanceActionIds : queryGuidanceActionIds,
+  } : null;
   const maxRecordingSeconds = Math.min(180, Math.max(MIN_RECORDING_SECONDS, maxDurationSeconds));
   const [mode, setMode] = useState<Mode>('choose');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -192,8 +210,8 @@ export function RecordingStudio({
   };
 
   const persistPendingEventSubmission = (pitch: CreatedPitchIdentity | null) => {
-    if (!eventContext?.slug || !userId || typeof window === 'undefined') return;
-    const key = getEventSubmissionRetryKey(eventContext.slug, userId);
+    if (!resolvedEventContext?.slug || !userId || typeof window === 'undefined') return;
+    const key = getEventSubmissionRetryKey(resolvedEventContext.slug, userId);
     if (pitch) window.sessionStorage.setItem(key, JSON.stringify(pitch));
     else window.sessionStorage.removeItem(key);
   };
@@ -643,6 +661,23 @@ export function RecordingStudio({
   const submitCreatedPitchToEvent = async (pitch: CreatedPitchIdentity) => {
     if (!eventContext?.slug) return pitch;
 
+    const [guidelinesResponse, briefResponse] = await Promise.all([
+      fetch(`/api/events/${encodeURIComponent(eventContext.slug)}/guidelines`, { cache: 'no-store' }),
+      fetch(`/api/events/${encodeURIComponent(eventContext.slug)}/founder-brief`, { cache: 'no-store' }),
+    ]);
+    const guidelinesData = guidelinesResponse.ok ? await guidelinesResponse.json().catch(() => ({})) : {};
+    const briefData = briefResponse.ok ? await briefResponse.json().catch(() => ({})) : {};
+    if (Array.isArray(guidelinesData.guidelines) && guidelinesData.guidelines.length) {
+      const brief = briefData.brief || {};
+      const missing = [
+        ['tagline', 'tagline'], ['business_stage', 'business stage'], ['industry', 'industry'],
+        ['business_description', 'business description'], ['problem', 'problem'], ['ask', 'ask'],
+      ].filter(([key]) => !String(brief[key] || '').trim()).map(([, label]) => label);
+      if (missing.length) {
+        throw new Error(`Your take is saved as practice. Complete your event pitch brief before final submission: ${missing.join(', ')}.`);
+      }
+    }
+
     const response = await fetch(`/api/events/${encodeURIComponent(eventContext.slug)}/submission`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -661,6 +696,19 @@ export function RecordingStudio({
     setCreatedPitch(authoritativePitch);
     persistPendingEventSubmission(null);
     return authoritativePitch;
+  };
+
+  const markPracticeActionsAddressed = async (pitch: CreatedPitchIdentity) => {
+    if (!isPracticeRecording || !resolvedEventContext?.guidanceActionIds?.length) return;
+    await Promise.all(resolvedEventContext.guidanceActionIds.map(async (actionId) => {
+      const response = await fetch(`/api/guidance-actions/${encodeURIComponent(actionId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ laterPitchId: pitch.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.success === false) throw new Error(data.error || 'Your take was saved, but its improvement progress could not be updated.');
+    }));
   };
 
   const handleDetailsNext = async (data: {
@@ -689,7 +737,8 @@ export function RecordingStudio({
 
     try {
       if (eventContext?.slug && createdPitch) {
-        await submitCreatedPitchToEvent(createdPitch);
+        if (isPracticeRecording) await markPracticeActionsAddressed(createdPitch);
+        else await submitCreatedPitchToEvent(createdPitch);
         setMode('publish');
         return;
       }
@@ -734,8 +783,10 @@ export function RecordingStudio({
 
       // Event recordings bind server-side to the event and start private to
       // it; the server verifies membership before accepting the association.
-      if (eventContext?.slug) {
-        pitchPayload.eventSlug = eventContext.slug;
+      if (resolvedEventContext?.slug) {
+        pitchPayload.eventSlug = resolvedEventContext.slug;
+        if (resolvedEventContext.guidanceActionIds?.length) pitchPayload.guidanceActionIds = resolvedEventContext.guidanceActionIds;
+        if (resolvedEventContext.guidanceText) pitchPayload.guidanceText = resolvedEventContext.guidanceText;
       }
 
       const response = await fetch('/api/pitches', {
@@ -780,9 +831,11 @@ export function RecordingStudio({
       };
       setCreatedPitch(identity);
       onPitchCreated?.(pitch);
-      if (eventContext?.slug) {
+      if (eventContext?.slug && !isPracticeRecording) {
         persistPendingEventSubmission(identity);
         await submitCreatedPitchToEvent(identity);
+      } else if (eventContext?.slug) {
+        await markPracticeActionsAddressed(identity);
       }
       setMode('publish');
     } catch (err) {
@@ -1001,7 +1054,7 @@ export function RecordingStudio({
               {/* Choose Mode */}
               {mode === 'choose' && (
                 <>
-                  <RecordingContextStrip eventContext={eventContext} />
+                  <RecordingContextStrip eventContext={resolvedEventContext} />
 	                  <div className="text-center mb-6">
 	                    <h2 className="text-2xl font-bold text-white mb-1">
                         {practicePrompt ? "Record today's rep" : 'Post your pitch'}
@@ -1068,7 +1121,7 @@ export function RecordingStudio({
               {/* Record Mode */}
               {mode === 'record' && (
                 <>
-                  <RecordingContextStrip eventContext={eventContext} compact />
+                  <RecordingContextStrip eventContext={resolvedEventContext} compact />
                   <div className="relative aspect-[9/16] max-h-[min(58dvh,560px)] mx-auto bg-black rounded-xl overflow-hidden mb-4">
                     <video
                       ref={videoRef}
@@ -1170,7 +1223,7 @@ export function RecordingStudio({
               {/* Preview Mode */}
               {mode === 'preview' && (
                 <>
-                  <RecordingContextStrip eventContext={eventContext} />
+                  <RecordingContextStrip eventContext={resolvedEventContext} />
                   <div className="text-center mb-4">
                     <h2 className="text-xl font-bold text-white">Review your take</h2>
                     <p className="text-sm text-slate-400 mt-1">Check the video, then continue to submit.</p>

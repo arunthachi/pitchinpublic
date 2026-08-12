@@ -99,6 +99,7 @@ function PitchDetailContent() {
   const [feedbackEligibility, setFeedbackEligibility] = useState<'idle' | 'loading' | 'eligible' | 'ineligible'>('idle');
   const [feedbackEligibilityError, setFeedbackEligibilityError] = useState('');
   const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [eventRubric, setEventRubric] = useState<Array<{ id: string; label: string; description?: string | null }>>([]);
   const eventSlugValue = searchParams.get('event');
   const eventSlug = eventSlugValue && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(eventSlugValue)
     ? eventSlugValue
@@ -114,6 +115,24 @@ function PitchDetailContent() {
     const query = next.toString();
     router.replace(query ? `/pitch/${encodeURIComponent(pitchId)}?${query}` : `/pitch/${encodeURIComponent(pitchId)}`, { scroll: false });
   }, [pitchId, router, searchParams]);
+
+  useEffect(() => {
+    if (!eventSlug || !user) {
+      setEventRubric([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/events/${encodeURIComponent(eventSlug)}/guidelines`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (cancelled) return;
+        const current = Array.isArray(data.guidelines) ? data.guidelines[0] : null;
+        const criteria = Array.isArray(current?.criteria) ? current.criteria : [];
+        setEventRubric(criteria.map((item: any) => ({ id: item.key, label: item.label, description: item.guidance || null })));
+      })
+      .catch(() => !cancelled && setEventRubric([]));
+    return () => { cancelled = true; };
+  }, [eventSlug, user]);
 
   useEffect(() => {
     if (mockPitch) return;
@@ -256,6 +275,24 @@ function PitchDetailContent() {
     setFeedbackSaved(true);
   };
 
+  const handleStructuredFeedbackSubmit = async (guidance: { criterionId: string; sentiment: 'strength' | 'improvement'; observation: string; nextStep: string }) => {
+    const criterion = eventRubric.find((item) => item.id === guidance.criterionId);
+    await handleFeedbackSubmit({
+      type: guidance.sentiment === 'strength' ? 'toast' : 'roast',
+      signal: criterion?.label || 'Pitch guidance',
+      signals: [criterion?.label || 'Pitch guidance'],
+      readiness: guidance.sentiment === 'strength' ? 3 : 2,
+      notes: `${guidance.observation}\n\nTry this next: ${guidance.nextStep}`,
+      scores: { clarity: 5, solution: 5, market: 5, presentation: 5 },
+      structured: {
+        criterionKey: guidance.criterionId,
+        sentiment: guidance.sentiment,
+        observation: guidance.observation,
+        nextStep: guidance.nextStep,
+      },
+    } as FeedbackFormData & { structured: unknown });
+  };
+
   return (
     <div className={`min-h-dvh ${user ? 'pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-12' : 'pb-12'}`}>
       {user ? <AppTabBar /> : null}
@@ -387,6 +424,8 @@ function PitchDetailContent() {
                       if (searchParams.get('feedback') === '1') removeFeedbackOpenParam();
                     }}
                     triggerLabel={eventSlug ? 'Give feedback' : 'Leave feedback'}
+                    rubric={eventRubric}
+                    onStructuredSubmit={eventRubric.length ? handleStructuredFeedbackSubmit : undefined}
                   />
                 ) : null}
               </div>
