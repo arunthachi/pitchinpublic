@@ -10,6 +10,7 @@ import { Step3_Publish } from './Step3_Publish';
 import type { PracticePrompt } from '@/lib/practice';
 import { createClient } from '@/lib/supabase/client';
 import { formatPitchLength, formatPitchLengthRange } from '@/lib/duration';
+import { PitchPlanFields, PitchPlanSheet, pitchPlanMissingFields, type PitchBriefGroup, type PitchGuidelines } from '@/components/pitch-guidance/EventPitchGuidance';
 
 interface RecordingStudioProps {
   isOpen: boolean;
@@ -26,6 +27,8 @@ interface RecordingStudioProps {
     focus?: string | null;
     guidanceActionIds?: string[];
     guidanceText?: string | null;
+    guidelineVersionId?: string | null;
+    guidelineVersion?: string | null;
   } | null;
   userId?: string | null;
 }
@@ -74,6 +77,10 @@ export function buildEventSubmissionBody(pitch: CreatedPitchIdentity) {
   return pitch.publicId ? { pitchPublicId: pitch.publicId } : { pitchId: pitch.id };
 }
 
+export function shouldOpenPitchPlan(seenChecklistValue: string | null) {
+  return !seenChecklistValue;
+}
+
 function formatShortEventDate(value: string) {
   const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value);
   if (Number.isNaN(date.getTime())) return '';
@@ -89,9 +96,13 @@ type StudioEventContext = NonNullable<RecordingStudioProps['eventContext']>;
 function RecordingContextStrip({
   eventContext,
   compact = false,
+  onOpenPlan,
+  planDisabled = false,
 }: {
   eventContext: StudioEventContext | null;
   compact?: boolean;
+  onOpenPlan?: () => void;
+  planDisabled?: boolean;
 }) {
   if (!eventContext) {
     return (
@@ -127,6 +138,7 @@ function RecordingContextStrip({
           ) : null}
         </>
       )}
+      {onOpenPlan ? <button type="button" onClick={onOpenPlan} disabled={planDisabled} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 px-3 text-sm font-bold text-neon-cyan disabled:text-slate-500">{planDisabled ? 'Pitch plan · Available after this take' : 'Open pitch plan'}</button> : null}
     </div>
   );
 }
@@ -146,11 +158,16 @@ export function RecordingStudio({
   const queryGuidanceText = searchParams.get('guidance');
   const queryGuidanceActionIds = (searchParams.get('guidanceActionIds') || '').split(',').filter(Boolean);
   const isPracticeRecording = searchParams.get('practice') === '1';
+  const queryGuidelineVersionId = searchParams.get('guidelineVersionId');
+  const queryGuidelineVersion = searchParams.get('guidelineVersion');
   const resolvedEventContext = eventContext ? {
     ...eventContext,
     guidanceText: eventContext.guidanceText || queryGuidanceText || null,
     guidanceActionIds: eventContext.guidanceActionIds?.length ? eventContext.guidanceActionIds : queryGuidanceActionIds,
+    guidelineVersionId: eventContext.guidelineVersionId || queryGuidelineVersionId || null,
+    guidelineVersion: eventContext.guidelineVersion || queryGuidelineVersion || null,
   } : null;
+  const eventSlug = resolvedEventContext?.slug || '';
   const maxRecordingSeconds = Math.min(180, Math.max(MIN_RECORDING_SECONDS, maxDurationSeconds));
   const [mode, setMode] = useState<Mode>('choose');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -169,6 +186,17 @@ export function RecordingStudio({
   const [uploadedVideo, setUploadedVideo] = useState<UploadedVideoMetadata | null>(null);
   const [savedPitchDetails, setSavedPitchDetails] = useState<SavedPitchDetails | null>(null);
   const [createdPitch, setCreatedPitch] = useState<CreatedPitchIdentity | null>(null);
+  const [pitchPlan, setPitchPlan] = useState<PitchGuidelines | null>(null);
+  const [pitchPlanGroups, setPitchPlanGroups] = useState<PitchBriefGroup[]>([]);
+  const [pitchPlanValues, setPitchPlanValues] = useState<Record<string, string>>({});
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planSaving, setPlanSaving] = useState(false);
+  const [recordingSessionId, setRecordingSessionId] = useState<string | null>(null);
+  const [recordingSessionError, setRecordingSessionError] = useState('');
+  const [recordingSessionAttempt, setRecordingSessionAttempt] = useState(0);
+  const [selectedGuidelineVersionId, setSelectedGuidelineVersionId] = useState<string | null>(null);
+  const [versionConflict, setVersionConflict] = useState<{ currentId: string; currentVersion?: string | null } | null>(null);
+  const [announcement, setAnnouncement] = useState('');
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -189,6 +217,73 @@ export function RecordingStudio({
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const pitchCreateIdempotencyKeyRef = useRef('');
+
+  const loadPitchPlan = useCallback(async (requestedVersionId: string | null = selectedGuidelineVersionId) => {
+    if (!eventSlug) return;
+    const selectedGuidelinesUrl = `/api/events/${encodeURIComponent(eventSlug)}/guidelines${requestedVersionId ? `?versionId=${encodeURIComponent(requestedVersionId)}` : ''}`;
+    const [guidelinesResponse, currentGuidelinesResponse, briefResponse] = await Promise.all([
+      fetch(selectedGuidelinesUrl, { cache: 'no-store' }),
+      requestedVersionId
+        ? fetch(`/api/events/${encodeURIComponent(eventSlug)}/guidelines`, { cache: 'no-store' })
+        : Promise.resolve(null),
+      fetch(`/api/events/${encodeURIComponent(eventSlug)}/founder-brief`, { cache: 'no-store' }),
+    ]);
+    const guidelinesData = guidelinesResponse.ok ? await guidelinesResponse.json().catch(() => ({})) : {};
+    const currentGuidelinesData = currentGuidelinesResponse?.ok ? await currentGuidelinesResponse.json().catch(() => ({})) : guidelinesData;
+    const briefData = briefResponse.ok ? await briefResponse.json().catch(() => ({})) : {};
+    const published = guidelinesData.published || guidelinesData.guideline || guidelinesData.guidelines?.[0] || null;
+    const currentPublished = currentGuidelinesData.published || currentGuidelinesData.guideline || currentGuidelinesData.guidelines?.[0] || null;
+    if (!published) return;
+    const plan: PitchGuidelines = { id: published.id, title: published.title, introduction: published.instructions, version: published.version, updatedAt: published.created_at, criteria: (published.criteria || []).map((criterion: any) => ({ id: criterion.key, label: criterion.label, description: criterion.guidance })) };
+    const brief = briefData.brief || {};
+    const groups: PitchBriefGroup[] = [
+      { id: 'business', label: 'Who and what', fields: [{ key: 'tagline', label: 'Tagline', value: brief.tagline || '', required: true, maxLength: 60 }, { key: 'businessStage', label: 'Business stage', value: brief.business_stage || '', required: false }, { key: 'industry', label: 'Industry', value: brief.industry || '', required: false }] },
+      { id: 'story', label: 'Need and offering', fields: [{ key: 'problem', label: 'Need, problem, or opportunity', value: brief.problem || '', required: true, kind: 'textarea', maxLength: 1200 }, { key: 'businessDescription', label: 'What you offer or propose', value: brief.business_description || '', required: true, kind: 'textarea', maxLength: 1800 }, { key: 'ask', label: 'What should the audience do next?', value: brief.ask || '', required: true, kind: 'textarea', maxLength: 600 }] },
+    ];
+    setPitchPlan(plan); setPitchPlanGroups(groups); setPitchPlanValues(Object.fromEntries(groups.flatMap((group) => group.fields.map((field) => [field.key, field.value]))));
+    if (typeof window !== 'undefined') {
+      const checklistKey = `pitchinpublic:pitch-plan-seen:${eventSlug}:${published.id}`;
+      if (shouldOpenPitchPlan(window.localStorage.getItem(checklistKey))) {
+        window.localStorage.setItem(checklistKey, '1');
+        setPlanOpen(true);
+      }
+    }
+    if (currentPublished?.id && currentPublished.id !== published.id) {
+      setVersionConflict({ currentId: currentPublished.id, currentVersion: String(currentPublished.version || '') });
+    }
+  }, [eventSlug, selectedGuidelineVersionId]);
+
+  useEffect(() => {
+    if (isOpen && recordingSessionId && selectedGuidelineVersionId) void loadPitchPlan(selectedGuidelineVersionId);
+  }, [isOpen, loadPitchPlan, recordingSessionId, selectedGuidelineVersionId]);
+
+  useEffect(() => {
+    if (!isOpen || !resolvedEventContext?.slug || recordingSessionId) return;
+    setRecordingSessionError('');
+    void fetch(`/api/events/${encodeURIComponent(resolvedEventContext.slug)}/recording-session`, {
+      method: 'POST',
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      const session = data.session || data.recordingSession;
+      if (!response.ok || !session?.id) throw new Error(data.error || 'Could not start this event recording.');
+      setRecordingSessionId(session.id);
+      setSelectedGuidelineVersionId(session.guidelineVersionId);
+    }).catch((error) => {
+      const message = error instanceof Error ? error.message : 'Could not start this event recording.';
+      setRecordingSessionError(message);
+      setError(message);
+    });
+  }, [isOpen, recordingSessionAttempt, recordingSessionId, resolvedEventContext?.slug]);
+
+  const savePitchPlan = async () => {
+    if (!resolvedEventContext?.slug) return;
+    setPlanSaving(true);
+    try {
+      const response = await fetch(`/api/events/${encodeURIComponent(resolvedEventContext.slug)}/founder-brief`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tagline: pitchPlanValues.tagline || '', businessStage: pitchPlanValues.businessStage || '', industry: pitchPlanValues.industry || '', businessDescription: pitchPlanValues.businessDescription || '', problem: pitchPlanValues.problem || '', ask: pitchPlanValues.ask || '' }) });
+      const data = await response.json().catch(() => ({})); if (!response.ok || data.success === false) throw new Error(data.error || 'Could not save your pitch plan.');
+      setAnnouncement('Pitch plan saved. Your uploaded take is still here.'); setPlanOpen(false);
+    } catch (error) { setError(error instanceof Error ? error.message : 'Could not save your pitch plan.'); } finally { setPlanSaving(false); }
+  };
 
   useEffect(() => {
     pitchHookRef.current = pitchHook;
@@ -514,11 +609,12 @@ export function RecordingStudio({
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    if (eventSlug && !recordingSessionId) return;
     const file = e.dataTransfer.files[0];
     if (file) {
       validateAndSetFile(file);
     }
-  }, [validateAndSetFile]);
+  }, [eventSlug, recordingSessionId, validateAndSetFile]);
 
   const uploadFileToProvider = useCallback(
     async (file: File) => {
@@ -670,8 +766,8 @@ export function RecordingStudio({
     if (Array.isArray(guidelinesData.guidelines) && guidelinesData.guidelines.length) {
       const brief = briefData.brief || {};
       const missing = [
-        ['tagline', 'tagline'], ['business_stage', 'business stage'], ['industry', 'industry'],
-        ['business_description', 'business description'], ['problem', 'problem'], ['ask', 'ask'],
+        ['tagline', 'tagline'], ['business_description', 'business description'],
+        ['problem', 'problem'], ['ask', 'ask'],
       ].filter(([key]) => !String(brief[key] || '').trim()).map(([, label]) => label);
       if (missing.length) {
         throw new Error(`Your take is saved as practice. Complete your event pitch brief before final submission: ${missing.join(', ')}.`);
@@ -785,6 +881,7 @@ export function RecordingStudio({
       // it; the server verifies membership before accepting the association.
       if (resolvedEventContext?.slug) {
         pitchPayload.eventSlug = resolvedEventContext.slug;
+        if (recordingSessionId) pitchPayload.recordingSessionId = recordingSessionId;
         if (resolvedEventContext.guidanceActionIds?.length) pitchPayload.guidanceActionIds = resolvedEventContext.guidanceActionIds;
         if (resolvedEventContext.guidanceText) pitchPayload.guidanceText = resolvedEventContext.guidanceText;
       }
@@ -873,6 +970,12 @@ export function RecordingStudio({
     setVideoProvider(null);
     setUploadedVideo(null);
     setCreatedPitch(null);
+    setRecordingSessionId(null);
+    setRecordingSessionError('');
+    setRecordingSessionAttempt(0);
+    setSelectedGuidelineVersionId(null);
+    setVersionConflict(null);
+    setPlanOpen(false);
     pitchCreateIdempotencyKeyRef.current = '';
     onClose();
   }, [onClose, stopCamera]);
@@ -1006,8 +1109,12 @@ export function RecordingStudio({
             </button>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:p-6">
+              <div className="sr-only" aria-live="polite">{announcement}</div>
+              {versionConflict ? <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm text-amber-100" role="alert"><p className="font-bold">The organizer published an updated pitch plan.</p><p className="mt-1 leading-6">Your current recording keeps the plan you started with.</p><div className="mt-3 grid gap-2"><button type="button" onClick={() => setVersionConflict(null)} className="min-h-11 rounded-xl bg-white px-4 font-bold text-slate-950">Keep recording with the plan you started</button><button type="button" onClick={() => { if (!createdPitch && !uploadedVideo) { setSelectedGuidelineVersionId(null); setRecordingSessionId(null); setVersionConflict(null); } }} disabled={Boolean(createdPitch || uploadedVideo)} className="min-h-11 rounded-xl border border-white/15 px-4 font-bold disabled:opacity-50">Restart with updated plan</button></div></div> : null}
               {/* Details Mode */}
               {mode === 'details' && previewUrl && (
+                <>
+                {pitchPlanMissingFields(pitchPlanGroups, pitchPlanValues).length ? <section className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/[0.06] p-4" aria-labelledby="finish-plan-title"><h2 id="finish-plan-title" className="font-heading text-lg font-black text-white">Finish your pitch plan</h2><p className="mt-1 text-sm leading-6 text-slate-300">Your uploaded take is preserved while you complete: {pitchPlanMissingFields(pitchPlanGroups, pitchPlanValues).map((field) => field.label).join(', ')}.</p><div className="mt-3"><PitchPlanFields groups={pitchPlanGroups} values={pitchPlanValues} onChange={(key, value) => setPitchPlanValues((current) => ({ ...current, [key]: value }))} /><button type="button" onClick={savePitchPlan} disabled={planSaving} className="btn-glass mt-3 min-h-12 w-full rounded-xl font-bold">{planSaving ? 'Saving…' : 'Save preparation'}</button></div></section> : null}
                 <Step2_AddDetails
                   videoDuration={videoDuration}
                   previewUrl={previewUrl}
@@ -1023,6 +1130,7 @@ export function RecordingStudio({
                   retryingSubmission={Boolean(eventContext?.slug && createdPitch)}
                   submissionContext={eventContext}
                 />
+                </>
               )}
 
               {/* Publish Mode */}
@@ -1054,7 +1162,7 @@ export function RecordingStudio({
               {/* Choose Mode */}
               {mode === 'choose' && (
                 <>
-                  <RecordingContextStrip eventContext={resolvedEventContext} />
+                  <RecordingContextStrip eventContext={resolvedEventContext} onOpenPlan={() => setPlanOpen(true)} />
 	                  <div className="text-center mb-6">
 	                    <h2 className="text-2xl font-bold text-white mb-1">
                         {practicePrompt ? "Record today's rep" : 'Post your pitch'}
@@ -1070,9 +1178,16 @@ export function RecordingStudio({
                   )}
 
                   <div className="space-y-3">
+                    {eventSlug && !recordingSessionId ? (
+                      <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 p-4 text-left text-sm text-amber-100" role="status">
+                        <p className="font-bold">{recordingSessionError ? 'Recording setup needs another try.' : 'Preparing this event recording…'}</p>
+                        {recordingSessionError ? <button type="button" onClick={() => setRecordingSessionAttempt((value) => value + 1)} className="mt-3 min-h-11 rounded-xl bg-white px-4 font-bold text-slate-950">Retry recording setup</button> : null}
+                      </div>
+                    ) : null}
                     {/* Record Option */}
                     <button
                       onClick={startCamera}
+                      disabled={Boolean(eventSlug && !recordingSessionId)}
                       className="w-full p-5 bg-gradient-to-r from-neon-cyan/20 to-neon-lime/20 border border-neon-cyan/50 rounded-xl hover:border-neon-cyan transition-all group"
                     >
                       <div className="flex items-center gap-4">
@@ -1095,6 +1210,7 @@ export function RecordingStudio({
                       <input
                         type="file"
                         accept="video/*"
+                        disabled={Boolean(eventSlug && !recordingSessionId)}
                         onChange={handleFileSelect}
                         className="hidden"
                       />
@@ -1121,7 +1237,8 @@ export function RecordingStudio({
               {/* Record Mode */}
               {mode === 'record' && (
                 <>
-                  <RecordingContextStrip eventContext={resolvedEventContext} compact />
+                  <RecordingContextStrip eventContext={resolvedEventContext} compact onOpenPlan={() => setPlanOpen(true)} planDisabled={isRecording || countdown !== null} />
+                  {resolvedEventContext?.guidanceText ? <p className="mb-3 rounded-xl border border-neon-lime/20 bg-neon-lime/[0.06] px-3 py-2 text-center text-sm font-semibold text-white"><span className="text-neon-lime">Your cue:</span> {resolvedEventContext.guidanceText.split('|')[0].trim()}</p> : null}
                   <div className="relative aspect-[9/16] max-h-[min(58dvh,560px)] mx-auto bg-black rounded-xl overflow-hidden mb-4">
                     <video
                       ref={videoRef}
@@ -1223,7 +1340,7 @@ export function RecordingStudio({
               {/* Preview Mode */}
               {mode === 'preview' && (
                 <>
-                  <RecordingContextStrip eventContext={resolvedEventContext} />
+                  <RecordingContextStrip eventContext={resolvedEventContext} onOpenPlan={() => setPlanOpen(true)} />
                   <div className="text-center mb-4">
                     <h2 className="text-xl font-bold text-white">Review your take</h2>
                     <p className="text-sm text-slate-400 mt-1">Check the video, then continue to submit.</p>
@@ -1325,6 +1442,7 @@ export function RecordingStudio({
               )}
             </div>
           </motion.div>
+          <PitchPlanSheet open={planOpen} onClose={() => setPlanOpen(false)} guidelines={pitchPlan} groups={pitchPlanGroups} values={pitchPlanValues} onChange={(key, value) => setPitchPlanValues((current) => ({ ...current, [key]: value }))} activeRecording={isRecording || countdown !== null} onSave={savePitchPlan} saving={planSaving} />
         </div>
       )}
     </AnimatePresence>

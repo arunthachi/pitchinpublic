@@ -10,14 +10,15 @@ Founders practice pitches, receive useful feedback, improve, and repeat.
 
 North star: **structured feedback produces a sharper next pitch**.
 
-## Current Pilot Gate - Structured Pitch Guidance
+## Current Pilot Gate - Integrated Pitch Standard and Plan
 
-Status: implemented in PR #48; staging migration and role-based browser verification required before release acceptance.
+Status: PR #48 established the structured-feedback contract. The integrated organizer/founder workflow is in implementation and still requires migration, staging deployment, and role-based browser verification before release acceptance.
 
 Pilot scope:
 
-- Versioned organizer guidelines with four to six criteria.
-- Event-specific founder pitch brief.
+- Short event setup followed by a universal, editable, explicitly published Pitch Standard.
+- One founder-facing Pitch plan integrated before and around recording.
+- Exact standard-version binding through a trusted recording session and atomic pitch creation.
 - Criterion-linked `What I noticed` and `Try this next` review.
 - Role-only founder disclosure by default, with stored reviewer accountability.
 - Founder selects one or two practice actions and links them to a later event take.
@@ -31,6 +32,15 @@ Evidence gate:
 - At least 50% of later takes address selected guidance.
 - At least 60% of reviewers complete another review.
 - Three organizers say they want to run another cohort.
+
+Tiger Shark Tank pilot evidence adds these checks:
+
+- A nontechnical founder can prepare and record without live help.
+- An organizer can adapt its existing application structure without rebuilding the event.
+- Mentor recruitment or delayed finalist review does not block founder practice.
+- Standardized inputs improve judge comparison without replacing the in-person process.
+
+See [TIGER_SHARK_TANK_PILOT_NOTES.md](TIGER_SHARK_TANK_PILOT_NOTES.md).
 
 Do not advance allocation v2, a reviewer credit/karma redesign, 100-founder optimization, elaborate outcome reporting, or broad organizer automation until pilot evidence shows that reviewer supply or manual coordination is the actual constraint. Seed review supply manually with organizers, mentors, and trusted founders during the pilot.
 

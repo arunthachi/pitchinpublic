@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NextRequest } from 'next/server';
-import { GET, buildDeckAccessContext } from './route';
+import { GET } from './route';
+import { buildDeckAccessContext } from './_server';
 import { canViewDeck } from '@/lib/pitch-deck';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';

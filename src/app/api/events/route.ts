@@ -1,8 +1,9 @@
-import { createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { createServiceSupabase, normalizeEmail } from '@/lib/admin';
+import { filterPendingInvitationsForEmail, hashEventCreationPayload, parseEventIdempotencyKey, toSafeEventsWithSubmissionFlag } from './_server';
 
 const createEventSchema = z.object({
   name: z.string().min(3).max(120).trim(),
@@ -37,20 +38,6 @@ const createEventSchema = z.object({
   }
 });
 
-const idempotencyKeySchema = z.string().uuid();
-
-export function parseEventIdempotencyKey(value: string | null) {
-  if (!value) return { key: null, valid: true } as const;
-  const parsed = idempotencyKeySchema.safeParse(value.trim());
-  return parsed.success
-    ? ({ key: parsed.data, valid: true } as const)
-    : ({ key: null, valid: false } as const);
-}
-
-export function hashEventCreationPayload(payload: unknown) {
-  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
-}
-
 function eventResponse(event: Record<string, unknown>) {
   const safeEvent = { ...event };
   delete safeEvent.creation_key;
@@ -72,14 +59,6 @@ function createSupabase(request: NextRequest) {
       },
     }
   );
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 72);
 }
 
 function getErrorMessage(error: unknown) {
@@ -111,62 +90,6 @@ async function canCreatePitchEvents(supabase: ReturnType<typeof createSupabase>,
   }
 
   return Boolean(data?.length);
-}
-
-export type PendingEventInvitationRow = {
-  id: string;
-  status?: string | null;
-  email?: string | null;
-  dedupe_email?: string | null;
-  expires_at?: string | null;
-};
-
-/**
- * Security boundary: only rows whose normalized email matches the signed-in
- * user's normalized email, are still pending, and are not expired make it
- * into the response. Never widen this to return another founder's invite.
- */
-export function filterPendingInvitationsForEmail<T extends PendingEventInvitationRow>(
-  rows: T[],
-  email: string | null | undefined,
-  now: Date = new Date()
-): T[] {
-  const normalized = normalizeEmail(email);
-  if (!normalized) return [];
-
-  return rows.filter((row) => {
-    if (row.status !== 'pending') return false;
-    if (normalizeEmail(row.dedupe_email ?? row.email) !== normalized) return false;
-    if (!row.expires_at) return true;
-    const expiresAt = new Date(row.expires_at).getTime();
-    return !(Number.isFinite(expiresAt) && expiresAt <= now.getTime());
-  });
-}
-
-export function buildOrganizerParticipantUpsert(eventId: string, userId: string) {
-  return {
-    values: {
-      event_id: eventId,
-      user_id: userId,
-      role: 'organizer',
-      status: 'active',
-    },
-    options: { onConflict: 'event_id,user_id' },
-  } as const;
-}
-
-async function ensureOrganizerParticipant(eventId: string, userId: string) {
-  const adminSupabase = createServiceSupabase();
-  if (!adminSupabase) {
-    throw new Error('Event participant setup is not configured in this environment.');
-  }
-
-  const participant = buildOrganizerParticipantUpsert(eventId, userId);
-  const { error } = await adminSupabase
-    .from('pitch_event_participants')
-    .upsert(participant.values, participant.options);
-
-  if (error) throw error;
 }
 
 export async function POST(request: NextRequest) {
@@ -211,85 +134,19 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  const creationPayloadHash = idempotency.key ? hashEventCreationPayload(data) : null;
-  const baseSlug = slugify(data.name) || 'pitch-sprint';
-  const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
+  const creationKey = idempotency.key || randomUUID();
+  const creationPayloadHash = hashEventCreationPayload(data);
   const selectedFocuses = data.focuses?.map((item) => item.trim()).filter(Boolean) || [];
   const focusSummary = selectedFocuses.length ? selectedFocuses.join(' · ') : data.focus?.trim() || 'Clarity';
   const pitchLengthSeconds = data.pitchLengthSeconds ?? Math.round((data.pitchLengthMinutes ?? 1) * 60);
 
   try {
-    if (idempotency.key) {
-      const { data: existingEvent, error: replayLookupError } = await supabase
-        .from('pitch_events')
-        .select('*')
-        .eq('organizer_id', user.id)
-        .eq('creation_key', idempotency.key)
-        .maybeSingle();
-
-      if (replayLookupError) throw replayLookupError;
-      if (existingEvent) {
-        if (existingEvent.creation_payload_hash !== creationPayloadHash) {
-          return NextResponse.json(
-            { success: false, error: 'Idempotency-Key was already used with different event data.' },
-            { status: 409 }
-          );
-        }
-        await ensureOrganizerParticipant(existingEvent.id, user.id);
-        return NextResponse.json({ success: true, replayed: true, event: eventResponse(existingEvent) });
-      }
-    }
-
-    const { data: event, error } = await supabase
-      .from('pitch_events')
-      .insert({
-        organizer_id: user.id,
-        name: data.name,
-        slug,
-        description: data.description || null,
-        event_date: data.eventDate,
-        submission_deadline: data.submissionDeadline || null,
-        pitch_length_seconds: pitchLengthSeconds,
-        focus: focusSummary,
-        visibility: data.visibility,
-        peer_feedback_enabled: data.peerFeedbackEnabled,
-        access_code: data.accessCode || null,
-        review_target: data.reviewTarget,
-        pitch_hour_starts_at: data.pitchHourStartsAt || null,
-        pitch_hour_ends_at: data.pitchHourEndsAt || null,
-        status: 'active',
-        creation_key: idempotency.key,
-        creation_payload_hash: creationPayloadHash,
-      })
-      .select('*')
-      .single();
-
-    if (error?.code === '23505' && idempotency.key) {
-      const { data: racedEvent, error: racedLookupError } = await supabase
-        .from('pitch_events')
-        .select('*')
-        .eq('organizer_id', user.id)
-        .eq('creation_key', idempotency.key)
-        .maybeSingle();
-
-      if (racedLookupError) throw racedLookupError;
-      if (racedEvent) {
-        if (racedEvent.creation_payload_hash !== creationPayloadHash) {
-          return NextResponse.json(
-            { success: false, error: 'Idempotency-Key was already used with different event data.' },
-            { status: 409 }
-          );
-        }
-        await ensureOrganizerParticipant(racedEvent.id, user.id);
-        return NextResponse.json({ success: true, replayed: true, event: eventResponse(racedEvent) });
-      }
-    }
-
+    const { data: result, error } = await supabase.rpc('create_event_with_standard_draft', {
+      event_payload: { ...data, pitchLengthSeconds, focus: focusSummary }, request_key: creationKey, payload_hash: creationPayloadHash,
+    });
+    const event = result?.event as Record<string, unknown> | undefined;
     if (error || !event) throw error || new Error('Failed to create event');
-
-    await ensureOrganizerParticipant(event.id, user.id);
-
-    return NextResponse.json({ success: true, replayed: false, event: eventResponse(event) }, { status: 201 });
+    return NextResponse.json({ success: true, replayed: Boolean(result.replayed), event: eventResponse(event) }, { status: 201 });
   } catch (error) {
     console.error('Error creating event:', error);
     return NextResponse.json(
@@ -297,24 +154,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-/**
- * Stamps the caller's submission state onto each event row (and strips the
- * secret columns). Exported for the route-level test.
- */
-export function toSafeEventsWithSubmissionFlag(
-  rows: Array<Record<string, unknown> & { id: string }>,
-  submittedEventIds: Set<string> | null
-) {
-  return rows.map((event) => {
-    const safeEvent = { ...event } as Record<string, unknown>;
-    delete safeEvent.access_code;
-    delete safeEvent.creation_key;
-    delete safeEvent.creation_payload_hash;
-    safeEvent.mySubmission = submittedEventIds ? submittedEventIds.has(event.id) : null;
-    return safeEvent;
-  });
 }
 
 export async function GET(request: NextRequest) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
+import { buildSubmissionSuccessResponse } from './_server';
 
 const submissionSchema = z.object({
   pitchId: z.string().uuid().optional(),
@@ -8,20 +9,6 @@ const submissionSchema = z.object({
 }).refine((value) => value.pitchId || value.pitchPublicId, {
   message: 'Choose a valid pitch before submitting.',
 });
-
-export function buildSubmissionSuccessResponse(
-  submission: Record<string, unknown>,
-  pitch: { id: string; public_id?: string | null },
-  visibilityChanged = false,
-) {
-  return {
-    success: true,
-    submission,
-    pitchId: pitch.id,
-    publicId: pitch.public_id || null,
-    visibilityChanged,
-  };
-}
 
 function createSupabase(request: NextRequest) {
   return createServerClient(
@@ -65,6 +52,18 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
   if (eventError || !event) {
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
+  }
+
+  if (event.guidance_mode === 'structured_active') {
+    let targetPitchId = validation.data.pitchId;
+    if (!targetPitchId && validation.data.pitchPublicId) {
+      const { data: resolved } = await supabase.from('pitches').select('id').eq('public_id', validation.data.pitchPublicId).eq('user_id', user.id).maybeSingle();
+      targetPitchId = resolved?.id;
+    }
+    if (!targetPitchId) return NextResponse.json({ success: false, error: 'You can only submit one of your own active pitches.' }, { status: 403 });
+    const { data: submission, error } = await supabase.rpc('submit_structured_event_final_take', { target_event_id: event.id, target_pitch_id: targetPitchId });
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    return NextResponse.json(buildSubmissionSuccessResponse(submission, { id: targetPitchId }, false));
   }
 
   if (event.status === 'locked') {

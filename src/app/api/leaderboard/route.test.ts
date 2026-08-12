@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NextRequest } from 'next/server';
-import { GET, getLeaderboardOrder } from './route';
+import { GET } from './route';
+import { getLeaderboardOrder } from './_server';
 
 test('orders streak and feedback leaderboards through the referenced table', () => {
   assert.deepEqual(getLeaderboardOrder('streaks'), {

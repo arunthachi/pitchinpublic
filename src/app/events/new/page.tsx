@@ -284,7 +284,7 @@ function NewEventContent() {
       <main className="mx-auto max-w-2xl px-4 py-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
         <header className="mb-5">
           <h1 className="font-heading text-3xl font-black leading-tight sm:text-4xl">Create event</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Start with the essentials. Next, publish pitch guidelines and invite your team and founders.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Start with the essentials. Next, review the recommended pitch standard and invite your team and founders.</p>
         </header>
 
         <form onSubmit={submit} className="space-y-4">

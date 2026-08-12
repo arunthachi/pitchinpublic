@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
@@ -9,21 +8,7 @@ import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import { createServiceSupabase } from '@/lib/admin';
-import { z } from 'zod';
-
-const idempotencyKeySchema = z.string().uuid();
-
-export function parsePitchIdempotencyKey(value: string | null) {
-  if (!value) return { key: null, valid: true } as const;
-  const parsed = idempotencyKeySchema.safeParse(value.trim());
-  return parsed.success
-    ? ({ key: parsed.data, valid: true } as const)
-    : ({ key: null, valid: false } as const);
-}
-
-export function hashPitchCreationPayload(payload: unknown) {
-  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
-}
+import { hashPitchCreationPayload, parsePitchIdempotencyKey, structuredFeedbackProvenance } from './_server';
 
 async function pitchResponseSigned(pitch: any, fallback: Record<string, any>) {
   // A pitch created for an event is private from birth, so the create and
@@ -264,7 +249,7 @@ export async function POST(request: NextRequest) {
     // Event recordings bind to their event and start private to it. The
     // membership check is server-side: a client cannot attach a pitch to an
     // event it is not an active participant of.
-    let eventTarget: { eventId: string } | null = null;
+    let eventTarget: { eventId: string; guidanceMode: string } | null = null;
     if (pitchData.eventSlug) {
       const serviceSupabase = createServiceSupabase();
       if (!serviceSupabase) {
@@ -275,7 +260,7 @@ export async function POST(request: NextRequest) {
       }
       const { data: event, error: eventError } = await serviceSupabase
         .from('pitch_events')
-        .select('id')
+        .select('id,guidance_mode')
         .eq('slug', pitchData.eventSlug)
         .maybeSingle();
       if (eventError) {
@@ -311,7 +296,10 @@ export async function POST(request: NextRequest) {
           { status: 403, headers: formatRateLimitHeaders(result) }
         );
       }
-      eventTarget = { eventId: event.id };
+      if (event.guidance_mode === 'structured_active' && !pitchData.recordingSessionId) {
+        return NextResponse.json({ success: false, error: 'Start a new recording from the event pitch plan.', code: 'recording_session_required' }, { status: 409, headers: formatRateLimitHeaders(result) });
+      }
+      eventTarget = { eventId: event.id, guidanceMode: event.guidance_mode };
     }
 
     const parsedDescription = parsePitchDescription(pitchData.description);
@@ -455,7 +443,7 @@ export async function POST(request: NextRequest) {
       thumbnail_url: pitchData.thumbnailUrl || null,
       duration: pitchData.duration,
       status: 'published',
-      event_id: eventTarget?.eventId || null,
+      event_id: eventTarget?.guidanceMode === 'structured_active' ? null : eventTarget?.eventId || null,
       visibility: eventTarget ? 'private' : 'public',
       version_number: repNumber,
       views_count: 0,
@@ -467,6 +455,7 @@ export async function POST(request: NextRequest) {
       prompt_text: promptText,
       creation_key: idempotency.key,
       creation_payload_hash: creationPayloadHash,
+      event_recording_session_id: pitchData.recordingSessionId || null,
     };
 
     let insertResult = await supabase
@@ -475,7 +464,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (!idempotency.key && insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take|creation_key|creation_payload_hash|event_id|visibility/i.test(insertResult.error.message)) {
+    if (!idempotency.key && !eventTarget && insertResult.error && /public_id|company_id|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|practice_goal_id|prompt_key|prompt_text|is_best_take|creation_key|creation_payload_hash|event_id|visibility/i.test(insertResult.error.message)) {
       const {
         public_id: _publicId,
         company_id: _companyId,
@@ -491,6 +480,7 @@ export async function POST(request: NextRequest) {
         creation_payload_hash: _creationPayloadHash,
         event_id: _eventId,
         visibility: _visibility,
+        event_recording_session_id: _recordingSessionId,
         ...fallbackPayload
       } = insertPayload;
 
@@ -763,6 +753,8 @@ export async function GET(request: NextRequest) {
         is_best_take,
         visibility,
         event_id,
+        event_guideline_version_id,
+        event_recording_session_id,
         pitch_events:event_id (
           slug
         ),
@@ -781,6 +773,11 @@ export async function GET(request: NextRequest) {
           type,
           content,
           reviewer_role,
+          event_guideline_version_id,
+          criterion_key,
+          observation,
+          next_step,
+          disclosure_mode,
           author:user_id (
             full_name
           ),
@@ -893,7 +890,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take|event_id|visibility/i.test(error.message)) {
+    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take|event_id|event_guideline_version_id|criterion_key|observation|next_step|disclosure_mode|visibility/i.test(error.message)) {
       const fallbackResult = await buildDataQuery(fallbackSelect)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -962,11 +959,11 @@ export async function GET(request: NextRequest) {
           type: feedback.type,
           content: feedback.content,
           reviewer_role: feedback.reviewer_role || 'peer_founder',
+          ...structuredFeedbackProvenance(feedback),
           reviewer_badge: feedback.reviewer_role === 'trusted_reviewer'
             ? reviewerBadges.get(feedback.user_id) || null
             : null,
           created_at: feedback.created_at,
-          display_role_only: true,
           can_rate_quality: isOwner,
           quality_rating: vote?.rating || null,
           quality_action: isOwner

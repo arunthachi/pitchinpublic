@@ -49,7 +49,9 @@ Current north star:
 Structured feedback -> selected practice focus -> sharper next pitch
 ```
 
-For event work, preserve the pilot contract: a published guideline version with four to six criteria; an event-specific founder brief; criterion-linked `What I noticed` plus `Try this next`; accountable reviewer identity with policy-based founder disclosure; one or two selected practice actions; and a later event take that can address them. AI guidance is planned, not shipped, so do not present human feedback as AI output or add generation without an approved AI safety and evaluation plan.
+For event work, preserve the integrated pilot contract: short event creation atomically creates an unpublished universal Pitch Standard; the organizer uses or customizes and explicitly publishes it; the founder sees one Pitch plan before and around recording; every take is atomically bound to the exact published version from a trusted recording session; review supplies criterion-linked `What I noticed` plus `Try this next`; accountable reviewer identity follows the event's disclosure policy; and a later take can address selected practice actions. AI guidance is planned, not shipped, so do not present human feedback as AI output or add generation without an approved AI safety and evaluation plan.
+
+The default standard must use plain, category-neutral language. Stage and industry are optional context. Founder practice must not depend on reviewer recruitment, assignments, or completed feedback. During active recording the Pitch plan must not cover or interrupt the video.
 
 ## Main Personas
 
@@ -97,6 +99,7 @@ Do not recreate `/admin`.
 - Protect service-role operations server-side only.
 - Run lint/build and browser checks before claiming completion.
 - Test authorization with signed-out, authorized, unrelated, and wrong-role actors.
+- Test exact guideline-version behavior when an organizer publishes a new version after a founder starts preparing a take.
 
 ## Common Commands
 

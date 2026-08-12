@@ -124,6 +124,7 @@ export const pitchSchema = z.object({
   // Present when recording from an event page: binds the pitch to the event
   // (membership-verified server-side) and makes it private to that event.
   eventSlug: z.string().trim().min(1).max(120).optional(),
+  recordingSessionId: z.string().uuid().optional(),
   startupName: z
     .string()
     .min(2, 'Startup name must be at least 2 characters')

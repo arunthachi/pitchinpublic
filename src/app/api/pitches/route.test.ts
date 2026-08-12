@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as pitchRoute from './route';
-
-const { hashPitchCreationPayload, parsePitchIdempotencyKey } = pitchRoute;
+import { hashPitchCreationPayload, parsePitchIdempotencyKey, structuredFeedbackProvenance } from './_server';
 
 const KEY = '70d46f48-2f9b-4a3c-9500-8309a86e7639';
 
@@ -36,8 +35,42 @@ test('pitch payloads may bind to an event by slug, within limits', async () => {
   const base = { hook: 'A clear pitch hook', videoId: 'v', playbackUrl: 'https://example.com/v.m3u8', duration: 60 };
   assert.equal(pitchSchema.safeParse({ ...base }).success, true);
   assert.equal(pitchSchema.safeParse({ ...base, eventSlug: 'demo-day' }).success, true);
+  assert.equal(pitchSchema.safeParse({ ...base, eventSlug: 'demo-day', recordingSessionId: KEY }).success, true);
   assert.equal(pitchSchema.safeParse({ ...base, eventSlug: '' }).success, false);
   assert.equal(pitchSchema.safeParse({ ...base, eventSlug: 'x'.repeat(121) }).success, false);
+});
+
+test('structured pitch creation consumes a server-owned recording session', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+  assert.match(source, /guidance_mode === 'structured_active'/);
+  assert.match(source, /event_recording_session_id: pitchData\.recordingSessionId/);
+});
+
+test('pitch reads preserve the immutable event standard and structured feedback provenance', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+  assert.match(source, /event_guideline_version_id,/);
+  assert.match(source, /criterion_key,/);
+  assert.match(source, /observation,/);
+  assert.match(source, /next_step,/);
+  assert.match(source, /disclosure_mode,/);
+  assert.match(source, /structuredFeedbackProvenance\(feedback\)/);
+  assert.deepEqual(structuredFeedbackProvenance({
+    event_guideline_version_id: 'version-1', criterion_key: 'ask', observation: 'The ask is broad', next_step: 'Name one specific request', disclosure_mode: 'named', author: { full_name: 'Coach Lee' },
+  }), {
+    event_guideline_version_id: 'version-1', criterion_key: 'ask', observation: 'The ask is broad', next_step: 'Name one specific request', disclosure_mode: 'named', author_name: 'Coach Lee', display_role_only: false,
+  });
+  assert.equal(structuredFeedbackProvenance({ disclosure_mode: 'anonymous_to_founder', author: { full_name: 'Hidden' } }).author_name, null);
+});
+
+test('structured pitch bindings are immutable and final submission verifies the consumed session', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const migration = await readFile(new URL('../../../../supabase/migrations/20260813120000_integrate_pitch_standard_plan.sql', import.meta.url), 'utf8');
+  assert.match(migration, /Structured pitches require a trusted recording-session binding/);
+  assert.match(migration, /prevent_pitch_binding_mutation_before_update/);
+  assert.match(migration, /session_row\.consumed_by_pitch_id<>target_pitch_id/);
+  assert.match(migration, /session_row\.guideline_version_id<>pitch_row\.event_guideline_version_id/);
 });
 
 test('event privacy migration enforces visibility, member reads, and the approved backfill', async () => {
