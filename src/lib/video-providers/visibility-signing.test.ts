@@ -38,32 +38,38 @@ test('a private pitch with no minted token keeps its stored URL', () => {
   assert.deepEqual(applySignedUrls(row, SIGNED), row);
 });
 
-test('every surface that exposes a video URL signs it', () => {
-  // Any surface left out ships an unsigned private URL, and breaks outright
-  // once the videos require signatures.
-  for (const surface of [
-    'app/api/pitches/route.ts',
-    'app/api/events/[slug]/route.ts',
-    'app/api/reviews/queue/route.ts',
-    'app/api/practice/today/route.ts',
-  ]) {
-    const source = read(surface);
-    assert.match(source, /signPrivateRows\(/, `${surface} never signs`);
-    assert.match(source, /applySignedUrls\(/, `${surface} never applies signed URLs`);
+
+
+test('EVERY pitch select carries the fields the decision needs', () => {
+  // Per-select, not per-file. A file-level "mentions visibility somewhere"
+  // assertion passed while the fallback SELECT omitted it, so private rows read
+  // as undefined and silently stayed unsigned.
+  const route = read('app/api/pitches/route.ts');
+  const selects = route.match(/const \w*[Ss]elect = `[\s\S]*?`/g) || [];
+  assert.ok(selects.length >= 2, `expected both selects, found ${selects.length}`);
+  for (const select of selects) {
+    assert.match(select, /\bvideo_id\b/, 'a pitch select omits video_id');
+    assert.match(select, /\bvisibility\b/, 'a pitch select omits visibility, so nothing is ever signed');
   }
 });
 
-test('every signing surface selects the fields the decision needs', () => {
-  // Without video_id there is nothing to mint; without visibility everything
-  // would be treated as public and never signed. Both have shipped broken once.
-  for (const surface of [
-    'app/api/pitches/route.ts',
-    'app/api/events/[slug]/route.ts',
-    'app/api/reviews/queue/route.ts',
-    'app/api/practice/today/route.ts',
-  ]) {
-    const source = read(surface);
-    assert.match(source, /\bvideo_id\b/, `${surface} does not select video_id`);
-    assert.match(source, /\bvisibility\b/, `${surface} does not select visibility`);
+test('every pitch RESPONSE path signs, not just the feed', () => {
+  const route = read('app/api/pitches/route.ts');
+  // An event pitch is private from birth, so the create and replay responses
+  // hand its own author an unsigned URL unless they sign too.
+  const responseCalls = route.match(/pitch: (await pitchResponseSigned|pitchResponse)\(/g) || [];
+  assert.ok(responseCalls.length >= 2, `expected create + replay, found ${responseCalls.length}`);
+  for (const call of responseCalls) {
+    assert.match(call, /pitchResponseSigned/, 'a pitch response path returns unsigned URLs');
   }
+});
+
+test('the event payload signs every pitch it exposes, including the caller own', () => {
+  const route = read('app/api/events/[slug]/route.ts');
+  // userSubmission is the founder's own private take and was returned raw
+  // beside the signed copies.
+  assert.match(route, /submissionPitch\(userSubmission\)/, 'userSubmission is not fed into signing');
+  assert.match(route, /userSubmission: signedUserSubmission/, 'the raw userSubmission is still returned');
+  // Array embeds must keep every element, not just the first.
+  assert.match(route, /row\.pitch\.map\(/, 'array-shaped embeds lose elements when reshaped');
 });

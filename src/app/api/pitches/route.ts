@@ -25,6 +25,13 @@ export function hashPitchCreationPayload(payload: unknown) {
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
+async function pitchResponseSigned(pitch: any, fallback: Record<string, any>) {
+  // A pitch created for an event is private from birth, so the create and
+  // replay responses must sign it exactly like every read path does.
+  const signed = await signPrivateRows([pitch]);
+  return pitchResponse(applySignedUrls(pitch, signed), fallback);
+}
+
 function pitchResponse(pitch: any, fallback: Record<string, any>) {
   return {
     id: pitch.id,
@@ -331,7 +338,7 @@ export async function POST(request: NextRequest) {
           {
             success: true,
             replayed: true,
-            pitch: pitchResponse(existingPitch, {
+            pitch: await pitchResponseSigned(existingPitch, {
               startupName,
               oneLinePitch,
               feedbackAsk,
@@ -514,7 +521,7 @@ export async function POST(request: NextRequest) {
           {
             success: true,
             replayed: true,
-            pitch: pitchResponse(racedPitch, {
+            pitch: await pitchResponseSigned(racedPitch, {
               startupName,
               oneLinePitch,
               feedbackAsk,
@@ -575,7 +582,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         replayed: false,
-        pitch: pitchResponse(pitch, {
+        pitch: await pitchResponseSigned(pitch, {
           startupName,
           oneLinePitch,
           feedbackAsk,
@@ -787,6 +794,7 @@ export async function GET(request: NextRequest) {
         hook,
         description,
         video_id,
+        visibility,
         video_url,
         thumbnail_url,
         duration,

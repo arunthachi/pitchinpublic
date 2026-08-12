@@ -518,24 +518,33 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   // Event surfaces carry private takes by definition, so sign them here too.
   // Done once over everything the payload exposes rather than per query, so a
   // future select cannot quietly ship an unsigned private URL.
+  const submissionPitch = (row: any) => (Array.isArray(row?.pitch) ? row.pitch[0] : row?.pitch);
   const eventPitchRows = [
     ...(pitches || []),
-    ...(submissions || []).map((row: any) => (Array.isArray(row?.pitch) ? row.pitch[0] : row?.pitch)),
+    ...(submissions || []).map(submissionPitch),
+    // The founder's own submission is private by definition and was being
+    // returned raw alongside the signed copies.
+    submissionPitch(userSubmission),
   ].filter(Boolean);
   const signedEventUrls = await signPrivateRows(eventPitchRows as any[]);
   const signedPitches = (pitches || []).map((row: any) => applySignedUrls(row, signedEventUrls));
-  const signedSubmissions = (submissions || []).map((row: any) => {
-    const pitch = Array.isArray(row?.pitch) ? row.pitch[0] : row?.pitch;
-    if (!pitch) return row;
-    const signed = applySignedUrls(pitch, signedEventUrls);
-    return { ...row, pitch: Array.isArray(row.pitch) ? [signed] : signed };
-  });
+  // Preserve the original shape: Supabase returns an array for some embeds and
+  // an object for others, and every element must survive.
+  const signSubmissionRow = (row: any) => {
+    if (!row?.pitch) return row;
+    if (Array.isArray(row.pitch)) {
+      return { ...row, pitch: row.pitch.map((p: any) => (p ? applySignedUrls(p, signedEventUrls) : p)) };
+    }
+    return { ...row, pitch: applySignedUrls(row.pitch, signedEventUrls) };
+  };
+  const signedSubmissions = (submissions || []).map(signSubmissionRow);
+  const signedUserSubmission = userSubmission ? signSubmissionRow(userSubmission) : userSubmission;
 
   return NextResponse.json({
     success: true,
     event: safeEvent,
     participation,
-    userSubmission,
+    userSubmission: signedUserSubmission,
     participants,
     submissions: signedSubmissions,
     pitches: signedPitches,
