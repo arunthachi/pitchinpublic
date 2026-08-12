@@ -10,6 +10,7 @@ import {
   publicInviteDeliveryError,
   publicInviteError,
 } from '@/lib/event-dashboard';
+import { inviteOperationFlags, normalizeEmail } from './_server';
 
 const INVITE_ROLES = ['founder', 'organizer', 'admin', 'coach', 'mentor', 'judge'] as const;
 const DELIVERY_STATUSES = ['unknown', 'skipped', 'sent', 'failed', 'not_configured'] as const;
@@ -51,18 +52,6 @@ function createSupabase(request: NextRequest) {
 
 function createInviteCode() {
   return randomBytes(5).toString('hex').toUpperCase();
-}
-
-export function normalizeEmail(value?: string | null) {
-  return value?.trim().toLowerCase() || '';
-}
-
-export function inviteOperationFlags(inviteCreated: boolean, emailStatus?: string | null) {
-  return {
-    invite_created: inviteCreated,
-    email_sent: emailStatus === 'sent',
-    email_failed: emailStatus === 'failed' || emailStatus === 'not_configured',
-  };
 }
 
 async function getEventAndAccess(supabase: ReturnType<typeof createSupabase>, slug: string, userId: string) {

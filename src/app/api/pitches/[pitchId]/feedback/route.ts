@@ -7,6 +7,7 @@ import {
   reviewerRoleLabel,
 } from '@/lib/review-marketplace-server';
 import { isPublicPitchId, isUuidLike } from '@/lib/public-routes';
+import { feedbackSubmissionRpc } from './_server';
 
 /**
  * POST /api/pitches/[pitchId]/feedback
@@ -63,35 +64,6 @@ const feedbackSchema = z.object({
     });
   }
 });
-
-export function feedbackSubmissionRpc(
-  pitchId: string,
-  type: 'roast' | 'toast',
-  content: string,
-  requestKey: string,
-  eventId?: string | null
-) {
-  return eventId
-    ? {
-        name: 'submit_event_pitch_feedback',
-        args: {
-          target_pitch_id: pitchId,
-          feedback_type: type,
-          feedback_content: content,
-          request_key: requestKey,
-          target_event_id: eventId,
-        },
-      }
-    : {
-        name: 'submit_pitch_feedback',
-        args: {
-          target_pitch_id: pitchId,
-          feedback_type: type,
-          feedback_content: content,
-          request_key: requestKey,
-        },
-      };
-}
 
 function normalizedSignals(feedback: z.infer<typeof feedbackSchema>) {
   const rawSignals = feedback.signals?.length ? feedback.signals : [feedback.signal || 'Clear'];

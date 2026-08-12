@@ -3,8 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import * as feedbackRoute from './route';
-
-const { feedbackSubmissionRpc } = feedbackRoute;
+import { feedbackSubmissionRpc } from './_server';
 
 test('feedback route keeps event authorization on POST and exposes no destructive handler', () => {
   assert.equal(typeof feedbackRoute.POST, 'function');

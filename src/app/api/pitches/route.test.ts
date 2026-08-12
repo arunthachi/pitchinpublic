@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as pitchRoute from './route';
-
-const { hashPitchCreationPayload, parsePitchIdempotencyKey } = pitchRoute;
+import { hashPitchCreationPayload, parsePitchIdempotencyKey } from './_server';
 
 const KEY = '70d46f48-2f9b-4a3c-9500-8309a86e7639';
 

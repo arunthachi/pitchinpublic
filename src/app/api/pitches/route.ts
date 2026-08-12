@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { pitchSchema } from '@/lib/validation';
@@ -9,21 +8,7 @@ import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import { createServiceSupabase } from '@/lib/admin';
-import { z } from 'zod';
-
-const idempotencyKeySchema = z.string().uuid();
-
-export function parsePitchIdempotencyKey(value: string | null) {
-  if (!value) return { key: null, valid: true } as const;
-  const parsed = idempotencyKeySchema.safeParse(value.trim());
-  return parsed.success
-    ? ({ key: parsed.data, valid: true } as const)
-    : ({ key: null, valid: false } as const);
-}
-
-export function hashPitchCreationPayload(payload: unknown) {
-  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
-}
+import { hashPitchCreationPayload, parsePitchIdempotencyKey } from './_server';
 
 async function pitchResponseSigned(pitch: any, fallback: Record<string, any>) {
   // A pitch created for an event is private from birth, so the create and

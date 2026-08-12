@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
+import { buildSubmissionSuccessResponse } from './_server';
 
 const submissionSchema = z.object({
   pitchId: z.string().uuid().optional(),
@@ -8,20 +9,6 @@ const submissionSchema = z.object({
 }).refine((value) => value.pitchId || value.pitchPublicId, {
   message: 'Choose a valid pitch before submitting.',
 });
-
-export function buildSubmissionSuccessResponse(
-  submission: Record<string, unknown>,
-  pitch: { id: string; public_id?: string | null },
-  visibilityChanged = false,
-) {
-  return {
-    success: true,
-    submission,
-    pitchId: pitch.id,
-    publicId: pitch.public_id || null,
-    visibilityChanged,
-  };
-}
 
 function createSupabase(request: NextRequest) {
   return createServerClient(

@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as eventRoute from './route';
-
-const {
+import {
   buildOrganizerParticipantUpsert,
   filterPendingInvitationsForEmail,
   hashEventCreationPayload,
   parseEventIdempotencyKey,
-} = eventRoute;
+  toSafeEventsWithSubmissionFlag,
+} from './_server';
 
 const KEY = '91b5b63e-62f5-4878-bb0b-3264cf78be1c';
 
@@ -82,7 +82,6 @@ test('pending invitations require a non-empty email to match against', () => {
 });
 
 test('joined events carry a mySubmission flag and shed secret columns', async () => {
-  const { toSafeEventsWithSubmissionFlag } = await import('./route');
   const events = toSafeEventsWithSubmissionFlag(
     [
       { id: 'e1', name: 'One', access_code: 'secret', creation_key: 'k', creation_payload_hash: 'h' },
@@ -99,7 +98,6 @@ test('joined events carry a mySubmission flag and shed secret columns', async ()
 });
 
 test('unknown submission state stamps null so the UI shows no chip', async () => {
-  const { toSafeEventsWithSubmissionFlag } = await import('./route');
   const events = toSafeEventsWithSubmissionFlag([{ id: 'e1' }], null);
   assert.equal(events[0].mySubmission, null);
 });

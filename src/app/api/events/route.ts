@@ -1,8 +1,9 @@
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { z } from 'zod';
 import { createServiceSupabase, normalizeEmail } from '@/lib/admin';
+import { filterPendingInvitationsForEmail, hashEventCreationPayload, parseEventIdempotencyKey, toSafeEventsWithSubmissionFlag } from './_server';
 
 const createEventSchema = z.object({
   name: z.string().min(3).max(120).trim(),
@@ -36,20 +37,6 @@ const createEventSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pitchHourEndsAt'], message: 'Pitch Hour must end after it starts.' });
   }
 });
-
-const idempotencyKeySchema = z.string().uuid();
-
-export function parseEventIdempotencyKey(value: string | null) {
-  if (!value) return { key: null, valid: true } as const;
-  const parsed = idempotencyKeySchema.safeParse(value.trim());
-  return parsed.success
-    ? ({ key: parsed.data, valid: true } as const)
-    : ({ key: null, valid: false } as const);
-}
-
-export function hashEventCreationPayload(payload: unknown) {
-  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
-}
 
 function eventResponse(event: Record<string, unknown>) {
   const safeEvent = { ...event };
@@ -103,48 +90,6 @@ async function canCreatePitchEvents(supabase: ReturnType<typeof createSupabase>,
   }
 
   return Boolean(data?.length);
-}
-
-export type PendingEventInvitationRow = {
-  id: string;
-  status?: string | null;
-  email?: string | null;
-  dedupe_email?: string | null;
-  expires_at?: string | null;
-};
-
-/**
- * Security boundary: only rows whose normalized email matches the signed-in
- * user's normalized email, are still pending, and are not expired make it
- * into the response. Never widen this to return another founder's invite.
- */
-export function filterPendingInvitationsForEmail<T extends PendingEventInvitationRow>(
-  rows: T[],
-  email: string | null | undefined,
-  now: Date = new Date()
-): T[] {
-  const normalized = normalizeEmail(email);
-  if (!normalized) return [];
-
-  return rows.filter((row) => {
-    if (row.status !== 'pending') return false;
-    if (normalizeEmail(row.dedupe_email ?? row.email) !== normalized) return false;
-    if (!row.expires_at) return true;
-    const expiresAt = new Date(row.expires_at).getTime();
-    return !(Number.isFinite(expiresAt) && expiresAt <= now.getTime());
-  });
-}
-
-export function buildOrganizerParticipantUpsert(eventId: string, userId: string) {
-  return {
-    values: {
-      event_id: eventId,
-      user_id: userId,
-      role: 'organizer',
-      status: 'active',
-    },
-    options: { onConflict: 'event_id,user_id' },
-  } as const;
 }
 
 export async function POST(request: NextRequest) {
@@ -208,24 +153,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-/**
- * Stamps the caller's submission state onto each event row (and strips the
- * secret columns). Exported for the route-level test.
- */
-export function toSafeEventsWithSubmissionFlag(
-  rows: Array<Record<string, unknown> & { id: string }>,
-  submittedEventIds: Set<string> | null
-) {
-  return rows.map((event) => {
-    const safeEvent = { ...event } as Record<string, unknown>;
-    delete safeEvent.access_code;
-    delete safeEvent.creation_key;
-    delete safeEvent.creation_payload_hash;
-    safeEvent.mySubmission = submittedEventIds ? submittedEventIds.has(event.id) : null;
-    return safeEvent;
-  });
 }
 
 export async function GET(request: NextRequest) {
