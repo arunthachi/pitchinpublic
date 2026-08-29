@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   attachFeedbackAvailability,
   availableFeedback,
+  FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS,
   loadFeedbackInBatches,
   resolveFeedbackQuery,
 } from './feedback-enrichment';
@@ -60,11 +61,30 @@ test('loads large events in bounded feedback batches without dropping pitches', 
     };
   });
 
-  assert.deepEqual(batches.map((batch) => batch.length), [100, 100, 5]);
+  assert.deepEqual(batches.map((batch) => batch.length), [50, 50, 50, 50, 5]);
+  assert.equal(batches.every((batch) => batch.length <= FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS), true);
   assert.equal(resolved.feedbackState, 'available');
   if (resolved.feedbackState === 'available') {
     assert.equal(resolved.feedbackByPitch.size, 205);
     assert.equal(resolved.feedbackByPitch.get('p-205')?.[0]?.id, 'f-p-205');
+  }
+});
+
+test('rejects a batch size above the database RPC contract', async () => {
+  let called = false;
+  const resolved = await loadFeedbackInBatches(
+    ['p-1'],
+    async () => {
+      called = true;
+      return { data: [], error: null };
+    },
+    FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS + 1,
+  );
+
+  assert.equal(called, false);
+  assert.equal(resolved.feedbackState, 'unavailable');
+  if (resolved.feedbackState === 'unavailable') {
+    assert.match(String(resolved.error), /between 1 and 50/);
   }
 });
 

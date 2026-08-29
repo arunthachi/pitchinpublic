@@ -11,7 +11,7 @@ import { createServiceSupabase } from '@/lib/admin';
 import {
   attachFeedbackAvailability,
   availableFeedback,
-  resolveFeedbackQuery,
+  loadFeedbackInBatches,
 } from '@/lib/feedback-enrichment';
 import { hashPitchCreationPayload, parsePitchIdempotencyKey, structuredFeedbackProvenance } from './_server';
 
@@ -877,13 +877,13 @@ export async function GET(request: NextRequest) {
     }
 
     const pitchIds = pitches.map((pitch: any) => pitch.id).filter(Boolean);
-    const feedbackQueryResult = pitchIds.length
-      ? await supabase.rpc('get_founder_pitch_feedback', { target_pitch_ids: pitchIds })
-      : { data: [], error: null };
     const feedbackEnrichment = pitchIds.length
-      ? resolveFeedbackQuery<any>({
-          data: feedbackQueryResult.data as any[] | null,
-          error: feedbackQueryResult.error,
+      ? await loadFeedbackInBatches<any>(pitchIds, async (batch) => {
+          const result = await supabase.rpc('get_founder_pitch_feedback', { target_pitch_ids: batch });
+          return {
+            data: result.data as any[] | null,
+            error: result.error,
+          };
         })
       : availableFeedback<any>();
 

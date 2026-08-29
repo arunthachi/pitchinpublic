@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as pitchRoute from './route';
 import { hashPitchCreationPayload, parsePitchIdempotencyKey, structuredFeedbackProvenance } from './_server';
+import { FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS, loadFeedbackInBatches } from '@/lib/feedback-enrichment';
 
 const KEY = '70d46f48-2f9b-4a3c-9500-8309a86e7639';
 
@@ -158,10 +159,27 @@ test('pitch reads keep base rows independent from feedback enrichment failures',
   const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
 
   assert.doesNotMatch(source, /feedback\s*\(/, 'base pitch selects must not embed feedback');
-  assert.match(source, /\.rpc\('get_founder_pitch_feedback', \{ target_pitch_ids: pitchIds \}\)/);
-  assert.match(source, /resolveFeedbackQuery<any>/);
+  assert.match(source, /loadFeedbackInBatches<any>\(pitchIds/);
+  assert.match(source, /\.rpc\('get_founder_pitch_feedback', \{ target_pitch_ids: batch \}\)/);
   assert.match(source, /feedbackState: feedbackEnrichment\.feedbackState/);
   assert.match(source, /returning base pitches/);
   assert.match(source, /error: countError/);
   assert.match(source, /if \(countError\) throw countError/);
+});
+
+test('pitch reads split more than 50 pitch IDs across contract-safe feedback RPC calls', async () => {
+  const pitchIds = Array.from(
+    { length: FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS + 1 },
+    (_, index) => `pitch-${index + 1}`,
+  );
+  const rpcCalls: string[][] = [];
+
+  const result = await loadFeedbackInBatches(pitchIds, async (batch) => {
+    rpcCalls.push(batch);
+    return { data: batch.map((pitch_id) => ({ pitch_id })), error: null };
+  });
+
+  assert.deepEqual(rpcCalls.map((batch) => batch.length), [50, 1]);
+  assert.equal(rpcCalls.every((batch) => batch.length <= 50), true);
+  assert.equal(result.feedbackState, 'available');
 });

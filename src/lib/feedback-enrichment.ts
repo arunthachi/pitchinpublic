@@ -12,13 +12,25 @@ export type FeedbackQueryResult<T> =
 
 type FeedbackRow = { pitch_id?: unknown };
 
+// The database RPC intentionally caps each request at 50 pitch IDs. Keep the
+// application-side boundary alongside the batching helper so every caller uses
+// the same contract.
+export const FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS = 50;
+
 export async function loadFeedbackInBatches<T extends FeedbackRow>(
   pitchIds: readonly string[],
   loadBatch: (pitchIds: string[]) => Promise<{ data: T[] | null; error: unknown }>,
-  batchSize = 100,
+  batchSize = FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS,
 ): Promise<FeedbackQueryResult<T>> {
-  if (!Number.isInteger(batchSize) || batchSize < 1) {
-    return { feedbackState: 'unavailable', error: new Error('Feedback batch size must be positive.') };
+  if (
+    !Number.isInteger(batchSize)
+    || batchSize < 1
+    || batchSize > FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS
+  ) {
+    return {
+      feedbackState: 'unavailable',
+      error: new Error(`Feedback batch size must be between 1 and ${FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS}.`),
+    };
   }
 
   const rows: T[] = [];

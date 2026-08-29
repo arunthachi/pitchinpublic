@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { canManageEvent, parseEventUpdate } from './_server';
+import { FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS, loadFeedbackInBatches } from '@/lib/feedback-enrichment';
 
 const current = {
   event_date: '2026-09-20',
@@ -146,4 +147,21 @@ test('event attendee and organizer payloads do not couple base pitches to feedba
     'attendee responses without organizer-only enrichment still report an explicit state',
   );
   assert.match(source, /returning base event pitches/);
+});
+
+test('event reads split more than 50 pitch IDs across contract-safe feedback RPC calls', async () => {
+  const pitchIds = Array.from(
+    { length: FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS + 17 },
+    (_, index) => `event-pitch-${index + 1}`,
+  );
+  const rpcCalls: string[][] = [];
+
+  const result = await loadFeedbackInBatches(pitchIds, async (batch) => {
+    rpcCalls.push(batch);
+    return { data: batch.map((pitch_id) => ({ pitch_id })), error: null };
+  });
+
+  assert.deepEqual(rpcCalls.map((batch) => batch.length), [50, 17]);
+  assert.equal(rpcCalls.every((batch) => batch.length <= 50), true);
+  assert.equal(result.feedbackState, 'available');
 });
