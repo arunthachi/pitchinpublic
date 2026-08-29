@@ -173,8 +173,11 @@ SELECT is((SELECT count(*)::integer FROM public.review_assignments WHERE pitch_i
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', '{"sub":"61000000-0000-0000-0000-000000000002","email":"lifecycle-organizer@example.test","role":"authenticated"}', true);
 SELECT is(public.update_event_participant_locked('62000000-0000-0000-0000-000000000002', '63000000-0000-0000-0000-000000000003', 'judge', NULL) #>> '{invalidated_assignments}', '0', 'eligible participant role changes preserve unfinished assignments');
+RESET ROLE;
 SELECT is((SELECT status FROM public.review_assignments WHERE id = '68000000-0000-0000-0000-000000000003'), 'pending', 'role change leaves an eligible assignment actionable');
 SELECT is((SELECT reviewer_role FROM public.review_assignments WHERE id = '68000000-0000-0000-0000-000000000003'), 'judge', 'role change reclassifies the preserved assignment for the correct queue');
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', '{"sub":"61000000-0000-0000-0000-000000000002","email":"lifecycle-organizer@example.test","role":"authenticated"}', true);
 SELECT is(public.update_event_participant_locked('62000000-0000-0000-0000-000000000002', '63000000-0000-0000-0000-000000000003', NULL, 'removed') #>> '{invalidated_assignments}', '1', 'participant removal invalidates unfinished event assignments');
 
 RESET ROLE;

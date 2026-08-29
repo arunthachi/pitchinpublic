@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(19);
+SELECT plan(20);
 
 INSERT INTO auth.users (
   id, email, aud, role, encrypted_password, email_confirmed_at,
@@ -98,6 +98,11 @@ SELECT is((SELECT user_id FROM public.get_founder_pitch_feedback(ARRAY['63000000
 SELECT is((SELECT reviewer_label FROM public.get_founder_pitch_feedback(ARRAY['63000000-0000-0000-0000-000000000001'::uuid]) WHERE id = '64000000-0000-0000-0000-000000000001'), 'Identity Reviewer', 'feedback author sees their own named label');
 
 SELECT set_config('request.jwt.claims', '{"sub":"61000000-0000-0000-0000-000000000003","email":"identity-organizer@example.test","role":"authenticated"}', true);
+SELECT is(
+  (SELECT count(*)::integer FROM public.get_event_review_assignments('62000000-0000-0000-0000-000000000001')),
+  1,
+  'event organizer retains assignment coverage through the identity-safe projection after contraction'
+);
 SELECT is((SELECT user_id FROM public.get_founder_pitch_feedback(ARRAY['63000000-0000-0000-0000-000000000001'::uuid]) WHERE id = '64000000-0000-0000-0000-000000000001'), '61000000-0000-0000-0000-000000000002'::uuid, 'event organizer receives assignment-scoped accountability identity');
 SELECT isnt((SELECT reviewer_badge FROM public.get_founder_pitch_feedback(ARRAY['63000000-0000-0000-0000-000000000001'::uuid]) WHERE id = '64000000-0000-0000-0000-000000000001'), NULL::jsonb, 'event organizer receives assignment-scoped accountability badge');
 SELECT is((SELECT user_id FROM public.get_founder_pitch_feedback(ARRAY['63000000-0000-0000-0000-000000000001'::uuid]) WHERE id = '64000000-0000-0000-0000-000000000003'), NULL::uuid, 'event organizer cannot identify global feedback on the same pitch');
