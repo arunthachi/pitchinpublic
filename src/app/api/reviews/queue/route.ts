@@ -2,6 +2,44 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createMarketplaceClient, getMarketplaceUser } from '@/lib/review-marketplace-server';
 import { applySignedUrls, signPrivateRows } from '@/lib/video-providers/sign-rows';
 
+type SnapshotAssignment = {
+  assignment_id?: string;
+  id?: string;
+  status?: string;
+  assignment_reason?: string | null;
+  reason?: string | null;
+  due_at?: string | null;
+  created_at?: string | null;
+  event_slug?: string | null;
+  event_name?: string | null;
+  event?: { slug?: string | null; name?: string | null } | null;
+  pitch?: Record<string, any> | null;
+  [key: string]: any;
+};
+
+function snapshotObject(value: unknown): Record<string, any> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, any>;
+  return {};
+}
+
+function assignmentPitch(row: SnapshotAssignment) {
+  if (row.pitch && typeof row.pitch === 'object') return row.pitch;
+  return {
+    id: row.pitch_id,
+    public_id: row.public_id,
+    user_id: row.user_id,
+    hook: row.hook,
+    startup_name: row.startup_name,
+    one_line_pitch: row.one_line_pitch,
+    feedback_ask: row.feedback_ask,
+    video_id: row.video_id,
+    video_url: row.video_url,
+    visibility: row.visibility,
+    thumbnail_url: row.thumbnail_url,
+    duration: row.duration,
+  };
+}
+
 export async function GET(request: NextRequest) {
   const supabase = createMarketplaceClient(request);
   const auth = await getMarketplaceUser(supabase);
@@ -9,7 +47,7 @@ export async function GET(request: NextRequest) {
   if (!auth.user) {
     return NextResponse.json(
       { success: false, error: auth.error, ...('code' in auth ? { code: auth.code } : {}) },
-      { status: auth.status }
+      { status: auth.status },
     );
   }
 
@@ -17,161 +55,61 @@ export async function GET(request: NextRequest) {
   const requestedLimit = Number.parseInt(searchParams.get('limit') || '3', 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(10, Math.max(1, requestedLimit)) : 3;
   const mode = searchParams.get('mode') === 'reviewer' ? 'reviewer' : 'founder';
-  const roleFilter = mode === 'reviewer'
-    ? ['trusted_reviewer']
-    : ['peer_founder', 'public_reviewer', 'coach', 'judge', 'mentor', 'organizer', 'experienced_reviewer'];
 
-  const loadAssignments = () =>
-    supabase
-      .from('review_assignments')
-      .select(`
-      id,
-      status,
-      assignment_reason,
-      due_at,
-      event_id,
-      created_at,
-      pitch:pitches!inner (
-        public_id,
-        user_id,
-        hook,
-        startup_name,
-        one_line_pitch,
-        feedback_ask,
-        video_id,
-        visibility,
-        thumbnail_url,
-        duration
-      )
-      `)
-      .eq('reviewer_user_id', auth.user.id)
-      .in('reviewer_role', roleFilter)
-      .in('status', ['pending', 'started'])
-      .neq('pitch.user_id', auth.user.id)
-      .order('due_at', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true })
-      .limit(limit);
-
-  let [{ data, error }, { count: pendingCount, error: countError }, { data: creditRow, error: creditError }, { data: isTrustedReviewer }] = await Promise.all([
-    loadAssignments(),
-    supabase
-      .from('review_assignments')
-      .select('pitch_id', { count: 'exact', head: true })
-      .eq('reviewer_user_id', auth.user.id)
-      .in('reviewer_role', roleFilter)
-      .in('status', ['pending', 'started']),
-    supabase
-      .from('review_credits')
-      .select('balance,pending_balance,earned_count,spent_count')
-      .eq('user_id', auth.user.id)
-      .maybeSingle(),
-    supabase.rpc('is_trusted_reviewer'),
-  ]);
-
-  if (mode === 'reviewer' && !isTrustedReviewer) {
-    return NextResponse.json({ success: false, error: 'Trusted reviewer access is required.' }, { status: 403 });
-  }
-
-  if (!error && !data?.length) {
-    const claimFunction = mode === 'reviewer'
-      ? 'claim_trusted_review_assignments'
-      : 'claim_global_review_assignments';
-    const { error: claimError } = await supabase.rpc(claimFunction, {
-      target_count: limit,
-    });
-
-    if (claimError) {
-      console.warn('Review queue could not claim additional pitches:', claimError);
-    } else {
-      const refreshed = await loadAssignments();
-      data = refreshed.data;
-      error = refreshed.error;
-      const refreshedCount = await supabase
-        .from('review_assignments')
-        .select('pitch_id', { count: 'exact', head: true })
-        .eq('reviewer_user_id', auth.user.id)
-        .in('reviewer_role', roleFilter)
-        .in('status', ['pending', 'started']);
-      pendingCount = refreshedCount.count;
-    }
-  }
+  const { data, error } = await supabase.rpc('get_review_queue_snapshot', {
+    target_limit: limit,
+    target_mode: mode,
+  });
 
   if (error) {
-    console.error('Error fetching review queue:', error);
-    return NextResponse.json({ success: false, error: 'Could not load review queue' }, { status: 500 });
-  }
-
-  if (creditError) {
-    console.warn('Review queue loaded without credit state:', creditError);
-  }
-  if (countError) {
-    console.warn('Review queue loaded without an exact total:', countError);
-  }
-
-  const eventAssignmentIds = (data || [])
-    .filter((assignment: any) => assignment.event_id)
-    .map((assignment: any) => assignment.id);
-  const eventIdentityByAssignment = new Map<string, { slug: string; name: string }>();
-  if (eventAssignmentIds.length) {
-    const { data: eventIdentities, error: eventIdentityError } = await supabase.rpc(
-      'get_review_assignment_event_identities',
-      { target_assignment_ids: eventAssignmentIds },
+    console.error('Error fetching atomic review queue snapshot:', error);
+    const status = error.message?.includes('Trusted reviewer access') ? 403 : 500;
+    return NextResponse.json(
+      { success: false, error: status === 403 ? 'Trusted reviewer access is required.' : 'Could not load review queue' },
+      { status },
     );
-    if (eventIdentityError) {
-      console.error('Review queue could not resolve event assignments:', eventIdentityError);
-      return NextResponse.json({ success: false, error: 'Could not load review queue' }, { status: 500 });
-    }
-    (eventIdentities || []).forEach((identity: any) => {
-      eventIdentityByAssignment.set(identity.assignment_id, { slug: identity.slug, name: identity.name });
-    });
   }
 
-  // A reviewer's queue can hold private event takes; those thumbnails must be
-  // signed or they break once the videos require signatures.
-  const queuedPitches = (data || [])
-    .map((assignment: any) => (Array.isArray(assignment.pitch) ? assignment.pitch[0] : assignment.pitch))
-    .filter(Boolean);
-  const signedQueueUrls = await signPrivateRows(queuedPitches);
+  const snapshot = snapshotObject(data);
+  const rows = Array.isArray(snapshot.assignments) ? snapshot.assignments as SnapshotAssignment[] : [];
+  const pitches = rows.map(assignmentPitch).filter((pitch) => pitch?.public_id);
+  const signedUrls = await signPrivateRows(pitches);
 
-  const assignments = (data || []).flatMap((assignment: any) => {
-    const rawPitch = Array.isArray(assignment.pitch) ? assignment.pitch[0] : assignment.pitch;
-    const pitch = rawPitch ? applySignedUrls(rawPitch, signedQueueUrls) : rawPitch;
-    const event = assignment.event_id ? eventIdentityByAssignment.get(assignment.id) : null;
-    if (!pitch?.public_id) return [];
-    if (assignment.event_id && !event) return [];
+  const assignments = rows.flatMap((row) => {
+    const pitch = applySignedUrls(assignmentPitch(row), signedUrls);
+    const assignmentId = row.assignment_id || row.id;
+    if (!assignmentId || !pitch?.public_id) return [];
 
+    const eventSlug = row.event_slug ?? row.event?.slug ?? null;
+    const eventName = row.event_name ?? row.event?.name ?? null;
     return [{
-      assignmentId: assignment.id,
-      status: assignment.status,
-      reason: assignment.assignment_reason,
-      dueAt: assignment.due_at,
-      createdAt: assignment.created_at,
+      assignmentId,
+      status: row.status,
+      reason: row.assignment_reason ?? row.reason ?? null,
+      dueAt: row.due_at ?? null,
+      createdAt: row.created_at ?? null,
       pitch: {
+        id: pitch.id,
         publicId: pitch.public_id,
         href: `/pitch/${encodeURIComponent(pitch.public_id)}`,
         hook: pitch.hook,
         startupName: pitch.startup_name,
         oneLinePitch: pitch.one_line_pitch,
         feedbackAsk: pitch.feedback_ask,
+        videoUrl: pitch.video_url,
         thumbnailUrl: pitch.thumbnail_url,
         duration: pitch.duration,
       },
-      event: event ? { slug: event.slug, name: event.name } : null,
+      event: eventSlug ? { slug: eventSlug, name: eventName } : null,
     }];
   });
 
+  const pendingCount = Number(snapshot.pendingCount ?? snapshot.pending_count ?? assignments.length);
   return NextResponse.json({
     success: true,
     assignments,
-    count: pendingCount ?? assignments.length,
-    pendingCount: pendingCount ?? assignments.length,
-    credits: mode === 'reviewer' ? null : {
-      available: Math.floor((creditRow?.balance || 0) / 2),
-      pendingBalance: creditRow?.pending_balance || 0,
-      earnedCount: creditRow?.earned_count || 0,
-      spentCount: creditRow?.spent_count || 0,
-      reviewsPerCredit: 2,
-      progress: (creditRow?.balance || 0) % 2,
-    },
+    count: Number.isFinite(pendingCount) ? pendingCount : assignments.length,
+    pendingCount: Number.isFinite(pendingCount) ? pendingCount : assignments.length,
+    credits: mode === 'reviewer' ? null : snapshot.credits ?? null,
   });
 }

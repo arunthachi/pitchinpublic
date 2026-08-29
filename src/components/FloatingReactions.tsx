@@ -363,7 +363,7 @@ export function FloatingReactions({
           />
         </div>
         <span className="text-[11px] font-bold text-white/[0.92] drop-shadow-md">
-          {formatNumber(pitch.feedback?.length || 0)}
+          {pitch.feedbackState === 'unavailable' ? '—' : formatNumber(pitch.feedback?.length || 0)}
         </span>
       </motion.button>
 

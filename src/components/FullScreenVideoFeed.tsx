@@ -84,6 +84,7 @@ interface FullScreenVideoFeedProps {
   reviewRequest?: { assignmentId: string; publicPitchId: string; eventSlug?: string | null; nonce: number } | null;
   onAssignedReviewComplete?: (publicPitchId: string) => Promise<void> | void;
   onReviewNext?: () => void;
+  onRetryFeedback?: () => void;
   onCurrentPitchChange?: (pitch: LegacyPitch, handlers: {
     onRoast: () => void;
     onToast: () => void;
@@ -221,6 +222,7 @@ export function FullScreenVideoFeed({
   reviewRequest = null,
   onAssignedReviewComplete,
   onReviewNext,
+  onRetryFeedback,
   onCurrentPitchChange,
   hideReactions = false,
   isGuest = false,
@@ -1044,6 +1046,8 @@ export function FullScreenVideoFeed({
       <FeedbackThreadPanel
         isOpen={feedbackListOpen}
         feedback={currentPitch.feedback || []}
+        feedbackState={currentPitch.feedbackState}
+        onRetryFeedback={onRetryFeedback}
         onClose={() => setFeedbackListOpen(false)}
         onAddFeedback={isGuest && onSignInClick ? promptForFeedbackSignIn : openFeedback}
         canRateQuality={Boolean(currentPitch.isOwnedByViewer)}

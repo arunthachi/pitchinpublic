@@ -19,7 +19,7 @@ const ROLE_LABELS: Record<ReviewerRole, string> = {
   trusted_reviewer: 'Trusted reviewer',
 };
 
-const ASSIGNMENT_STATES = new Set<ReviewAssignmentStatus>(['pending', 'started', 'submitted', 'skipped', 'expired']);
+const ASSIGNMENT_STATES = new Set<ReviewAssignmentStatus>(['pending', 'started', 'submitted', 'invalidated']);
 const QUALITY_RATINGS = new Set<FeedbackQualityRating>(['useful', 'generic', 'not_helpful']);
 
 function objectValue(value: unknown): Record<string, any> {
@@ -118,7 +118,10 @@ export function normalizeReviewQueue(payloadValue: unknown): ReviewQueueSummary 
     const eventSlug = item.eventSlug || item.event_slug || item.event?.slug || null;
     const assignmentId = item.assignmentId || item.assignment_id || item.id || `${publicPitchId}:${eventSlug || 'global'}`;
     const rawStatus = item.status;
-    const status = ASSIGNMENT_STATES.has(rawStatus) ? rawStatus as ReviewAssignmentStatus : 'pending';
+    if (!ASSIGNMENT_STATES.has(rawStatus)) {
+      throw new TypeError(`Unknown review assignment status: ${String(rawStatus)}`);
+    }
+    const status = rawStatus as ReviewAssignmentStatus;
     return [{
       assignmentId: String(assignmentId),
       pitchId: String(pitchId),

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { getInvitationHealth, publicInviteDeliveryError, scopePitchFeedbackToEvent } from '@/lib/event-dashboard';
+import { getInvitationHealth, publicInviteDeliveryError } from '@/lib/event-dashboard';
 import { createServiceSupabase } from '@/lib/admin';
+import {
+  attachFeedbackAvailability,
+  availableFeedback,
+  resolveFeedbackQuery,
+} from '@/lib/feedback-enrichment';
 import { isDeckIndicatorEligible, toDeckSummary } from '@/lib/pitch-deck';
 import { canManageEvent, firstEventUpdateIssue, parseEventUpdate } from './_server';
 import { applySignedUrls, signPrivateRows } from '@/lib/video-providers/sign-rows';
@@ -40,7 +45,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
+  if (authError) {
+    console.error('Event viewer authentication lookup failed:', authError);
+    return NextResponse.json({ success: false, error: 'Could not load the event room.' }, { status: 500 });
+  }
 
   let { data: event, error } = await supabase
     .from('pitch_events')
@@ -65,7 +75,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   // invite may reveal the room landing page, but never grants membership by
   // itself; POST /join performs the authenticated acceptance checks.
   if ((!event || error) && inviteCode && adminSupabase) {
-    const { data: privateEvent } = await adminSupabase
+    const { data: privateEvent, error: privateEventError } = await adminSupabase
       .from('pitch_events')
       .select(
         `
@@ -81,13 +91,23 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       .eq('slug', params.slug)
       .maybeSingle();
 
+    if (privateEventError) {
+      console.error('Private event invite lookup failed:', privateEventError);
+      return NextResponse.json({ success: false, error: 'Could not verify the private event.' }, { status: 500 });
+    }
+
     if (privateEvent) {
-      const { data: invitation } = await adminSupabase
+      const { data: invitation, error: invitationError } = await adminSupabase
         .from('pitch_event_invitations')
         .select('email,role,status,accepted_by,expires_at')
         .eq('event_id', privateEvent.id)
         .eq('invite_code', inviteCode)
         .maybeSingle();
+
+      if (invitationError) {
+        console.error('Private event invitation lookup failed:', invitationError);
+        return NextResponse.json({ success: false, error: 'Could not verify the event invitation.' }, { status: 500 });
+      }
 
       if (invitation) {
         event = privateEvent;
@@ -97,17 +117,27 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     }
   }
 
-  if (error || !event) {
+  if (error && error.code !== 'PGRST116') {
+    console.error('Event room lookup failed:', error);
+    return NextResponse.json({ success: false, error: 'Could not load the event room.' }, { status: 500 });
+  }
+
+  if (!event) {
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
   }
 
   if (inviteCode && adminSupabase && !resolvedInvitation) {
-    const { data: invitation } = await adminSupabase
+    const { data: invitation, error: invitationError } = await adminSupabase
       .from('pitch_event_invitations')
       .select('email,role,status,accepted_by,expires_at')
       .eq('event_id', event.id)
       .eq('invite_code', inviteCode)
       .maybeSingle();
+
+    if (invitationError) {
+      console.error('Event invitation lookup failed:', invitationError);
+      return NextResponse.json({ success: false, error: 'Could not verify the event invitation.' }, { status: 500 });
+    }
 
     resolvedInvitation = invitation;
   }
@@ -123,18 +153,24 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   let isTeamMember = false;
   let canManageEvent = false;
   let completedFeedbackIds = new Set<string>();
+  let feedbackEnrichment = availableFeedback<any>();
 
   if (user) {
-    const { data: participant } = await supabase
+    const { data: participant, error: participantError } = await supabase
       .from('pitch_event_participants')
       .select('*')
       .eq('event_id', event.id)
       .eq('user_id', user.id)
       .maybeSingle();
 
+    if (participantError) {
+      console.error('Event participation lookup failed:', participantError);
+      return NextResponse.json({ success: false, error: 'Could not load event participation.' }, { status: 500 });
+    }
+
     participation = participant;
 
-    const { data: submission } = await supabase
+    const { data: submission, error: submissionError } = await supabase
       .from('pitch_event_submissions')
       .select(
         `
@@ -165,13 +201,18 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
       .eq('user_id', user.id)
       .maybeSingle();
 
+    if (submissionError) {
+      console.error('Event submission lookup failed:', submissionError);
+      return NextResponse.json({ success: false, error: 'Could not load the event submission.' }, { status: 500 });
+    }
+
     userSubmission = submission;
 
     isTeamMember = event.organizer_id === user.id || (participant?.status === 'active' && TEAM_ROLES.includes(participant.role));
     canManageEvent = event.organizer_id === user.id || (participant?.status === 'active' && MANAGER_ROLES.includes(participant.role));
 
     if (isTeamMember) {
-      const { data: participantRows } = await supabase
+      const { data: participantRows, error: participantRowsError } = await supabase
         .from('pitch_event_participants')
         .select(
           `
@@ -190,7 +231,16 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         .eq('event_id', event.id)
         .order('joined_at', { ascending: true });
 
-      const { data: submissionRows } = await supabase
+      if (participantRowsError) {
+        console.error('Event participant list failed:', participantRowsError);
+        return NextResponse.json({ success: false, error: 'Could not load event participants.' }, { status: 500 });
+      }
+      if (!Array.isArray(participantRows)) {
+        console.error('Event participant list returned no rows without an error.');
+        return NextResponse.json({ success: false, error: 'Could not load event participants.' }, { status: 500 });
+      }
+
+      const { data: submissionRows, error: submissionRowsError } = await supabase
         .from('pitch_event_submissions')
         .select(
           `
@@ -217,20 +267,23 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
             roast_count,
             toast_count,
             views_count,
-            created_at,
-            feedback (
-              id,
-              type,
-              content,
-              created_at
-            )
+            created_at
           )
         `
         )
         .eq('event_id', event.id)
         .order('submitted_at', { ascending: false });
 
-      const { data: invitationRows } = await supabase
+      if (submissionRowsError) {
+        console.error('Event submission list failed:', submissionRowsError);
+        return NextResponse.json({ success: false, error: 'Could not load event submissions.' }, { status: 500 });
+      }
+      if (!Array.isArray(submissionRows)) {
+        console.error('Event submission list returned no rows without an error.');
+        return NextResponse.json({ success: false, error: 'Could not load event submissions.' }, { status: 500 });
+      }
+
+      const { data: invitationRows, error: invitationRowsError } = await supabase
         .from('pitch_event_invitations')
         .select(
           `
@@ -254,7 +307,16 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         .eq('event_id', event.id)
         .order('created_at', { ascending: false });
 
-      participants = participantRows || [];
+      if (invitationRowsError) {
+        console.error('Event invitation list failed:', invitationRowsError);
+        return NextResponse.json({ success: false, error: 'Could not load event invitations.' }, { status: 500 });
+      }
+      if (!Array.isArray(invitationRows)) {
+        console.error('Event invitation list returned no rows without an error.');
+        return NextResponse.json({ success: false, error: 'Could not load event invitations.' }, { status: 500 });
+      }
+
+      participants = participantRows;
 
       // Lightweight per-founder deck indicator for the team dashboard. Only
       // kind and display name travel here; the actual URL is signed on demand
@@ -302,8 +364,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         }
       }
 
-      submissions = submissionRows || [];
-      invitations = (invitationRows || []).map((invitation: any) => {
+      submissions = submissionRows;
+      invitations = invitationRows.map((invitation: any) => {
         const { invite_code: inviteCode, ...safeInvitation } = invitation;
         return {
           ...safeInvitation,
@@ -313,35 +375,47 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         };
       });
 
-      const { data: assignmentRows } = await supabase
+      const { data: assignmentRows, error: assignmentRowsError } = await supabase
         .rpc('get_event_review_assignments', { target_event_id: event.id });
 
+      if (assignmentRowsError) {
+        console.error('Event review assignments failed:', assignmentRowsError);
+        return NextResponse.json({ success: false, error: 'Could not load event review assignments.' }, { status: 500 });
+      }
+      if (!Array.isArray(assignmentRows)) {
+        console.error('Event review assignments returned no rows without an error.');
+        return NextResponse.json({ success: false, error: 'Could not load event review assignments.' }, { status: 500 });
+      }
+
       completedFeedbackIds = new Set(
-        (assignmentRows || [])
+        assignmentRows
           .filter((row: any) => row.status === 'submitted' && row.completed_feedback_id)
           .map((row: any) => row.completed_feedback_id),
       );
-      submissions = (submissionRows || []).map((row: any) => ({
-        ...row,
-        pitch: row.pitch ? scopePitchFeedbackToEvent(row.pitch, completedFeedbackIds) : row.pitch,
-      }));
-
-      const { data: qualitySummaryRows } = await supabase
+      const { data: qualitySummaryRows, error: qualitySummaryError } = await supabase
         .rpc('get_event_review_quality_summary', { target_event_id: event.id });
+      if (qualitySummaryError) {
+        console.error('Event review quality summary failed:', qualitySummaryError);
+        return NextResponse.json({ success: false, error: 'Could not load event review quality.' }, { status: 500 });
+      }
+      if (qualitySummaryRows == null) {
+        console.error('Event review quality summary returned no data without an error.');
+        return NextResponse.json({ success: false, error: 'Could not load event review quality.' }, { status: 500 });
+      }
       const qualitySummary = Array.isArray(qualitySummaryRows) ? qualitySummaryRows[0] : qualitySummaryRows;
 
-      const submittedPitchIds = new Set((submissionRows || []).map((row: any) => row.pitch_id).filter(Boolean));
+      const submittedPitchIds = new Set(submissionRows.map((row: any) => row.pitch_id).filter(Boolean));
       // Coverage measures the ORGANIZER'S review programme. Peer feedback is a
       // welcome extra, but counting it here would let cohort chatter satisfy a
       // "3 reviews per pitch" target and stop an organizer chasing their
       // judges. Reported separately below instead.
       const isPeerReview = (row: any) => row.assignment_reason === 'cohort_peer_feedback';
-      const programmeAssignments = (assignmentRows || []).filter((row: any) => !isPeerReview(row));
-      const peerAssignments = (assignmentRows || []).filter(isPeerReview);
+      const programmeAssignments = assignmentRows.filter((row: any) => !isPeerReview(row));
+      const peerAssignments = assignmentRows.filter(isPeerReview);
       const completedAssignments = programmeAssignments.filter((row: any) => row.status === 'submitted');
       const completedPeerReviews = peerAssignments.filter((row: any) => row.status === 'submitted');
       const pitchesWithFeedback = new Set(completedAssignments.map((row: any) => row.pitch_id));
-      const firstReviewMinutes = (submissionRows || []).flatMap((row: any) => {
+      const firstReviewMinutes = submissionRows.flatMap((row: any) => {
         const submittedAt = new Date(row.submitted_at || 0).getTime();
         const feedbackTimes = completedAssignments
           .filter((item: any) => item.pitch_id === row.pitch_id)
@@ -371,12 +445,12 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
           : null,
       };
 
-      const founderIds = (participantRows || [])
+      const founderIds = participantRows
         .filter((row: any) => row.role === 'founder')
         .map((row: any) => row.user_id);
 
       if (founderIds.length) {
-        const { data: pitchRows } = await supabase
+        const { data: pitchRows, error: pitchRowsError } = await supabase
           .from('pitches')
           .select(
             `
@@ -410,12 +484,6 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
               public_handle,
               website,
               linkedin_url
-            ),
-            feedback (
-              id,
-              type,
-              content,
-              created_at
             )
           `
           )
@@ -424,12 +492,60 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
           .is('deleted_at', null)
           .order('created_at', { ascending: false });
 
-        pitches = (pitchRows || []).map((pitch: any) => scopePitchFeedbackToEvent(pitch, completedFeedbackIds));
+        if (pitchRowsError) {
+          console.error('Event pitch list failed:', pitchRowsError);
+          return NextResponse.json({ success: false, error: 'Could not load event pitches.' }, { status: 500 });
+        }
+        if (!Array.isArray(pitchRows)) {
+          console.error('Event pitch list returned no rows without an error.');
+          return NextResponse.json({ success: false, error: 'Could not load event pitches.' }, { status: 500 });
+        }
+
+        pitches = pitchRows;
       }
+
+      const embeddedPitch = (row: any) => (Array.isArray(row?.pitch) ? row.pitch[0] : row?.pitch);
+      const pitchIds = [...new Set([
+        ...submissionRows.map((row: any) => embeddedPitch(row)?.id),
+        ...pitches.map((pitch: any) => pitch.id),
+      ].filter(Boolean))] as string[];
+      const feedbackResult = pitchIds.length && completedFeedbackIds.size
+        ? await supabase.rpc('get_founder_pitch_feedback', { target_pitch_ids: pitchIds })
+        : { data: [], error: null };
+      feedbackEnrichment = resolveFeedbackQuery<any>({
+        data: Array.isArray(feedbackResult.data)
+          ? feedbackResult.data.filter((feedback: any) => completedFeedbackIds.has(feedback.id))
+          : feedbackResult.data as any[] | null,
+        error: feedbackResult.error,
+      });
+      if (feedbackEnrichment.feedbackState === 'unavailable') {
+        console.error('Event feedback enrichment failed; returning base event pitches:', feedbackEnrichment.error);
+      }
+
+      const attachEventFeedback = (pitch: any) =>
+        attachFeedbackAvailability(pitch, feedbackEnrichment, (feedback: any) => ({
+          id: feedback.id,
+          type: feedback.type,
+          content: feedback.content,
+          author_name: feedback.reviewer_label || 'Reviewer',
+          author: feedback.profiles || undefined,
+          reviewer_role: feedback.reviewer_role,
+          reviewer_badge: feedback.reviewer_badge || null,
+          created_at: feedback.created_at,
+        }));
+      const attachSubmissionFeedback = (row: any) => {
+        if (!row?.pitch) return row;
+        if (Array.isArray(row.pitch)) {
+          return { ...row, pitch: row.pitch.map((pitch: any) => pitch ? attachEventFeedback(pitch) : pitch) };
+        }
+        return { ...row, pitch: attachEventFeedback(row.pitch) };
+      };
+      submissions = submissionRows.map(attachSubmissionFeedback);
+      pitches = pitches.map(attachEventFeedback);
     }
 
     if (participation || isTeamMember) {
-      const { data: announcementRows } = await supabase
+      const { data: announcementRows, error: announcementRowsError } = await supabase
         .from('pitch_event_announcements')
         .select(
           `
@@ -446,7 +562,16 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         .order('created_at', { ascending: false })
         .limit(20);
 
-      announcements = announcementRows || [];
+      if (announcementRowsError) {
+        console.error('Event announcement list failed:', announcementRowsError);
+        return NextResponse.json({ success: false, error: 'Could not load event announcements.' }, { status: 500 });
+      }
+      if (!Array.isArray(announcementRows)) {
+        console.error('Event announcement list returned no rows without an error.');
+        return NextResponse.json({ success: false, error: 'Could not load event announcements.' }, { status: 500 });
+      }
+
+      announcements = announcementRows;
     }
   }
 
@@ -520,14 +645,14 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
   // future select cannot quietly ship an unsigned private URL.
   const submissionPitch = (row: any) => (Array.isArray(row?.pitch) ? row.pitch[0] : row?.pitch);
   const eventPitchRows = [
-    ...(pitches || []),
-    ...(submissions || []).map(submissionPitch),
+    ...pitches,
+    ...submissions.map(submissionPitch),
     // The founder's own submission is private by definition and was being
     // returned raw alongside the signed copies.
     submissionPitch(userSubmission),
   ].filter(Boolean);
   const signedEventUrls = await signPrivateRows(eventPitchRows as any[]);
-  const signedPitches = (pitches || []).map((row: any) => applySignedUrls(row, signedEventUrls));
+  const signedPitches = pitches.map((row: any) => applySignedUrls(row, signedEventUrls));
   // Preserve the original shape: Supabase returns an array for some embeds and
   // an object for others, and every element must survive.
   const signSubmissionRow = (row: any) => {
@@ -537,7 +662,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     }
     return { ...row, pitch: applySignedUrls(row.pitch, signedEventUrls) };
   };
-  const signedSubmissions = (submissions || []).map(signSubmissionRow);
+  const signedSubmissions = submissions.map(signSubmissionRow);
   const signedUserSubmission = userSubmission ? signSubmissionRow(userSubmission) : userSubmission;
 
   return NextResponse.json({
@@ -548,6 +673,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
     participants,
     submissions: signedSubmissions,
     pitches: signedPitches,
+    feedbackState: feedbackEnrichment.feedbackState,
     invitations,
     announcements,
     isOrganizer: Boolean(user && event.organizer_id === user.id),

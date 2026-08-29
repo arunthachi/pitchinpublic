@@ -96,60 +96,39 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     return NextResponse.json({ success: false, error: 'You can only submit one of your own active pitches.' }, { status: 403 });
   }
 
-  const { data: participant } = await supabase
-    .from('pitch_event_participants')
-    .select('*')
-    .eq('event_id', event.id)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (!participant) {
-    return NextResponse.json({ success: false, error: 'Join the pitch event before submitting a final take.' }, { status: 403 });
-  }
-
-  const { data: submission, error } = await supabase
-    .from('pitch_event_submissions')
-    .upsert(
-      {
-        event_id: event.id,
-        user_id: user.id,
-        pitch_id: pitch.id,
-        status: 'submitted',
-        submitted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'event_id,user_id' }
-    )
-    .select('*')
-    .single();
+  const { data: submissionResult, error } = await supabase.rpc(
+    'submit_legacy_event_final_take_atomic',
+    { target_event_id: event.id, target_pitch_id: pitch.id },
+  );
 
   if (error) {
     console.error('Error submitting final take:', error);
+    if (error.message.includes('Active event participation required')) {
+      return NextResponse.json({ success: false, error: 'Join the pitch event before submitting a final take.' }, { status: 403 });
+    }
+    if (error.message.includes('Event submissions are closed')) {
+      return NextResponse.json({ success: false, error: 'Submissions are locked for this event.' }, { status: 403 });
+    }
+    if (error.message.includes('Pitch not found or not owned by caller') || error.message.includes('Pitch is already bound to another event')) {
+      return NextResponse.json({ success: false, error: 'You can only submit one of your own active pitches for this event.' }, { status: 403 });
+    }
     return NextResponse.json({ success: false, error: 'Could not submit final take' }, { status: 500 });
   }
 
-  // Submitting binds the pitch to this event and makes it private the first
-  // time, matching the record-from-event path. A pitch already bound to an
-  // event keeps its current visibility — the founder may have shared it to
-  // the feed deliberately, and that stays their call. When a previously
-  // public take is privatized here, the response says so and the UI tells
-  // the founder rather than pulling it from the feed silently.
-  let visibilityChanged = false;
-  if (!pitch.event_id) {
-    const wasPublic = pitch.visibility === 'public';
-    const { error: bindError } = await supabase
-      .from('pitches')
-      .update({ event_id: event.id, visibility: 'private', updated_at: new Date().toISOString() })
-      .eq('id', pitch.id)
-      .eq('user_id', user.id);
-    if (bindError) {
-      console.error('Could not bind submitted pitch to the event:', bindError);
-    } else {
-      visibilityChanged = wasPublic;
-    }
+  const atomicResult = (Array.isArray(submissionResult) ? submissionResult[0] : submissionResult) as Record<string, unknown> | null;
+  if (!atomicResult?.submission || typeof atomicResult.submission !== 'object' || typeof atomicResult.pitch_id !== 'string') {
+    console.error('Atomic final take submission returned an invalid response');
+    return NextResponse.json({ success: false, error: 'Could not submit final take' }, { status: 500 });
   }
 
-  return NextResponse.json(buildSubmissionSuccessResponse(submission, pitch, visibilityChanged));
+  return NextResponse.json(buildSubmissionSuccessResponse(
+    atomicResult.submission as Record<string, unknown>,
+    {
+      id: atomicResult.pitch_id,
+      public_id: typeof atomicResult.public_id === 'string' ? atomicResult.public_id : null,
+    },
+    atomicResult.visibility_changed === true,
+  ));
 }
 
 export async function DELETE(request: NextRequest, props: { params: Promise<{ slug: string }> }) {

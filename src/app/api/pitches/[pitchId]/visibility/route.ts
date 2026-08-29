@@ -65,7 +65,6 @@ export async function POST(
 
   const { data: updated, error: updateError } = await ownerScopedVisibilityUpdate(supabase, {
     pitchId,
-    userId: user.id,
     visibility: parsed.data.visibility,
   });
 

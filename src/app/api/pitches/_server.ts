@@ -21,7 +21,8 @@ export function structuredFeedbackProvenance(feedback: Record<string, any>) {
     observation: feedback.observation || null,
     next_step: feedback.next_step || null,
     disclosure_mode: disclosureMode,
-    author_name: disclosureMode === 'named' ? feedback.author?.full_name || null : null,
+    author_name: feedback.reviewer_label
+      || (disclosureMode === 'named' ? feedback.author?.full_name || feedback.profiles?.full_name || null : null),
     display_role_only: disclosureMode !== 'named',
   };
 }

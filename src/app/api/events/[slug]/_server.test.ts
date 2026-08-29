@@ -129,3 +129,20 @@ test('rejects unknown or ownership fields', () => {
   );
   assert.equal(result.success, false);
 });
+
+test('event attendee and organizer payloads do not couple base pitches to feedback', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(source, /feedback\s*\(/, 'event base selects must not embed feedback');
+  assert.match(source, /\.rpc\('get_founder_pitch_feedback', \{ target_pitch_ids: pitchIds \}\)/);
+  assert.match(source, /submissions = submissionRows\.map\(attachSubmissionFeedback\)/);
+  assert.match(source, /pitches = pitches\.map\(attachEventFeedback\)/);
+  assert.match(source, /feedbackState: feedbackEnrichment\.feedbackState/);
+  assert.match(
+    source,
+    /let feedbackEnrichment = availableFeedback<any>\(\)/,
+    'attendee responses without organizer-only enrichment still report an explicit state',
+  );
+  assert.match(source, /returning base event pitches/);
+});

@@ -79,8 +79,8 @@ test('requires public pitch identifiers for review queue navigation', () => {
 test('keeps two event assignments for the same pitch independently actionable', () => {
   const queue = normalizeReviewQueue({
     assignments: [
-      { id: 'assignment-a', pitch: { publicId: 'p_samepitch' }, event: { slug: 'event-a' } },
-      { id: 'assignment-b', pitch: { publicId: 'p_samepitch' }, event: { slug: 'event-b' } },
+      { id: 'assignment-a', status: 'pending', pitch: { publicId: 'p_samepitch' }, event: { slug: 'event-a' } },
+      { id: 'assignment-b', status: 'started', pitch: { publicId: 'p_samepitch' }, event: { slug: 'event-b' } },
     ],
   });
 
@@ -91,4 +91,27 @@ test('keeps two event assignments for the same pitch independently actionable', 
       ['assignment-b', 'p_samepitch', 'event-b'],
     ],
   );
+});
+
+test('rejects unknown assignment states instead of making them actionable', () => {
+  assert.throws(
+    () => normalizeReviewQueue({
+      assignments: [
+        { id: 'assignment-a', status: 'future_state', pitch: { publicId: 'p_pitch' } },
+      ],
+    }),
+    /Unknown review assignment status: future_state/,
+  );
+});
+
+test('recognizes invalidated assignments without treating them as pending', () => {
+  const queue = normalizeReviewQueue({
+    assignments: [
+      { id: 'assignment-a', status: 'invalidated', pitch: { publicId: 'p_pitch' } },
+    ],
+    pendingCount: 0,
+  });
+
+  assert.equal(queue?.items[0].status, 'invalidated');
+  assert.equal(queue?.pendingCount, 0);
 });

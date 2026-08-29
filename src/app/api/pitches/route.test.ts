@@ -50,11 +50,16 @@ test('structured pitch creation consumes a server-owned recording session', asyn
 test('pitch reads preserve the immutable event standard and structured feedback provenance', async () => {
   const { readFile } = await import('node:fs/promises');
   const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
-  assert.match(source, /event_guideline_version_id,/);
-  assert.match(source, /criterion_key,/);
-  assert.match(source, /observation,/);
-  assert.match(source, /next_step,/);
-  assert.match(source, /disclosure_mode,/);
+  const contract = await readFile(
+    new URL('../../../../supabase/migrations/20260829000021_add_incident_database_contracts.sql', import.meta.url),
+    'utf8',
+  );
+  assert.match(source, /get_founder_pitch_feedback/);
+  assert.match(contract, /event_guideline_version_id uuid/);
+  assert.match(contract, /criterion_key text/);
+  assert.match(contract, /observation text/);
+  assert.match(contract, /next_step text/);
+  assert.match(contract, /disclosure_mode text/);
   assert.match(source, /structuredFeedbackProvenance\(feedback\)/);
   assert.deepEqual(structuredFeedbackProvenance({
     event_guideline_version_id: 'version-1', criterion_key: 'ask', observation: 'The ask is broad', next_step: 'Name one specific request', disclosure_mode: 'named', author: { full_name: 'Coach Lee' },
@@ -146,4 +151,17 @@ test('the feed route scopes by event and skips the public-only filter', async ()
     /if \(eventScopeId\) \{\s*countQuery = countQuery\.eq\('event_id', eventScopeId\);\s*\} else if/,
     'count query must mirror the data query',
   );
+});
+
+test('pitch reads keep base rows independent from feedback enrichment failures', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(source, /feedback\s*\(/, 'base pitch selects must not embed feedback');
+  assert.match(source, /\.rpc\('get_founder_pitch_feedback', \{ target_pitch_ids: pitchIds \}\)/);
+  assert.match(source, /resolveFeedbackQuery<any>/);
+  assert.match(source, /feedbackState: feedbackEnrichment\.feedbackState/);
+  assert.match(source, /returning base pitches/);
+  assert.match(source, /error: countError/);
+  assert.match(source, /if \(countError\) throw countError/);
 });
