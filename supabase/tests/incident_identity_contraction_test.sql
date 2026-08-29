@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(12);
+SELECT plan(14);
 
 SELECT ok(
   NOT has_table_privilege('anon', 'public.review_assignments', 'SELECT'),
@@ -28,6 +28,14 @@ SELECT ok(
   AND has_function_privilege('authenticated', 'public.get_review_assignment_detail(uuid)', 'EXECUTE')
   AND has_function_privilege('authenticated', 'public.get_event_review_assignments(uuid)', 'EXECUTE'),
   'authenticated callers retain fixed assignment projections'
+);
+SELECT ok(
+  NOT has_function_privilege('anon', 'public.get_event_review_assignments(uuid)', 'EXECUTE'),
+  'anonymous callers cannot execute the organizer assignment projection'
+);
+SELECT ok(
+  NOT has_function_privilege('anon', 'public.get_review_assignment_event_identities(uuid[])', 'EXECUTE'),
+  'anonymous callers cannot execute the assignment identity projection'
 );
 SELECT ok(
   pg_get_function_result('public.get_event_review_assignments(uuid)'::regprocedure)

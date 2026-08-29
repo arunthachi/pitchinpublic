@@ -6,6 +6,7 @@
 
 - Browser roles can no longer read accountable reviewer identity directly from feedback or review-assignment tables.
 - Founder, reviewer, event-manager, and service workflows retain access through disclosure-aware RPC projections and service-only audit paths.
+- Anonymous callers can no longer execute authenticated assignment-accountability RPCs retained from older grants.
 
 ## [0.2.3] - 2026-08-29
 
