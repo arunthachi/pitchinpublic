@@ -5,6 +5,7 @@ import { createServiceSupabase } from '@/lib/admin';
 import {
   attachFeedbackAvailability,
   availableFeedback,
+  loadFeedbackInBatches,
   resolveFeedbackQuery,
 } from '@/lib/feedback-enrichment';
 import { isDeckIndicatorEligible, toDeckSummary } from '@/lib/pitch-deck';
@@ -509,15 +510,17 @@ export async function GET(request: NextRequest, props: { params: Promise<{ slug:
         ...submissionRows.map((row: any) => embeddedPitch(row)?.id),
         ...pitches.map((pitch: any) => pitch.id),
       ].filter(Boolean))] as string[];
-      const feedbackResult = pitchIds.length && completedFeedbackIds.size
-        ? await supabase.rpc('get_founder_pitch_feedback', { target_pitch_ids: pitchIds })
-        : { data: [], error: null };
-      feedbackEnrichment = resolveFeedbackQuery<any>({
-        data: Array.isArray(feedbackResult.data)
-          ? feedbackResult.data.filter((feedback: any) => completedFeedbackIds.has(feedback.id))
-          : feedbackResult.data as any[] | null,
-        error: feedbackResult.error,
-      });
+      feedbackEnrichment = pitchIds.length && completedFeedbackIds.size
+        ? await loadFeedbackInBatches<any>(pitchIds, async (batch) => {
+            const result = await supabase.rpc('get_founder_pitch_feedback', { target_pitch_ids: batch });
+            return {
+              data: Array.isArray(result.data)
+                ? result.data.filter((feedback: any) => completedFeedbackIds.has(feedback.id))
+                : result.data as any[] | null,
+              error: result.error,
+            };
+          })
+        : resolveFeedbackQuery<any>({ data: [], error: null });
       if (feedbackEnrichment.feedbackState === 'unavailable') {
         console.error('Event feedback enrichment failed; returning base event pitches:', feedbackEnrichment.error);
       }

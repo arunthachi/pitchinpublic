@@ -12,6 +12,27 @@ export type FeedbackQueryResult<T> =
 
 type FeedbackRow = { pitch_id?: unknown };
 
+export async function loadFeedbackInBatches<T extends FeedbackRow>(
+  pitchIds: readonly string[],
+  loadBatch: (pitchIds: string[]) => Promise<{ data: T[] | null; error: unknown }>,
+  batchSize = 100,
+): Promise<FeedbackQueryResult<T>> {
+  if (!Number.isInteger(batchSize) || batchSize < 1) {
+    return { feedbackState: 'unavailable', error: new Error('Feedback batch size must be positive.') };
+  }
+
+  const rows: T[] = [];
+  for (let offset = 0; offset < pitchIds.length; offset += batchSize) {
+    const result = await loadBatch(pitchIds.slice(offset, offset + batchSize));
+    if (result.error || !Array.isArray(result.data)) {
+      return resolveFeedbackQuery(result);
+    }
+    rows.push(...result.data);
+  }
+
+  return resolveFeedbackQuery({ data: rows, error: null });
+}
+
 /**
  * Converts a Supabase feedback response into an explicit availability result.
  * A failed enrichment never becomes an empty array, because that would make an
