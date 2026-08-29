@@ -99,7 +99,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ userI
       .from('pitches')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', profile.id)
-      .eq('deleted_at', null);
+      .eq('status', 'published')
+      .eq('visibility', 'public')
+      .is('deleted_at', null);
 
     return NextResponse.json({
       success: true,

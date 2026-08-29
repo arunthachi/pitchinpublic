@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { normalizeEmail, requirePlatformAdmin } from '@/lib/admin';
+import { createRequestSupabase, normalizeEmail, requirePlatformAdmin } from '@/lib/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,28 +41,14 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Reviewer access is already inactive.' }, { status: 409 });
   }
 
-  // Revoke the membership first so a partial cleanup failure cannot leave
-  // community pitch access active. Event grants are inert for revoked members.
-  const { error: membershipError } = await admin.adminSupabase
-    .from('trusted_reviewer_memberships')
-    .update({
-      status: 'revoked',
-      revoked_at: new Date().toISOString(),
-      revoked_by: admin.user.id,
-    })
-    .eq('id', membership.id)
-    .eq('status', 'active');
+  const requestSupabase = createRequestSupabase(request);
+  const { error: membershipError } = await requestSupabase!.rpc(
+    'revoke_trusted_reviewer_membership_locked',
+    { target_membership_id: membership.id },
+  );
 
   if (membershipError) {
     return NextResponse.json({ success: false, error: 'Could not revoke reviewer access.' }, { status: 500 });
-  }
-
-  const { error: grantError } = await admin.adminSupabase
-    .from('trusted_reviewer_event_access')
-    .delete()
-    .eq('membership_id', membership.id);
-  if (grantError) {
-    console.warn('Reviewer membership revoked but stale event grants could not be removed:', grantError);
   }
 
   return NextResponse.json({ success: true, reviewerEmail: email });

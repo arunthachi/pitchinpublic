@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ExternalLink,
@@ -27,14 +27,26 @@ import {
 } from '@/lib/pitch-copy';
 import { addUtcDays, startOfUtcDay, toUtcDateKey } from '@/lib/momentum';
 import { isUuidLike, pitchPath } from '@/lib/public-routes';
-import { feedbackReviewerDisplay, normalizeLegacyFeedback } from '@/lib/review-marketplace';
+import { normalizeLegacyFeedback } from '@/lib/review-marketplace';
 import { SignInModal } from '@/components/SignInModal';
 import { ActionPageNav } from '@/components/ActionPageNav';
 import AppTabBar from '@/components/AppTabBar';
 import ProfileDeckCard from '@/components/ProfileDeckCard';
+import {
+  ProfileFeedbackHistory,
+  type FeedbackHistoryView,
+  type ReceivedFeedbackState,
+} from '@/components/ProfileFeedbackHistory';
 import { profileNavigationLinks } from '@/lib/app-navigation';
 
 type ProfileTab = 'pitches' | 'best' | 'feedback' | 'goals';
+
+const PROFILE_TABS = [
+  { id: 'pitches' as const, label: 'Pitches', icon: Grid3X3 },
+  { id: 'best' as const, label: 'Final Takes', icon: Trophy },
+  { id: 'feedback' as const, label: 'Feedback', icon: MessageSquareText },
+  { id: 'goals' as const, label: 'Goals', icon: Target },
+];
 
 interface FinalTake {
   id: string;
@@ -53,7 +65,7 @@ interface PitchMomentumDay {
 }
 
 function parseFeedback(rawFeedback: any[] | undefined) {
-  return (rawFeedback || []).map(normalizeLegacyFeedback);
+  return rawFeedback?.map(normalizeLegacyFeedback);
 }
 
 function convertApiPitchToLegacy(pitch: any): LegacyPitch {
@@ -92,7 +104,7 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(value));
 }
 
-function buildPitchMomentumDays(pitches: LegacyPitch[], finalPitchIds: Set<string>) {
+function buildPitchMomentumDays(pitches: LegacyPitch[], finalPitchIds: Set<string>, includeFeedback: boolean) {
   const today = startOfUtcDay(new Date());
   const start = addUtcDays(today, -111);
   const activityByDate = new Map<string, { pitchCount: number; feedbackCount: number; finalCount: number }>();
@@ -104,6 +116,7 @@ function buildPitchMomentumDays(pitches: LegacyPitch[], finalPitchIds: Set<strin
     if (finalPitchIds.has(pitch.id)) current.finalCount += 1;
     activityByDate.set(pitchKey, current);
 
+    if (!includeFeedback) return;
     (pitch.feedback || []).forEach((feedback) => {
       if (!feedback.createdAt) return;
       const feedbackKey = toUtcDateKey(feedback.createdAt);
@@ -166,7 +179,9 @@ function readinessLabel(value: number) {
 
 export default function UserProfilePage() {
   const params = useParams();
+  const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const profileKey = params.userId as string;
   const { user: currentUser, loading: authLoading, signOut } = useAuth();
 
@@ -174,11 +189,19 @@ export default function UserProfilePage() {
   const [pitches, setPitches] = useState<LegacyPitch[]>([]);
   const [finalTakes, setFinalTakes] = useState<FinalTake[]>([]);
   const [activeTab, setActiveTab] = useState<ProfileTab>('pitches');
+  const [receivedFeedbackState, setReceivedFeedbackState] = useState<ReceivedFeedbackState>('available');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSignIn, setShowSignIn] = useState(false);
 
   const isOwnProfile = Boolean(currentUser?.id && profile?.id === currentUser.id);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab === 'pitches' || requestedTab === 'best' || requestedTab === 'feedback' || requestedTab === 'goals') {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -211,6 +234,9 @@ export default function UserProfilePage() {
         if (pitchesRes.ok) {
           const pitchData = await pitchesRes.json();
           setPitches((pitchData.pitches || []).map(convertApiPitchToLegacy));
+          setReceivedFeedbackState(pitchData.feedbackState === 'unavailable' ? 'unavailable' : 'available');
+        } else {
+          setReceivedFeedbackState('unavailable');
         }
 
         if (finalTakesRes.ok) {
@@ -230,11 +256,35 @@ export default function UserProfilePage() {
 
   const finalPitchIds = useMemo(() => new Set(finalTakes.map((take) => take.pitch_id)), [finalTakes]);
   const allFeedback = pitches.flatMap((pitch) => pitch.feedback || []);
-  const momentumDays = useMemo(() => buildPitchMomentumDays(pitches, finalPitchIds), [pitches, finalPitchIds]);
-  const momentumStats = useMemo(() => getStreakStats(momentumDays), [momentumDays]);
+  const momentumDays = buildPitchMomentumDays(pitches, finalPitchIds, receivedFeedbackState === 'available');
+  const momentumStats = getStreakStats(momentumDays);
   const avgReadiness = allFeedback.length
     ? Math.round((allFeedback.reduce((sum, item) => sum + (item.readiness || 2), 0) / allFeedback.length) * 10) / 10
     : 0;
+
+  const requestedFeedbackView: FeedbackHistoryView = searchParams.get('feedback') === 'given' ? 'given' : 'received';
+
+  const updateProfileQuery = (tab: ProfileTab, feedbackView?: FeedbackHistoryView) => {
+    const query = new URLSearchParams(searchParams.toString());
+    query.set('tab', tab);
+    if (tab === 'feedback' && feedbackView === 'given') query.set('feedback', 'given');
+    else query.delete('feedback');
+    router.push(`${pathname}?${query.toString()}`, { scroll: false });
+  };
+
+  const handleProfileTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, tab: ProfileTab) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = PROFILE_TABS.findIndex((item) => item.id === tab);
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? PROFILE_TABS.length - 1
+        : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + PROFILE_TABS.length) % PROFILE_TABS.length;
+    const nextTab = PROFILE_TABS[nextIndex].id;
+    updateProfileQuery(nextTab);
+    document.getElementById(`profile-${nextTab}-tab`)?.focus();
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -255,7 +305,7 @@ export default function UserProfilePage() {
           isBestTake: pitch.id === pitchId,
         }))
       );
-      setActiveTab('best');
+      updateProfileQuery('best');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Could not mark best take.');
     }
@@ -372,8 +422,8 @@ export default function UserProfilePage() {
               {[
                 { label: 'Pitches', value: pitches.length, icon: Video },
                 { label: 'Final takes', value: finalTakes.length, icon: Trophy },
-                { label: 'Coach notes', value: allFeedback.length, icon: MessageSquareText },
-                { label: 'Readiness', value: avgReadiness ? readinessLabel(avgReadiness) : 'New', icon: Target },
+                { label: 'Coach notes', value: receivedFeedbackState === 'available' ? allFeedback.length : '—', icon: MessageSquareText },
+                { label: 'Readiness', value: receivedFeedbackState === 'available' ? (avgReadiness ? readinessLabel(avgReadiness) : 'New') : '—', icon: Target },
               ].map((stat) => {
                 const Icon = stat.icon;
                 return (
@@ -391,7 +441,8 @@ export default function UserProfilePage() {
         <PitchMomentumHeatmap
           days={momentumDays}
           totalPitches={pitches.length}
-          totalFeedback={allFeedback.length}
+          totalFeedback={receivedFeedbackState === 'available' ? allFeedback.length : '—'}
+          feedbackAvailable={receivedFeedbackState === 'available'}
           activeDays={momentumStats.activeDays}
           currentStreak={momentumStats.current}
           longestStreak={momentumStats.longest}
@@ -401,20 +452,21 @@ export default function UserProfilePage() {
           <ProfileDeckCard onManage={() => router.push('/?profileEdit=1')} />
         ) : null}
 
-        <nav className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035] p-1 backdrop-blur-xl">
-          {[
-            { id: 'pitches' as const, label: 'Pitches', icon: Grid3X3 },
-            { id: 'best' as const, label: 'Final Takes', icon: Trophy },
-            { id: 'feedback' as const, label: 'Feedback', icon: MessageSquareText },
-            { id: 'goals' as const, label: 'Goals', icon: Target },
-          ].map((tab) => {
+        <nav role="tablist" aria-label="Profile sections" className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.035] p-1 backdrop-blur-xl">
+          {PROFILE_TABS.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                id={`profile-${tab.id}-tab`}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                role="tab"
+                aria-selected={active}
+                aria-controls={`profile-${tab.id}-panel`}
+                tabIndex={active ? 0 : -1}
+                onClick={() => updateProfileQuery(tab.id)}
+                onKeyDown={(event) => handleProfileTabKeyDown(event, tab.id)}
                 className={`inline-flex min-w-fit flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${
                   active ? 'bg-neon-cyan text-slate-950' : 'text-slate-400 hover:bg-white/[0.06] hover:text-white'
                 }`}
@@ -427,35 +479,17 @@ export default function UserProfilePage() {
         </nav>
 
         {activeTab === 'feedback' ? (
-          <section className="mt-6 grid gap-3 md:grid-cols-2">
-            {allFeedback.length ? allFeedback.map((item) => {
-              const reviewer = feedbackReviewerDisplay(item);
-              return (
-                <article key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black uppercase ${item.type === 'roast' ? 'bg-roast/15 text-roast' : 'bg-toast/15 text-toast'}`}>
-                      {item.type === 'roast' ? <Flame className="h-3.5 w-3.5" /> : <Wine className="h-3.5 w-3.5" />}
-                      {(item.signals?.length ? item.signals.join(' + ') : item.signal) || item.type}
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500">{readinessLabel(item.readiness || 2)}</span>
-                  </div>
-                  <p className="text-sm leading-6 text-slate-200">{item.notes || 'Signal-only coach note.'}</p>
-                  <span className="mt-3 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                    {reviewer.role}
-                  </span>
-                  {reviewer.expertise.length ? (
-                    <p className="mt-1 truncate text-[10px] text-slate-500">
-                      {reviewer.expertise.slice(0, 2).join(' · ')}
-                    </p>
-                  ) : null}
-                </article>
-              );
-            }) : (
-              <EmptyState title="No feedback yet" body="Coach notes will appear here after builders respond to pitches." />
-            )}
-          </section>
+          <div id="profile-feedback-panel" role="tabpanel" aria-labelledby="profile-feedback-tab">
+            <ProfileFeedbackHistory
+              received={allFeedback}
+              receivedState={receivedFeedbackState}
+              showGiven={isOwnProfile}
+              activeView={requestedFeedbackView}
+              onViewChange={(view) => updateProfileQuery('feedback', view)}
+            />
+          </div>
         ) : activeTab === 'goals' ? (
-          <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <section id="profile-goals-panel" role="tabpanel" aria-labelledby="profile-goals-tab" className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] p-6">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-neon-cyan">Pitch goals</p>
             <h2 className="mt-3 font-heading text-3xl font-bold">Event and personal goals are tracked from pitch practice.</h2>
             <p className="mt-3 max-w-2xl leading-7 text-slate-400">
@@ -466,7 +500,7 @@ export default function UserProfilePage() {
             </Link>
           </section>
         ) : visiblePitches.length ? (
-          <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <section id={`profile-${activeTab}-panel`} role="tabpanel" aria-labelledby={`profile-${activeTab}-tab`} className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {visiblePitches.map((pitch, index) => (
               <motion.div
                 key={pitch.id}
@@ -543,13 +577,15 @@ function PitchMomentumHeatmap({
   days,
   totalPitches,
   totalFeedback,
+  feedbackAvailable,
   activeDays,
   currentStreak,
   longestStreak,
 }: {
   days: PitchMomentumDay[];
   totalPitches: number;
-  totalFeedback: number;
+  totalFeedback: number | '—';
+  feedbackAvailable: boolean;
   activeDays: number;
   currentStreak: number;
   longestStreak: number;
@@ -573,7 +609,9 @@ function PitchMomentumHeatmap({
             <span className="hidden sm:inline">Practice reps over the last 16 weeks</span>
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Brighter days mean more pitch reps, received feedback, or a final take submitted.
+            {feedbackAvailable
+              ? 'Brighter days mean more pitch reps, received feedback, or a final take submitted.'
+              : 'Brighter days currently reflect pitch reps and final takes. Feedback activity is temporarily unavailable.'}
           </p>
         </div>
         <div className="grid grid-cols-3 overflow-hidden rounded-3xl border border-white/10 bg-black/20 text-center sm:min-w-[420px]">

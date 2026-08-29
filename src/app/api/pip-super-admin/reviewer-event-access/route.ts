@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { normalizeEmail, requirePlatformAdmin } from '@/lib/admin';
+import { createRequestSupabase, normalizeEmail, requirePlatformAdmin } from '@/lib/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,20 +63,11 @@ export async function DELETE(request: NextRequest) {
 
   const resolved = await resolveAccess(admin.adminSupabase, parsed.data.reviewerEmail, parsed.data.eventSlug);
   if ('error' in resolved) return NextResponse.json({ success: false, error: resolved.error }, { status: resolved.status });
-  const { error } = await admin.adminSupabase
-    .from('trusted_reviewer_event_access')
-    .delete()
-    .eq('membership_id', resolved.membership.id)
-    .eq('event_id', resolved.event.id);
+  const requestSupabase = createRequestSupabase(request);
+  const { error } = await requestSupabase!.rpc('revoke_trusted_reviewer_event_access_locked', {
+    target_membership_id: resolved.membership.id,
+    target_event_id: resolved.event.id,
+  });
   if (error) return NextResponse.json({ success: false, error: 'Could not revoke event access.' }, { status: 500 });
-  const { error: assignmentError } = await admin.adminSupabase
-    .from('review_assignments')
-    .delete()
-    .eq('reviewer_user_id', resolved.profileId)
-    .eq('event_id', resolved.event.id)
-    .in('status', ['pending', 'started']);
-  if (assignmentError) {
-    console.warn('Reviewer event access revoked with stale unfinished assignments:', assignmentError);
-  }
   return NextResponse.json({ success: true });
 }

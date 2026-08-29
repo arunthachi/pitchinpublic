@@ -1,0 +1,31 @@
+name: Database contracts
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/database-contracts.yml'
+  push:
+    branches: [main, test-env]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/database-contracts.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  database-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.75.0
+      - name: Start local Supabase
+        run: supabase start
+      - name: Rebuild schema from migrations
+        run: supabase db reset --local
+      - name: Run pgTAP contracts
+        run: supabase test db --local

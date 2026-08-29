@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { canManageEvent, parseEventUpdate } from './_server';
+import { FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS, loadFeedbackInBatches } from '@/lib/feedback-enrichment';
 
 const current = {
   event_date: '2026-09-20',
@@ -128,4 +129,39 @@ test('rejects unknown or ownership fields', () => {
     current
   );
   assert.equal(result.success, false);
+});
+
+test('event attendee and organizer payloads do not couple base pitches to feedback', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(source, /feedback\s*\(/, 'event base selects must not embed feedback');
+  assert.match(source, /loadFeedbackInBatches<any>\(pitchIds/);
+  assert.match(source, /\.rpc\('get_founder_pitch_feedback', \{ target_pitch_ids: batch \}\)/);
+  assert.match(source, /submissions = submissionRows\.map\(attachSubmissionFeedback\)/);
+  assert.match(source, /pitches = pitches\.map\(attachEventFeedback\)/);
+  assert.match(source, /feedbackState: feedbackEnrichment\.feedbackState/);
+  assert.match(
+    source,
+    /let feedbackEnrichment = availableFeedback<any>\(\)/,
+    'attendee responses without organizer-only enrichment still report an explicit state',
+  );
+  assert.match(source, /returning base event pitches/);
+});
+
+test('event reads split more than 50 pitch IDs across contract-safe feedback RPC calls', async () => {
+  const pitchIds = Array.from(
+    { length: FOUNDER_FEEDBACK_RPC_MAX_PITCH_IDS + 17 },
+    (_, index) => `event-pitch-${index + 1}`,
+  );
+  const rpcCalls: string[][] = [];
+
+  const result = await loadFeedbackInBatches(pitchIds, async (batch) => {
+    rpcCalls.push(batch);
+    return { data: batch.map((pitch_id) => ({ pitch_id })), error: null };
+  });
+
+  assert.deepEqual(rpcCalls.map((batch) => batch.length), [50, 17]);
+  assert.equal(rpcCalls.every((batch) => batch.length <= 50), true);
+  assert.equal(result.feedbackState, 'available');
 });

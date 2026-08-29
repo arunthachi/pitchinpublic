@@ -29,33 +29,42 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ feedb
     );
   }
 
-  const { data: feedback, error: feedbackError } = await supabase
-    .from('feedback')
-    .select('id,user_id,pitch_id,pitch:pitches!inner(user_id)')
-    .eq('id', feedbackId)
-    .maybeSingle();
+  const { data: authorization, error: authorizationError } = await supabase.rpc('can_rate_feedback', {
+    target_feedback_id: feedbackId,
+  });
+  const decision = authorization && typeof authorization === 'object' && !Array.isArray(authorization)
+    ? authorization as { allowed?: boolean; reason?: string; pitch_id?: string }
+    : null;
 
-  const pitch = Array.isArray(feedback?.pitch) ? feedback.pitch[0] : feedback?.pitch;
-  if (feedbackError || !feedback || !pitch) {
+  if (authorizationError) {
+    console.error('Could not authorize feedback quality rating:', authorizationError);
+    return NextResponse.json({ success: false, error: 'Could not authorize this rating.' }, { status: 500 });
+  }
+
+  if (!decision || decision.reason === 'not_found') {
     return NextResponse.json({ success: false, error: 'Feedback not found' }, { status: 404 });
   }
 
-  if (pitch.user_id !== auth.user.id) {
+  if (!decision.allowed && decision.reason === 'not_owner') {
     return NextResponse.json(
       { success: false, error: 'Only the pitch owner can rate this feedback.' },
       { status: 403 }
     );
   }
 
-  if (feedback.user_id === auth.user.id) {
+  if (!decision.allowed && decision.reason === 'own_feedback') {
     return NextResponse.json({ success: false, error: 'You cannot rate your own feedback.' }, { status: 403 });
+  }
+
+  if (!decision.allowed || !decision.pitch_id) {
+    return NextResponse.json({ success: false, error: 'This feedback cannot be rated.' }, { status: 403 });
   }
 
   const { data: vote, error: voteError } = await supabase
     .from('feedback_quality_votes')
     .upsert(
       {
-        feedback_id: feedback.id,
+        feedback_id: feedbackId,
         pitch_owner_user_id: auth.user.id,
         rating: validation.data.rating,
       },
@@ -73,7 +82,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ feedb
     .from('feedback_quality_votes')
     .select('feedback_id,feedback!inner(pitch_id)', { count: 'exact', head: true })
     .eq('rating', 'useful')
-    .eq('feedback.pitch_id', feedback.pitch_id);
+    .eq('feedback.pitch_id', decision.pitch_id);
 
   return NextResponse.json({
     success: true,

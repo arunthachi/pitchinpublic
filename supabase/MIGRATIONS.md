@@ -2,7 +2,28 @@
 
 This directory contains safe, idempotent SQL migrations for the Pitch in Public application. Each migration can be run multiple times without causing errors.
 
-## Current Staging Gate (2026-08-12)
+## Current Incident Release Gate (2026-08-29)
+
+The production data-visibility incident uses a two-pull-request,
+expand-contract rollout. Follow
+[`INCIDENT_MIXED_VERSION_COMPATIBILITY.md`](./INCIDENT_MIXED_VERSION_COMPATIBILITY.md)
+as the release authority.
+
+For both staging and production, apply the PR1 expand migrations while the
+previous application is still live. Verify the migration sequence, then deploy
+the PR1 application commit. Do not apply the PR2 identity-grant contraction
+until that compatible application is verified in production.
+
+Verify each environment before application deployment with:
+
+```bash
+npx supabase migration list
+npx supabase db push --dry-run
+npx supabase db push
+npx supabase migration list
+```
+
+## Previous Staging Gate (2026-08-12)
 
 PR #48 requires `20260812160000_add_pitch_guidance_pilot.sql`. Apply it to the linked staging project before browser acceptance, then verify the remote/local sequence with:
 
