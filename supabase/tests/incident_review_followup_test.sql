@@ -40,11 +40,11 @@ INSERT INTO public.pitches (
   ('52000000-0000-0000-0000-000000000006', '51000000-0000-0000-0000-000000000001', 'Queue detail target', 'https://example.test/followup-queue.mp4', 'published', 'public', 'Queue Target');
 
 INSERT INTO public.review_assignments (
-  pitch_id, reviewer_user_id, status, reviewer_role, assignment_reason
+  id, pitch_id, reviewer_user_id, status, reviewer_role, assignment_reason
 ) VALUES
-  ('52000000-0000-0000-0000-000000000003', '51000000-0000-0000-0000-000000000002', 'pending', 'trusted_reviewer', 'stale_claim_one'),
-  ('52000000-0000-0000-0000-000000000004', '51000000-0000-0000-0000-000000000002', 'pending', 'trusted_reviewer', 'stale_claim_two'),
-  ('52000000-0000-0000-0000-000000000006', '51000000-0000-0000-0000-000000000003', 'pending', 'trusted_reviewer', 'queue_detail_fixture');
+  ('53000000-0000-0000-0000-000000000001', '52000000-0000-0000-0000-000000000003', '51000000-0000-0000-0000-000000000002', 'pending', 'trusted_reviewer', 'stale_claim_one'),
+  ('53000000-0000-0000-0000-000000000002', '52000000-0000-0000-0000-000000000004', '51000000-0000-0000-0000-000000000002', 'pending', 'trusted_reviewer', 'stale_claim_two'),
+  ('53000000-0000-0000-0000-000000000003', '52000000-0000-0000-0000-000000000006', '51000000-0000-0000-0000-000000000003', 'pending', 'trusted_reviewer', 'queue_detail_fixture');
 
 UPDATE public.review_assignments
 SET status = 'invalidated',
@@ -77,14 +77,13 @@ SELECT is(
 
 SELECT is(
   public.get_review_assignment_detail(
-    (SELECT id FROM public.review_assignments
-     WHERE pitch_id = '52000000-0000-0000-0000-000000000006'
-       AND reviewer_user_id = '51000000-0000-0000-0000-000000000003')
+    '53000000-0000-0000-0000-000000000003'
   ) #>> '{available}',
   'true',
   'assignment detail opens an actionable caller-owned assignment'
 );
 
+RESET ROLE;
 SELECT is(
   (SELECT status FROM public.review_assignments
    WHERE pitch_id = '52000000-0000-0000-0000-000000000006'
@@ -93,6 +92,7 @@ SELECT is(
   'opening assignment detail marks a pending assignment started'
 );
 
+SET LOCAL ROLE authenticated;
 SELECT set_config(
   'request.jwt.claims',
   '{"sub":"51000000-0000-0000-0000-000000000002","email":"followup-reviewer@example.test","role":"authenticated"}',
@@ -209,9 +209,7 @@ SELECT set_config(
 
 SELECT is(
   public.get_review_assignment_detail(
-    (SELECT id FROM public.review_assignments
-     WHERE pitch_id = '52000000-0000-0000-0000-000000000006'
-       AND reviewer_user_id = '51000000-0000-0000-0000-000000000003')
+    '53000000-0000-0000-0000-000000000003'
   ) #>> '{status}',
   'invalidated',
   'assignment detail returns invalidated after eligibility changes'
