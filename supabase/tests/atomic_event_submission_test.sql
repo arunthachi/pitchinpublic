@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(17);
+SELECT plan(25);
 
 INSERT INTO auth.users (
   id, email, aud, role, encrypted_password, email_confirmed_at,
@@ -21,7 +21,9 @@ INSERT INTO public.pitches (id, user_id, hook, video_url, status, visibility, ev
 VALUES
   ('53000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000002', 'Atomic pitch', 'https://example.test/atomic.mp4', 'published', 'public', NULL),
   ('53000000-0000-0000-0000-000000000002', '51000000-0000-0000-0000-000000000002', 'Other event pitch', 'https://example.test/other.mp4', 'published', 'public', '52000000-0000-0000-0000-000000000002'),
-  ('53000000-0000-0000-0000-000000000003', '51000000-0000-0000-0000-000000000002', 'Rollback pitch', 'https://example.test/rollback.mp4', 'published', 'public', NULL);
+  ('53000000-0000-0000-0000-000000000003', '51000000-0000-0000-0000-000000000002', 'Rollback pitch', 'https://example.test/rollback.mp4', 'published', 'public', NULL),
+  ('53000000-0000-0000-0000-000000000004', '51000000-0000-0000-0000-000000000002', 'Previous application pitch', 'https://example.test/previous-app.mp4', 'published', 'public', NULL),
+  ('53000000-0000-0000-0000-000000000005', '51000000-0000-0000-0000-000000000002', 'Service backfill pitch', 'https://example.test/service-backfill.mp4', 'published', 'public', NULL);
 
 SELECT ok(
   to_regprocedure('public.submit_legacy_event_final_take_atomic(uuid,uuid)') IS NOT NULL,
@@ -107,6 +109,81 @@ SELECT is(
      AND user_id = '51000000-0000-0000-0000-000000000002'),
   '53000000-0000-0000-0000-000000000001'::uuid,
   'rejected cross-event submission does not replace the final take'
+);
+
+SELECT throws_ok(
+  $$ INSERT INTO public.pitch_event_submissions (
+       event_id, user_id, pitch_id, status, submitted_at, updated_at
+     ) VALUES (
+       '52000000-0000-0000-0000-000000000001',
+       '51000000-0000-0000-0000-000000000001',
+       '53000000-0000-0000-0000-000000000004',
+       'submitted', now(), now()
+     ) $$,
+  'P0001',
+  'Submission owner must match the authenticated caller',
+  'the compatibility trigger still enforces authenticated submission ownership'
+);
+
+SELECT lives_ok(
+  $$ INSERT INTO public.pitch_event_submissions (
+       event_id, user_id, pitch_id, status, submitted_at, updated_at
+     ) VALUES (
+       '52000000-0000-0000-0000-000000000001',
+       '51000000-0000-0000-0000-000000000002',
+       '53000000-0000-0000-0000-000000000004',
+       'submitted', now(), now()
+     )
+     ON CONFLICT (event_id, user_id) DO UPDATE
+     SET pitch_id = EXCLUDED.pitch_id,
+         status = 'submitted',
+         submitted_at = now(),
+         updated_at = now() $$,
+  'the exact previous-application upsert remains supported'
+);
+SELECT is(
+  (SELECT event_id FROM public.pitches WHERE id = '53000000-0000-0000-0000-000000000004'),
+  '52000000-0000-0000-0000-000000000001'::uuid,
+  'the previous-application upsert binds the pitch before returning'
+);
+SELECT is(
+  (SELECT visibility FROM public.pitches WHERE id = '53000000-0000-0000-0000-000000000004'),
+  'private',
+  'the previous-application upsert makes the newly bound pitch private'
+);
+SELECT lives_ok(
+  $$ UPDATE public.pitches
+     SET event_id = '52000000-0000-0000-0000-000000000001',
+         visibility = 'private',
+         updated_at = now()
+     WHERE id = '53000000-0000-0000-0000-000000000004'
+       AND user_id = '51000000-0000-0000-0000-000000000002' $$,
+  'the previous application follow-up pitch update is harmless'
+);
+
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
+SELECT lives_ok(
+  $$ INSERT INTO public.pitch_event_submissions (
+       event_id, user_id, pitch_id, status, submitted_at, updated_at
+     ) VALUES (
+       '52000000-0000-0000-0000-000000000002',
+       '51000000-0000-0000-0000-000000000002',
+       '53000000-0000-0000-0000-000000000005',
+       'submitted', now(), now()
+     ) $$,
+  'trusted service backfills remain supported without a user JWT'
+);
+SELECT is(
+  (SELECT event_id FROM public.pitches WHERE id = '53000000-0000-0000-0000-000000000005'),
+  '52000000-0000-0000-0000-000000000002'::uuid,
+  'trusted service backfill still binds the submitted pitch atomically'
+);
+SELECT is(
+  (SELECT visibility FROM public.pitches WHERE id = '53000000-0000-0000-0000-000000000005'),
+  'private',
+  'trusted service backfill still enforces pitch privacy'
 );
 
 RESET ROLE;

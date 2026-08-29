@@ -48,3 +48,13 @@ test('atomic RPC response retains the existing API response shape', () => {
     visibilityChanged: true,
   });
 });
+
+test('final-take removal invalidates assignments in the same locked database transaction', async () => {
+  const source = await readFile(new URL('./route.ts', import.meta.url), 'utf8');
+  const deleteSource = source.split('export async function DELETE')[1] || '';
+
+  assert.match(deleteSource, /rpc\('delete_my_event_submission_locked'/);
+  assert.match(deleteSource, /target_event_id: event\.id/);
+  assert.doesNotMatch(deleteSource, /from\('pitch_event_submissions'\)\s*\.delete/);
+  assert.match(deleteSource, /locked\|deadline has passed/);
+});

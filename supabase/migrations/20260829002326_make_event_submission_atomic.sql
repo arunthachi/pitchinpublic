@@ -14,6 +14,15 @@ SET search_path = pg_catalog
 AS $trigger$
 DECLARE
   binding_context text := current_setting('app.atomic_event_pitch_binding', true);
+  request_role text := coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    ''
+  );
+  trusted_backend boolean := (
+    request_role = 'service_role'
+    OR (request_role = '' AND session_user IN ('postgres', 'supabase_admin'))
+  );
 BEGIN
   IF OLD.event_id IS DISTINCT FROM NEW.event_id
      OR OLD.event_guideline_version_id IS DISTINCT FROM NEW.event_guideline_version_id
@@ -23,7 +32,7 @@ BEGIN
        AND OLD.event_guideline_version_id IS NOT DISTINCT FROM NEW.event_guideline_version_id
        AND OLD.event_recording_session_id IS NOT DISTINCT FROM NEW.event_recording_session_id
        AND NEW.visibility = 'private'
-       AND auth.uid() = OLD.user_id
+       AND (auth.uid() = OLD.user_id OR trusted_backend)
        AND binding_context = OLD.id::text || ':' || NEW.event_id::text THEN
       RETURN NEW;
     END IF;
@@ -35,6 +44,109 @@ BEGIN
 END;
 $trigger$;
 $guard$;
+
+-- Expand compatibility for the previous application. Its legacy route writes
+-- the submission before attempting a separate pitch update, and suppresses a
+-- failed update. Bind an unbound legacy pitch inside the submission statement
+-- so that route cannot return success with an inconsistent public pitch.
+EXECUTE $legacy_compatibility$
+CREATE OR REPLACE FUNCTION public.bind_legacy_submission_pitch()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $trigger$
+DECLARE
+  caller_id uuid := auth.uid();
+  request_role text := coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    ''
+  );
+  trusted_backend boolean := (
+    request_role = 'service_role'
+    OR (request_role = '' AND session_user IN ('postgres', 'supabase_admin'))
+  );
+  event_row public.pitch_events;
+  participant_row public.pitch_event_participants;
+  pitch_row public.pitches;
+BEGIN
+  SELECT event.* INTO event_row
+  FROM public.pitch_events AS event
+  WHERE event.id = NEW.event_id
+  FOR SHARE;
+
+  -- Structured submissions have their own atomic RPC and binding contract.
+  IF event_row.id IS NULL OR event_row.guidance_mode <> 'legacy_open' THEN
+    RETURN NEW;
+  END IF;
+  IF NOT trusted_backend AND (caller_id IS NULL OR caller_id <> NEW.user_id) THEN
+    RAISE EXCEPTION 'Submission owner must match the authenticated caller';
+  END IF;
+  IF NOT trusted_backend AND (
+     event_row.status = 'locked'
+     OR (event_row.submission_deadline IS NOT NULL AND event_row.submission_deadline < now())
+  ) THEN
+    RAISE EXCEPTION 'Event submissions are closed';
+  END IF;
+
+  IF NOT trusted_backend THEN
+    SELECT participant.* INTO participant_row
+    FROM public.pitch_event_participants AS participant
+    WHERE participant.event_id = event_row.id
+      AND participant.user_id = caller_id
+      AND participant.status = 'active'
+    FOR UPDATE;
+
+    IF participant_row.id IS NULL THEN
+      RAISE EXCEPTION 'Active event participation required';
+    END IF;
+  END IF;
+
+  SELECT pitch.* INTO pitch_row
+  FROM public.pitches AS pitch
+  WHERE pitch.id = NEW.pitch_id
+    AND pitch.user_id = NEW.user_id
+    AND pitch.deleted_at IS NULL
+  FOR UPDATE;
+
+  IF pitch_row.id IS NULL THEN
+    RAISE EXCEPTION 'Pitch not found or not owned by caller';
+  END IF;
+  IF pitch_row.event_id IS NOT NULL AND pitch_row.event_id <> event_row.id THEN
+    RAISE EXCEPTION 'Pitch is already bound to another event';
+  END IF;
+
+  IF pitch_row.event_id IS NULL THEN
+    PERFORM pg_catalog.set_config(
+      'app.atomic_event_pitch_binding',
+      pitch_row.id::text || ':' || event_row.id::text,
+      true
+    );
+
+    UPDATE public.pitches
+    SET event_id = event_row.id,
+        visibility = 'private',
+        updated_at = now()
+    WHERE id = pitch_row.id;
+
+    PERFORM pg_catalog.set_config('app.atomic_event_pitch_binding', '', true);
+    PERFORM public.reconcile_pitch_review_assignments(pitch_row.id);
+  END IF;
+
+  RETURN NEW;
+END;
+$trigger$;
+$legacy_compatibility$;
+
+EXECUTE 'DROP TRIGGER IF EXISTS bind_legacy_submission_pitch_before_write ON public.pitch_event_submissions';
+EXECUTE $legacy_trigger$
+CREATE TRIGGER bind_legacy_submission_pitch_before_write
+  BEFORE INSERT OR UPDATE OF event_id, pitch_id, user_id
+  ON public.pitch_event_submissions
+  FOR EACH ROW
+  EXECUTE FUNCTION public.bind_legacy_submission_pitch()
+$legacy_trigger$;
 
 -- The older standalone binding RPC cannot make submission atomic. Remove its
 -- callable surface so all new legacy-event bindings go through the contract
@@ -161,6 +273,7 @@ $definition$;
 EXECUTE 'REVOKE ALL ON FUNCTION public.submit_legacy_event_final_take_atomic(uuid, uuid) FROM PUBLIC, anon, authenticated';
 EXECUTE 'GRANT EXECUTE ON FUNCTION public.submit_legacy_event_final_take_atomic(uuid, uuid) TO authenticated';
 EXECUTE 'REVOKE ALL ON FUNCTION public.prevent_pitch_binding_mutation() FROM PUBLIC, anon, authenticated';
+EXECUTE 'REVOKE ALL ON FUNCTION public.bind_legacy_submission_pitch() FROM PUBLIC, anon, authenticated';
 
 EXECUTE $comment$
 COMMENT ON FUNCTION public.submit_legacy_event_final_take_atomic(uuid, uuid) IS

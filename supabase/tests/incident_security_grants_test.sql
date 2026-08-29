@@ -46,16 +46,16 @@ SELECT ok(
   'authenticated has no table-level feedback SELECT grant'
 );
 SELECT ok(
-  NOT has_column_privilege('authenticated', 'public.feedback', 'user_id', 'SELECT'),
-  'authenticated cannot directly read accountable reviewer identity'
+  has_column_privilege('authenticated', 'public.feedback', 'user_id', 'SELECT'),
+  'PR1 preserves previous-application reviewer identity reads until post-cutover PR2'
 );
 SELECT ok(
-  NOT has_column_privilege('authenticated', 'public.feedback', 'reviewer_role', 'SELECT'),
-  'authenticated cannot bypass role disclosure through direct column access'
+  has_column_privilege('authenticated', 'public.feedback', 'reviewer_role', 'SELECT'),
+  'PR1 preserves previous-application reviewer role reads until post-cutover PR2'
 );
 SELECT ok(
-  NOT has_column_privilege('authenticated', 'public.feedback', 'disclosure_mode', 'SELECT'),
-  'authenticated cannot inspect reviewer anonymity choices directly'
+  has_column_privilege('authenticated', 'public.feedback', 'disclosure_mode', 'SELECT'),
+  'PR1 expands disclosure-mode compatibility before the application cutover'
 );
 SELECT ok(
   has_column_privilege('authenticated', 'public.feedback', 'criterion_key', 'SELECT'),

@@ -153,34 +153,15 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ sl
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
   }
 
-  const { data: eventRow } = await supabase
-    .from('pitch_events')
-    .select('status,submission_deadline')
-    .eq('id', event.id)
-    .single();
-
-  if (eventRow?.status === 'locked') {
-    return NextResponse.json({ success: false, error: 'Submissions are locked for this event.' }, { status: 403 });
-  }
-
-  if (eventRow?.submission_deadline) {
-    const deadline = new Date(eventRow.submission_deadline);
-    if (!Number.isNaN(deadline.getTime()) && deadline.getTime() < Date.now()) {
-      return NextResponse.json(
-        { success: false, error: 'The submission deadline has passed for this event.' },
-        { status: 403 }
-      );
-    }
-  }
-
-  const { error } = await supabase
-    .from('pitch_event_submissions')
-    .delete()
-    .eq('event_id', event.id)
-    .eq('user_id', user.id);
+  const { error } = await supabase.rpc('delete_my_event_submission_locked', {
+    target_event_id: event.id,
+  });
 
   if (error) {
     console.error('Error removing final take:', error);
+    if (/locked|deadline has passed/i.test(error.message || '')) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    }
     return NextResponse.json({ success: false, error: 'Could not remove final take' }, { status: 500 });
   }
 

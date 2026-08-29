@@ -119,58 +119,64 @@ BEGIN
   RETURN QUERY
   WITH authorized AS (
     SELECT pitch.id AS pitch_id,
-      coalesce(pitch.user_id = caller_id, false) AS is_founder,
-      (
-        public.is_platform_admin()
-        OR EXISTS (
-          SELECT 1
-          FROM public.pitch_event_submissions AS submission
-          WHERE submission.pitch_id = pitch.id
-            AND public.can_manage_review_event(submission.event_id)
-        )
-        OR (
-          pitch.event_id IS NOT NULL
-          AND public.can_manage_review_event(pitch.event_id)
-        )
-      ) AS has_accountability_access
+      coalesce(pitch.user_id = caller_id, false) AS is_founder
     FROM public.pitches AS pitch
     WHERE pitch.id = ANY(target_pitch_ids)
       AND public.can_view_pitch(pitch.id)
+  ), scoped_feedback AS (
+    SELECT feedback.*,
+      authorized.is_founder,
+      (
+        public.is_platform_admin()
+        OR (
+          assignment.event_id IS NOT NULL
+          AND public.can_manage_review_event(assignment.event_id)
+        )
+      ) AS has_accountability_access
+    FROM public.feedback AS feedback
+    JOIN authorized ON authorized.pitch_id = feedback.pitch_id
+    LEFT JOIN public.review_assignments AS assignment
+      ON assignment.id = feedback.review_assignment_id
   )
-  SELECT feedback.id,
-    feedback.pitch_id,
+  SELECT scoped_feedback.id,
+    scoped_feedback.pitch_id,
     CASE
-      WHEN authorized.has_accountability_access OR feedback.disclosure_mode = 'named'
-        THEN feedback.user_id
+      WHEN scoped_feedback.has_accountability_access
+        OR scoped_feedback.user_id = caller_id
+        OR scoped_feedback.disclosure_mode = 'named'
+        THEN scoped_feedback.user_id
       ELSE NULL
     END,
-    feedback.type,
-    feedback.content,
-    feedback.is_public,
-    feedback.created_at,
-    feedback.updated_at,
+    scoped_feedback.type,
+    scoped_feedback.content,
+    scoped_feedback.is_public,
+    scoped_feedback.created_at,
+    scoped_feedback.updated_at,
     CASE
-      WHEN authorized.has_accountability_access
-        OR feedback.disclosure_mode IN ('named', 'role_only')
-        THEN feedback.reviewer_role
+      WHEN scoped_feedback.has_accountability_access
+        OR scoped_feedback.user_id = caller_id
+        OR scoped_feedback.disclosure_mode IN ('named', 'role_only')
+        THEN scoped_feedback.reviewer_role
       ELSE NULL
     END,
-    feedback.event_guideline_version_id,
-    feedback.criterion_key,
-    feedback.observation,
-    feedback.next_step,
-    feedback.disclosure_mode,
+    scoped_feedback.event_guideline_version_id,
+    scoped_feedback.criterion_key,
+    scoped_feedback.observation,
+    scoped_feedback.next_step,
+    scoped_feedback.disclosure_mode,
     CASE
-      WHEN authorized.has_accountability_access OR feedback.disclosure_mode = 'named'
+      WHEN scoped_feedback.has_accountability_access
+        OR scoped_feedback.user_id = caller_id
+        OR scoped_feedback.disclosure_mode = 'named'
         THEN coalesce(profile.full_name, 'Reviewer')
-      WHEN feedback.disclosure_mode = 'role_only'
-        THEN initcap(replace(feedback.reviewer_role, '_', ' '))
-      ELSE 'Anonymous reviewer ' || upper(substr(md5(
-        feedback.user_id::text || ':' || feedback.pitch_id::text
-      ), 1, 4))
+      WHEN scoped_feedback.disclosure_mode = 'role_only'
+        THEN initcap(replace(scoped_feedback.reviewer_role, '_', ' '))
+      ELSE 'Anonymous reviewer'
     END,
     CASE
-      WHEN authorized.has_accountability_access OR feedback.disclosure_mode = 'named'
+      WHEN scoped_feedback.has_accountability_access
+        OR scoped_feedback.user_id = caller_id
+        OR scoped_feedback.disclosure_mode = 'named'
         THEN jsonb_build_object(
           'id', profile.id,
           'full_name', profile.full_name,
@@ -179,15 +185,19 @@ BEGIN
       ELSE NULL
     END,
     CASE
-      WHEN authorized.is_founder OR authorized.has_accountability_access
-        OR feedback.user_id = caller_id
+      WHEN scoped_feedback.is_founder OR scoped_feedback.has_accountability_access
+        OR scoped_feedback.user_id = caller_id
         THEN quality.rating
       ELSE NULL
     END,
-    (authorized.is_founder AND feedback.user_id <> caller_id),
+    (scoped_feedback.is_founder AND scoped_feedback.user_id <> caller_id),
     CASE
       WHEN membership.id IS NOT NULL
-        AND (authorized.has_accountability_access OR feedback.disclosure_mode = 'named')
+        AND (
+          scoped_feedback.has_accountability_access
+          OR scoped_feedback.user_id = caller_id
+          OR scoped_feedback.disclosure_mode = 'named'
+        )
         THEN jsonb_build_object(
           'reviewer_roles', membership.reviewer_roles,
           'expertise', membership.expertise,
@@ -196,18 +206,17 @@ BEGIN
         )
       ELSE NULL
     END
-  FROM public.feedback AS feedback
-  JOIN authorized ON authorized.pitch_id = feedback.pitch_id
-  LEFT JOIN public.profiles AS profile ON profile.id = feedback.user_id
-  LEFT JOIN public.feedback_quality_votes AS quality ON quality.feedback_id = feedback.id
+  FROM scoped_feedback
+  LEFT JOIN public.profiles AS profile ON profile.id = scoped_feedback.user_id
+  LEFT JOIN public.feedback_quality_votes AS quality ON quality.feedback_id = scoped_feedback.id
   LEFT JOIN public.trusted_reviewer_memberships AS membership
-    ON membership.user_id = feedback.user_id
+    ON membership.user_id = scoped_feedback.user_id
    AND membership.status = 'active'
-  WHERE feedback.is_public
-    OR authorized.is_founder
-    OR authorized.has_accountability_access
-    OR feedback.user_id = caller_id
-  ORDER BY feedback.created_at DESC, feedback.id DESC;
+  WHERE scoped_feedback.is_public
+    OR scoped_feedback.is_founder
+    OR scoped_feedback.has_accountability_access
+    OR scoped_feedback.user_id = caller_id
+  ORDER BY scoped_feedback.created_at DESC, scoped_feedback.id DESC;
 END;
 $$;
 
