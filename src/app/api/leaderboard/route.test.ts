@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NextRequest } from 'next/server';
 import { GET } from './route';
-import { getLeaderboardOrder } from './_server';
+import { getLeaderboardOrder, normalizePitchLeaderboardResult } from './_server';
 
 test('orders streak and feedback leaderboards through the referenced table', () => {
   assert.deepEqual(getLeaderboardOrder('streaks'), {
@@ -43,4 +43,17 @@ test('returns a safe response when leaderboard storage is not configured', async
     if (previousKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = previousKey;
   }
+});
+
+test('normalizes the canonical public pitch aggregate response', () => {
+  assert.deepEqual(
+    normalizePitchLeaderboardResult({
+      entries: [{ user_id: 'user-1', pitches_count: 2, rank: 1 }],
+      total: 1,
+    }),
+    {
+      entries: [{ user_id: 'user-1', pitches_count: 2, rank: 1 }],
+      total: 1,
+    },
+  );
 });

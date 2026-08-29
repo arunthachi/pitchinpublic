@@ -8,6 +8,11 @@ import { parsePitchDescription } from '@/lib/pitch-copy';
 import { createPublicPitchId } from '@/lib/public-routes';
 import { INVITE_ONLY_MESSAGE, isUserAllowedForPilot } from '@/lib/pilot-access';
 import { createServiceSupabase } from '@/lib/admin';
+import {
+  attachFeedbackAvailability,
+  availableFeedback,
+  loadFeedbackInBatches,
+} from '@/lib/feedback-enrichment';
 import { hashPitchCreationPayload, parsePitchIdempotencyKey, structuredFeedbackProvenance } from './_server';
 
 async function pitchResponseSigned(pitch: any, fallback: Record<string, any>) {
@@ -551,16 +556,6 @@ export async function POST(request: NextRequest) {
       console.error('Error creating practice rep:', error);
     }
 
-    // Update user's pitches count (non-fatal, fire and forget)
-    try {
-      await supabase.rpc('increment_user_pitches_count', {
-        user_id: user.id,
-      });
-    } catch (error) {
-      console.error('Error updating pitches count:', error);
-      // Non-fatal error, don't throw
-    }
-
     try {
       await supabase.rpc('update_user_streak', {
         user_id: user.id,
@@ -766,25 +761,6 @@ export async function GET(request: NextRequest) {
           avatar_url,
           username,
           public_handle
-        ),
-        feedback (
-          id,
-          user_id,
-          type,
-          content,
-          reviewer_role,
-          event_guideline_version_id,
-          criterion_key,
-          observation,
-          next_step,
-          disclosure_mode,
-          author:user_id (
-            full_name
-          ),
-          feedback_quality_votes (
-            rating
-          ),
-          created_at
         )
       `;
 
@@ -809,13 +785,6 @@ export async function GET(request: NextRequest) {
           full_name,
           avatar_url,
           username
-        ),
-        feedback (
-          id,
-          user_id,
-          type,
-          content,
-          created_at
         )
       `;
 
@@ -883,14 +852,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total count (exclude deleted pitches)
-    const { count } = await countQuery;
+    const { count, error: countError } = await countQuery;
+    if (countError) throw countError;
+    if (typeof count !== 'number') throw new Error('Pitch count query returned no count.');
 
     // Get paginated pitches (exclude deleted pitches)
     let { data: pitches, error } = await dataQuery
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take|event_id|event_guideline_version_id|criterion_key|observation|next_step|disclosure_mode|visibility/i.test(error.message)) {
+    if (error && /public_id|public_handle|startup_name|one_line_pitch|feedback_ask|extra_context|take_version|company_id|practice_goal_id|prompt_key|prompt_text|is_best_take|event_id|event_guideline_version_id|visibility/i.test(error.message)) {
       const fallbackResult = await buildDataQuery(fallbackSelect)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -901,41 +872,23 @@ export async function GET(request: NextRequest) {
     if (error) {
       throw error;
     }
+    if (!Array.isArray(pitches)) {
+      throw new Error('Pitch query returned no rows without an error.');
+    }
 
-    const trustedReviewerUserIds = [...new Set(
-      (pitches || []).flatMap((pitch: any) =>
-        (pitch.feedback || [])
-          .filter((feedback: any) => feedback.reviewer_role === 'trusted_reviewer')
-          .map((feedback: any) => feedback.user_id)
-          .filter(Boolean)
-      )
-    )] as string[];
-    const reviewerBadges = new Map<string, {
-      title: string | null;
-      organization: string | null;
-      expertise: string[];
-    }>();
+    const pitchIds = pitches.map((pitch: any) => pitch.id).filter(Boolean);
+    const feedbackEnrichment = pitchIds.length
+      ? await loadFeedbackInBatches<any>(pitchIds, async (batch) => {
+          const result = await supabase.rpc('get_founder_pitch_feedback', { target_pitch_ids: batch });
+          return {
+            data: result.data as any[] | null,
+            error: result.error,
+          };
+        })
+      : availableFeedback<any>();
 
-    if (trustedReviewerUserIds.length) {
-      const adminSupabase = createServiceSupabase();
-      if (adminSupabase) {
-        const { data: memberships, error: membershipError } = await adminSupabase
-          .from('trusted_reviewer_memberships')
-          .select('user_id,title,organization,expertise')
-          .in('user_id', trustedReviewerUserIds);
-
-        if (membershipError) {
-          console.warn('Pitch feed loaded without trusted reviewer badges:', membershipError);
-        } else {
-          (memberships || []).forEach((membership: any) => {
-            reviewerBadges.set(membership.user_id, {
-              title: membership.title || null,
-              organization: membership.organization || null,
-              expertise: (membership.expertise || []).slice(0, 2),
-            });
-          });
-        }
-      }
+    if (feedbackEnrichment.feedbackState === 'unavailable') {
+      console.error('Pitch feedback enrichment failed; returning base pitches:', feedbackEnrichment.error);
     }
 
     // Sign playback AFTER RLS has decided which rows come back, so a token is
@@ -944,40 +897,41 @@ export async function GET(request: NextRequest) {
     // the stored URL in place rather than breaking the player.
     // Only private pitches are signed; public ones keep a permanent, shareable
     // URL so a founder can post their best take and have it still render later.
-    const signedVideoUrls = await signPrivateRows((pitches || []) as any[]);
+    const signedVideoUrls = await signPrivateRows(pitches as any[]);
 
-    const enrichedPitches = (pitches || []).map((pitch: any) => ({
-      ...pitch,
-      ...applySignedUrls(pitch, signedVideoUrls),
-      feedback: (pitch.feedback || []).map((feedback: any) => {
-        const vote = Array.isArray(feedback.feedback_quality_votes)
-          ? feedback.feedback_quality_votes[0]
-          : feedback.feedback_quality_votes;
-        const isOwner = Boolean(user && pitch.user_id === user.id && feedback.user_id !== user.id);
-        return {
-          id: feedback.id,
-          type: feedback.type,
-          content: feedback.content,
-          reviewer_role: feedback.reviewer_role || 'peer_founder',
-          ...structuredFeedbackProvenance(feedback),
-          reviewer_badge: feedback.reviewer_role === 'trusted_reviewer'
-            ? reviewerBadges.get(feedback.user_id) || null
-            : null,
-          created_at: feedback.created_at,
-          can_rate_quality: isOwner,
-          quality_rating: vote?.rating || null,
-          quality_action: isOwner
-            ? { href: `/api/feedback/${encodeURIComponent(feedback.id)}/quality`, method: 'PUT' }
-            : null,
-          feedback_quality_votes: undefined,
-        };
-      }),
-    }));
+    const enrichedPitches = pitches.map((pitch: any) =>
+      attachFeedbackAvailability(
+        {
+          ...pitch,
+          ...applySignedUrls(pitch, signedVideoUrls),
+        },
+        feedbackEnrichment,
+        (feedback: any) => {
+          const canRateQuality = Boolean(feedback.can_rate_quality);
+          return {
+            id: feedback.id,
+            type: feedback.type,
+            content: feedback.content,
+            author: feedback.profiles || undefined,
+            reviewer_role: feedback.reviewer_role || 'peer_founder',
+            ...structuredFeedbackProvenance(feedback),
+            reviewer_badge: feedback.reviewer_badge || null,
+            created_at: feedback.created_at,
+            can_rate_quality: canRateQuality,
+            quality_rating: feedback.quality_rating || null,
+            quality_action: canRateQuality
+              ? { href: `/api/feedback/${encodeURIComponent(feedback.id)}/quality`, method: 'PUT' }
+              : null,
+          };
+        },
+      )
+    );
 
     return NextResponse.json({
       success: true,
       pitches: enrichedPitches,
-      total: count || 0,
+      feedbackState: feedbackEnrichment.feedbackState,
+      total: count,
       page,
       limit,
       ...(peerFeedbackEnabled === undefined ? {} : { peerFeedbackEnabled }),

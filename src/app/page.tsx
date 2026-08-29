@@ -27,7 +27,7 @@ import {
   shouldReverifyAccess,
   shouldShowAccessGate,
 } from '@/lib/access-gate';
-import { getLegacyPitches, profileToUser, authUserToUser } from '@/lib/data';
+import { profileToUser, authUserToUser } from '@/lib/data';
 import { LegacyPitch, User, Profile } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
@@ -320,6 +320,7 @@ function HomeContent() {
   const exactPitchRequestsRef = useRef(new Map<string, Promise<LegacyPitch>>());
   const [reviewSelectionError, setReviewSelectionError] = useState<string | null>(null);
   const [pitchesLoading, setPitchesLoading] = useState(true);
+  const [pitchesError, setPitchesError] = useState<string | null>(null);
   const [currentPitch, setCurrentPitch] = useState<LegacyPitch | null>(null);
   const [handlers, setHandlers] = useState<{
     onRoast: () => void;
@@ -367,6 +368,9 @@ function HomeContent() {
       isBestTake: reviewerMode ? false : Boolean(pitch.is_best_take),
       isOwnedByViewer: !reviewerMode && pitch.user_id === user?.id,
       feedback,
+      feedbackState: pitch.feedbackState === 'unavailable' || pitch.feedback_state === 'unavailable'
+        ? 'unavailable'
+        : 'available',
     };
   }, [reviewerMode, user?.id]);
 
@@ -374,16 +378,15 @@ function HomeContent() {
   const fetchPitches = useCallback(async () => {
     try {
       setPitchesLoading(true);
+      setPitchesError(null);
       setPeerFeedbackEnabled(undefined);
       const params = new URLSearchParams({ limit: '20' });
       if (eventFeedSlug) params.set('eventSlug', eventFeedSlug);
 
       const response = await fetch(`/api/pitches?${params.toString()}`);
       if (!response.ok) {
-        // Any refusal surfaces as an empty feed. Demo pitches are a
-        // first-run affordance, never a stand-in for a real API error.
-        setLegacyPitches([]);
-        return;
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Pitches could not be loaded.');
       }
 
       const data = await response.json();
@@ -408,11 +411,7 @@ function HomeContent() {
       setCurrentPitch((current) => current ?? converted[0] ?? null);
     } catch (error) {
       console.error('Failed to fetch pitches:', error);
-      // Fall back to mock data on error
-      // Never substitute demo content for a real API refusal (e.g. 429).
-      const mockPitches = getLegacyPitches();
-      setLegacyPitches(mockPitches);
-      setCurrentPitch((current) => current ?? mockPitches[0] ?? null);
+      setPitchesError(error instanceof Error ? error.message : 'Pitches could not be loaded.');
     } finally {
       setPitchesLoading(false);
     }
@@ -476,15 +475,35 @@ function HomeContent() {
   const handleSelectReviewPitch = useCallback(async (publicPitchId: string, eventSlug: string | null | undefined, assignmentId: string) => {
     setReviewSelectionError(null);
     try {
-      await resolveExactPitch(publicPitchId);
+      const response = await fetch(`/api/reviews/assignments/${encodeURIComponent(assignmentId)}`, {
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.pitch) {
+        if (response.status === 409) await fetchReviewQueue();
+        throw new Error(payload.error || 'This assigned review is unavailable.');
+      }
+
+      const selectedPitch = convertApiPitch(payload.pitch);
+      if (selectedPitch.publicId !== publicPitchId) {
+        throw new Error('The assigned pitch changed. Refresh the queue and try again.');
+      }
+      setLegacyPitches((current) => [
+        selectedPitch,
+        ...current.filter((pitch) => pitch.publicId !== selectedPitch.publicId),
+      ]);
+      setReviewRequest({
+        assignmentId,
+        publicPitchId,
+        eventSlug: payload.assignment?.eventSlug ?? eventSlug ?? null,
+        nonce: Date.now(),
+      });
     } catch (error) {
       console.error('Failed to open assigned review:', error);
-      setReviewSelectionError('This review could not be opened. Refresh the queue and try again.');
+      setReviewSelectionError(error instanceof Error ? error.message : 'This assigned review is unavailable.');
       return;
     }
-
-    setReviewRequest({ assignmentId, publicPitchId, eventSlug, nonce: Date.now() });
-  }, [resolveExactPitch]);
+  }, [convertApiPitch, fetchReviewQueue]);
 
   const handleAssignedReviewComplete = useCallback(async () => {
     await fetchReviewQueue();
@@ -1109,6 +1128,7 @@ function HomeContent() {
               reviewRequest={reviewRequest}
               onAssignedReviewComplete={handleAssignedReviewComplete}
               onReviewNext={handleReviewNext}
+              onRetryFeedback={() => void fetchPitches()}
               hideReactions={true}
               onCurrentPitchChange={handlePitchChange}
             />
@@ -1181,6 +1201,7 @@ function HomeContent() {
             reviewRequest={reviewRequest}
             onAssignedReviewComplete={handleAssignedReviewComplete}
             onReviewNext={handleReviewNext}
+            onRetryFeedback={() => void fetchPitches()}
             hideReactions={false}
             onCurrentPitchChange={handlePitchChange}
             eventName={eventFeedSlug ? eventFeedName : null}
@@ -1205,6 +1226,15 @@ function HomeContent() {
       {reviewSelectionError ? (
         <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+1rem)] z-[100] mx-auto max-w-md rounded-2xl border border-roast/35 bg-[#241519]/95 p-3 text-sm font-semibold text-red-100 shadow-2xl backdrop-blur-xl" role="alert">
           {reviewSelectionError}
+        </div>
+      ) : null}
+
+      {pitchesError ? (
+        <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+1rem)] z-[99] mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-amber-300/35 bg-[#211d12]/95 p-3 text-sm font-semibold text-amber-50 shadow-2xl backdrop-blur-xl" role="alert">
+          <span>{pitchesError} Your existing pitches are still saved.</span>
+          <button type="button" onClick={() => void fetchPitches()} className="btn-glass min-h-11 shrink-0 px-3 text-xs font-black text-white">
+            Retry
+          </button>
         </div>
       ) : null}
 

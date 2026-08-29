@@ -28,7 +28,11 @@ const publicRoutes = [
   { name: 'founder invitation', path: '/founder/invite', heading: /You’re invited to Pitch in Public/i },
   { name: 'organizer invitation', path: '/organizer/invite', heading: /Accept your organizer invite/i },
   { name: 'reviewer invitation', path: '/reviewer/invite', heading: /Invitation unavailable/i },
-  { name: 'pilot admin unavailable', path: '/pilot/admin', heading: /Admin dashboard unavailable/i },
+  {
+    name: 'pilot admin anonymous',
+    path: '/pilot/admin',
+    heading: /Admin dashboard unavailable|Sign in required/i,
+  },
   { name: 'platform admin anonymous', path: '/pip-super-admin', heading: /Platform admin/i },
 ] as const;
 

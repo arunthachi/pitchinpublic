@@ -16,6 +16,8 @@ interface FeedbackThreadPanelProps {
   /** When set, composing is unavailable here and this explains why. */
   composeUnavailableNote?: string | null;
   canRateQuality?: boolean;
+  feedbackState?: 'available' | 'unavailable';
+  onRetryFeedback?: () => void;
 }
 
 function usePhoneFrameSheetStyle(isOpen: boolean, compact = false): React.CSSProperties {
@@ -91,7 +93,7 @@ function getSignals(feedback: LegacyFeedback) {
   return feedback.signals?.length ? feedback.signals : feedback.signal ? [feedback.signal] : [feedback.type];
 }
 
-export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, canRateQuality = false, composeUnavailableNote = null }: FeedbackThreadPanelProps) {
+export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, canRateQuality = false, composeUnavailableNote = null, feedbackState = 'available', onRetryFeedback }: FeedbackThreadPanelProps) {
   const [portalNode, setPortalNode] = React.useState<HTMLElement | null>(null);
   const panelRef = React.useRef<HTMLDivElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -181,7 +183,11 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
                   Founder feedback
                 </p>
                 <h2 id="feedback-thread-title" className="mt-1 truncate text-2xl font-heading font-black text-white">
-                  {hasFeedback ? `${feedback.length} response${feedback.length === 1 ? '' : 's'}` : 'No feedback yet'}
+                  {feedbackState === 'unavailable'
+                    ? 'Feedback unavailable'
+                    : hasFeedback
+                      ? `${feedback.length} response${feedback.length === 1 ? '' : 's'}`
+                      : 'No feedback yet'}
                 </h2>
               </div>
               <button
@@ -200,7 +206,19 @@ export function FeedbackThreadPanel({ isOpen, feedback, onClose, onAddFeedback, 
               className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
-              {!hasFeedback ? (
+              {feedbackState === 'unavailable' ? (
+                <div className="glass-card rounded-3xl border-amber-300/25 p-5 text-center" role="status">
+                  <h3 className="font-heading text-lg font-bold text-white">Feedback is temporarily unavailable</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    The pitch is still available. Try loading its feedback again.
+                  </p>
+                  {onRetryFeedback ? (
+                    <button type="button" onClick={onRetryFeedback} className="btn-glass mt-4 min-h-11 px-4 text-sm font-black text-white">
+                      Retry feedback
+                    </button>
+                  ) : null}
+                </div>
+              ) : !hasFeedback ? (
                 <div className="space-y-4">
                   <div className="glass-card rounded-3xl p-5 text-center">
                     <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-neon-cyan/15 text-neon-cyan">

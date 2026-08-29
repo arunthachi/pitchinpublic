@@ -75,64 +75,26 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ pi
       );
     }
 
-    // Verify pitch exists and belongs to the user
-    const { data: pitch, error: fetchError } = await supabase
-      .from('pitches')
-      .select('id, user_id, deleted_at')
-      .eq('id', params.pitchId)
-      .single();
-
-    if (fetchError || !pitch) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Pitch not found',
-        },
-        {
-          status: 404,
-          headers: formatRateLimitHeaders(result),
-        }
-      );
-    }
-
-    // Verify the user owns this pitch
-    if (pitch.user_id !== user.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'You can only delete your own pitches',
-        },
-        {
-          status: 403,
-          headers: formatRateLimitHeaders(result),
-        }
-      );
-    }
-
-    // Check if already deleted
-    if (pitch.deleted_at) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Pitch is already deleted',
-        },
-        {
-          status: 400,
-          headers: formatRateLimitHeaders(result),
-        }
-      );
-    }
-
-    // Soft delete the pitch by setting deleted_at timestamp
-    const { error: deleteError } = await supabase
-      .from('pitches')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', params.pitchId)
-      .eq('user_id', user.id);
+    // The database function owns authorization, lock order, queue invalidation,
+    // and the public-count transition in one transaction.
+    const { data: deletion, error: deleteError } = await supabase.rpc('soft_delete_pitch_locked', {
+      target_pitch_id: params.pitchId,
+    });
 
     if (deleteError) {
       console.error('Error deleting pitch:', deleteError);
       throw deleteError;
+    }
+
+    const deletionResult = deletion && typeof deletion === 'object' && !Array.isArray(deletion)
+      ? deletion as { deleted?: boolean; reason?: string }
+      : null;
+    if (!deletionResult?.deleted) {
+      const alreadyDeleted = deletionResult?.reason === 'already_deleted';
+      return NextResponse.json(
+        { success: false, error: alreadyDeleted ? 'Pitch is already deleted' : 'Pitch not found' },
+        { status: alreadyDeleted ? 400 : 404, headers: formatRateLimitHeaders(result) },
+      );
     }
 
     return NextResponse.json(

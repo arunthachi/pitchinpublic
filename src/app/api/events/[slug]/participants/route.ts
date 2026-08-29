@@ -122,15 +122,15 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ slu
     return NextResponse.json({ success: false, error: 'Team members cannot be converted into founders from this screen.' }, { status: 400 });
   }
 
-  const { data: updatedParticipant, error: updateError } = await supabase
-    .from('pitch_event_participants')
-    .update({
-      ...(hasRoleUpdate ? { role: validation.data.role } : {}),
-      ...(hasStatusUpdate ? { status: validation.data.status } : {}),
-    })
-    .eq('id', participant.id)
-    .select('*')
-    .single();
+  const { data: updatedParticipant, error: updateError } = await supabase.rpc(
+    'update_event_participant_locked',
+    {
+      target_event_id: event.id,
+      target_participant_id: participant.id,
+      target_role: hasRoleUpdate ? validation.data.role : null,
+      target_status: hasStatusUpdate ? validation.data.status : null,
+    },
+  );
 
   if (updateError) {
     console.error('Participant update failed:', updateError);

@@ -13,7 +13,7 @@ export type ReviewerRole =
   | 'experienced_reviewer'
   | 'public_reviewer'
   | 'trusted_reviewer';
-export type ReviewAssignmentStatus = 'pending' | 'started' | 'submitted' | 'skipped' | 'expired';
+export type ReviewAssignmentStatus = 'pending' | 'started' | 'submitted' | 'invalidated';
 export type FeedbackQualityRating = 'useful' | 'generic' | 'not_helpful';
 
 export interface FeedbackQualityAction {
@@ -236,6 +236,7 @@ export interface LegacyPitch {
   createdAt: string;
   versions?: PitchVersion[];
   feedback?: LegacyFeedback[];
+  feedbackState?: 'available' | 'unavailable';
   duration?: number;
   versionNumber?: number;
   practiceGoalId?: string | null;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { getLeaderboardOrder } from './_server';
+import { getLeaderboardOrder, normalizePitchLeaderboardResult } from './_server';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +76,37 @@ export async function GET(request: NextRequest) {
       if (user) currentUserId = user.id;
     } catch (error) {
       // User not authenticated, that's fine
+    }
+
+    if (type === 'pitches') {
+      const { data, error } = await supabase.rpc('get_public_pitch_leaderboard', {
+        target_limit: limit,
+        target_offset: offset,
+      });
+      if (error) throw error;
+
+      const result = normalizePitchLeaderboardResult(data);
+      const leaderboard = result.entries.map((entry, index) => ({
+        rank: Number(entry.rank ?? offset + index + 1),
+        userId: entry.user_id,
+        userName: entry.full_name || 'Anonymous',
+        avatar: entry.avatar_url || null,
+        currentStreak: 0,
+        bestStreak: 0,
+        pitchesCount: Number(entry.pitches_count || 0),
+        badgeCount: 0,
+        totalActivities: 0,
+        isCurrentUser: currentUserId === entry.user_id,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        leaderboard,
+        total: result.total,
+        limit,
+        offset,
+        type,
+      });
     }
 
     // Build query based on leaderboard type
