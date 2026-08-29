@@ -9,12 +9,14 @@
 ### Changed
 
 - Review queues now open from one database snapshot, invalidate stale assignments clearly, and allow replacement assignments when eligibility changes.
+- Reviewer access changes preserve valid in-progress work through alternate roles and invalidate only assignments that are no longer eligible.
 - Event and profile pages keep pitch data visible when feedback enrichment is temporarily unavailable and offer a recoverable retry state.
 
 ### Fixed
 
 - Recorded pitches, public pitch totals, and leaderboard counts now use the same canonical visibility rules, so private or deleted pitches cannot distort totals.
 - Event submission, visibility changes, deletion, feedback submission, and review assignment updates now use atomic database contracts that prevent stale or partially applied state.
+- Legacy event submissions remain atomic during the database-first mixed-version rollout, while feedback identities stay anonymous outside their assignment-scoped accountability roles.
 - Large events load feedback in bounded batches without dropping pitches or failing after the first 100 records.
 - Production dependencies and database-contract CI are pinned to patched, reproducible versions.
 
