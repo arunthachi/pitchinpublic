@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5] - 2026-08-29
+
+### Fixed
+
+- Assigned reviews now open with the complete pitch data used by the feed, so reviewers can watch and submit feedback without the page crashing.
+- Engagement counters remain render-safe during mixed-version rollouts if an older API response omits a numeric value.
+
 ## [0.2.4] - 2026-08-29
 
 ### Security

@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(18);
+SELECT plan(23);
 
 INSERT INTO auth.users (
   id, email, aud, role, encrypted_password, email_confirmed_at,
@@ -46,6 +46,13 @@ INSERT INTO public.review_assignments (
   ('53000000-0000-0000-0000-000000000002', '52000000-0000-0000-0000-000000000004', '51000000-0000-0000-0000-000000000002', 'pending', 'trusted_reviewer', 'stale_claim_two'),
   ('53000000-0000-0000-0000-000000000003', '52000000-0000-0000-0000-000000000006', '51000000-0000-0000-0000-000000000003', 'pending', 'trusted_reviewer', 'queue_detail_fixture');
 
+UPDATE public.pitches
+SET views_count = 17,
+    interest_score = 23,
+    roast_count = 5,
+    toast_count = 11
+WHERE id = '52000000-0000-0000-0000-000000000006';
+
 UPDATE public.review_assignments
 SET status = 'invalidated',
     invalidated_at = now(),
@@ -81,6 +88,35 @@ SELECT is(
   ) #>> '{available}',
   'true',
   'assignment detail opens an actionable caller-owned assignment'
+);
+
+SELECT is(
+  public.get_review_assignment_detail('53000000-0000-0000-0000-000000000003') #>> '{pitch,views_count}',
+  '17',
+  'assignment detail returns the feed view count'
+);
+
+SELECT is(
+  public.get_review_assignment_detail('53000000-0000-0000-0000-000000000003') #>> '{pitch,interest_score}',
+  '23',
+  'assignment detail returns the feed interest score'
+);
+
+SELECT is(
+  public.get_review_assignment_detail('53000000-0000-0000-0000-000000000003') #>> '{pitch,roast_count}',
+  '5',
+  'assignment detail returns the feed roast count'
+);
+
+SELECT is(
+  public.get_review_assignment_detail('53000000-0000-0000-0000-000000000003') #>> '{pitch,toast_count}',
+  '11',
+  'assignment detail returns the feed toast count'
+);
+
+SELECT ok(
+  public.get_review_assignment_detail('53000000-0000-0000-0000-000000000003') #>> '{pitch,created_at}' IS NOT NULL,
+  'assignment detail returns the feed creation timestamp'
 );
 
 RESET ROLE;
