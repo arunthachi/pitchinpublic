@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.3] - 2026-08-29
+
+### Added
+
+- Founders can see feedback they received and feedback they gave from their own profile, without exposing private reviewer identity.
+
+### Changed
+
+- Review queues now open from one database snapshot, invalidate stale assignments clearly, and allow replacement assignments when eligibility changes.
+- Event and profile pages keep pitch data visible when feedback enrichment is temporarily unavailable and offer a recoverable retry state.
+
+### Fixed
+
+- Recorded pitches, public pitch totals, and leaderboard counts now use the same canonical visibility rules, so private or deleted pitches cannot distort totals.
+- Event submission, visibility changes, deletion, feedback submission, and review assignment updates now use atomic database contracts that prevent stale or partially applied state.
+- Large events load feedback in bounded batches without dropping pitches or failing after the first 100 records.
+- Production dependencies and database-contract CI are pinned to patched, reproducible versions.
+
 ## [0.2.2] - 2026-08-12
 
 ### Changed
