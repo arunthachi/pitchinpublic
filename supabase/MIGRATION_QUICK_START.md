@@ -1,5 +1,10 @@
 # Migration Quick Start Guide
 
+> **Legacy Phase 1 reference:** this guide covers only migrations `001`–`003`
+> and cannot create or upgrade a current Pitch in Public environment. Use
+> [`MIGRATIONS.md`](./MIGRATIONS.md) and the complete Supabase CLI migration
+> chain for staging, production, and new current projects.
+
 ## TL;DR - Just Give Me The Commands!
 
 ### Scenario 1: Fresh Supabase Project
@@ -260,7 +265,9 @@ DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
 ```
 
-**Best practice:** Never run migrations against production!
+**Best practice:** Never experiment directly in production. Apply and verify the
+exact migration in staging first, then use the reviewed, dry-run-verified
+migration chain for the controlled production rollout.
 
 ---
 
