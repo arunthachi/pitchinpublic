@@ -1,27 +1,50 @@
 # Supabase Migrations Guide
 
-This directory contains safe, idempotent SQL migrations for the Pitch in Public application. Each migration can be run multiple times without causing errors.
+This directory contains the ordered migration history for Pitch in Public.
 
-## Current Incident Release Gate (2026-08-29)
+> **Current environments must use the complete Supabase CLI migration chain.**
+> The numbered `001`–`003` instructions later in this file describe the legacy
+> Phase 1 baseline only. They are not a complete setup path for staging,
+> production, or a new current project.
 
-The production data-visibility incident uses a two-pull-request,
-expand-contract rollout. Follow
-[`INCIDENT_MIXED_VERSION_COMPATIBILITY.md`](./INCIDENT_MIXED_VERSION_COMPATIBILITY.md)
-as the release authority.
-
-For both staging and production, apply the PR1 expand migrations while the
-previous application is still live. Verify the migration sequence, then deploy
-the PR1 application commit. Do not apply the PR2 identity-grant contraction
-until that compatible application is verified in production.
-
-Verify each environment before application deployment with:
+For a linked environment, use:
 
 ```bash
-npx supabase migration list
-npx supabase db push --dry-run
-npx supabase db push
-npx supabase migration list
+npx supabase migration list --linked
+npx supabase db push --linked --include-all --dry-run
+npx supabase db push --linked --include-all
+npx supabase migration list --linked
 ```
+
+Apply and verify migrations in staging before repeating the dry run and push in
+production. Review the exact pending filenames before every push.
+
+## Completed Incident Release (2026-08-29)
+
+The production data-visibility incident used a two-pull-request,
+expand-contract rollout. Both stages are complete. Follow
+[`INCIDENT_MIXED_VERSION_COMPATIBILITY.md`](./INCIDENT_MIXED_VERSION_COMPATIBILITY.md)
+for the rollout record and forward-only recovery rules.
+
+The post-contract forward fix
+`20260829183000_complete_review_assignment_pitch_contract.sql` is also shipped
+in staging and production. It restores the feed fields required when an
+assigned review opens while retaining the contracted identity grants.
+
+For future forward migrations, verify each environment before application
+deployment with:
+
+```bash
+npx supabase migration list --linked
+npx supabase db push --linked --include-all --dry-run
+npx supabase db push --linked --include-all
+npx supabase migration list --linked
+```
+
+## Legacy Phase 1 Reference
+
+The remaining `001`–`003` material is retained for historical context. Do not
+use it as the complete setup or upgrade procedure for a current environment.
 
 ## Previous Staging Gate (2026-08-12)
 

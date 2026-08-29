@@ -2,6 +2,12 @@
 
 This guide explains how to set up your Supabase database for Pitch in Public.
 
+> **Legacy schema reference:** do not use `supabase-schema.sql` alone for a
+> current environment. It omits the ordered migrations that implement current
+> access controls, review assignments, and incident fixes. Follow
+> [`supabase/MIGRATIONS.md`](./supabase/MIGRATIONS.md) and apply the complete
+> Supabase CLI migration chain instead.
+
 ## 📋 Quick Setup
 
 1. **Create a Supabase Project**

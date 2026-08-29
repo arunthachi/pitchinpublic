@@ -4,6 +4,18 @@ The incident release uses two pull requests so database privilege contraction
 cannot overtake the compatible application. It is a forward-only
 expand-contract rollout and has no destructive down migrations.
 
+## Release status
+
+The expand and contract stages are complete in staging and production. Release
+`0.2.5` added the forward-only migration
+`20260829183000_complete_review_assignment_pitch_contract.sql` after the
+contract stage. It restores the full pitch rendering contract for assigned
+reviews without reopening direct feedback or assignment identity access.
+
+The 0.2.5 application and migration were verified in staging before production.
+Production verification opened an existing assigned review, rendered the
+feedback dialog, and completed a 10-minute canary without new console errors.
+
 ## PR1: expand and cut over the application
 
 PR1 contains the compatible application and these additive migrations, in
@@ -37,7 +49,7 @@ safe RPCs and works in both the expanded and contracted states.
 
 ## PR2: contract identity access after production cutover
 
-PR2 is created only after PR1 is verified in production. It adds a new migration
+PR2 was created only after PR1 was verified in production. It added a new migration
 with a timestamp later than every PR1 migration. That migration:
 
 1. Aborts unless `get_founder_pitch_feedback`, `get_my_feedback_history`,
@@ -47,9 +59,9 @@ with a timestamp later than every PR1 migration. That migration:
 3. Revokes direct anon/authenticated `review_assignments` access.
 4. Preserves service-role audit and operational access.
 
-Apply PR2 to staging and run the identity-role pgTAP suite. Promote PR2 only
-after staging proves founder, author, organizer, administrator, dual-role, and
-unrelated-user disclosure behavior.
+PR2 was applied to staging with the identity-role pgTAP suite before production
+promotion. Founder, author, organizer, administrator, dual-role, and
+unrelated-user disclosure behavior was verified before the release completed.
 
 ## Compatibility matrix
 

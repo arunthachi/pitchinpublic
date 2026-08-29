@@ -1,5 +1,10 @@
 # Pitch in Public - Supabase Schema Setup
 
+> **Legacy Phase 1 reference:** the manual `001`–`003` and
+> `supabase-schema.sql` paths below are not a complete setup for the current
+> application. Use [`supabase/MIGRATIONS.md`](./supabase/MIGRATIONS.md) and the
+> complete Supabase CLI migration chain for any current environment.
+
 ## Overview
 
 Phase 1 Release requires setting up Supabase tables. This guide covers two approaches:
