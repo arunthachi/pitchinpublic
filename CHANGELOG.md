@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4] - 2026-08-29
+
+### Security
+
+- Browser roles can no longer read accountable reviewer identity directly from feedback or review-assignment tables.
+- Founder, reviewer, event-manager, and service workflows retain access through disclosure-aware RPC projections and service-only audit paths.
+
 ## [0.2.3] - 2026-08-29
 
 ### Added
