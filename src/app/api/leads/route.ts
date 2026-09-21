@@ -1,14 +1,17 @@
-import { randomUUID } from 'crypto';
+import { createHmac } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { escapeHtml, sendEmail } from '@/lib/email';
+import { formatRateLimitHeaders, getClientIp, rateLimit } from '@/lib/ratelimit';
+import { marketingUrlFor } from '@/lib/site-urls';
 
 export const dynamic = 'force-dynamic';
 
-const leadSchema = z.object({
+export const leadSchema = z.object({
+  requestId: z.string().uuid(),
   type: z.enum(['founder', 'organizer']),
-  email: z.string().email().trim().toLowerCase(),
+  email: z.string().trim().email().toLowerCase(),
   name: z.string().trim().min(1).max(120),
   website: z.string().trim().max(240).optional().default(''),
   source: z.string().trim().max(180).optional().default('unknown'),
@@ -16,6 +19,26 @@ const leadSchema = z.object({
 
 type LeadRequest = z.infer<typeof leadSchema>;
 type DeliveryStatus = 'sent' | 'failed' | 'not_configured' | 'skipped';
+
+export function buildLeadRateLimitKey(lead: Pick<LeadRequest, 'type' | 'email'>, secret: string) {
+  const normalizedIdentity = `${lead.type}:${lead.email.trim().toLowerCase()}`;
+  const identityHash = createHmac('sha256', secret).update(normalizedIdentity).digest('hex');
+  return `lead-capture-identity:${identityHash}`;
+}
+
+export function isDuplicateLeadInsert(error: { code?: string } | null) {
+  return error?.code === '23505';
+}
+
+export function selectTighterRateLimit<T extends { remaining: number }>(ipLimit: T, identityLimit: T) {
+  return identityLimit.remaining <= ipLimit.remaining ? identityLimit : ipLimit;
+}
+
+function leadRateLimitSecret() {
+  return process.env.LEAD_RATE_LIMIT_SECRET
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || (process.env.NODE_ENV === 'production' ? null : 'local-development-lead-limit');
+}
 
 function createSupabaseClient() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -54,7 +77,7 @@ function requestRoleLabel(type: LeadRequest['type']) {
   return type === 'founder' ? 'Founder' : 'Organizer';
 }
 
-function buildConfirmationEmail(lead: LeadRequest, siteUrl: string) {
+export function buildConfirmationEmail(lead: LeadRequest) {
   const roleLabel = requestRoleLabel(lead.type);
   const isFounder = lead.type === 'founder';
   const title = isFounder ? 'We received your founder request' : 'We received your organizer request';
@@ -65,7 +88,7 @@ function buildConfirmationEmail(lead: LeadRequest, siteUrl: string) {
   const approvalStep = isFounder
     ? 'If approved, you will receive a separate invitation email with an Accept founder invitation button.'
     : 'If approved, you will receive a separate invitation email with an Accept organizer invitation button. After accepting, you can create an event and invite founders or teammates.';
-  const overviewUrl = `${siteUrl.replace(/\/$/, '')}/${isFounder ? 'for-founders' : 'for-events'}`;
+  const overviewUrl = marketingUrlFor(isFounder ? '/founders' : '/for-events');
 
   return {
     subject: `Pitch in Public: ${title}`,
@@ -76,6 +99,7 @@ function buildConfirmationEmail(lead: LeadRequest, siteUrl: string) {
       approvalStep,
       '',
       lead.website ? `Website or LinkedIn: ${lead.website}` : 'Website or LinkedIn: not provided',
+      `Learn more: ${overviewUrl}`,
       '',
       'If you need to update your request, just reply to this email.',
     ].join('\n'),
@@ -221,26 +245,96 @@ async function persistLeadDeliveryState(
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResult = await rateLimit({
+      key: `lead-capture:${getClientIp(request)}`,
+      limit: 10,
+      window: 15 * 60,
+    });
+    const rateLimitHeaders = formatRateLimitHeaders(rateLimitResult);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please wait before trying again.' },
+        { status: 429, headers: rateLimitHeaders }
+      );
+    }
+
     const parsed = leadSchema.safeParse(await request.json());
 
     if (!parsed.success) {
-      return NextResponse.json({ success: false, error: 'Check the form fields and try again.' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Check the form fields and try again.' },
+        { status: 400, headers: rateLimitHeaders }
+      );
     }
 
     const lead = parsed.data;
+    const identitySecret = leadRateLimitSecret();
+    if (!identitySecret) {
+      console.error('Lead rate limiting is not configured. Missing LEAD_RATE_LIMIT_SECRET.');
+      return NextResponse.json(
+        { success: false, error: 'We could not save your request right now. Please email hello@pitchinpublic.io.' },
+        { status: 503, headers: rateLimitHeaders }
+      );
+    }
+    const identityRateLimitResult = await rateLimit({
+      key: buildLeadRateLimitKey(lead, identitySecret),
+      limit: 5,
+      window: 15 * 60,
+    });
+    const responseRateLimitHeaders = formatRateLimitHeaders(
+      selectTighterRateLimit(rateLimitResult, identityRateLimitResult)
+    );
+    if (!identityRateLimitResult.success) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please wait before trying again.' },
+        { status: 429, headers: responseRateLimitHeaders }
+      );
+    }
+
     const source = (lead.source || request.headers.get('referer') || request.nextUrl.pathname || 'unknown')
       .trim()
       .slice(0, 180);
     const userAgent = request.headers.get('user-agent') || 'Unknown';
     const supabase = createSupabaseClient();
-    const leadRequestId = randomUUID();
+    const leadRequestId = lead.requestId;
 
     if (!supabase) {
       console.error('Lead request storage is not configured. Missing Supabase env.');
       return NextResponse.json(
         { success: false, error: 'We could not save your request right now. Please email hello@pitchinpublic.io.' },
-        { status: 503 }
+        { status: 503, headers: responseRateLimitHeaders }
       );
+    }
+
+    // A retry can arrive after storage succeeds but before the browser receives
+    // the response. Reuse a recent request instead of sending duplicate email.
+    // This lookup requires the service role because public RLS permits inserts
+    // but intentionally does not permit lead enumeration.
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: recentLead, error: recentLeadError } = await supabase
+        .from('lead_requests')
+        .select('id, confirmation_status, notification_status')
+        .eq('type', lead.type)
+        .eq('email', lead.email)
+        .gte('created_at', recentCutoff)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recentLeadError) {
+        console.error('Recent lead lookup failed; continuing with a new request:', recentLeadError);
+      } else if (recentLead) {
+        return NextResponse.json(
+          {
+            success: true,
+            message: 'Request already received. We will follow up after review.',
+            warning: leadWarning(recentLead.confirmation_status, recentLead.notification_status) || null,
+          },
+          { status: 201, headers: responseRateLimitHeaders }
+        );
+      }
     }
 
     const { error: insertError } = await supabase.from('lead_requests').insert({
@@ -257,14 +351,24 @@ export async function POST(request: NextRequest) {
     });
 
     if (insertError) {
+      if (isDuplicateLeadInsert(insertError)) {
+        return NextResponse.json(
+          {
+            success: true,
+            message: 'Request already received. We will follow up after review.',
+            warning: 'We could not confirm email delivery for this retry. Email hello@pitchinpublic.io if you need help.',
+          },
+          { status: 201, headers: responseRateLimitHeaders }
+        );
+      }
       console.error('Lead request storage failed:', insertError);
       return NextResponse.json(
         { success: false, error: 'We could not save your request right now. Please email hello@pitchinpublic.io.' },
-        { status: 500 }
+        { status: 500, headers: responseRateLimitHeaders }
       );
     }
 
-    const confirmationEmail = buildConfirmationEmail(lead, request.nextUrl.origin);
+    const confirmationEmail = buildConfirmationEmail(lead);
     const notificationEmail = buildAdminNotificationEmail(lead, source, userAgent);
     const recipients = (process.env.LEAD_EMAIL_TO || 'hello@pitchinpublic.io,arun@pitchinpublic.io')
       .split(',')
@@ -308,21 +412,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        lead: {
-          id: leadRequestId,
-          type: lead.type,
-          email: lead.email,
-          name: lead.name,
-          website: lead.website || null,
-          source,
-          status: 'new',
-        },
-        confirmationStatus,
-        notificationStatus,
         message: leadSuccessMessage(confirmationStatus, notificationStatus, lead.type),
         warning: warning || null,
       },
-      { status: 201 }
+      { status: 201, headers: responseRateLimitHeaders }
     );
   } catch (error) {
     console.error('Lead capture failed:', error);

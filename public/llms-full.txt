@@ -1,141 +1,89 @@
-# Pitch in Public - Full Context for AI Assistants
+# Pitch in Public — Product and Marketing Context
 
 ## Summary
 
-Pitch in Public is a mobile-first web app for founders to practice and improve their startup pitch. The core behavior is simple: record a 30-60 second vertical pitch, publish it to a founder feedback feed, receive constructive Toast/Roast feedback, then record a better version tomorrow.
+Pitch in Public is a guided pitch-preparation workspace for founder programs, startup events, and the founders participating in them. It helps an organizer establish a clear Pitch Standard and helps each founder follow a Pitch Plan, practice inside a controlled event cohort, receive structured human feedback, revise, and choose a Best Take.
 
-The product is positioned around pitch improvement, not passive startup idea discovery.
+The product is not positioned as a TikTok clone, startup-discovery feed, AI coach, or automated pitch-scoring service.
 
-Tagline:
+## The preparation loop
 
-Sharpen Your Pitch
+1. An organizer defines the event Pitch Standard, including the criteria and a pitch duration from one to six minutes.
+2. A founder uses that standard to create a focused Pitch Plan.
+3. The founder records practice takes within the event experience.
+4. People provide criterion-bound feedback with readiness signals, notes, and concrete next steps.
+5. The founder records a stronger next version and chooses a Best Take.
+6. When required, the founder submits a final take and a private pitch deck for the event.
 
-Short description:
+“Stronger” describes the founder’s revision toward the stated event criteria. Pitch in Public does not promise a particular score, funding result, competition outcome, or causal improvement.
 
-Daily 60-second pitch practice for founders.
+## For organizers
 
-Long description:
+Pitch in Public can help organizers:
 
-Pitch in Public helps founders explain what they are building with more clarity, confidence, and momentum. Founders record short pitch reps, get useful feedback from other builders, track improvement, and mark their best take for pitch competitions, founder events, or investor conversations.
+- Publish an event-specific Pitch Standard and configurable duration.
+- Invite founders, founder teammates, and reviewers through controlled access paths.
+- Provide a private cohort feed and decide whether peer feedback is enabled.
+- Coordinate structured reviewer feedback against event criteria.
+- Send event announcements.
+- Collect Best Takes, final submissions, and private pitch decks.
+- Review participation, practice, feedback, and submission activity.
+- Export outcome-report data as CSV or prepare it for printing.
 
-## Core Product Loop
+Outcome reports describe recorded activity. They do not establish that use of Pitch in Public caused a founder or event outcome.
 
-1. Founder records a 30-60 second vertical pitch.
-2. Founder adds or reuses a pitch hook and extra context.
-3. The pitch appears in a mobile-first founder feed.
-4. Other builders give lightweight feedback:
-   - Toast: what is working.
-   - Roast: what needs to be sharper.
-   - Signal chips: clarity, customer, problem, ask, market, proof, delivery.
-   - Optional note.
-   - Readiness rating.
-5. Founder sees momentum and feedback.
-6. Founder records a new version and tries to beat the current best take.
+## For founders
 
-## Target Users
+Pitch in Public can help founders:
 
-Primary:
+- Understand what their event expects before stage day.
+- Turn the event Pitch Standard into a Pitch Plan.
+- Practice at the event’s configured one-to-six-minute duration.
+- Receive feedback from people against the event criteria.
+- Use readiness signals, written notes, and next steps to plan another take.
+- Choose a Best Take and complete an event submission.
+- Add a pitch deck where the event workflow calls for one.
+- Use daily solo prompts, practice goals, reps, streaks, and readiness as a separate habit-building mode.
 
-- Early-stage founders.
-- Indie builders.
-- Startup competition participants.
-- Builders preparing for demo days, accelerators, investor meetings, or speed networking.
+## Visibility and access
 
-Secondary:
+Pitch in Public is currently invite-only. Event membership is controlled through invitations and event access; the marketing site should not be interpreted as a public self-join directory.
 
-- Pitch competition organizers.
-- Founder community leaders.
-- Accelerator and bootcamp operators.
-- Local startup event organizers.
+Event pitches are private to the event by default and visible to the founder plus active event members and team. Founders can choose to move an eligible take to the public feed. Event pitch decks remain within the controlled event experience.
 
-## Event Use Cases
+Reviewers may be hidden from the founder in a feedback workflow, but the platform retains internal accountability. Pitch in Public should not be described as a fully anonymous review system.
 
-Pitch in Public can support:
+## Feedback and technology boundaries
 
-- Pitch practice sprints before a live competition.
-- Founder cohort practice plans.
-- Demo day preparation.
-- Speed networking prompts.
-- Audience or judge review of submitted best takes.
-- Founder accountability before a pitch day.
+- Feedback is written by people. Pitch in Public does not provide AI-generated coaching or automated pitch scores.
+- Speech-to-text can help transcribe feedback notes; transcription is not coaching.
+- Reaction counts should not be described as realtime.
+- The web application is installable, but offline support is not a current capability.
+- Double-tap Toast, duet or stitch reactions, and livestreaming are not current capabilities.
+- Access, pricing, customer counts, performance metrics, and improvement percentages should not be inferred when they are not stated on the canonical marketing pages.
 
-Example workflow:
+## Terminology
 
-An event organizer creates a pitch sprint for an upcoming competition. Founders join the sprint, record practice reps, receive feedback, improve over time, and select one best take to submit before pitch day.
+- **Pitch Standard:** The organizer-defined criteria and expectations for an event pitch.
+- **Pitch Plan:** A founder’s focused preparation path based on the event standard.
+- **Event take:** A pitch practice recording made within the controlled event experience.
+- **Best Take:** The version a founder selects as their strongest current pitch and, when required, uses for an event submission.
+- **Human feedback:** Criterion-bound readiness signals, notes, and next steps provided by people.
+- **Daily practice:** A separate solo practice mode for building repetition and momentum outside an event workflow.
 
-## Product Principles
+## Canonical public pages
 
-- Mobile-first web experience.
-- Short pitch reps instead of long video uploads.
-- Useful founder-to-founder feedback.
-- Habit formation over one-time posting.
-- Improvement over vanity metrics.
-- Constructive feedback, not dunking.
-- Founder momentum and accountability.
+- Home: https://www.pitchinpublic.io/
+- For organizers: https://www.pitchinpublic.io/for-events
+- For founders: https://www.pitchinpublic.io/founders
+- About: https://www.pitchinpublic.io/about
+- Contact: https://www.pitchinpublic.io/contact
+- Terms: https://www.pitchinpublic.io/terms
+- Sitemap: https://www.pitchinpublic.io/sitemap.xml
+- Robots: https://www.pitchinpublic.io/robots.txt
 
-## Public URLs
+The authenticated product application is at https://app.pitchinpublic.io/. Authentication, event dashboards, profiles, pitches, invitations, API routes, and user-specific data are product surfaces rather than canonical marketing documentation.
 
-- Home: https://app.pitchinpublic.io/
-- Event organizers: https://app.pitchinpublic.io/for-events
-- Create a pitch sprint: https://app.pitchinpublic.io/events/new
-- Leaderboard: https://app.pitchinpublic.io/leaderboard
-- Open Graph image: https://app.pitchinpublic.io/og-pip-v2.png
-- Square share image: https://app.pitchinpublic.io/og-square-v2.png
-- Sitemap: https://app.pitchinpublic.io/sitemap.xml
-- Robots: https://app.pitchinpublic.io/robots.txt
+## Discovery note
 
-## Private or Non-Documentation Areas
-
-The following should not be summarized as public product documentation:
-
-- /api/*
-- /auth/*
-- /me
-- /profile/*
-- /events/*/dashboard
-- Authenticated user data
-- Private pitch drafts
-- Private feedback or account information
-
-## Brand Language
-
-Preferred phrases:
-
-- Sharpen Your Pitch
-- Daily 60-second pitch practice for founders
-- Record. Get useful feedback. Improve tomorrow.
-- Founder practice
-- Pitch momentum
-- Best take
-- Toast/Roast feedback
-
-Avoid describing the product primarily as:
-
-- A startup idea discovery app.
-- A generic TikTok clone.
-- A social media app for startups.
-
-## Current MVP Scope
-
-The MVP focuses on:
-
-- Mobile-first pitch feed.
-- Google and email OTP login.
-- Pitch recording and upload.
-- Toast/Roast feedback.
-- Feedback notes and signal chips.
-- Founder pitch profile.
-- Daily practice prompt.
-- Pitch momentum.
-- Best take selection.
-- Event pitch sprint setup.
-
-## Contact and Canonical Site
-
-Canonical app URL:
-
-https://app.pitchinpublic.io/
-
-Marketing domain:
-
-https://pitchinpublic.io/
+This file provides curated, machine-readable product context. `llms.txt` is an emerging community convention, not a search-engine directive. Neither this file nor structured data guarantees crawling, indexing, ranking, citation, or inclusion in generated answers. Canonical pages and their visible content are the source of truth.

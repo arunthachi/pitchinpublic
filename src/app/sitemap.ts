@@ -1,37 +1,11 @@
 import type { MetadataRoute } from 'next';
-
-const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://app.pitchinpublic.io').replace(/\/$/, '');
-
-const publicRoutes = [
-  {
-    path: '/',
-    priority: 1,
-    changeFrequency: 'daily' as const,
-  },
-  {
-    path: '/for-events',
-    priority: 0.8,
-    changeFrequency: 'weekly' as const,
-  },
-  {
-    path: '/founders',
-    priority: 0.85,
-    changeFrequency: 'weekly' as const,
-  },
-  {
-    path: '/leaderboard',
-    priority: 0.5,
-    changeFrequency: 'daily' as const,
-  },
-];
+import { marketingSitemapRoutes } from '@/lib/marketing-content';
+import { marketingUrlFor } from '@/lib/site-urls';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
-
-  return publicRoutes.map((route) => ({
-    url: `${appUrl}${route.path}`,
-    lastModified,
-    changeFrequency: route.changeFrequency,
-    priority: route.priority,
+  return marketingSitemapRoutes.map((route) => ({
+    url: marketingUrlFor(route.path),
+    changeFrequency: route.sitemap.changeFrequency,
+    priority: route.sitemap.priority,
   }));
 }

@@ -1,26 +1,29 @@
 # Pitch in Public
 
-> Daily 60-second pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your message.
+> Guided pitch preparation for founder programs and startup events, connecting an event Pitch Standard to a founder Pitch Plan, private practice, structured human feedback, and a Best Take.
 
-Pitch in Public helps founders build a repeatable pitch practice habit:
+Pitch in Public serves two connected audiences:
 
-- Record a 30-60 second portrait pitch.
-- Get constructive Toast/Roast feedback from other builders.
-- Improve clarity, problem framing, market signal, and the ask.
-- Track daily pitch momentum and pick a best take for events or competitions.
+- Organizers coordinate pitch standards, configurable one-to-six-minute durations, founder and reviewer invitations, controlled cohort practice, final submissions, private pitch decks, announcements, and activity-based outcome reporting.
+- Founders turn the event standard into a focused Pitch Plan, record event takes, receive criterion-bound feedback from people, revise, and choose a Best Take.
 
-Primary audiences:
+Important product facts:
 
-- Founders and indie builders who need to sharpen their elevator pitch.
-- Pitch competition participants preparing a final take.
-- Event organizers running pitch sprints, demo nights, and founder practice cohorts.
+- Pitch in Public is currently invite-only.
+- Feedback is written by people; the product does not use AI to coach or score founders.
+- Event pitches are private to the event by default. Founders control whether an eligible take moves to the public feed.
+- Reports summarize activity and do not claim that Pitch in Public caused an outcome.
+- Daily solo practice is available as a separate practice mode.
 
-Useful pages:
+Canonical marketing pages:
 
-- Home: https://app.pitchinpublic.io/
-- Event organizers: https://app.pitchinpublic.io/for-events
-- Create a pitch sprint: https://app.pitchinpublic.io/events/new
-- Leaderboard: https://app.pitchinpublic.io/leaderboard
-- Sitemap: https://app.pitchinpublic.io/sitemap.xml
+- [Home](https://www.pitchinpublic.io/)
+- [For organizers](https://www.pitchinpublic.io/for-events)
+- [For founders](https://www.pitchinpublic.io/founders)
+- [About](https://www.pitchinpublic.io/about)
+- [Contact](https://www.pitchinpublic.io/contact)
+- [Terms](https://www.pitchinpublic.io/terms)
 
-Do not treat private authenticated pages, API routes, dashboards, or user-specific profile data as public documentation.
+Product application: https://app.pitchinpublic.io/
+
+This file is a curated source map for readers and automated systems. It does not guarantee search ranking, indexing, citation, or inclusion in an answer engine.

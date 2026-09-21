@@ -193,6 +193,7 @@ function HomeContent() {
   const verifyPilotAccessRef = useRef<(() => Promise<void>) | null>(null);
   const handledRecordQueryRef = useRef(false);
   const handledProfileEditQueryRef = useRef(false);
+  const handledSignInQueryRef = useRef(false);
   const signOutRef = useRef(signOut);
   useEffect(() => {
     signOutRef.current = signOut;
@@ -643,6 +644,16 @@ function HomeContent() {
   useEffect(() => {
     if (loading || user) return;
 
+    if (searchParams.get('signin') === '1' && !handledSignInQueryRef.current) {
+      handledSignInQueryRef.current = true;
+      setSignInModalOpen(true);
+      stripQueryParam('signin');
+    }
+  }, [loading, searchParams, stripQueryParam, user]);
+
+  useEffect(() => {
+    if (loading || user) return;
+
     const next = searchParams.get('next');
     if (next && next.startsWith('/') && !next.startsWith('//')) {
       setSignInModalOpen(true);
@@ -896,7 +907,6 @@ function HomeContent() {
             </button>
           </div>
         )}
-        <PwaInstallPrompt dockToBottomNav={false} hidden={signInModalOpen} />
         <SignInModal
           isOpen={signInModalOpen}
           onClose={() => setSignInModalOpen(false)}

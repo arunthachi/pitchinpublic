@@ -16,11 +16,11 @@ const viewports = [
 ] as const;
 
 const publicRoutes = [
-  { name: 'about', path: '/about', heading: /A pitch gym for founders/i },
-  { name: 'contact', path: '/contact', heading: /Questions or event rooms/i },
+  { name: 'about', path: '/about', heading: /Pitch preparation should start/i },
+  { name: 'contact', path: '/contact', heading: /Tell us how you prepare founders/i },
   { name: 'terms', path: '/terms', heading: /Use Pitch in Public constructively/i },
-  { name: 'founders', path: '/founders', heading: /Post your pitch.*Get useful feedback/i },
-  { name: 'organizers', path: '/for-events', heading: /Turn your founder program into guided pitch practice/i },
+  { name: 'founders', path: '/founders', heading: /Know what your event expects/i },
+  { name: 'organizers', path: '/for-events', heading: /Run pitch preparation/i },
   { name: 'leaderboard', path: '/leaderboard', heading: /^Leaderboard$/i },
   { name: 'events anonymous', path: '/events', heading: /Sign in to see your events/i },
   { name: 'portfolio anonymous', path: '/me', heading: /Sign in to open your pitch portfolio/i },

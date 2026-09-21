@@ -1,17 +1,23 @@
 import type { MetadataRoute } from 'next';
+import { marketingUrl, marketingUrlFor } from '@/lib/site-urls';
 
-const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://app.pitchinpublic.io').replace(/\/$/, '');
-const isStaging = /staging|localhost|127\.0\.0\.1/i.test(appUrl);
+export function isIndexableEnvironment(
+  environment: Record<string, string | undefined> = process.env as Record<string, string | undefined>
+) {
+  const siteEnvironment = environment.SITE_ENV?.toLowerCase();
+  const vercelEnvironment = environment.VERCEL_ENV?.toLowerCase();
+
+  if (siteEnvironment) return siteEnvironment === 'production';
+  return vercelEnvironment === 'production';
+}
 
 export default function robots(): MetadataRoute.Robots {
-  if (isStaging) {
+  if (!isIndexableEnvironment()) {
     return {
       rules: {
         userAgent: '*',
         disallow: '/',
       },
-      sitemap: `${appUrl}/sitemap.xml`,
-      host: appUrl,
     };
   }
 
@@ -24,10 +30,18 @@ export default function robots(): MetadataRoute.Robots {
         '/auth/',
         '/me',
         '/profile/',
-        '/events/*/dashboard',
+        '/pitch/',
+        '/events/',
+        '/notifications/',
+        '/organizer/',
+        '/founder/',
+        '/reviewer/',
+        '/pilot/',
+        '/pip-super-admin/',
+        '/marketing-home',
       ],
     },
-    sitemap: `${appUrl}/sitemap.xml`,
-    host: appUrl,
+    sitemap: marketingUrlFor('/sitemap.xml'),
+    host: marketingUrl,
   };
 }

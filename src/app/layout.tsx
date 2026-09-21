@@ -9,9 +9,9 @@ import { MotionPreferences } from "@/components/MotionPreferences";
 const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://app.pitchinpublic.io").replace(/\/$/, "");
 const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 const siteName = "Pitch in Public";
-const siteTitle = "Pitch in Public | Daily pitch practice";
+const siteTitle = "Pitch in Public | Guided pitch preparation";
 const siteDescription =
-  "Mobile-first pitch practice for founders. Record your pitch, get constructive feedback, and sharpen your best take.";
+  "Guided pitch preparation for founders, pitch events, accelerator cohorts, and founder programs.";
 const brandKeywords = [
   "pitch practice",
   "founder pitch",
@@ -20,22 +20,21 @@ const brandKeywords = [
   "founder feedback",
   "pitch competition",
   "startup events",
-  "build in public",
   "founder community",
-  "daily pitch practice",
+  "pitch preparation",
 ];
 const ogImages = [
   {
     url: `${appUrl}/og-pip-v2.png`,
     width: 1200,
     height: 630,
-    alt: "Pitch in Public - Sharpen Your Pitch",
+    alt: "Pitch in Public guided pitch preparation",
   },
   {
     url: `${appUrl}/og-square-v2.png`,
     width: 1200,
     height: 1200,
-    alt: "Pitch in Public - Daily 60-second pitch practice for founders",
+    alt: "Pitch in Public for founders and pitch-event organizers",
   },
 ];
 
@@ -56,11 +55,8 @@ export const metadata: Metadata = {
   creator: siteName,
   publisher: siteName,
   category: "business",
-  classification: "Founder pitch practice and constructive startup feedback",
+  classification: "Guided founder pitch preparation and constructive human feedback",
   metadataBase: new URL(appUrl),
-  alternates: {
-    canonical: appUrl,
-  },
   robots: {
     index: true,
     follow: true,
@@ -118,26 +114,6 @@ export const metadata: Metadata = {
   },
 };
 
-const structuredData = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: siteName,
-  applicationCategory: "BusinessApplication",
-  operatingSystem: "Web, iOS, Android",
-  url: appUrl,
-  image: `${appUrl}/og-pip-v2.png`,
-  description: siteDescription,
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
-  audience: {
-    "@type": "Audience",
-    audienceType: "Founders, startup builders, pitch competition organizers, and founder communities",
-  },
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -149,15 +125,11 @@ export default function RootLayout({
         className="h-full min-h-dvh bg-background font-body text-slate-100 antialiased"
       >
         <GoogleTagManager gtmId={gtmId} />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-        />
         <GridBackground />
         <ErrorBoundary>
           <MotionPreferences>
             <AuthProvider>
-              <main className="relative z-10 min-h-dvh min-w-0 bg-transparent">{children}</main>
+              <div className="relative z-10 min-h-dvh min-w-0 bg-transparent">{children}</div>
             </AuthProvider>
           </MotionPreferences>
         </ErrorBoundary>

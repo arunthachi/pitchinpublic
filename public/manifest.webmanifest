@@ -1,7 +1,7 @@
 {
   "name": "Pitch in Public",
   "short_name": "Pitch",
-  "description": "Daily 60-second pitch practice for founders.",
+  "description": "Guided pitch preparation with event standards, deliberate practice, and constructive human feedback.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -10,7 +10,7 @@
   "background_color": "#05070A",
   "theme_color": "#05070A",
   "orientation": "portrait",
-  "categories": ["business", "productivity", "social"],
+  "categories": ["business", "productivity", "education"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
